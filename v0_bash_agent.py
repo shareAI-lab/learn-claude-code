@@ -47,30 +47,37 @@ Usage:
     python v0_bash_agent.py "explore src/ and summarize"
 """
 
-from anthropic import Anthropic
+from openai import OpenAI
 from dotenv import load_dotenv
+import json
 import subprocess
 import sys
 import os
 
 load_dotenv(override=True)
 
-# Initialize Anthropic client (uses ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL env vars)
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+# Initialize OpenAI client (uses OPENAI_API_KEY and OPENAI_BASE_URL env vars)
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL"),
+)
 MODEL = os.getenv("MODEL_ID", "claude-sonnet-4-5-20250929")
 
 # The ONE tool that does everything
 # Notice how the description teaches the model common patterns AND how to spawn subagents
 TOOL = [{
-    "name": "bash",
-    "description": """Execute shell command. Common patterns:
+    "type": "function",
+    "function": {
+        "name": "bash",
+        "description": """Execute shell command. Common patterns:
 - Read: cat/head/tail, grep/find/rg/ls, wc -l
 - Write: echo 'content' > file, sed -i 's/old/new/g' file
 - Subagent: python v0_bash_agent.py 'task description' (spawns isolated agent, returns summary)""",
-    "input_schema": {
-        "type": "object",
-        "properties": {"command": {"type": "string"}},
-        "required": ["command"]
+        "parameters": {
+            "type": "object",
+            "properties": {"command": {"type": "string"}},
+            "required": ["command"]
+        }
     }
 }]
 
@@ -117,61 +124,57 @@ def chat(prompt, history=None):
 
     while True:
         # 1. Call the model with tools
-        response = client.messages.create(
+        messages = [{"role": "system", "content": SYSTEM}] + history
+        response = client.chat.completions.create(
             model=MODEL,
-            system=SYSTEM,
-            messages=history,
+            messages=messages,
             tools=TOOL,
             max_tokens=8000
         )
 
-        # 2. Build assistant message content (preserve both text and tool_use blocks)
-        content = []
-        for block in response.content:
-            if hasattr(block, "text"):
-                content.append({"type": "text", "text": block.text})
-            elif block.type == "tool_use":
-                content.append({
-                    "type": "tool_use",
-                    "id": block.id,
-                    "name": block.name,
-                    "input": block.input
-                })
-        history.append({"role": "assistant", "content": content})
+        message = response.choices[0].message
 
-        # 3. If model didn't call tools, we're done
-        if response.stop_reason != "tool_use":
-            return "".join(b.text for b in response.content if hasattr(b, "text"))
+        # 2. If model didn't call tools, we're done
+        if not message.tool_calls:
+            history.append({"role": "assistant", "content": message.content or ""})
+            return message.content or ""
+
+        # 3. Append assistant message with tool calls
+        history.append({
+            "role": "assistant",
+            "content": message.content,
+            "tool_calls": [
+                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in message.tool_calls
+            ]
+        })
 
         # 4. Execute each tool call and collect results
-        results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                cmd = block.input["command"]
-                print(f"\033[33m$ {cmd}\033[0m")  # Yellow color for commands
+        for tc in message.tool_calls:
+            args = json.loads(tc.function.arguments)
+            cmd = args["command"]
+            print(f"\033[33m$ {cmd}\033[0m")  # Yellow color for commands
 
-                try:
-                    out = subprocess.run(
-                        cmd,
-                        shell=True,
-                        capture_output=True,
-                        text=True,
-                        timeout=300,
-                        cwd=os.getcwd()
-                    )
-                    output = out.stdout + out.stderr
-                except subprocess.TimeoutExpired:
-                    output = "(timeout after 300s)"
+            try:
+                out = subprocess.run(
+                    cmd,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                    cwd=os.getcwd()
+                )
+                output = out.stdout + out.stderr
+            except subprocess.TimeoutExpired:
+                output = "(timeout after 300s)"
 
-                print(output or "(empty)")
-                results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": output[:50000]  # Truncate very long outputs
-                })
-
-        # 5. Append results and continue the loop
-        history.append({"role": "user", "content": results})
+            print(output or "(empty)")
+            # 5. Append results as tool messages
+            history.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": output[:50000]  # Truncate very long outputs
+            })
 
 
 if __name__ == "__main__":

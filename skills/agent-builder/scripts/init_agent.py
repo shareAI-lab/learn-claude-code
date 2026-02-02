@@ -26,16 +26,17 @@ Core insight: One tool (bash) can do everything.
 Subagents via self-recursion: python {name}.py "subtask"
 """
 
-from anthropic import Anthropic
+from openai import OpenAI
 from dotenv import load_dotenv
+import json
 import subprocess
 import os
 
 load_dotenv()
 
-client = Anthropic(
-    api_key=os.getenv("ANTHROPIC_API_KEY"),
-    base_url=os.getenv("ANTHROPIC_BASE_URL")
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL")
 )
 MODEL = os.getenv("MODEL_NAME", "claude-sonnet-4-20250514")
 
@@ -45,30 +46,30 @@ SYSTEM = """You are a coding agent. Use bash for everything:
 - Subagent: python {name}.py "subtask"
 """
 
-TOOL = [{{
+TOOL = [{{"type": "function", "function": {{
     "name": "bash",
     "description": "Execute shell command",
-    "input_schema": {{"type": "object", "properties": {{"command": {{"type": "string"}}}}, "required": ["command"]}}
-}}]
+    "parameters": {{"type": "object", "properties": {{"command": {{"type": "string"}}}}, "required": ["command"]}}
+}}}}]
 
 def run(prompt, history=[]):
     history.append({{"role": "user", "content": prompt}})
     while True:
-        r = client.messages.create(model=MODEL, system=SYSTEM, messages=history, tools=TOOL, max_tokens=8000)
-        history.append({{"role": "assistant", "content": r.content}})
-        if r.stop_reason != "tool_use":
-            return "".join(b.text for b in r.content if hasattr(b, "text"))
-        results = []
-        for b in r.content:
-            if b.type == "tool_use":
-                print(f"> {{b.input['command']}}")
-                try:
-                    out = subprocess.run(b.input["command"], shell=True, capture_output=True, text=True, timeout=60)
-                    output = (out.stdout + out.stderr).strip() or "(empty)"
-                except Exception as e:
-                    output = f"Error: {{e}}"
-                results.append({{"type": "tool_result", "tool_use_id": b.id, "content": output[:50000]}})
-        history.append({{"role": "user", "content": results}})
+        r = client.chat.completions.create(model=MODEL, messages=[{{"role": "system", "content": SYSTEM}}] + history, tools=TOOL, max_tokens=8000)
+        m = r.choices[0].message
+        if not m.tool_calls:
+            history.append({{"role": "assistant", "content": m.content or ""}})
+            return m.content or ""
+        history.append({{"role": "assistant", "content": m.content, "tool_calls": [{{"id": tc.id, "type": "function", "function": {{"name": tc.function.name, "arguments": tc.function.arguments}}}} for tc in m.tool_calls]}})
+        for tc in m.tool_calls:
+            args = json.loads(tc.function.arguments)
+            print(f"> {{args['command']}}")
+            try:
+                out = subprocess.run(args["command"], shell=True, capture_output=True, text=True, timeout=60)
+                output = (out.stdout + out.stderr).strip() or "(empty)"
+            except Exception as e:
+                output = f"Error: {{e}}"
+            history.append({{"role": "tool", "tool_call_id": tc.id, "content": output[:50000]}})
 
 if __name__ == "__main__":
     h = []
@@ -85,17 +86,18 @@ Core insight: 4 tools cover 90% of coding tasks.
 The model IS the agent. Code just runs the loop.
 """
 
-from anthropic import Anthropic
+from openai import OpenAI
 from dotenv import load_dotenv
 from pathlib import Path
+import json
 import subprocess
 import os
 
 load_dotenv()
 
-client = Anthropic(
-    api_key=os.getenv("ANTHROPIC_API_KEY"),
-    base_url=os.getenv("ANTHROPIC_BASE_URL")
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL")
 )
 MODEL = os.getenv("MODEL_NAME", "claude-sonnet-4-20250514")
 WORKDIR = Path.cwd()
@@ -109,14 +111,14 @@ Rules:
 - After finishing, summarize what changed."""
 
 TOOLS = [
-    {{"name": "bash", "description": "Run shell command",
-     "input_schema": {{"type": "object", "properties": {{"command": {{"type": "string"}}}}, "required": ["command"]}}}},
-    {{"name": "read_file", "description": "Read file contents",
-     "input_schema": {{"type": "object", "properties": {{"path": {{"type": "string"}}}}, "required": ["path"]}}}},
-    {{"name": "write_file", "description": "Write content to file",
-     "input_schema": {{"type": "object", "properties": {{"path": {{"type": "string"}}, "content": {{"type": "string"}}}}, "required": ["path", "content"]}}}},
-    {{"name": "edit_file", "description": "Replace exact text in file",
-     "input_schema": {{"type": "object", "properties": {{"path": {{"type": "string"}}, "old_text": {{"type": "string"}}, "new_text": {{"type": "string"}}}}, "required": ["path", "old_text", "new_text"]}}}},
+    {{"type": "function", "function": {{"name": "bash", "description": "Run shell command",
+     "parameters": {{"type": "object", "properties": {{"command": {{"type": "string"}}}}, "required": ["command"]}}}}}},
+    {{"type": "function", "function": {{"name": "read_file", "description": "Read file contents",
+     "parameters": {{"type": "object", "properties": {{"path": {{"type": "string"}}}}, "required": ["path"]}}}}}},
+    {{"type": "function", "function": {{"name": "write_file", "description": "Write content to file",
+     "parameters": {{"type": "object", "properties": {{"path": {{"type": "string"}}, "content": {{"type": "string"}}}}, "required": ["path", "content"]}}}}}},
+    {{"type": "function", "function": {{"name": "edit_file", "description": "Replace exact text in file",
+     "parameters": {{"type": "object", "properties": {{"path": {{"type": "string"}}, "old_text": {{"type": "string"}}, "new_text": {{"type": "string"}}}}, "required": ["path", "old_text", "new_text"]}}}}}},
 ]
 
 def safe_path(p: str) -> Path:
@@ -175,22 +177,23 @@ def agent(prompt: str, history: list = None) -> str:
     history.append({{"role": "user", "content": prompt}})
 
     while True:
-        response = client.messages.create(
-            model=MODEL, system=SYSTEM, messages=history, tools=TOOLS, max_tokens=8000
+        response = client.chat.completions.create(
+            model=MODEL, messages=[{{"role": "system", "content": SYSTEM}}] + history, tools=TOOLS, max_tokens=8000
         )
-        history.append({{"role": "assistant", "content": response.content}})
+        message = response.choices[0].message
 
-        if response.stop_reason != "tool_use":
-            return "".join(b.text for b in response.content if hasattr(b, "text"))
+        if not message.tool_calls:
+            history.append({{"role": "assistant", "content": message.content or ""}})
+            return message.content or ""
 
-        results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                print(f"> {{block.name}}: {{str(block.input)[:100]}}")
-                output = execute(block.name, block.input)
-                print(f"  {{output[:100]}}...")
-                results.append({{"type": "tool_result", "tool_use_id": block.id, "content": output}})
-        history.append({{"role": "user", "content": results}})
+        history.append({{"role": "assistant", "content": message.content, "tool_calls": [{{"id": tc.id, "type": "function", "function": {{"name": tc.function.name, "arguments": tc.function.arguments}}}} for tc in message.tool_calls]}})
+
+        for tc in message.tool_calls:
+            args = json.loads(tc.function.arguments)
+            print(f"> {{tc.function.name}}: {{str(args)[:100]}}")
+            output = execute(tc.function.name, args)
+            print(f"  {{output[:100]}}...")
+            history.append({{"role": "tool", "tool_call_id": tc.id, "content": output}})
 
 if __name__ == "__main__":
     print(f"{name} - Level 1 Agent at {{WORKDIR}}")
@@ -208,8 +211,8 @@ if __name__ == "__main__":
 }
 
 ENV_TEMPLATE = '''# API Configuration
-ANTHROPIC_API_KEY=sk-xxx
-ANTHROPIC_BASE_URL=https://api.anthropic.com
+OPENAI_API_KEY=sk-xxx
+OPENAI_BASE_URL=https://api.openai.com/v1
 MODEL_NAME=claude-sonnet-4-20250514
 '''
 
@@ -248,7 +251,7 @@ def create_agent(name: str, level: int, output_dir: Path):
     print(f"  1. cd {agent_dir}")
     print(f"  2. cp .env.example .env")
     print(f"  3. Edit .env with your API key")
-    print(f"  4. pip install anthropic python-dotenv")
+    print(f"  4. pip install openai python-dotenv")
     print(f"  5. python {name}.py")
 
 

@@ -6,18 +6,22 @@ This is the simplest possible working agent (~80 lines).
 It has everything you need: 3 tools + loop.
 
 Usage:
-    1. Set ANTHROPIC_API_KEY environment variable
+    1. Set OPENAI_API_KEY environment variable
     2. python minimal-agent.py
     3. Type commands, 'q' to quit
 """
 
-from anthropic import Anthropic
+from openai import OpenAI
 from pathlib import Path
+import json
 import subprocess
 import os
 
 # Configuration
-client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL"),
+)
 MODEL = os.getenv("MODEL_NAME", "claude-sonnet-4-20250514")
 WORKDIR = Path.cwd()
 
@@ -32,33 +36,42 @@ Rules:
 # Minimal tool set - add more as needed
 TOOLS = [
     {
-        "name": "bash",
-        "description": "Run shell command",
-        "input_schema": {
-            "type": "object",
-            "properties": {"command": {"type": "string"}},
-            "required": ["command"]
+        "type": "function",
+        "function": {
+            "name": "bash",
+            "description": "Run shell command",
+            "parameters": {
+                "type": "object",
+                "properties": {"command": {"type": "string"}},
+                "required": ["command"]
+            }
         }
     },
     {
-        "name": "read_file",
-        "description": "Read file contents",
-        "input_schema": {
-            "type": "object",
-            "properties": {"path": {"type": "string"}},
-            "required": ["path"]
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read file contents",
+            "parameters": {
+                "type": "object",
+                "properties": {"path": {"type": "string"}},
+                "required": ["path"]
+            }
         }
     },
     {
-        "name": "write_file",
-        "description": "Write content to file",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "content": {"type": "string"}
-            },
-            "required": ["path", "content"]
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Write content to file",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"}
+                },
+                "required": ["path", "content"]
+            }
         }
     },
 ]
@@ -102,35 +115,42 @@ def agent(prompt: str, history: list = None) -> str:
     history.append({"role": "user", "content": prompt})
 
     while True:
-        response = client.messages.create(
+        messages = [{"role": "system", "content": SYSTEM}] + history
+        response = client.chat.completions.create(
             model=MODEL,
-            system=SYSTEM,
-            messages=history,
+            messages=messages,
             tools=TOOLS,
             max_tokens=8000,
         )
 
-        # Build assistant message
-        history.append({"role": "assistant", "content": response.content})
+        message = response.choices[0].message
 
         # If no tool calls, return text
-        if response.stop_reason != "tool_use":
-            return "".join(b.text for b in response.content if hasattr(b, "text"))
+        if not message.tool_calls:
+            history.append({"role": "assistant", "content": message.content or ""})
+            return message.content or ""
+
+        # Build assistant message with tool calls
+        history.append({
+            "role": "assistant",
+            "content": message.content,
+            "tool_calls": [
+                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in message.tool_calls
+            ]
+        })
 
         # Execute tools
-        results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                print(f"> {block.name}: {block.input}")
-                output = execute_tool(block.name, block.input)
-                print(f"  {output[:100]}...")
-                results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": output
-                })
-
-        history.append({"role": "user", "content": results})
+        for tc in message.tool_calls:
+            args = json.loads(tc.function.arguments)
+            print(f"> {tc.function.name}: {args}")
+            output = execute_tool(tc.function.name, args)
+            print(f"  {output[:100]}...")
+            history.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": output,
+            })
 
 
 if __name__ == "__main__":

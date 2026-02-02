@@ -56,12 +56,13 @@ Usage:
     python v2_todo_agent.py
 """
 
+import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-from anthropic import Anthropic
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -73,7 +74,10 @@ load_dotenv(override=True)
 
 WORKDIR = Path.cwd()
 
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL"),
+)
 MODEL = os.getenv("MODEL_ID", "claude-sonnet-4-5-20250929")
 
 
@@ -222,85 +226,100 @@ NAG_REMINDER = "<reminder>10+ turns without todo update. Please update todos.</r
 TOOLS = [
     # v1 tools (unchanged)
     {
-        "name": "bash",
-        "description": "Run a shell command.",
-        "input_schema": {
-            "type": "object",
-            "properties": {"command": {"type": "string"}},
-            "required": ["command"],
+        "type": "function",
+        "function": {
+            "name": "bash",
+            "description": "Run a shell command.",
+            "parameters": {
+                "type": "object",
+                "properties": {"command": {"type": "string"}},
+                "required": ["command"],
+            },
         },
     },
     {
-        "name": "read_file",
-        "description": "Read file contents.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "limit": {"type": "integer"}
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read file contents.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "limit": {"type": "integer"}
+                },
+                "required": ["path"],
             },
-            "required": ["path"],
         },
     },
     {
-        "name": "write_file",
-        "description": "Write content to file.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "content": {"type": "string"}
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Write content to file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"}
+                },
+                "required": ["path", "content"],
             },
-            "required": ["path", "content"],
         },
     },
     {
-        "name": "edit_file",
-        "description": "Replace exact text in file.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "old_text": {"type": "string"},
-                "new_text": {"type": "string"},
+        "type": "function",
+        "function": {
+            "name": "edit_file",
+            "description": "Replace exact text in file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "old_text": {"type": "string"},
+                    "new_text": {"type": "string"},
+                },
+                "required": ["path", "old_text", "new_text"],
             },
-            "required": ["path", "old_text", "new_text"],
         },
     },
 
     # NEW in v2: TodoWrite
     # This is the key addition that enables structured planning
     {
-        "name": "TodoWrite",
-        "description": "Update the task list. Use to plan and track progress.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "description": "Complete list of tasks (replaces existing)",
+        "type": "function",
+        "function": {
+            "name": "TodoWrite",
+            "description": "Update the task list. Use to plan and track progress.",
+            "parameters": {
+                "type": "object",
+                "properties": {
                     "items": {
-                        "type": "object",
-                        "properties": {
-                            "content": {
-                                "type": "string",
-                                "description": "Task description"
+                        "type": "array",
+                        "description": "Complete list of tasks (replaces existing)",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "content": {
+                                    "type": "string",
+                                    "description": "Task description"
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "enum": ["pending", "in_progress", "completed"],
+                                    "description": "Task status"
+                                },
+                                "activeForm": {
+                                    "type": "string",
+                                    "description": "Present tense action, e.g. 'Reading files'"
+                                },
                             },
-                            "status": {
-                                "type": "string",
-                                "enum": ["pending", "in_progress", "completed"],
-                                "description": "Task status"
-                            },
-                            "activeForm": {
-                                "type": "string",
-                                "description": "Present tense action, e.g. 'Reading files'"
-                            },
+                            "required": ["content", "status", "activeForm"],
                         },
-                        "required": ["content", "status", "activeForm"],
-                    },
-                }
+                    }
+                },
+                "required": ["items"],
             },
-            "required": ["items"],
         },
     },
 ]
@@ -419,42 +438,52 @@ def agent_loop(messages: list) -> list:
     global rounds_without_todo
 
     while True:
-        response = client.messages.create(
+        api_messages = [{"role": "system", "content": SYSTEM}] + messages
+        response = client.chat.completions.create(
             model=MODEL,
-            system=SYSTEM,
-            messages=messages,
+            messages=api_messages,
             tools=TOOLS,
             max_tokens=8000,
         )
 
-        tool_calls = []
-        for block in response.content:
-            if hasattr(block, "text"):
-                print(block.text)
-            if block.type == "tool_use":
-                tool_calls.append(block)
+        message = response.choices[0].message
 
-        if response.stop_reason != "tool_use":
-            messages.append({"role": "assistant", "content": response.content})
+        if message.content:
+            print(message.content)
+
+        if not message.tool_calls:
+            messages.append({"role": "assistant", "content": message.content or ""})
             return messages
 
-        results = []
+        # Append assistant message with tool calls
+        messages.append({
+            "role": "assistant",
+            "content": message.content,
+            "tool_calls": [
+                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in message.tool_calls
+            ]
+        })
+
         used_todo = False
 
-        for tc in tool_calls:
-            print(f"\n> {tc.name}")
-            output = execute_tool(tc.name, tc.input)
+        for tc in message.tool_calls:
+            args = json.loads(tc.function.arguments)
+            name = tc.function.name
+
+            print(f"\n> {name}")
+            output = execute_tool(name, args)
             preview = output[:300] + "..." if len(output) > 300 else output
             print(f"  {preview}")
 
-            results.append({
-                "type": "tool_result",
-                "tool_use_id": tc.id,
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
                 "content": output,
             })
 
             # Track todo usage
-            if tc.name == "TodoWrite":
+            if name == "TodoWrite":
                 used_todo = True
 
         # Update counter: reset if used todo, increment otherwise
@@ -463,14 +492,9 @@ def agent_loop(messages: list) -> list:
         else:
             rounds_without_todo += 1
 
-        messages.append({"role": "assistant", "content": response.content})
-
-        # Inject NAG_REMINDER into user message if model hasn't used todos
-        # This happens INSIDE the agent loop, so model sees it during task execution
+        # Inject NAG_REMINDER if model hasn't used todos
         if rounds_without_todo > 10:
-            results.insert(0, {"type": "text", "text": NAG_REMINDER})
-
-        messages.append({"role": "user", "content": results})
+            messages.append({"role": "user", "content": NAG_REMINDER})
 
 
 # =============================================================================
@@ -505,15 +529,12 @@ def main():
             break
 
         # Build user message content
-        content = []
-
         if first_message:
             # Gentle reminder at start of conversation
-            content.append({"type": "text", "text": INITIAL_REMINDER})
+            user_input = INITIAL_REMINDER + "\n" + user_input
             first_message = False
 
-        content.append({"type": "text", "text": user_input})
-        history.append({"role": "user", "content": content})
+        history.append({"role": "user", "content": user_input})
 
         try:
             agent_loop(history)

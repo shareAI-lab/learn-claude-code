@@ -73,13 +73,14 @@ Usage:
     python v3_subagent.py
 """
 
+import json
 import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-from anthropic import Anthropic
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -91,7 +92,10 @@ load_dotenv(override=True)
 
 WORKDIR = Path.cwd()
 
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL"),
+)
 MODEL = os.getenv("MODEL_ID", "claude-sonnet-4-5-20250929")
 
 
@@ -100,27 +104,19 @@ MODEL = os.getenv("MODEL_ID", "claude-sonnet-4-5-20250929")
 # =============================================================================
 
 AGENT_TYPES = {
-    # Explore: Read-only agent for searching and analyzing
-    # Cannot modify files - safe for broad exploration
     "explore": {
         "description": "Read-only agent for exploring code, finding files, searching",
-        "tools": ["bash", "read_file"],  # No write access
+        "tools": ["bash", "read_file"],
         "prompt": "You are an exploration agent. Search and analyze, but never modify files. Return a concise summary.",
     },
-
-    # Code: Full-powered agent for implementation
-    # Has all tools - use for actual coding work
     "code": {
         "description": "Full agent for implementing features and fixing bugs",
-        "tools": "*",  # All tools
+        "tools": "*",
         "prompt": "You are a coding agent. Implement the requested changes efficiently.",
     },
-
-    # Plan: Analysis agent for design work
-    # Read-only, focused on producing plans and strategies
     "plan": {
         "description": "Planning agent for designing implementation strategies",
-        "tools": ["bash", "read_file"],  # Read-only
+        "tools": ["bash", "read_file"],
         "prompt": "You are a planning agent. Analyze the codebase and output a numbered implementation plan. Do NOT make changes.",
     },
 }
@@ -211,74 +207,89 @@ Rules:
 
 BASE_TOOLS = [
     {
-        "name": "bash",
-        "description": "Run shell command.",
-        "input_schema": {
-            "type": "object",
-            "properties": {"command": {"type": "string"}},
-            "required": ["command"],
-        },
-    },
-    {
-        "name": "read_file",
-        "description": "Read file contents.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "limit": {"type": "integer"}
+        "type": "function",
+        "function": {
+            "name": "bash",
+            "description": "Run shell command.",
+            "parameters": {
+                "type": "object",
+                "properties": {"command": {"type": "string"}},
+                "required": ["command"],
             },
-            "required": ["path"],
         },
     },
     {
-        "name": "write_file",
-        "description": "Write to file.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "content": {"type": "string"}
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read file contents.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "limit": {"type": "integer"}
+                },
+                "required": ["path"],
             },
-            "required": ["path", "content"],
         },
     },
     {
-        "name": "edit_file",
-        "description": "Replace text in file.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "old_text": {"type": "string"},
-                "new_text": {"type": "string"},
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Write to file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"}
+                },
+                "required": ["path", "content"],
             },
-            "required": ["path", "old_text", "new_text"],
         },
     },
     {
-        "name": "TodoWrite",
-        "description": "Update task list.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
+        "type": "function",
+        "function": {
+            "name": "edit_file",
+            "description": "Replace text in file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "old_text": {"type": "string"},
+                    "new_text": {"type": "string"},
+                },
+                "required": ["path", "old_text", "new_text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "TodoWrite",
+            "description": "Update task list.",
+            "parameters": {
+                "type": "object",
+                "properties": {
                     "items": {
-                        "type": "object",
-                        "properties": {
-                            "content": {"type": "string"},
-                            "status": {
-                                "type": "string",
-                                "enum": ["pending", "in_progress", "completed"]
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "content": {"type": "string"},
+                                "status": {
+                                    "type": "string",
+                                    "enum": ["pending", "in_progress", "completed"]
+                                },
+                                "activeForm": {"type": "string"},
                             },
-                            "activeForm": {"type": "string"},
+                            "required": ["content", "status", "activeForm"],
                         },
-                        "required": ["content", "status", "activeForm"],
-                    },
-                }
+                    }
+                },
+                "required": ["items"],
             },
-            "required": ["items"],
         },
     },
 ]
@@ -289,8 +300,10 @@ BASE_TOOLS = [
 # =============================================================================
 
 TASK_TOOL = {
-    "name": "Task",
-    "description": f"""Spawn a subagent for a focused subtask.
+    "type": "function",
+    "function": {
+        "name": "Task",
+        "description": f"""Spawn a subagent for a focused subtask.
 
 Subagents run in ISOLATED context - they don't see parent's history.
 Use this to keep the main conversation clean.
@@ -303,24 +316,25 @@ Example uses:
 - Task(plan): "Design a migration strategy for the database"
 - Task(code): "Implement the user registration form"
 """,
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "description": {
-                "type": "string",
-                "description": "Short task name (3-5 words) for progress display"
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": "Short task name (3-5 words) for progress display"
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "Detailed instructions for the subagent"
+                },
+                "agent_type": {
+                    "type": "string",
+                    "enum": list(AGENT_TYPES.keys()),
+                    "description": "Type of agent to spawn"
+                },
             },
-            "prompt": {
-                "type": "string",
-                "description": "Detailed instructions for the subagent"
-            },
-            "agent_type": {
-                "type": "string",
-                "enum": list(AGENT_TYPES.keys()),
-                "description": "Type of agent to spawn"
-            },
+            "required": ["description", "prompt", "agent_type"],
         },
-        "required": ["description", "prompt", "agent_type"],
     },
 }
 
@@ -340,7 +354,7 @@ def get_tools_for_agent(agent_type: str) -> list:
     if allowed == "*":
         return BASE_TOOLS  # All base tools, but NOT Task (no recursion in demo)
 
-    return [t for t in BASE_TOOLS if t["name"] in allowed]
+    return [t for t in BASE_TOOLS if t["function"]["name"] in allowed]
 
 
 # =============================================================================
@@ -429,13 +443,6 @@ def run_task(description: str, prompt: str, agent_type: str) -> str:
     5. Return ONLY the final text (not intermediate details)
 
     The parent agent sees just the summary, keeping its context clean.
-
-    Progress Display:
-    ----------------
-    While running, we show:
-      [explore] find auth files ... 5 tools, 3.2s
-
-    This gives visibility without polluting the main conversation.
     """
     if agent_type not in AGENT_TYPES:
         return f"Error: Unknown agent type '{agent_type}'"
@@ -453,8 +460,10 @@ Complete the task and return a clear, concise summary."""
     sub_tools = get_tools_for_agent(agent_type)
 
     # ISOLATED message history - this is the key!
-    # The subagent starts fresh, doesn't see parent's conversation
-    sub_messages = [{"role": "user", "content": prompt}]
+    sub_messages = [
+        {"role": "system", "content": sub_system},
+        {"role": "user", "content": prompt},
+    ]
 
     # Progress tracking
     print(f"  [{agent_type}] {description}")
@@ -462,28 +471,37 @@ Complete the task and return a clear, concise summary."""
     tool_count = 0
 
     # Run the same agent loop (silently - don't print to main chat)
+    last_message = None
     while True:
-        response = client.messages.create(
+        response = client.chat.completions.create(
             model=MODEL,
-            system=sub_system,
             messages=sub_messages,
             tools=sub_tools,
             max_tokens=8000,
         )
 
-        if response.stop_reason != "tool_use":
+        last_message = response.choices[0].message
+
+        if not last_message.tool_calls:
             break
 
-        tool_calls = [b for b in response.content if b.type == "tool_use"]
-        results = []
+        sub_messages.append({
+            "role": "assistant",
+            "content": last_message.content,
+            "tool_calls": [
+                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in last_message.tool_calls
+            ]
+        })
 
-        for tc in tool_calls:
+        for tc in last_message.tool_calls:
             tool_count += 1
-            output = execute_tool(tc.name, tc.input)
-            results.append({
-                "type": "tool_result",
-                "tool_use_id": tc.id,
-                "content": output
+            args = json.loads(tc.function.arguments)
+            output = execute_tool(tc.function.name, args)
+            sub_messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": output,
             })
 
             # Update progress line (in-place)
@@ -493,9 +511,6 @@ Complete the task and return a clear, concise summary."""
             )
             sys.stdout.flush()
 
-        sub_messages.append({"role": "assistant", "content": response.content})
-        sub_messages.append({"role": "user", "content": results})
-
     # Final progress update
     elapsed = time.time() - start
     sys.stdout.write(
@@ -503,12 +518,7 @@ Complete the task and return a clear, concise summary."""
     )
 
     # Extract and return only the final text
-    # This is what the parent agent sees - a clean summary
-    for block in response.content:
-        if hasattr(block, "text"):
-            return block.text
-
-    return "(subagent returned no text)"
+    return last_message.content or "(subagent returned no text)"
 
 
 def execute_tool(name: str, args: dict) -> str:
@@ -540,48 +550,52 @@ def agent_loop(messages: list) -> list:
     When model calls Task, it spawns a subagent with isolated context.
     """
     while True:
-        response = client.messages.create(
+        api_messages = [{"role": "system", "content": SYSTEM}] + messages
+        response = client.chat.completions.create(
             model=MODEL,
-            system=SYSTEM,
-            messages=messages,
+            messages=api_messages,
             tools=ALL_TOOLS,
             max_tokens=8000,
         )
 
-        tool_calls = []
-        for block in response.content:
-            if hasattr(block, "text"):
-                print(block.text)
-            if block.type == "tool_use":
-                tool_calls.append(block)
+        message = response.choices[0].message
 
-        if response.stop_reason != "tool_use":
-            messages.append({"role": "assistant", "content": response.content})
+        if message.content:
+            print(message.content)
+
+        if not message.tool_calls:
+            messages.append({"role": "assistant", "content": message.content or ""})
             return messages
 
-        results = []
-        for tc in tool_calls:
-            # Task tool has special display handling
-            if tc.name == "Task":
-                print(f"\n> Task: {tc.input.get('description', 'subtask')}")
+        messages.append({
+            "role": "assistant",
+            "content": message.content,
+            "tool_calls": [
+                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in message.tool_calls
+            ]
+        })
+
+        for tc in message.tool_calls:
+            args = json.loads(tc.function.arguments)
+            name = tc.function.name
+
+            if name == "Task":
+                print(f"\n> Task: {args.get('description', 'subtask')}")
             else:
-                print(f"\n> {tc.name}")
+                print(f"\n> {name}")
 
-            output = execute_tool(tc.name, tc.input)
+            output = execute_tool(name, args)
 
-            # Don't print full Task output (it manages its own display)
-            if tc.name != "Task":
+            if name != "Task":
                 preview = output[:200] + "..." if len(output) > 200 else output
                 print(f"  {preview}")
 
-            results.append({
-                "type": "tool_result",
-                "tool_use_id": tc.id,
-                "content": output
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": output,
             })
-
-        messages.append({"role": "assistant", "content": response.content})
-        messages.append({"role": "user", "content": results})
 
 
 # =============================================================================

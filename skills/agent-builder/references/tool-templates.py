@@ -17,118 +17,136 @@ WORKDIR = Path.cwd()
 # =============================================================================
 
 BASH_TOOL = {
-    "name": "bash",
-    "description": "Run a shell command. Use for: ls, find, grep, git, npm, python, etc.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "command": {
-                "type": "string",
-                "description": "The shell command to execute"
-            }
+    "type": "function",
+    "function": {
+        "name": "bash",
+        "description": "Run a shell command. Use for: ls, find, grep, git, npm, python, etc.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "The shell command to execute"
+                }
+            },
+            "required": ["command"],
         },
-        "required": ["command"],
     },
 }
 
 READ_FILE_TOOL = {
-    "name": "read_file",
-    "description": "Read file contents. Returns UTF-8 text.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "path": {
-                "type": "string",
-                "description": "Relative path to the file"
+    "type": "function",
+    "function": {
+        "name": "read_file",
+        "description": "Read file contents. Returns UTF-8 text.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Relative path to the file"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max lines to read (default: all)"
+                },
             },
-            "limit": {
-                "type": "integer",
-                "description": "Max lines to read (default: all)"
-            },
+            "required": ["path"],
         },
-        "required": ["path"],
     },
 }
 
 WRITE_FILE_TOOL = {
-    "name": "write_file",
-    "description": "Write content to a file. Creates parent directories if needed.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "path": {
-                "type": "string",
-                "description": "Relative path for the file"
+    "type": "function",
+    "function": {
+        "name": "write_file",
+        "description": "Write content to a file. Creates parent directories if needed.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Relative path for the file"
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Content to write"
+                },
             },
-            "content": {
-                "type": "string",
-                "description": "Content to write"
-            },
+            "required": ["path", "content"],
         },
-        "required": ["path", "content"],
     },
 }
 
 EDIT_FILE_TOOL = {
-    "name": "edit_file",
-    "description": "Replace exact text in a file. Use for surgical edits.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "path": {
-                "type": "string",
-                "description": "Relative path to the file"
+    "type": "function",
+    "function": {
+        "name": "edit_file",
+        "description": "Replace exact text in a file. Use for surgical edits.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Relative path to the file"
+                },
+                "old_text": {
+                    "type": "string",
+                    "description": "Exact text to find (must match precisely)"
+                },
+                "new_text": {
+                    "type": "string",
+                    "description": "Replacement text"
+                },
             },
-            "old_text": {
-                "type": "string",
-                "description": "Exact text to find (must match precisely)"
-            },
-            "new_text": {
-                "type": "string",
-                "description": "Replacement text"
-            },
+            "required": ["path", "old_text", "new_text"],
         },
-        "required": ["path", "old_text", "new_text"],
     },
 }
 
 TODO_WRITE_TOOL = {
-    "name": "TodoWrite",
-    "description": "Update the task list. Use to plan and track progress.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "items": {
-                "type": "array",
-                "description": "Complete list of tasks",
+    "type": "function",
+    "function": {
+        "name": "TodoWrite",
+        "description": "Update the task list. Use to plan and track progress.",
+        "parameters": {
+            "type": "object",
+            "properties": {
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "content": {"type": "string", "description": "Task description"},
-                        "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
-                        "activeForm": {"type": "string", "description": "Present tense, e.g. 'Reading files'"},
+                    "type": "array",
+                    "description": "Complete list of tasks",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "content": {"type": "string", "description": "Task description"},
+                            "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
+                            "activeForm": {"type": "string", "description": "Present tense, e.g. 'Reading files'"},
+                        },
+                        "required": ["content", "status", "activeForm"],
                     },
-                    "required": ["content", "status", "activeForm"],
-                },
-            }
+                }
+            },
+            "required": ["items"],
         },
-        "required": ["items"],
     },
 }
 
 TASK_TOOL_TEMPLATE = """
 # Generate dynamically with agent types
 TASK_TOOL = {
-    "name": "Task",
-    "description": f"Spawn a subagent for a focused subtask.\\n\\nAgent types:\\n{get_agent_descriptions()}",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "description": {"type": "string", "description": "Short task name (3-5 words)"},
-            "prompt": {"type": "string", "description": "Detailed instructions"},
-            "agent_type": {"type": "string", "enum": list(AGENT_TYPES.keys())},
+    "type": "function",
+    "function": {
+        "name": "Task",
+        "description": f"Spawn a subagent for a focused subtask.\\n\\nAgent types:\\n{get_agent_descriptions()}",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "description": {"type": "string", "description": "Short task name (3-5 words)"},
+                "prompt": {"type": "string", "description": "Detailed instructions"},
+                "agent_type": {"type": "string", "enum": list(AGENT_TYPES.keys())},
+            },
+            "required": ["description", "prompt", "agent_type"],
         },
-        "required": ["description", "prompt", "agent_type"],
     },
 }
 """

@@ -77,6 +77,7 @@ Usage:
     python v4_skills_agent.py
 """
 
+import json
 import os
 import re
 import subprocess
@@ -84,7 +85,7 @@ import sys
 import time
 from pathlib import Path
 
-from anthropic import Anthropic
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -97,7 +98,10 @@ load_dotenv(override=True)
 WORKDIR = Path.cwd()
 SKILLS_DIR = WORKDIR / "skills"
 
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL"),
+)
 MODEL = os.getenv("MODEL_ID", "claude-sonnet-4-5-20250929")
 
 
@@ -368,106 +372,126 @@ Rules:
 
 BASE_TOOLS = [
     {
-        "name": "bash",
-        "description": "Run shell command.",
-        "input_schema": {
-            "type": "object",
-            "properties": {"command": {"type": "string"}},
-            "required": ["command"],
-        },
-    },
-    {
-        "name": "read_file",
-        "description": "Read file contents.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "limit": {"type": "integer"}
+        "type": "function",
+        "function": {
+            "name": "bash",
+            "description": "Run shell command.",
+            "parameters": {
+                "type": "object",
+                "properties": {"command": {"type": "string"}},
+                "required": ["command"],
             },
-            "required": ["path"],
         },
     },
     {
-        "name": "write_file",
-        "description": "Write to file.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "content": {"type": "string"}
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read file contents.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "limit": {"type": "integer"}
+                },
+                "required": ["path"],
             },
-            "required": ["path", "content"],
         },
     },
     {
-        "name": "edit_file",
-        "description": "Replace text in file.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "old_text": {"type": "string"},
-                "new_text": {"type": "string"},
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Write to file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"}
+                },
+                "required": ["path", "content"],
             },
-            "required": ["path", "old_text", "new_text"],
         },
     },
     {
-        "name": "TodoWrite",
-        "description": "Update task list.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
+        "type": "function",
+        "function": {
+            "name": "edit_file",
+            "description": "Replace text in file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "old_text": {"type": "string"},
+                    "new_text": {"type": "string"},
+                },
+                "required": ["path", "old_text", "new_text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "TodoWrite",
+            "description": "Update task list.",
+            "parameters": {
+                "type": "object",
+                "properties": {
                     "items": {
-                        "type": "object",
-                        "properties": {
-                            "content": {"type": "string"},
-                            "status": {
-                                "type": "string",
-                                "enum": ["pending", "in_progress", "completed"]
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "content": {"type": "string"},
+                                "status": {
+                                    "type": "string",
+                                    "enum": ["pending", "in_progress", "completed"]
+                                },
+                                "activeForm": {"type": "string"},
                             },
-                            "activeForm": {"type": "string"},
+                            "required": ["content", "status", "activeForm"],
                         },
-                        "required": ["content", "status", "activeForm"],
-                    },
-                }
+                    }
+                },
+                "required": ["items"],
             },
-            "required": ["items"],
         },
     },
 ]
 
 # Task tool (from v3)
 TASK_TOOL = {
-    "name": "Task",
-    "description": f"Spawn a subagent for a focused subtask.\n\nAgent types:\n{get_agent_descriptions()}",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "description": {
-                "type": "string",
-                "description": "Short task description (3-5 words)"
+    "type": "function",
+    "function": {
+        "name": "Task",
+        "description": f"Spawn a subagent for a focused subtask.\n\nAgent types:\n{get_agent_descriptions()}",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": "Short task description (3-5 words)"
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "Detailed instructions for the subagent"
+                },
+                "agent_type": {
+                    "type": "string",
+                    "enum": list(AGENT_TYPES.keys())
+                },
             },
-            "prompt": {
-                "type": "string",
-                "description": "Detailed instructions for the subagent"
-            },
-            "agent_type": {
-                "type": "string",
-                "enum": list(AGENT_TYPES.keys())
-            },
+            "required": ["description", "prompt", "agent_type"],
         },
-        "required": ["description", "prompt", "agent_type"],
     },
 }
 
 # NEW in v4: Skill tool
 SKILL_TOOL = {
-    "name": "Skill",
-    "description": f"""Load a skill to gain specialized knowledge for a task.
+    "type": "function",
+    "function": {
+        "name": "Skill",
+        "description": f"""Load a skill to gain specialized knowledge for a task.
 
 Available skills:
 {SKILLS.get_descriptions()}
@@ -478,15 +502,16 @@ When to use:
 
 The skill content will be injected into the conversation, giving you
 detailed instructions and access to resources.""",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "skill": {
-                "type": "string",
-                "description": "Name of the skill to load"
-            }
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "skill": {
+                    "type": "string",
+                    "description": "Name of the skill to load"
+                }
+            },
+            "required": ["skill"],
         },
-        "required": ["skill"],
     },
 }
 
@@ -498,7 +523,7 @@ def get_tools_for_agent(agent_type: str) -> list:
     allowed = AGENT_TYPES.get(agent_type, {}).get("tools", "*")
     if allowed == "*":
         return BASE_TOOLS
-    return [t for t in BASE_TOOLS if t["name"] in allowed]
+    return [t for t in BASE_TOOLS if t["function"]["name"] in allowed]
 
 
 # =============================================================================
@@ -613,34 +638,46 @@ def run_task(description: str, prompt: str, agent_type: str) -> str:
 Complete the task and return a clear, concise summary."""
 
     sub_tools = get_tools_for_agent(agent_type)
-    sub_messages = [{"role": "user", "content": prompt}]
+    sub_messages = [
+        {"role": "system", "content": sub_system},
+        {"role": "user", "content": prompt},
+    ]
 
     print(f"  [{agent_type}] {description}")
     start = time.time()
     tool_count = 0
 
+    last_message = None
     while True:
-        response = client.messages.create(
+        response = client.chat.completions.create(
             model=MODEL,
-            system=sub_system,
             messages=sub_messages,
             tools=sub_tools,
             max_tokens=8000,
         )
 
-        if response.stop_reason != "tool_use":
+        last_message = response.choices[0].message
+
+        if not last_message.tool_calls:
             break
 
-        tool_calls = [b for b in response.content if b.type == "tool_use"]
-        results = []
+        sub_messages.append({
+            "role": "assistant",
+            "content": last_message.content,
+            "tool_calls": [
+                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in last_message.tool_calls
+            ]
+        })
 
-        for tc in tool_calls:
+        for tc in last_message.tool_calls:
             tool_count += 1
-            output = execute_tool(tc.name, tc.input)
-            results.append({
-                "type": "tool_result",
-                "tool_use_id": tc.id,
-                "content": output
+            args = json.loads(tc.function.arguments)
+            output = execute_tool(tc.function.name, args)
+            sub_messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": output,
             })
 
             elapsed = time.time() - start
@@ -649,19 +686,12 @@ Complete the task and return a clear, concise summary."""
             )
             sys.stdout.flush()
 
-        sub_messages.append({"role": "assistant", "content": response.content})
-        sub_messages.append({"role": "user", "content": results})
-
     elapsed = time.time() - start
     sys.stdout.write(
         f"\r  [{agent_type}] {description} - done ({tool_count} tools, {elapsed:.1f}s)\n"
     )
 
-    for block in response.content:
-        if hasattr(block, "text"):
-            return block.text
-
-    return "(subagent returned no text)"
+    return last_message.content or "(subagent returned no text)"
 
 
 def execute_tool(name: str, args: dict) -> str:
@@ -695,52 +725,58 @@ def agent_loop(messages: list) -> list:
     When model loads a skill, it receives domain knowledge.
     """
     while True:
-        response = client.messages.create(
+        api_messages = [{"role": "system", "content": SYSTEM}] + messages
+        response = client.chat.completions.create(
             model=MODEL,
-            system=SYSTEM,
-            messages=messages,
+            messages=api_messages,
             tools=ALL_TOOLS,
             max_tokens=8000,
         )
 
-        tool_calls = []
-        for block in response.content:
-            if hasattr(block, "text"):
-                print(block.text)
-            if block.type == "tool_use":
-                tool_calls.append(block)
+        message = response.choices[0].message
 
-        if response.stop_reason != "tool_use":
-            messages.append({"role": "assistant", "content": response.content})
+        if message.content:
+            print(message.content)
+
+        if not message.tool_calls:
+            messages.append({"role": "assistant", "content": message.content or ""})
             return messages
 
-        results = []
-        for tc in tool_calls:
-            # Special display for different tool types
-            if tc.name == "Task":
-                print(f"\n> Task: {tc.input.get('description', 'subtask')}")
-            elif tc.name == "Skill":
-                print(f"\n> Loading skill: {tc.input.get('skill', '?')}")
-            else:
-                print(f"\n> {tc.name}")
+        messages.append({
+            "role": "assistant",
+            "content": message.content,
+            "tool_calls": [
+                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in message.tool_calls
+            ]
+        })
 
-            output = execute_tool(tc.name, tc.input)
+        for tc in message.tool_calls:
+            args = json.loads(tc.function.arguments)
+            name = tc.function.name
+
+            # Special display for different tool types
+            if name == "Task":
+                print(f"\n> Task: {args.get('description', 'subtask')}")
+            elif name == "Skill":
+                print(f"\n> Loading skill: {args.get('skill', '?')}")
+            else:
+                print(f"\n> {name}")
+
+            output = execute_tool(name, args)
 
             # Skill tool shows summary, not full content
-            if tc.name == "Skill":
+            if name == "Skill":
                 print(f"  Skill loaded ({len(output)} chars)")
-            elif tc.name != "Task":
+            elif name != "Task":
                 preview = output[:200] + "..." if len(output) > 200 else output
                 print(f"  {preview}")
 
-            results.append({
-                "type": "tool_result",
-                "tool_use_id": tc.id,
-                "content": output
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": output,
             })
-
-        messages.append({"role": "assistant", "content": response.content})
-        messages.append({"role": "user", "content": results})
 
 
 # =============================================================================

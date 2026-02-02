@@ -46,12 +46,13 @@ Usage:
     python v1_basic_agent.py
 """
 
+import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-from anthropic import Anthropic
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -63,7 +64,10 @@ load_dotenv(override=True)
 
 WORKDIR = Path.cwd()
 MODEL = os.getenv("MODEL_ID", "claude-sonnet-4-5-20250929")
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL"),
+)
 
 
 # =============================================================================
@@ -89,84 +93,96 @@ TOOLS = [
     # Tool 1: Bash - The gateway to everything
     # Can run any command: git, npm, python, curl, etc.
     {
-        "name": "bash",
-        "description": "Run a shell command. Use for: ls, find, grep, git, npm, python, etc.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "command": {
-                    "type": "string",
-                    "description": "The shell command to execute"
-                }
+        "type": "function",
+        "function": {
+            "name": "bash",
+            "description": "Run a shell command. Use for: ls, find, grep, git, npm, python, etc.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The shell command to execute"
+                    }
+                },
+                "required": ["command"],
             },
-            "required": ["command"],
         },
     },
 
     # Tool 2: Read File - For understanding existing code
     # Returns file content with optional line limit for large files
     {
-        "name": "read_file",
-        "description": "Read file contents. Returns UTF-8 text.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Relative path to the file"
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read file contents. Returns UTF-8 text.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Relative path to the file"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max lines to read (default: all)"
+                    },
                 },
-                "limit": {
-                    "type": "integer",
-                    "description": "Max lines to read (default: all)"
-                },
+                "required": ["path"],
             },
-            "required": ["path"],
         },
     },
 
     # Tool 3: Write File - For creating new files or complete rewrites
     # Creates parent directories automatically
     {
-        "name": "write_file",
-        "description": "Write content to a file. Creates parent directories if needed.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Relative path for the file"
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Write content to a file. Creates parent directories if needed.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Relative path for the file"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Content to write"
+                    },
                 },
-                "content": {
-                    "type": "string",
-                    "description": "Content to write"
-                },
+                "required": ["path", "content"],
             },
-            "required": ["path", "content"],
         },
     },
 
     # Tool 4: Edit File - For surgical changes to existing code
     # Uses exact string matching for precise edits
     {
-        "name": "edit_file",
-        "description": "Replace exact text in a file. Use for surgical edits.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Relative path to the file"
+        "type": "function",
+        "function": {
+            "name": "edit_file",
+            "description": "Replace exact text in a file. Use for surgical edits.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Relative path to the file"
+                    },
+                    "old_text": {
+                        "type": "string",
+                        "description": "Exact text to find (must match precisely)"
+                    },
+                    "new_text": {
+                        "type": "string",
+                        "description": "Replacement text"
+                    },
                 },
-                "old_text": {
-                    "type": "string",
-                    "description": "Exact text to find (must match precisely)"
-                },
-                "new_text": {
-                    "type": "string",
-                    "description": "Replacement text"
-                },
+                "required": ["path", "old_text", "new_text"],
             },
-            "required": ["path", "old_text", "new_text"],
         },
     },
 ]
@@ -315,8 +331,8 @@ def agent_loop(messages: list) -> list:
             execute tools, append results, continue
 
     The model controls the loop:
-      - Keeps calling tools until stop_reason != "tool_use"
-      - Results become context (fed back as "user" messages)
+      - Keeps calling tools until there are no more tool calls
+      - Results become context (fed back as "tool" messages)
       - Memory is automatic (messages list accumulates history)
 
     Why this works:
@@ -326,50 +342,54 @@ def agent_loop(messages: list) -> list:
     """
     while True:
         # Step 1: Call the model
-        response = client.messages.create(
+        api_messages = [{"role": "system", "content": SYSTEM}] + messages
+        response = client.chat.completions.create(
             model=MODEL,
-            system=SYSTEM,
-            messages=messages,
+            messages=api_messages,
             tools=TOOLS,
             max_tokens=8000,
         )
 
-        # Step 2: Collect any tool calls and print text output
-        tool_calls = []
-        for block in response.content:
-            if hasattr(block, "text"):
-                print(block.text)
-            if block.type == "tool_use":
-                tool_calls.append(block)
+        message = response.choices[0].message
+
+        # Step 2: Print text output
+        if message.content:
+            print(message.content)
 
         # Step 3: If no tool calls, task is complete
-        if response.stop_reason != "tool_use":
-            messages.append({"role": "assistant", "content": response.content})
+        if not message.tool_calls:
+            messages.append({"role": "assistant", "content": message.content or ""})
             return messages
 
-        # Step 4: Execute each tool and collect results
-        results = []
-        for tc in tool_calls:
+        # Step 4: Append assistant message with tool calls
+        messages.append({
+            "role": "assistant",
+            "content": message.content,
+            "tool_calls": [
+                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in message.tool_calls
+            ]
+        })
+
+        # Step 5: Execute each tool and collect results
+        for tc in message.tool_calls:
+            args = json.loads(tc.function.arguments)
+            name = tc.function.name
+
             # Display what's being executed
-            print(f"\n> {tc.name}: {tc.input}")
+            print(f"\n> {name}: {args}")
 
             # Execute and show result preview
-            output = execute_tool(tc.name, tc.input)
+            output = execute_tool(name, args)
             preview = output[:200] + "..." if len(output) > 200 else output
             print(f"  {preview}")
 
-            # Collect result for the model
-            results.append({
-                "type": "tool_result",
-                "tool_use_id": tc.id,
+            # Append result as tool message
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
                 "content": output,
             })
-
-        # Step 5: Append to conversation and continue
-        # Note: We append assistant's response, then user's tool results
-        # This maintains the alternating user/assistant pattern
-        messages.append({"role": "assistant", "content": response.content})
-        messages.append({"role": "user", "content": results})
 
 
 # =============================================================================

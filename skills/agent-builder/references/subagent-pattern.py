@@ -5,6 +5,7 @@ The key insight: spawn child agents with ISOLATED context to prevent
 "context pollution" where exploration details fill up the main conversation.
 """
 
+import json
 import time
 import sys
 
@@ -68,7 +69,7 @@ def get_tools_for_agent(agent_type: str, base_tools: list) -> list:
     if allowed == "*":
         return base_tools  # All base tools, but NOT Task
 
-    return [t for t in base_tools if t["name"] in allowed]
+    return [t for t in base_tools if t["function"]["name"] in allowed]
 
 
 # =============================================================================
@@ -76,8 +77,10 @@ def get_tools_for_agent(agent_type: str, base_tools: list) -> list:
 # =============================================================================
 
 TASK_TOOL = {
-    "name": "Task",
-    "description": f"""Spawn a subagent for a focused subtask.
+    "type": "function",
+    "function": {
+        "name": "Task",
+        "description": f"""Spawn a subagent for a focused subtask.
 
 Subagents run in ISOLATED context - they don't see parent's history.
 Use this to keep the main conversation clean.
@@ -90,24 +93,25 @@ Example uses:
 - Task(plan): "Design a migration strategy for the database"
 - Task(code): "Implement the user registration form"
 """,
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "description": {
-                "type": "string",
-                "description": "Short task name (3-5 words) for progress display"
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": "Short task name (3-5 words) for progress display"
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "Detailed instructions for the subagent"
+                },
+                "agent_type": {
+                    "type": "string",
+                    "enum": list(AGENT_TYPES.keys()),
+                    "description": "Type of agent to spawn"
+                },
             },
-            "prompt": {
-                "type": "string",
-                "description": "Detailed instructions for the subagent"
-            },
-            "agent_type": {
-                "type": "string",
-                "enum": list(AGENT_TYPES.keys()),
-                "description": "Type of agent to spawn"
-            },
+            "required": ["description", "prompt", "agent_type"],
         },
-        "required": ["description", "prompt", "agent_type"],
     },
 }
 
@@ -131,7 +135,7 @@ def run_task(description: str, prompt: str, agent_type: str,
         description: Short name for progress display
         prompt: Detailed instructions for subagent
         agent_type: Key from AGENT_TYPES
-        client: Anthropic client
+        client: OpenAI client
         model: Model to use
         workdir: Working directory
         base_tools: List of tool definitions
@@ -157,7 +161,10 @@ Complete the task and return a clear, concise summary."""
 
     # KEY: ISOLATED message history!
     # The subagent starts fresh, doesn't see parent's conversation
-    sub_messages = [{"role": "user", "content": prompt}]
+    sub_messages = [
+        {"role": "system", "content": sub_system},
+        {"role": "user", "content": prompt},
+    ]
 
     # Progress display
     print(f"  [{agent_type}] {description}")
@@ -165,30 +172,40 @@ Complete the task and return a clear, concise summary."""
     tool_count = 0
 
     # Run the same agent loop (but silently)
+    last_message = None
     while True:
-        response = client.messages.create(
+        response = client.chat.completions.create(
             model=model,
-            system=sub_system,
             messages=sub_messages,
             tools=sub_tools,
             max_tokens=8000,
         )
 
+        last_message = response.choices[0].message
+
         # Check if done
-        if response.stop_reason != "tool_use":
+        if not last_message.tool_calls:
             break
 
-        # Execute tools
-        tool_calls = [b for b in response.content if b.type == "tool_use"]
-        results = []
+        # Append assistant message with tool calls
+        sub_messages.append({
+            "role": "assistant",
+            "content": last_message.content,
+            "tool_calls": [
+                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in last_message.tool_calls
+            ]
+        })
 
-        for tc in tool_calls:
+        # Execute tools
+        for tc in last_message.tool_calls:
             tool_count += 1
-            output = execute_tool(tc.name, tc.input)
-            results.append({
-                "type": "tool_result",
-                "tool_use_id": tc.id,
-                "content": output
+            args = json.loads(tc.function.arguments)
+            output = execute_tool(tc.function.name, args)
+            sub_messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": output,
             })
 
             # Update progress (in-place on same line)
@@ -198,9 +215,6 @@ Complete the task and return a clear, concise summary."""
             )
             sys.stdout.flush()
 
-        sub_messages.append({"role": "assistant", "content": response.content})
-        sub_messages.append({"role": "user", "content": results})
-
     # Final progress update
     elapsed = time.time() - start
     sys.stdout.write(
@@ -209,11 +223,7 @@ Complete the task and return a clear, concise summary."""
 
     # Extract and return ONLY the final text
     # This is what the parent agent sees - a clean summary
-    for block in response.content:
-        if hasattr(block, "text"):
-            return block.text
-
-    return "(subagent returned no text)"
+    return last_message.content or "(subagent returned no text)"
 
 
 # =============================================================================

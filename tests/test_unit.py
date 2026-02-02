@@ -131,12 +131,12 @@ def test_env_config():
     """Test environment variable configuration."""
     # Save original values
     orig_model = os.environ.get("MODEL_ID")
-    orig_base = os.environ.get("ANTHROPIC_BASE_URL")
+    orig_base = os.environ.get("OPENAI_BASE_URL")
 
     try:
         # Set test values
         os.environ["MODEL_ID"] = "test-model-123"
-        os.environ["ANTHROPIC_BASE_URL"] = "https://test.example.com"
+        os.environ["OPENAI_BASE_URL"] = "https://test.example.com"
 
         # Re-import to pick up new env vars
         import importlib
@@ -155,9 +155,9 @@ def test_env_config():
         else:
             os.environ.pop("MODEL_ID", None)
         if orig_base:
-            os.environ["ANTHROPIC_BASE_URL"] = orig_base
+            os.environ["OPENAI_BASE_URL"] = orig_base
         else:
-            os.environ.pop("ANTHROPIC_BASE_URL", None)
+            os.environ.pop("OPENAI_BASE_URL", None)
 
 
 def test_default_model():
@@ -555,11 +555,11 @@ def test_v3_safe_path():
 # =============================================================================
 
 def test_base_url_config():
-    """Test ANTHROPIC_BASE_URL configuration."""
-    orig = os.environ.get("ANTHROPIC_BASE_URL")
+    """Test OPENAI_BASE_URL configuration."""
+    orig = os.environ.get("OPENAI_BASE_URL")
 
     try:
-        os.environ["ANTHROPIC_BASE_URL"] = "https://custom.api.com"
+        os.environ["OPENAI_BASE_URL"] = "https://custom.api.com"
 
         import importlib
         import v1_basic_agent
@@ -573,9 +573,9 @@ def test_base_url_config():
 
     finally:
         if orig:
-            os.environ["ANTHROPIC_BASE_URL"] = orig
+            os.environ["OPENAI_BASE_URL"] = orig
         else:
-            os.environ.pop("ANTHROPIC_BASE_URL", None)
+            os.environ.pop("OPENAI_BASE_URL", None)
 
 
 # =============================================================================
