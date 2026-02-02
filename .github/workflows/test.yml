@@ -18,7 +18,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install anthropic python-dotenv
+        run: pip install openai python-dotenv
 
       - name: Run unit tests
         run: python tests/test_unit.py
@@ -34,7 +34,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install anthropic python-dotenv openai
+        run: pip install openai python-dotenv
 
       - name: Run integration tests
         env:

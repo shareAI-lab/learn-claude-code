@@ -117,7 +117,7 @@ def test_nag_reminder_in_agent_loop():
     # NAG_REMINDER should be referenced in agent_loop
     assert "NAG_REMINDER" in source, "NAG_REMINDER should be in agent_loop"
     assert "rounds_without_todo" in source, "rounds_without_todo check should be in agent_loop"
-    assert "results.insert" in source or "results.append" in source, "Should inject into results"
+    assert "messages.append" in source or "messages.insert" in source, "Should inject into messages"
 
     print("PASS: test_nag_reminder_in_agent_loop")
     return True
@@ -188,15 +188,16 @@ def test_tool_schemas():
     from v1_basic_agent import TOOLS
 
     required_tools = {"bash", "read_file", "write_file", "edit_file"}
-    tool_names = {t["name"] for t in TOOLS}
+    tool_names = {t["function"]["name"] for t in TOOLS}
 
     assert required_tools.issubset(tool_names), f"Missing tools: {required_tools - tool_names}"
 
     for tool in TOOLS:
-        assert "name" in tool
-        assert "description" in tool
-        assert "input_schema" in tool
-        assert tool["input_schema"].get("type") == "object"
+        assert tool["type"] == "function"
+        assert "name" in tool["function"]
+        assert "description" in tool["function"]
+        assert "parameters" in tool["function"]
+        assert tool["function"]["parameters"].get("type") == "object"
 
     print("PASS: test_tool_schemas")
     return True
@@ -327,7 +328,7 @@ def test_v3_get_tools_for_agent():
 
     # explore: read-only
     explore_tools = get_tools_for_agent("explore")
-    explore_names = {t["name"] for t in explore_tools}
+    explore_names = {t["function"]["name"] for t in explore_tools}
     assert "bash" in explore_names
     assert "read_file" in explore_names
     assert "write_file" not in explore_names
@@ -339,7 +340,7 @@ def test_v3_get_tools_for_agent():
 
     # plan: read-only
     plan_tools = get_tools_for_agent("plan")
-    plan_names = {t["name"] for t in plan_tools}
+    plan_names = {t["function"]["name"] for t in plan_tools}
     assert "write_file" not in plan_names
 
     print("PASS: test_v3_get_tools_for_agent")
@@ -364,8 +365,8 @@ def test_v3_task_tool_schema():
     """Test v3 Task tool schema."""
     from v3_subagent import TASK_TOOL, AGENT_TYPES
 
-    assert TASK_TOOL["name"] == "Task"
-    schema = TASK_TOOL["input_schema"]
+    assert TASK_TOOL["function"]["name"] == "Task"
+    schema = TASK_TOOL["function"]["parameters"]
     assert "description" in schema["properties"]
     assert "prompt" in schema["properties"]
     assert "agent_type" in schema["properties"]
@@ -518,8 +519,8 @@ def test_v4_skill_tool_schema():
     """Test v4 Skill tool schema."""
     from v4_skills_agent import SKILL_TOOL
 
-    assert SKILL_TOOL["name"] == "Skill"
-    schema = SKILL_TOOL["input_schema"]
+    assert SKILL_TOOL["function"]["name"] == "Skill"
+    schema = SKILL_TOOL["function"]["parameters"]
     assert "skill" in schema["properties"]
     assert "skill" in schema["required"]
 
