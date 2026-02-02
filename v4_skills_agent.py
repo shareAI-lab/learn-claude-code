@@ -73,6 +73,20 @@ NOT system prompt. This preserves prompt cache!
 
 This is how production Claude Code works - and why it's cost-efficient.
 
+Streaming:
+---------
+v4 streams text output token-by-token using OpenAI's streaming API.
+This gives immediate feedback to the user instead of waiting for the
+full response. Tool calls are accumulated from stream deltas and
+executed after the stream completes.
+
+    Non-streaming: [wait 5s...] "Here's what I found: ..."
+    Streaming:     "Here's" "what" "I" "found:" "..."  (instant)
+
+Key implementation detail: OpenAI streaming sends tool calls as
+incremental deltas across multiple chunks. We must accumulate
+function name and arguments fragments before executing.
+
 Usage:
     python v4_skills_agent.py
 """
@@ -717,43 +731,111 @@ def execute_tool(name: str, args: dict) -> str:
 # Main Agent Loop
 # =============================================================================
 
+def collect_stream(stream):
+    """
+    Consume a streaming response, printing text tokens in real-time
+    and accumulating tool call deltas.
+
+    OpenAI streaming sends tool calls as incremental fragments:
+
+        chunk 1: tool_calls=[{index=0, id="call_abc", function={name="bash", arguments=""}}]
+        chunk 2: tool_calls=[{index=0, id=None,       function={name=None,   arguments='{"com'}}]
+        chunk 3: tool_calls=[{index=0, id=None,       function={name=None,   arguments='mand"'}}]
+        chunk 4: tool_calls=[{index=0, id=None,       function={name=None,   arguments=': "ls'}}]
+        ...
+
+    We accumulate these into complete tool calls before returning.
+
+    Returns:
+        (content, tool_calls) where tool_calls is a list of dicts:
+        [{"id": "...", "function": {"name": "...", "arguments": "..."}}]
+    """
+    content = ""
+    # Accumulate tool calls by index
+    # {0: {"id": "call_abc", "name": "bash", "arguments": '{"command": "ls"}'}, ...}
+    tool_calls_acc = {}
+
+    for chunk in stream:
+        delta = chunk.choices[0].delta if chunk.choices else None
+        if not delta:
+            continue
+
+        # Stream text content token-by-token
+        if delta.content:
+            sys.stdout.write(delta.content)
+            sys.stdout.flush()
+            content += delta.content
+
+        # Accumulate tool call deltas
+        if delta.tool_calls:
+            for tc_delta in delta.tool_calls:
+                idx = tc_delta.index
+
+                if idx not in tool_calls_acc:
+                    tool_calls_acc[idx] = {"id": "", "name": "", "arguments": ""}
+
+                if tc_delta.id:
+                    tool_calls_acc[idx]["id"] = tc_delta.id
+                if tc_delta.function:
+                    if tc_delta.function.name:
+                        tool_calls_acc[idx]["name"] = tc_delta.function.name
+                    if tc_delta.function.arguments:
+                        tool_calls_acc[idx]["arguments"] += tc_delta.function.arguments
+
+    # Newline after streamed text
+    if content:
+        print()
+
+    # Convert accumulated tool calls to list sorted by index
+    tool_calls = []
+    for idx in sorted(tool_calls_acc.keys()):
+        tc = tool_calls_acc[idx]
+        tool_calls.append({
+            "id": tc["id"],
+            "type": "function",
+            "function": {
+                "name": tc["name"],
+                "arguments": tc["arguments"],
+            }
+        })
+
+    return content, tool_calls
+
+
 def agent_loop(messages: list) -> list:
     """
-    Main agent loop with skills support.
+    Main agent loop with streaming output.
 
-    Same pattern as v3, but now with Skill tool.
-    When model loads a skill, it receives domain knowledge.
+    Text tokens are printed in real-time as they arrive from the API.
+    Tool calls are accumulated from stream deltas, then executed after
+    the stream completes. This gives immediate feedback for text while
+    preserving correct tool execution order.
     """
     while True:
         api_messages = [{"role": "system", "content": SYSTEM}] + messages
-        response = client.chat.completions.create(
+        stream = client.chat.completions.create(
             model=MODEL,
             messages=api_messages,
             tools=ALL_TOOLS,
             max_tokens=8000,
+            stream=True,
         )
 
-        message = response.choices[0].message
+        content, tool_calls = collect_stream(stream)
 
-        if message.content:
-            print(message.content)
-
-        if not message.tool_calls:
-            messages.append({"role": "assistant", "content": message.content or ""})
+        if not tool_calls:
+            messages.append({"role": "assistant", "content": content or ""})
             return messages
 
         messages.append({
             "role": "assistant",
-            "content": message.content,
-            "tool_calls": [
-                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
-                for tc in message.tool_calls
-            ]
+            "content": content or None,
+            "tool_calls": tool_calls,
         })
 
-        for tc in message.tool_calls:
-            args = json.loads(tc.function.arguments)
-            name = tc.function.name
+        for tc in tool_calls:
+            name = tc["function"]["name"]
+            args = json.loads(tc["function"]["arguments"])
 
             # Special display for different tool types
             if name == "Task":
@@ -774,7 +856,7 @@ def agent_loop(messages: list) -> list:
 
             messages.append({
                 "role": "tool",
-                "tool_call_id": tc.id,
+                "tool_call_id": tc["id"],
                 "content": output,
             })
 
