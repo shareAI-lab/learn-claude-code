@@ -382,7 +382,7 @@ def test_v3_task_tool_schema():
 
 def test_v4_skill_loader_init():
     """Test v4 SkillLoader initialization."""
-    from v4_skills_agent import SkillLoader
+    from v4.skills import SkillLoader
     from pathlib import Path
     import tempfile
 
@@ -397,7 +397,7 @@ def test_v4_skill_loader_init():
 
 def test_v4_skill_loader_parse_valid():
     """Test v4 SkillLoader parses valid SKILL.md."""
-    from v4_skills_agent import SkillLoader
+    from v4.skills import SkillLoader
     from pathlib import Path
     import tempfile
 
@@ -427,7 +427,7 @@ This is the body content.
 
 def test_v4_skill_loader_parse_invalid():
     """Test v4 SkillLoader rejects invalid SKILL.md."""
-    from v4_skills_agent import SkillLoader
+    from v4.skills import SkillLoader
     from pathlib import Path
     import tempfile
 
@@ -448,7 +448,7 @@ def test_v4_skill_loader_parse_invalid():
 
 def test_v4_skill_loader_get_content():
     """Test v4 SkillLoader get_skill_content."""
-    from v4_skills_agent import SkillLoader
+    from v4.skills import SkillLoader
     from pathlib import Path
     import tempfile
 
@@ -488,7 +488,7 @@ Step 2: Do that
 
 def test_v4_skill_loader_list_skills():
     """Test v4 SkillLoader list_skills."""
-    from v4_skills_agent import SkillLoader
+    from v4.skills import SkillLoader
     from pathlib import Path
     import tempfile
 
@@ -517,7 +517,7 @@ Content for {name}
 
 def test_v4_skill_tool_schema():
     """Test v4 Skill tool schema."""
-    from v4_skills_agent import SKILL_TOOL
+    from v4.tools import SKILL_TOOL
 
     assert SKILL_TOOL["function"]["name"] == "Skill"
     schema = SKILL_TOOL["function"]["parameters"]
