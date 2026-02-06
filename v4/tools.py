@@ -1,21 +1,28 @@
 """
 Tool definitions and implementations.
 
-Each tool has:
-1. Definition: JSON schema for the model (OpenAI format)
-2. Implementation: Python function that executes the tool
+Tools follow the TOOL.md standard:
+    tools/
+    └── bash/
+        └── TOOL.md    # YAML frontmatter + documentation
 
-Tool Schema Format (OpenAI):
-    {
-        "type": "function",
-        "function": {
-            "name": "tool_name",
-            "description": "What the tool does",
-            "parameters": {...}
-        }
-    }
+TOOL.md Format:
+    ---
+    name: bash
+    description: Run shell command.
+    parameters:
+      command:
+        type: string
+        description: The shell command to execute
+    required:
+      - command
+    ---
+    # Documentation...
+
+Definitions are loaded from YAML, implementations stay in Python.
 """
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -25,8 +32,198 @@ from .skills import SKILLS
 
 
 # =============================================================================
-# Tool Definitions
+# ToolLoader - Load tool definitions from TOOL.md files
 # =============================================================================
+
+class ToolLoader:
+    """
+    Loads tool definitions from TOOL.md files.
+
+    Each tool is a FOLDER containing:
+    - TOOL.md (required): YAML frontmatter with schema + markdown docs
+
+    The YAML frontmatter defines the tool schema:
+    - name: Tool name
+    - description: What the tool does
+    - parameters: Parameter definitions
+    - required: Required parameter names
+    """
+
+    def __init__(self, tools_dir: Path):
+        self.tools_dir = tools_dir
+        self.tools = {}
+        self.load_tools()
+
+    def parse_tool_md(self, path: Path) -> dict:
+        """
+        Parse a TOOL.md file into tool definition.
+
+        Returns dict with: name, description, parameters, required, body
+        Returns None if file doesn't match format.
+        """
+        content = path.read_text()
+
+        # Match YAML frontmatter between --- markers
+        match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)$", content, re.DOTALL)
+        if not match:
+            return None
+
+        frontmatter, body = match.groups()
+
+        # Parse YAML-like frontmatter
+        metadata = self._parse_yaml(frontmatter)
+
+        # Require name and description
+        if "name" not in metadata or "description" not in metadata:
+            return None
+
+        return {
+            "name": metadata["name"],
+            "description": metadata["description"],
+            "parameters": metadata.get("parameters", {}),
+            "required": metadata.get("required", []),
+            "body": body.strip(),
+            "path": path,
+        }
+
+    def _parse_yaml(self, text: str) -> dict:
+        """Simple YAML parser for tool frontmatter."""
+        result = {}
+        current_key = None
+        current_indent = 0
+        stack = [result]
+
+        for line in text.split("\n"):
+            if not line.strip() or line.strip().startswith("#"):
+                continue
+
+            # Count leading spaces
+            stripped = line.lstrip()
+            indent = len(line) - len(stripped)
+
+            # Handle list items
+            if stripped.startswith("- "):
+                value = stripped[2:].strip()
+                if isinstance(stack[-1], list):
+                    stack[-1].append(value)
+                continue
+
+            # Handle key: value pairs
+            if ":" in stripped:
+                key, _, value = stripped.partition(":")
+                key = key.strip()
+                value = value.strip()
+
+                # Adjust stack based on indent
+                while len(stack) > 1 and indent <= current_indent:
+                    stack.pop()
+                    current_indent -= 2
+
+                if value:
+                    # Simple key: value
+                    stack[-1][key] = value
+                else:
+                    # Key with nested content - peek next line to determine type
+                    # For now, assume dict unless we see a list marker
+                    stack[-1][key] = {}
+                    stack.append(stack[-1][key])
+                    current_key = key
+                    current_indent = indent
+
+        # Post-process: convert 'required' to list if it's a dict
+        if "required" in result and isinstance(result["required"], dict):
+            result["required"] = list(result["required"].keys())
+
+        # Handle parameters with nested structure
+        if "parameters" in result:
+            params = result["parameters"]
+            for param_name, param_def in list(params.items()):
+                if isinstance(param_def, str):
+                    # Simple type definition
+                    params[param_name] = {"type": param_def}
+                elif isinstance(param_def, dict):
+                    # Already a dict, ensure it has type
+                    if "type" not in param_def:
+                        param_def["type"] = "string"
+
+        return result
+
+    def load_tools(self):
+        """Scan tools directory and load all valid TOOL.md files."""
+        if not self.tools_dir.exists():
+            return
+
+        for tool_dir in self.tools_dir.iterdir():
+            if not tool_dir.is_dir():
+                continue
+
+            tool_md = tool_dir / "TOOL.md"
+            if not tool_md.exists():
+                continue
+
+            tool = self.parse_tool_md(tool_md)
+            if tool:
+                self.tools[tool["name"]] = tool
+
+    def get_tool_schema(self, name: str) -> dict:
+        """
+        Convert tool definition to OpenAI tool schema format.
+
+        Returns:
+            {
+                "type": "function",
+                "function": {
+                    "name": "...",
+                    "description": "...",
+                    "parameters": {...}
+                }
+            }
+        """
+        if name not in self.tools:
+            return None
+
+        tool = self.tools[name]
+
+        # Build parameters schema
+        properties = {}
+        for param_name, param_def in tool["parameters"].items():
+            prop = {"type": param_def.get("type", "string")}
+            if "description" in param_def:
+                prop["description"] = param_def["description"]
+            if "enum" in param_def:
+                prop["enum"] = param_def["enum"]
+            if "items" in param_def:
+                prop["items"] = param_def["items"]
+            properties[param_name] = prop
+
+        return {
+            "type": "function",
+            "function": {
+                "name": tool["name"],
+                "description": tool["description"],
+                "parameters": {
+                    "type": "object",
+                    "properties": properties,
+                    "required": tool["required"],
+                },
+            },
+        }
+
+    def get_all_schemas(self) -> list:
+        """Get OpenAI schemas for all loaded tools."""
+        return [self.get_tool_schema(name) for name in self.tools]
+
+    def list_tools(self) -> list:
+        """Return list of available tool names."""
+        return list(self.tools.keys())
+
+
+# =============================================================================
+# Tool Definitions (fallback if TOOL.md not found)
+# =============================================================================
+
+# These are used as fallbacks and for tools with complex schemas
+# that are hard to express in simple YAML
 
 BASH_TOOL = {
     "type": "function",
@@ -147,13 +344,21 @@ detailed instructions and access to resources.""",
     },
 }
 
-# Base tools available to all agents
+
+# =============================================================================
+# Initialize Tool Loader
+# =============================================================================
+
+TOOLS_DIR = WORKDIR / "tools"
+TOOL_LOADER = ToolLoader(TOOLS_DIR)
+
+# Base tools - use loaded schemas or fallbacks
 BASE_TOOLS = [
-    BASH_TOOL,
-    READ_FILE_TOOL,
-    WRITE_FILE_TOOL,
-    EDIT_FILE_TOOL,
-    TODO_WRITE_TOOL,
+    TOOL_LOADER.get_tool_schema("bash") or BASH_TOOL,
+    TOOL_LOADER.get_tool_schema("read_file") or READ_FILE_TOOL,
+    TOOL_LOADER.get_tool_schema("write_file") or WRITE_FILE_TOOL,
+    TOOL_LOADER.get_tool_schema("edit_file") or EDIT_FILE_TOOL,
+    TOOL_LOADER.get_tool_schema("TodoWrite") or TODO_WRITE_TOOL,
 ]
 
 
@@ -227,12 +432,7 @@ def run_todo(items: list) -> str:
 
 
 def run_skill(skill_name: str) -> str:
-    """
-    Load a skill and inject it into the conversation.
-
-    Skill content goes into tool_result (user message), NOT system prompt.
-    This preserves prompt cache (20-50x cost savings).
-    """
+    """Load a skill and inject it into the conversation."""
     content = SKILLS.get_skill_content(skill_name)
 
     if content is None:
@@ -244,10 +444,6 @@ def run_skill(skill_name: str) -> str:
 </skill-loaded>
 
 Follow the instructions in the skill above to complete the user's task."""
-
-
-# Task tool implementation is in agents.py (circular dependency)
-# We'll register it dynamically
 
 
 # =============================================================================

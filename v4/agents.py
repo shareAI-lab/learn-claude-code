@@ -1,10 +1,21 @@
 """
 Agent types, subagent execution, and main agent loop.
 
-Agent Types:
-    explore - Read-only for searching and analyzing
-    code    - Full access for implementation
-    plan    - Read-only for design and planning
+Agents follow the AGENT.md standard:
+    agents/
+    └── explore/
+        └── AGENT.md    # YAML frontmatter + system prompt
+
+AGENT.md Format:
+    ---
+    name: explore
+    description: Read-only agent for exploring code.
+    tools:
+      - bash
+      - read_file
+    ---
+    # System Prompt
+    You are an exploration agent...
 
 Subagents run in ISOLATED context - they don't see parent's history.
 This prevents context pollution and enables focused work.
@@ -15,8 +26,10 @@ Streaming:
 """
 
 import json
+import re
 import sys
 import time
+from pathlib import Path
 
 from .config import client, MODEL, WORKDIR
 from .skills import SKILLS
@@ -24,10 +37,156 @@ from .tools import BASE_TOOLS, SKILL_TOOL, TOOLS, execute_tool, register_tool
 
 
 # =============================================================================
-# Agent Type Registry
+# AgentLoader - Load agent definitions from AGENT.md files
 # =============================================================================
 
-AGENT_TYPES = {
+class AgentLoader:
+    """
+    Loads agent type definitions from AGENT.md files.
+
+    Each agent is a FOLDER containing:
+    - AGENT.md (required): YAML frontmatter with config + markdown system prompt
+
+    The YAML frontmatter defines the agent:
+    - name: Agent type name
+    - description: What the agent does
+    - tools: List of allowed tools (or "*" for all)
+    """
+
+    def __init__(self, agents_dir: Path):
+        self.agents_dir = agents_dir
+        self.agents = {}
+        self.load_agents()
+
+    def parse_agent_md(self, path: Path) -> dict:
+        """
+        Parse an AGENT.md file into agent definition.
+
+        Returns dict with: name, description, tools, prompt
+        Returns None if file doesn't match format.
+        """
+        content = path.read_text()
+
+        # Match YAML frontmatter between --- markers
+        match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)$", content, re.DOTALL)
+        if not match:
+            return None
+
+        frontmatter, body = match.groups()
+
+        # Parse YAML-like frontmatter
+        metadata = self._parse_yaml(frontmatter)
+
+        # Require name and description
+        if "name" not in metadata or "description" not in metadata:
+            return None
+
+        # Get tools list (default to all)
+        tools = metadata.get("tools", "*")
+        if isinstance(tools, dict):
+            tools = list(tools.keys())
+
+        return {
+            "name": metadata["name"],
+            "description": metadata["description"],
+            "tools": tools,
+            "prompt": body.strip(),
+            "path": path,
+        }
+
+    def _parse_yaml(self, text: str) -> dict:
+        """Simple YAML parser for agent frontmatter."""
+        result = {}
+        current_key = None
+        in_list = False
+        list_items = []
+
+        for line in text.split("\n"):
+            if not line.strip() or line.strip().startswith("#"):
+                continue
+
+            stripped = line.lstrip()
+            indent = len(line) - len(stripped)
+
+            # Handle list items
+            if stripped.startswith("- "):
+                value = stripped[2:].strip()
+                if in_list:
+                    list_items.append(value)
+                continue
+
+            # Handle key: value pairs
+            if ":" in stripped:
+                # Save previous list if any
+                if in_list and current_key:
+                    result[current_key] = list_items
+                    in_list = False
+                    list_items = []
+
+                key, _, value = stripped.partition(":")
+                key = key.strip()
+                value = value.strip()
+
+                if value:
+                    # Simple key: value
+                    result[key] = value
+                else:
+                    # Key with nested content (assume list)
+                    current_key = key
+                    in_list = True
+                    list_items = []
+
+        # Save final list if any
+        if in_list and current_key:
+            result[current_key] = list_items
+
+        return result
+
+    def load_agents(self):
+        """Scan agents directory and load all valid AGENT.md files."""
+        if not self.agents_dir.exists():
+            return
+
+        for agent_dir in self.agents_dir.iterdir():
+            if not agent_dir.is_dir():
+                continue
+
+            agent_md = agent_dir / "AGENT.md"
+            if not agent_md.exists():
+                continue
+
+            agent = self.parse_agent_md(agent_md)
+            if agent:
+                self.agents[agent["name"]] = agent
+
+    def get_agent(self, name: str) -> dict:
+        """Get agent definition by name."""
+        return self.agents.get(name)
+
+    def get_descriptions(self) -> str:
+        """Generate agent type descriptions for system prompt."""
+        if not self.agents:
+            return "(no agents available)"
+
+        return "\n".join(
+            f"- {name}: {agent['description']}"
+            for name, agent in self.agents.items()
+        )
+
+    def list_agents(self) -> list:
+        """Return list of available agent names."""
+        return list(self.agents.keys())
+
+
+# =============================================================================
+# Initialize Agent Loader
+# =============================================================================
+
+AGENTS_DIR = WORKDIR / "agents"
+AGENT_LOADER = AgentLoader(AGENTS_DIR)
+
+# Fallback agent types if AGENT.md files not found
+FALLBACK_AGENT_TYPES = {
     "explore": {
         "description": "Read-only agent for exploring code, finding files, searching",
         "tools": ["bash", "read_file"],
@@ -44,6 +203,28 @@ AGENT_TYPES = {
         "prompt": "You are a planning agent. Analyze the codebase and output a numbered implementation plan. Do NOT make changes.",
     },
 }
+
+# Build AGENT_TYPES from loader or fallbacks
+AGENT_TYPES = {}
+for name in ["explore", "code", "plan"]:
+    agent = AGENT_LOADER.get_agent(name)
+    if agent:
+        AGENT_TYPES[name] = {
+            "description": agent["description"],
+            "tools": agent["tools"],
+            "prompt": agent["prompt"],
+        }
+    elif name in FALLBACK_AGENT_TYPES:
+        AGENT_TYPES[name] = FALLBACK_AGENT_TYPES[name]
+
+# Add any additional agents from loader
+for name, agent in AGENT_LOADER.agents.items():
+    if name not in AGENT_TYPES:
+        AGENT_TYPES[name] = {
+            "description": agent["description"],
+            "tools": agent["tools"],
+            "prompt": agent["prompt"],
+        }
 
 
 def get_agent_descriptions() -> str:
@@ -125,6 +306,8 @@ def run_task(args: dict) -> str:
         return f"Error: Unknown agent type '{agent_type}'"
 
     config = AGENT_TYPES[agent_type]
+
+    # Build system prompt from agent definition
     sub_system = f"""You are a {agent_type} subagent at {WORKDIR}.
 
 {config["prompt"]}
@@ -167,8 +350,8 @@ Complete the task and return a clear, concise summary."""
 
         for tc in last_message.tool_calls:
             tool_count += 1
-            args = json.loads(tc.function.arguments)
-            output = execute_tool(tc.function.name, args)
+            tc_args = json.loads(tc.function.arguments)
+            output = execute_tool(tc.function.name, tc_args)
             sub_messages.append({
                 "role": "tool",
                 "tool_call_id": tc.id,
@@ -299,17 +482,17 @@ def agent_loop(messages: list) -> list:
 
         for tc in tool_calls:
             name = tc["function"]["name"]
-            args = json.loads(tc["function"]["arguments"])
+            tc_args = json.loads(tc["function"]["arguments"])
 
             # Special display for different tool types
             if name == "Task":
-                print(f"\n> Task: {args.get('description', 'subtask')}")
+                print(f"\n> Task: {tc_args.get('description', 'subtask')}")
             elif name == "Skill":
-                print(f"\n> Loading skill: {args.get('skill', '?')}")
+                print(f"\n> Loading skill: {tc_args.get('skill', '?')}")
             else:
                 print(f"\n> {name}")
 
-            output = execute_tool(name, args)
+            output = execute_tool(name, tc_args)
 
             # Skill tool shows summary, not full content
             if name == "Skill":
