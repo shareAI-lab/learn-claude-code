@@ -31,10 +31,20 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
+# Novita AI integration: use OpenAI-compatible API if NOVITA_API_KEY is set
+if os.getenv("NOVITA_API_KEY"):
+    from openai import OpenAI
+    client = OpenAI(
+        api_key=os.getenv("NOVITA_API_KEY"),
+        base_url="https://api.novita.ai/openai",
+    )
+    use_novita = True
+else:
+    use_novita = False
+    if os.getenv("ANTHROPIC_BASE_URL"):
+        os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
+    client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = f"You are a coding agent at {os.getcwd()}. Use bash to solve tasks. Act, don't explain."
@@ -66,25 +76,56 @@ def run_bash(command: str) -> str:
 # -- The core pattern: a while loop that calls tools until the model stops --
 def agent_loop(messages: list):
     while True:
-        response = client.messages.create(
-            model=MODEL, system=SYSTEM, messages=messages,
-            tools=TOOLS, max_tokens=8000,
-        )
-        # Append assistant turn
-        messages.append({"role": "assistant", "content": response.content})
-        # If the model didn't call a tool, we're done
-        if response.stop_reason != "tool_use":
-            return
-        # Execute each tool call, collect results
-        results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                print(f"\033[33m$ {block.input['command']}\033[0m")
-                output = run_bash(block.input["command"])
+        if use_novita:
+            # Novita uses OpenAI-compatible API
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=[{"role": "system", "content": SYSTEM}] + messages,
+                tools=TOOLS,
+                max_tokens=8000,
+            )
+            # Parse OpenAI-style response
+            message = response.choices[0].message
+            messages.append({"role": "assistant", "content": message.content,
+                             "tool_calls": message.tool_calls})
+            # If no tool calls, we're done
+            if not message.tool_calls:
+                return
+            # Execute each tool call
+            results = []
+            for tc in message.tool_calls:
+                print(f"\033[33m$ {tc.function.arguments}\033[0m")
+                # Parse arguments (could be string or dict)
+                args = tc.function.arguments
+                if isinstance(args, str):
+                    import json
+                    args = json.loads(args)
+                output = run_bash(args.get("command", ""))
                 print(output[:200])
-                results.append({"type": "tool_result", "tool_use_id": block.id,
-                                "content": output})
-        messages.append({"role": "user", "content": results})
+                results.append({"tool_call_id": tc.id, "content": output,
+                                "type": "tool_result"})
+            messages.append({"role": "user", "content": results})
+        else:
+            # Anthropic API
+            response = client.messages.create(
+                model=MODEL, system=SYSTEM, messages=messages,
+                tools=TOOLS, max_tokens=8000,
+            )
+            # Append assistant turn
+            messages.append({"role": "assistant", "content": response.content})
+            # If the model didn't call a tool, we're done
+            if response.stop_reason != "tool_use":
+                return
+            # Execute each tool call, collect results
+            results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    print(f"\033[33m$ {block.input['command']}\033[0m")
+                    output = run_bash(block.input["command"])
+                    print(output[:200])
+                    results.append({"type": "tool_result", "tool_use_id": block.id,
+                                    "content": output})
+            messages.append({"role": "user", "content": results})
 
 
 if __name__ == "__main__":
@@ -99,8 +140,16 @@ if __name__ == "__main__":
         history.append({"role": "user", "content": query})
         agent_loop(history)
         response_content = history[-1]["content"]
-        if isinstance(response_content, list):
-            for block in response_content:
-                if hasattr(block, "text"):
-                    print(block.text)
+        if use_novita:
+            # OpenAI-style response
+            if isinstance(response_content, dict):
+                text = response_content.get("content")
+                if text:
+                    print(text)
+        else:
+            # Anthropic-style response
+            if isinstance(response_content, list):
+                for block in response_content:
+                    if hasattr(block, "text"):
+                        print(block.text)
         print()
