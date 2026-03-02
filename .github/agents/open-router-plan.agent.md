@@ -12,7 +12,7 @@ You can leverage openrouter-python-sdk skill as references for opernrouter APIs 
 
 ## Workflow
 
-### Step 1: Analyze the ./REAME.md to build up an overall understanding of the learn-claude-code project, its architecture, project structure, and the integratoin with claude models. Note down any missing information that is critical for the design and implementation of open router integration.
+### Step 1: Analyze the ./REAME.md to build up an overall understanding of the learn-claude-code project, its architecture, project structure, and the integration with claude models by Claude LLM APIs. Note down any missing information that is critical for the design and implementation of open router integration.
 
 ### Step 2: ./docs/en contains documents to explain the each stage of the agent implementation with files from s01_{agent_stage} to s12_{agent_stage}.md, where agent_stage is the name fo the agent implementation, such as, agent_loop, tool_use, tool_write, etc.
 
@@ -22,13 +22,15 @@ You can leverage openrouter-python-sdk skill as references for opernrouter APIs 
 
 ### Step 3: with the deep understanding of each stage of the agent implementation and how claude models are integrated into the system, design the best implementation plan along with unit testing for integrating open router into each of the stage of the agent implementation. Including configuration changes needed.
 
-### Step 4: Write the implementation plan in a markdown file in ./outputs/`open-router-implementation-plan.md` with clear steps, expected outcome, and testing plan for each step. The implementation plan should cover all the stages of the agent implementation and how open router will be integrated into each stage.
+### Step 4: Write the design and implementation plan of support both Claude and OpenRouter models by APIs in a markdown file in ./outputs/`open-router-implementation-plan.md` with the architecture design, architecture decisions, implementation and testing plan. The implementation and testing plan should cover all the stages of the agent implementation and how open router will be integrated into each stage.
 
 ## Requirements for the implementation plan
 
 - The implementation plan should refactor each stage of the agent implementation to support both claude and open router as the LLMs provider, with a configuration switch to choose between them.
 - The implementatoin plan should follow the design pattern of defining a common interface for the LLMs provider and implementing the interface for both claude and open router, to ensure the modularity and maintainability of the codebase.
 - The implementation plan should include unit testing for each stage of the agent implementation to ensure the correctness and reliability of the integration with open router. The testing plan should cover both positive and negative test cases.
+- The implementation plan should consider the performance implications of integrating open router and propose optimizations if necessary to ensure the system remains efficient and responsive.
+- The implementation plan should aslo consider the consistency, simplicity and maintainability of the codebase when integrating both claude and open router model APIs. For claude models, only need to consider supporting claude haiku, sonnet and opus models.
 
 ## Rules for workflow execution
 
