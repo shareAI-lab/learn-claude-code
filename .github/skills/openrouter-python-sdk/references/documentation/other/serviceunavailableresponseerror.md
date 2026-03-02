@@ -1,0 +1,11 @@
+# ServiceUnavailableResponseError
+
+Service Unavailable - Service temporarily unavailable
+
+
+## Fields
+
+| Field                                                                                                  | Type                                                                                                   | Required                                                                                               | Description                                                                                            | Example                                                                                                |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `error`                                                                                                | [components.ServiceUnavailableResponseErrorData](../components/serviceunavailableresponseerrordata.md) | :heavy_check_mark:                                                                                     | Error data for ServiceUnavailableResponse                                                              | {<br/>"code": 503,<br/>"message": "Service temporarily unavailable"<br/>}                              |
+| `user_id`                                                                                              | *OptionalNullable[str]*                                                                                | :heavy_minus_sign:                                                                                     | N/A                                                                                                    |                                                                                                        |

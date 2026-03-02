@@ -1,0 +1,70 @@
+{
+  "patterns": [
+    {
+      "pattern_name": "Service Layer Pattern",
+      "confidence": 0.75,
+      "evidence": [
+        "Service layer: 3 service classes",
+        "Services encapsulate business logic"
+      ],
+      "components": {
+        "Services": [
+          "src/openrouter/components/openairesponsesservicetier.py",
+          "src/openrouter/components/serviceunavailableresponseerrordata.py",
+          "src/openrouter/errors/serviceunavailableresponse_error.py"
+        ]
+      },
+      "framework": null,
+      "description": "Encapsulates business logic in service classes"
+    }
+  ],
+  "directory_structure": {
+    ".speakeasy": 10,
+    "scripts": 3,
+    ".devcontainer": 3,
+    "examples": 1,
+    ".git": 25,
+    "assets": 2,
+    ".claude": 1,
+    ".vscode": 1,
+    ".github": 3,
+    "workflows": 3,
+    "docs": 677,
+    "errors": 33,
+    "operations": 211,
+    "components": 637,
+    "internal": 3,
+    "utils": 20,
+    "embeddings": 1,
+    "apikeys": 1,
+    "guardrails": 1,
+    "credits": 1,
+    "providers": 1,
+    "analytics": 1,
+    "endpoints": 1,
+    "responses": 1,
+    "models": 2,
+    "chat": 1,
+    "generations": 1,
+    "oauth": 1,
+    "hooks": 12,
+    "info": 1,
+    "logs": 1,
+    "heads": 2,
+    "origin": 2,
+    "pack": 2,
+    "src": 267,
+    "openrouter": 20,
+    "types": 3,
+    "_hooks": 4,
+    "overlays": 3
+  },
+  "total_files_analyzed": 268,
+  "frameworks_detected": [
+    "ASP.NET",
+    "Rails",
+    "React",
+    "Vue.js"
+  ],
+  "ai_analysis": {}
+}

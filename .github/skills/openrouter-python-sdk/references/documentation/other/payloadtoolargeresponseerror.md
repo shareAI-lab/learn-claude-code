@@ -1,0 +1,11 @@
+# PayloadTooLargeResponseError
+
+Payload Too Large - Request payload exceeds size limits
+
+
+## Fields
+
+| Field                                                                                            | Type                                                                                             | Required                                                                                         | Description                                                                                      | Example                                                                                          |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `error`                                                                                          | [components.PayloadTooLargeResponseErrorData](../components/payloadtoolargeresponseerrordata.md) | :heavy_check_mark:                                                                               | Error data for PayloadTooLargeResponse                                                           | {<br/>"code": 413,<br/>"message": "Request payload too large"<br/>}                              |
+| `user_id`                                                                                        | *OptionalNullable[str]*                                                                          | :heavy_minus_sign:                                                                               | N/A                                                                                              |                                                                                                  |

@@ -1,0 +1,1209 @@
+[
+  {
+    "pattern_type": "Observer",
+    "category": "Behavioral",
+    "confidence": 0.95,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/sdkhooks.py",
+    "class_name": "SDKHooks",
+    "method_name": null,
+    "line_number": 19,
+    "evidence": [
+      "Attach method: register_sdk_init_hook",
+      "Attach method: register_before_request_hook",
+      "Attach method: register_after_success_hook",
+      "Attach method: register_after_error_hook"
+    ],
+    "related_classes": [],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/sdkhooks.py"
+  },
+  {
+    "pattern_type": "Observer",
+    "category": "Behavioral",
+    "confidence": 0.95,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py",
+    "class_name": "Hooks",
+    "method_name": null,
+    "line_number": 97,
+    "evidence": [
+      "Attach method: register_sdk_init_hook",
+      "Attach method: register_before_request_hook",
+      "Attach method: register_after_success_hook",
+      "Attach method: register_after_error_hook"
+    ],
+    "related_classes": [],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/analytics.py",
+    "class_name": "Analytics",
+    "method_name": null,
+    "line_number": 12,
+    "evidence": [
+      "Factory method: get_user_activity",
+      "Factory method: get_user_activity_async",
+      "Multiple factory methods: get_user_activity, get_user_activity_async",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/analytics.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/api_keys.py",
+    "class_name": "APIKeys",
+    "method_name": null,
+    "line_number": 13,
+    "evidence": [
+      "Factory method: create",
+      "Factory method: create_async",
+      "Factory method: get",
+      "Factory method: get_async",
+      "Factory method: get_current_key_metadata",
+      "Factory method: get_current_key_metadata_async",
+      "Multiple factory methods: create, create_async, get",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/api_keys.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/basesdk.py",
+    "class_name": "BaseSDK",
+    "method_name": null,
+    "line_number": 16,
+    "evidence": [
+      "Parameterized factory method: _get_url",
+      "Parameterized factory method: _build_request_async",
+      "Parameterized factory method: _build_request",
+      "Parameterized factory method: _build_request_with_client",
+      "Multiple factory methods: _get_url, _build_request_async, _build_request"
+    ],
+    "related_classes": [],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/basesdk.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/credits.py",
+    "class_name": "Credits",
+    "method_name": null,
+    "line_number": 12,
+    "evidence": [
+      "Factory method: get_credits",
+      "Factory method: get_credits_async",
+      "Factory method: create_coinbase_charge",
+      "Factory method: create_coinbase_charge_async",
+      "Multiple factory methods: get_credits, get_credits_async, create_coinbase_charge",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/credits.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/generations.py",
+    "class_name": "Generations",
+    "method_name": null,
+    "line_number": 12,
+    "evidence": [
+      "Factory method: get_generation",
+      "Factory method: get_generation_async",
+      "Multiple factory methods: get_generation, get_generation_async",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/generations.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/guardrails.py",
+    "class_name": "Guardrails",
+    "method_name": null,
+    "line_number": 12,
+    "evidence": [
+      "Factory method: create",
+      "Factory method: create_async",
+      "Factory method: get",
+      "Factory method: get_async",
+      "Multiple factory methods: create, create_async, get",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/guardrails.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/oauth.py",
+    "class_name": "OAuth",
+    "method_name": null,
+    "line_number": 13,
+    "evidence": [
+      "Factory method: create_auth_code",
+      "Factory method: create_auth_code_async",
+      "Multiple factory methods: create_auth_code, create_auth_code_async",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/oauth.py"
+  },
+  {
+    "pattern_type": "Adapter",
+    "category": "Structural",
+    "confidence": 0.85,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/sdk.py",
+    "class_name": "OpenRouter",
+    "method_name": null,
+    "line_number": 33,
+    "evidence": [
+      "Takes adaptee in constructor: ['api_key', 'http_referer', 'x_title', 'server', 'server_url', 'url_params', 'client', 'async_client', 'retry_config', 'timeout_ms', 'debug_logger']",
+      "Implements interface: BaseSDK",
+      "Has 8 interface methods"
+    ],
+    "related_classes": [],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/sdk.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py",
+    "class_name": "SDKInitHook",
+    "method_name": null,
+    "line_number": 64,
+    "evidence": [
+      "Part of strategy family with: BeforeRequestHook, AfterSuccessHook, AfterErrorHook",
+      "Strategy interface method: sdk_init"
+    ],
+    "related_classes": [
+      "ABC"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py",
+    "class_name": "BeforeRequestHook",
+    "method_name": null,
+    "line_number": 70,
+    "evidence": [
+      "Part of strategy family with: SDKInitHook, AfterSuccessHook, AfterErrorHook",
+      "Strategy interface method: before_request"
+    ],
+    "related_classes": [
+      "ABC"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py",
+    "class_name": "AfterSuccessHook",
+    "method_name": null,
+    "line_number": 78,
+    "evidence": [
+      "Part of strategy family with: SDKInitHook, BeforeRequestHook, AfterErrorHook",
+      "Strategy interface method: after_success"
+    ],
+    "related_classes": [
+      "ABC"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py",
+    "class_name": "AfterErrorHook",
+    "method_name": null,
+    "line_number": 86,
+    "evidence": [
+      "Part of strategy family with: SDKInitHook, BeforeRequestHook, AfterSuccessHook",
+      "Strategy interface method: after_error"
+    ],
+    "related_classes": [
+      "ABC"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationparams.py",
+    "class_name": "ChatGenerationParamsProviderSortConfig",
+    "method_name": null,
+    "line_number": 130,
+    "evidence": [
+      "Part of strategy family with: ChatGenerationParamsMaxPrice, ChatGenerationParamsProvider, ChatGenerationParamsPluginResponseHealing",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationparams.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationparams.py",
+    "class_name": "ChatGenerationParamsProvider",
+    "method_name": null,
+    "line_number": 293,
+    "evidence": [
+      "Part of strategy family with: ChatGenerationParamsProviderSortConfig, ChatGenerationParamsMaxPrice, ChatGenerationParamsPluginResponseHealing",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationparams.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationparams.py",
+    "class_name": "ChatGenerationParamsTrace",
+    "method_name": null,
+    "line_number": 536,
+    "evidence": [
+      "Part of strategy family with: ChatGenerationParamsProviderSortConfig, ChatGenerationParamsMaxPrice, ChatGenerationParamsProvider",
+      "Strategy interface method: additional_properties"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationparams.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationparams.py",
+    "class_name": "Reasoning",
+    "method_name": null,
+    "line_number": 585,
+    "evidence": [
+      "Part of strategy family with: ChatGenerationParamsProviderSortConfig, ChatGenerationParamsMaxPrice, ChatGenerationParamsProvider",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationparams.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationparams.py",
+    "class_name": "ChatGenerationParams",
+    "method_name": null,
+    "line_number": 743,
+    "evidence": [
+      "Part of strategy family with: ChatGenerationParamsProviderSortConfig, ChatGenerationParamsMaxPrice, ChatGenerationParamsProvider",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationparams.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationtokenusage.py",
+    "class_name": "CompletionTokensDetails",
+    "method_name": null,
+    "line_number": 29,
+    "evidence": [
+      "Part of strategy family with: PromptTokensDetails, ChatGenerationTokenUsage",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationtokenusage.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationtokenusage.py",
+    "class_name": "ChatGenerationTokenUsage",
+    "method_name": null,
+    "line_number": 129,
+    "evidence": [
+      "Part of strategy family with: CompletionTokensDetails, PromptTokensDetails",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatgenerationtokenusage.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatmessagetokenlogprob.py",
+    "class_name": "ChatMessageTokenLogprobTopLogprob",
+    "method_name": null,
+    "line_number": 17,
+    "evidence": [
+      "Part of strategy family with: ChatMessageTokenLogprob",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatmessagetokenlogprob.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatmessagetokenlogprob.py",
+    "class_name": "ChatMessageTokenLogprob",
+    "method_name": null,
+    "line_number": 68,
+    "evidence": [
+      "Part of strategy family with: ChatMessageTokenLogprobTopLogprob",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatmessagetokenlogprob.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatstreamingresponsechunk.py",
+    "class_name": "ChatStreamingResponseChunk",
+    "method_name": null,
+    "line_number": 63,
+    "evidence": [
+      "Part of strategy family with: Error",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/chatstreamingresponsechunk.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/listendpointsresponse.py",
+    "class_name": "Architecture",
+    "method_name": null,
+    "line_number": 57,
+    "evidence": [
+      "Part of strategy family with: ListEndpointsResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/listendpointsresponse.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openairesponsesinput_union.py",
+    "class_name": "OpenAIResponsesInputFunctionCall",
+    "method_name": null,
+    "line_number": 40,
+    "evidence": [
+      "Part of strategy family with: OpenAIResponsesInputFunctionCallOutput, OpenAIResponsesInputMessage2, OpenAIResponsesInputMessage1",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openairesponsesinput_union.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openairesponsesinput_union.py",
+    "class_name": "OpenAIResponsesInputFunctionCallOutput",
+    "method_name": null,
+    "line_number": 97,
+    "evidence": [
+      "Part of strategy family with: OpenAIResponsesInputFunctionCall, OpenAIResponsesInputMessage2, OpenAIResponsesInputMessage1",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openairesponsesinput_union.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponseseasyinputmessage.py",
+    "class_name": "OpenResponsesEasyInputMessageContentInputImage",
+    "method_name": null,
+    "line_number": 81,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesEasyInputMessage",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponseseasyinputmessage.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesinputmessageitem.py",
+    "class_name": "OpenResponsesInputMessageItemContentInputImage",
+    "method_name": null,
+    "line_number": 76,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesInputMessageItem",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesinputmessageitem.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesnonstreamingresponse.py",
+    "class_name": "OpenResponsesNonStreamingResponseToolFunction",
+    "method_name": null,
+    "line_number": 74,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesNonStreamingResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesnonstreamingresponse.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesnonstreamingresponse.py",
+    "class_name": "OpenResponsesNonStreamingResponse",
+    "method_name": null,
+    "line_number": 188,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesNonStreamingResponseToolFunction",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesnonstreamingresponse.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesrequest.py",
+    "class_name": "OpenResponsesRequestToolFunction",
+    "method_name": null,
+    "line_number": 77,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesRequestMaxPrice, OpenResponsesRequestProvider, OpenResponsesRequestPluginResponseHealing",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesrequest.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesrequest.py",
+    "class_name": "OpenResponsesRequestProvider",
+    "method_name": null,
+    "line_number": 286,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesRequestToolFunction, OpenResponsesRequestMaxPrice, OpenResponsesRequestPluginResponseHealing",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesrequest.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesrequest.py",
+    "class_name": "OpenResponsesRequestTrace",
+    "method_name": null,
+    "line_number": 530,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesRequestToolFunction, OpenResponsesRequestMaxPrice, OpenResponsesRequestProvider",
+      "Strategy interface method: additional_properties"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesrequest.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesrequest.py",
+    "class_name": "OpenResponsesRequest",
+    "method_name": null,
+    "line_number": 608,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesRequestToolFunction, OpenResponsesRequestMaxPrice, OpenResponsesRequestProvider",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesrequest.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesusage.py",
+    "class_name": "CostDetails",
+    "method_name": null,
+    "line_number": 38,
+    "evidence": [
+      "Part of strategy family with: InputTokensDetails, OutputTokensDetails, OpenResponsesUsage",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesusage.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesusage.py",
+    "class_name": "OpenResponsesUsage",
+    "method_name": null,
+    "line_number": 91,
+    "evidence": [
+      "Part of strategy family with: InputTokensDetails, OutputTokensDetails, CostDetails",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponsesusage.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponseswebsearch20250826tool.py",
+    "class_name": "OpenResponsesWebSearch20250826ToolFilters",
+    "method_name": null,
+    "line_number": 30,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesWebSearch20250826Tool",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponseswebsearch20250826tool.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponseswebsearch20250826tool.py",
+    "class_name": "OpenResponsesWebSearch20250826Tool",
+    "method_name": null,
+    "line_number": 75,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesWebSearch20250826ToolFilters",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponseswebsearch20250826tool.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponseswebsearchtool.py",
+    "class_name": "OpenResponsesWebSearchToolFilters",
+    "method_name": null,
+    "line_number": 30,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesWebSearchTool",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponseswebsearchtool.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponseswebsearchtool.py",
+    "class_name": "OpenResponsesWebSearchTool",
+    "method_name": null,
+    "line_number": 75,
+    "evidence": [
+      "Part of strategy family with: OpenResponsesWebSearchToolFilters",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/openresponseswebsearchtool.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/providerpreferences.py",
+    "class_name": "ProviderPreferencesProviderSortConfig",
+    "method_name": null,
+    "line_number": 105,
+    "evidence": [
+      "Part of strategy family with: ProviderPreferencesMaxPrice, ProviderPreferences",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/providerpreferences.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/providerpreferences.py",
+    "class_name": "ProviderPreferences",
+    "method_name": null,
+    "line_number": 267,
+    "evidence": [
+      "Part of strategy family with: ProviderPreferencesProviderSortConfig, ProviderPreferencesMaxPrice",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/providerpreferences.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/publicendpoint.py",
+    "class_name": "PublicEndpoint",
+    "method_name": null,
+    "line_number": 102,
+    "evidence": [
+      "Part of strategy family with: Pricing",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/publicendpoint.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/tooldefinitionjson.py",
+    "class_name": "ToolDefinitionJSONFunction",
+    "method_name": null,
+    "line_number": 36,
+    "evidence": [
+      "Part of strategy family with: ToolDefinitionJSON",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/components/tooldefinitionjson.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/createauthkeyscode.py",
+    "class_name": "CreateAuthKeysCodeRequestBody",
+    "method_name": null,
+    "line_number": 97,
+    "evidence": [
+      "Part of strategy family with: CreateAuthKeysCodeGlobals, CreateAuthKeysCodeRequest, CreateAuthKeysCodeData",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/createauthkeyscode.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/createguardrail.py",
+    "class_name": "CreateGuardrailRequestBody",
+    "method_name": null,
+    "line_number": 86,
+    "evidence": [
+      "Part of strategy family with: CreateGuardrailGlobals, CreateGuardrailRequest, CreateGuardrailData",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/createguardrail.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/createguardrail.py",
+    "class_name": "CreateGuardrailData",
+    "method_name": null,
+    "line_number": 231,
+    "evidence": [
+      "Part of strategy family with: CreateGuardrailGlobals, CreateGuardrailRequestBody, CreateGuardrailRequest",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/createguardrail.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/createkeys.py",
+    "class_name": "CreateKeysRequestBody",
+    "method_name": null,
+    "line_number": 83,
+    "evidence": [
+      "Part of strategy family with: CreateKeysGlobals, CreateKeysRequest, CreateKeysData",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/createkeys.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/createkeys.py",
+    "class_name": "CreateKeysData",
+    "method_name": null,
+    "line_number": 220,
+    "evidence": [
+      "Part of strategy family with: CreateKeysGlobals, CreateKeysRequestBody, CreateKeysRequest",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/createkeys.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/exchangeauthcodeforapikey.py",
+    "class_name": "ExchangeAuthCodeForAPIKeyRequestBody",
+    "method_name": null,
+    "line_number": 79,
+    "evidence": [
+      "Part of strategy family with: ExchangeAuthCodeForAPIKeyGlobals, ExchangeAuthCodeForAPIKeyRequest, ExchangeAuthCodeForAPIKeyResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/exchangeauthcodeforapikey.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/exchangeauthcodeforapikey.py",
+    "class_name": "ExchangeAuthCodeForAPIKeyResponse",
+    "method_name": null,
+    "line_number": 171,
+    "evidence": [
+      "Part of strategy family with: ExchangeAuthCodeForAPIKeyGlobals, ExchangeAuthCodeForAPIKeyRequestBody, ExchangeAuthCodeForAPIKeyRequest",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/exchangeauthcodeforapikey.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/getcurrentkey.py",
+    "class_name": "GetCurrentKeyData",
+    "method_name": null,
+    "line_number": 156,
+    "evidence": [
+      "Part of strategy family with: GetCurrentKeyGlobals, GetCurrentKeyRequest, RateLimit",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/getcurrentkey.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/getgeneration.py",
+    "class_name": "ProviderResponse",
+    "method_name": null,
+    "line_number": 218,
+    "evidence": [
+      "Part of strategy family with: GetGenerationGlobals, GetGenerationRequest, GetGenerationData",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/getgeneration.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/getgeneration.py",
+    "class_name": "GetGenerationData",
+    "method_name": null,
+    "line_number": 346,
+    "evidence": [
+      "Part of strategy family with: GetGenerationGlobals, GetGenerationRequest, ProviderResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/getgeneration.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/getguardrail.py",
+    "class_name": "GetGuardrailData",
+    "method_name": null,
+    "line_number": 134,
+    "evidence": [
+      "Part of strategy family with: GetGuardrailGlobals, GetGuardrailRequest, GetGuardrailResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/getguardrail.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/getkey.py",
+    "class_name": "GetKeyData",
+    "method_name": null,
+    "line_number": 135,
+    "evidence": [
+      "Part of strategy family with: GetKeyGlobals, GetKeyRequest, GetKeyResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/getkey.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/list.py",
+    "class_name": "ListData",
+    "method_name": null,
+    "line_number": 142,
+    "evidence": [
+      "Part of strategy family with: ListGlobals, ListRequest, ListResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/list.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listguardrailkeyassignments.py",
+    "class_name": "ListGuardrailKeyAssignmentsData",
+    "method_name": null,
+    "line_number": 123,
+    "evidence": [
+      "Part of strategy family with: ListGuardrailKeyAssignmentsGlobals, ListGuardrailKeyAssignmentsRequest, ListGuardrailKeyAssignmentsResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listguardrailkeyassignments.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listguardrailmemberassignments.py",
+    "class_name": "ListGuardrailMemberAssignmentsData",
+    "method_name": null,
+    "line_number": 121,
+    "evidence": [
+      "Part of strategy family with: ListGuardrailMemberAssignmentsGlobals, ListGuardrailMemberAssignmentsRequest, ListGuardrailMemberAssignmentsResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listguardrailmemberassignments.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listguardrails.py",
+    "class_name": "ListGuardrailsData",
+    "method_name": null,
+    "line_number": 141,
+    "evidence": [
+      "Part of strategy family with: ListGuardrailsGlobals, ListGuardrailsRequest, ListGuardrailsResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listguardrails.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listkeyassignments.py",
+    "class_name": "ListKeyAssignmentsData",
+    "method_name": null,
+    "line_number": 111,
+    "evidence": [
+      "Part of strategy family with: ListKeyAssignmentsGlobals, ListKeyAssignmentsRequest, ListKeyAssignmentsResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listkeyassignments.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listmemberassignments.py",
+    "class_name": "ListMemberAssignmentsData",
+    "method_name": null,
+    "line_number": 109,
+    "evidence": [
+      "Part of strategy family with: ListMemberAssignmentsGlobals, ListMemberAssignmentsRequest, ListMemberAssignmentsResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listmemberassignments.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listproviders.py",
+    "class_name": "ListProvidersData",
+    "method_name": null,
+    "line_number": 97,
+    "evidence": [
+      "Part of strategy family with: ListProvidersGlobals, ListProvidersRequest, ListProvidersResponse",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/listproviders.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/updateguardrail.py",
+    "class_name": "UpdateGuardrailRequestBody",
+    "method_name": null,
+    "line_number": 87,
+    "evidence": [
+      "Part of strategy family with: UpdateGuardrailGlobals, UpdateGuardrailRequest, UpdateGuardrailData",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/updateguardrail.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/updateguardrail.py",
+    "class_name": "UpdateGuardrailData",
+    "method_name": null,
+    "line_number": 240,
+    "evidence": [
+      "Part of strategy family with: UpdateGuardrailGlobals, UpdateGuardrailRequestBody, UpdateGuardrailRequest",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/updateguardrail.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/updatekeys.py",
+    "class_name": "UpdateKeysRequestBody",
+    "method_name": null,
+    "line_number": 84,
+    "evidence": [
+      "Part of strategy family with: UpdateKeysGlobals, UpdateKeysRequest, UpdateKeysData",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/updatekeys.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/updatekeys.py",
+    "class_name": "UpdateKeysData",
+    "method_name": null,
+    "line_number": 229,
+    "evidence": [
+      "Part of strategy family with: UpdateKeysGlobals, UpdateKeysRequestBody, UpdateKeysRequest",
+      "Strategy interface method: serialize_model"
+    ],
+    "related_classes": [
+      "BaseModel"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/operations/updatekeys.py"
+  },
+  {
+    "pattern_type": "Strategy",
+    "category": "Behavioral",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/utils/retries.py",
+    "class_name": "BackoffStrategy",
+    "method_name": null,
+    "line_number": 13,
+    "evidence": [
+      "Class name suggests Strategy: BackoffStrategy"
+    ],
+    "related_classes": [],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/utils/retries.py"
+  },
+  {
+    "pattern_type": "Decorator",
+    "category": "Structural",
+    "confidence": 0.7,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/utils/retries.py",
+    "class_name": "PermanentError",
+    "method_name": null,
+    "line_number": 63,
+    "evidence": [
+      "Shares interface with: TemporaryError",
+      "Takes wrapped object in constructor: ['inner']"
+    ],
+    "related_classes": [
+      "Exception"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/utils/retries.py"
+  }
+]

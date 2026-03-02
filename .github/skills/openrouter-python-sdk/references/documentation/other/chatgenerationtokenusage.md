@@ -1,0 +1,14 @@
+# ChatGenerationTokenUsage
+
+Token usage statistics
+
+
+## Fields
+
+| Field                                                                                            | Type                                                                                             | Required                                                                                         | Description                                                                                      |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `completion_tokens`                                                                              | *float*                                                                                          | :heavy_check_mark:                                                                               | Number of tokens in the completion                                                               |
+| `prompt_tokens`                                                                                  | *float*                                                                                          | :heavy_check_mark:                                                                               | Number of tokens in the prompt                                                                   |
+| `total_tokens`                                                                                   | *float*                                                                                          | :heavy_check_mark:                                                                               | Total number of tokens                                                                           |
+| `completion_tokens_details`                                                                      | [OptionalNullable[components.CompletionTokensDetails]](../components/completiontokensdetails.md) | :heavy_minus_sign:                                                                               | Detailed completion token usage                                                                  |
+| `prompt_tokens_details`                                                                          | [OptionalNullable[components.PromptTokensDetails]](../components/prompttokensdetails.md)         | :heavy_minus_sign:                                                                               | Detailed prompt token usage                                                                      |

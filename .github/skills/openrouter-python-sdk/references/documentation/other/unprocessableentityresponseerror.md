@@ -1,0 +1,11 @@
+# UnprocessableEntityResponseError
+
+Unprocessable Entity - Semantic validation failure
+
+
+## Fields
+
+| Field                                                                                                    | Type                                                                                                     | Required                                                                                                 | Description                                                                                              | Example                                                                                                  |
+| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `error`                                                                                                  | [components.UnprocessableEntityResponseErrorData](../components/unprocessableentityresponseerrordata.md) | :heavy_check_mark:                                                                                       | Error data for UnprocessableEntityResponse                                                               | {<br/>"code": 422,<br/>"message": "Invalid argument"<br/>}                                               |
+| `user_id`                                                                                                | *OptionalNullable[str]*                                                                                  | :heavy_minus_sign:                                                                                       | N/A                                                                                                      |                                                                                                          |

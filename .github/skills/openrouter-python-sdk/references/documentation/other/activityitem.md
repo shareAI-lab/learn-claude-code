@@ -1,0 +1,18 @@
+# ActivityItem
+
+
+## Fields
+
+| Field                                               | Type                                                | Required                                            | Description                                         | Example                                             |
+| --------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- |
+| `date_`                                             | *str*                                               | :heavy_check_mark:                                  | Date of the activity (YYYY-MM-DD format)            | 2025-08-24                                          |
+| `model`                                             | *str*                                               | :heavy_check_mark:                                  | Model slug (e.g., "openai/gpt-4.1")                 | openai/gpt-4.1                                      |
+| `model_permaslug`                                   | *str*                                               | :heavy_check_mark:                                  | Model permaslug (e.g., "openai/gpt-4.1-2025-04-14") | openai/gpt-4.1-2025-04-14                           |
+| `endpoint_id`                                       | *str*                                               | :heavy_check_mark:                                  | Unique identifier for the endpoint                  | 550e8400-e29b-41d4-a716-446655440000                |
+| `provider_name`                                     | *str*                                               | :heavy_check_mark:                                  | Name of the provider serving this endpoint          | OpenAI                                              |
+| `usage`                                             | *float*                                             | :heavy_check_mark:                                  | Total cost in USD (OpenRouter credits spent)        | 0.015                                               |
+| `byok_usage_inference`                              | *float*                                             | :heavy_check_mark:                                  | BYOK inference cost in USD (external credits spent) | 0.012                                               |
+| `requests`                                          | *float*                                             | :heavy_check_mark:                                  | Number of requests made                             | 5                                                   |
+| `prompt_tokens`                                     | *float*                                             | :heavy_check_mark:                                  | Total prompt tokens used                            | 50                                                  |
+| `completion_tokens`                                 | *float*                                             | :heavy_check_mark:                                  | Total completion tokens generated                   | 125                                                 |
+| `reasoning_tokens`                                  | *float*                                             | :heavy_check_mark:                                  | Total reasoning tokens used                         | 25                                                  |

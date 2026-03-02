@@ -1,0 +1,10 @@
+# ChatGenerationParamsPluginFileParser
+
+
+## Fields
+
+| Field                                                                                            | Type                                                                                             | Required                                                                                         | Description                                                                                      |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `id`                                                                                             | [components.ChatGenerationParamsIDFileParser](../components/chatgenerationparamsidfileparser.md) | :heavy_check_mark:                                                                               | N/A                                                                                              |
+| `enabled`                                                                                        | *Optional[bool]*                                                                                 | :heavy_minus_sign:                                                                               | Set to false to disable the file-parser plugin for this request. Defaults to true.               |
+| `pdf`                                                                                            | [Optional[components.PDFParserOptions]](../components/pdfparseroptions.md)                       | :heavy_minus_sign:                                                                               | Options for PDF parsing.                                                                         |

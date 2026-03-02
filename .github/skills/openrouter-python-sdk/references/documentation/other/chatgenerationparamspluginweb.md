@@ -1,0 +1,12 @@
+# ChatGenerationParamsPluginWeb
+
+
+## Fields
+
+| Field                                                                              | Type                                                                               | Required                                                                           | Description                                                                        |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `id`                                                                               | [components.ChatGenerationParamsIDWeb](../components/chatgenerationparamsidweb.md) | :heavy_check_mark:                                                                 | N/A                                                                                |
+| `enabled`                                                                          | *Optional[bool]*                                                                   | :heavy_minus_sign:                                                                 | Set to false to disable the web-search plugin for this request. Defaults to true.  |
+| `max_results`                                                                      | *Optional[float]*                                                                  | :heavy_minus_sign:                                                                 | N/A                                                                                |
+| `search_prompt`                                                                    | *Optional[str]*                                                                    | :heavy_minus_sign:                                                                 | N/A                                                                                |
+| `engine`                                                                           | [Optional[components.WebSearchEngine]](../components/websearchengine.md)           | :heavy_minus_sign:                                                                 | The search engine to use for web search.                                           |

@@ -1,0 +1,11 @@
+# ProviderOverloadedResponseError
+
+Provider Overloaded - Provider is temporarily overloaded
+
+
+## Fields
+
+| Field                                                                                                  | Type                                                                                                   | Required                                                                                               | Description                                                                                            | Example                                                                                                |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `error`                                                                                                | [components.ProviderOverloadedResponseErrorData](../components/provideroverloadedresponseerrordata.md) | :heavy_check_mark:                                                                                     | Error data for ProviderOverloadedResponse                                                              | {<br/>"code": 529,<br/>"message": "Provider returned error"<br/>}                                      |
+| `user_id`                                                                                              | *OptionalNullable[str]*                                                                                | :heavy_minus_sign:                                                                                     | N/A                                                                                                    |                                                                                                        |

@@ -1,0 +1,15 @@
+# OpenResponsesStreamEventResponseContentPartDone
+
+Event emitted when a content part is complete
+
+
+## Fields
+
+| Field                                                                                  | Type                                                                                   | Required                                                                               | Description                                                                            |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `type`                                                                                 | [components.TypeResponseContentPartDone](../components/typeresponsecontentpartdone.md) | :heavy_check_mark:                                                                     | N/A                                                                                    |
+| `output_index`                                                                         | *float*                                                                                | :heavy_check_mark:                                                                     | N/A                                                                                    |
+| `item_id`                                                                              | *str*                                                                                  | :heavy_check_mark:                                                                     | N/A                                                                                    |
+| `content_index`                                                                        | *float*                                                                                | :heavy_check_mark:                                                                     | N/A                                                                                    |
+| `part`                                                                                 | [components.Part2](../components/part2.md)                                             | :heavy_check_mark:                                                                     | N/A                                                                                    |
+| `sequence_number`                                                                      | *float*                                                                                | :heavy_check_mark:                                                                     | N/A                                                                                    |

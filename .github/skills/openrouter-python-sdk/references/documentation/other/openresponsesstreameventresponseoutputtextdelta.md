@@ -1,0 +1,16 @@
+# OpenResponsesStreamEventResponseOutputTextDelta
+
+Event emitted when a text delta is streamed
+
+
+## Fields
+
+| Field                                                                                  | Type                                                                                   | Required                                                                               | Description                                                                            |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `type`                                                                                 | [components.TypeResponseOutputTextDelta](../components/typeresponseoutputtextdelta.md) | :heavy_check_mark:                                                                     | N/A                                                                                    |
+| `logprobs`                                                                             | List[[components.OpenResponsesLogProbs](../components/openresponseslogprobs.md)]       | :heavy_check_mark:                                                                     | N/A                                                                                    |
+| `output_index`                                                                         | *float*                                                                                | :heavy_check_mark:                                                                     | N/A                                                                                    |
+| `item_id`                                                                              | *str*                                                                                  | :heavy_check_mark:                                                                     | N/A                                                                                    |
+| `content_index`                                                                        | *float*                                                                                | :heavy_check_mark:                                                                     | N/A                                                                                    |
+| `delta`                                                                                | *str*                                                                                  | :heavy_check_mark:                                                                     | N/A                                                                                    |
+| `sequence_number`                                                                      | *float*                                                                                | :heavy_check_mark:                                                                     | N/A                                                                                    |
