@@ -275,7 +275,7 @@ class TeammateManager:
                     task = unclaimed[0]
                     claim_task(task["id"], name)
                     task_prompt = (
-                        f"<auto-claimed>Task #{task['id']}: {task['subject']}\n"
+                        f"<auto-claimed>Task #{task['id']}: {task['title']}\n"
                         f"{task.get('description', '')}</auto-claimed>"
                     )
                     if len(messages) <= 3:
@@ -566,7 +566,7 @@ if __name__ == "__main__":
                 t = json.loads(f.read_text())
                 marker = {"pending": "[ ]", "in_progress": "[>]", "completed": "[x]"}.get(t["status"], "[?]")
                 owner = f" @{t['owner']}" if t.get("owner") else ""
-                print(f"  {marker} #{t['id']}: {t['subject']}{owner}")
+                print(f"  {marker} #{t['id']}: {t['title']}{owner}")
             continue
         history.append({"role": "user", "content": query})
         agent_loop(history)
