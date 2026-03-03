@@ -1,0 +1,10 @@
+[project]
+name = "learn-claude-code"
+version = "0.1.0"
+description = "Learn Claude Code by building a nano agent from 0 to 1."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "anthropic>=0.25.0",
+    "python-dotenv>=1.0.0",
+]

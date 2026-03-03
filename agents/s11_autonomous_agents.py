@@ -46,11 +46,22 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
-if os.getenv("ANTHROPIC_BASE_URL"):
+
+BASE_URL = os.getenv("ANTHROPIC_BASE_URL")
+API_KEY = os.getenv("ANTHROPIC_API_KEY")
+AUTH_TOKEN = os.getenv("ANTHROPIC_AUTH_TOKEN")
+
+if BASE_URL and not API_KEY:
+    if AUTH_TOKEN:
+        API_KEY = AUTH_TOKEN
+    elif "localhost:11434" in BASE_URL or "127.0.0.1:11434" in BASE_URL:
+        API_KEY = "ollama"
+
+if BASE_URL:
     os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
 
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = Anthropic(base_url=BASE_URL, api_key=API_KEY)
 MODEL = os.environ["MODEL_ID"]
 TEAM_DIR = WORKDIR / ".team"
 INBOX_DIR = TEAM_DIR / "inbox"

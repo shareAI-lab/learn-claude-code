@@ -17,11 +17,14 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
       - name: Install dependencies
-        run: pip install anthropic python-dotenv
+        run: uv sync --frozen
 
       - name: Run unit tests
-        run: python tests/test_unit.py
+        run: uv run python tests/test_unit.py
 
   session-test:
     runs-on: ubuntu-latest
@@ -36,15 +39,18 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
       - name: Install dependencies
-        run: pip install anthropic python-dotenv
+        run: uv sync --frozen
 
       - name: Run ${{ matrix.session }} tests
         env:
           TEST_API_KEY: ${{ secrets.TEST_API_KEY }}
           TEST_BASE_URL: ${{ secrets.TEST_BASE_URL }}
           TEST_MODEL: ${{ secrets.TEST_MODEL }}
-        run: python tests/test_${{ matrix.session }}.py
+        run: uv run python tests/test_${{ matrix.session }}.py
 
   web-build:
     runs-on: ubuntu-latest
