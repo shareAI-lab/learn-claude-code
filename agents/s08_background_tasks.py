@@ -27,6 +27,7 @@ Key insight: "Fire and forget -- the agent doesn't block while the command runs.
 import os
 import subprocess
 import threading
+import time
 import uuid
 from pathlib import Path
 
@@ -43,6 +44,8 @@ client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use background_run for long-running commands."
+
+MAX_BG_WAIT = 30  # seconds to wait for still-running tasks before exiting
 
 
 # -- BackgroundManager: threaded execution + notification queue --
@@ -200,6 +203,25 @@ def agent_loop(messages: list):
         )
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
+            # Flush results that completed while the LLM was responding.
+            # If tasks are still running, wait up to MAX_BG_WAIT for them.
+            pending = BG.drain_notifications()
+            if not pending:
+                still_running = [t for t in BG.tasks.values() if t["status"] == "running"]
+                if still_running:
+                    deadline = time.monotonic() + MAX_BG_WAIT
+                    while time.monotonic() < deadline:
+                        if not any(t["status"] == "running" for t in BG.tasks.values()):
+                            break
+                        time.sleep(0.5)
+                    pending = BG.drain_notifications()
+            if pending:
+                notif_text = "\n".join(
+                    f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in pending
+                )
+                messages.append({"role": "user", "content": f"<background-results>\n{notif_text}\n</background-results>"})
+                messages.append({"role": "assistant", "content": "Noted background results."})
+                continue  # let the LLM see the late-arriving results
             return
         results = []
         for block in response.content:

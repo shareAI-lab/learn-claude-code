@@ -64,6 +64,7 @@ TRANSCRIPT_DIR = WORKDIR / ".transcripts"
 TOKEN_THRESHOLD = 100000
 POLL_INTERVAL = 5
 IDLE_TIMEOUT = 60
+MAX_BG_WAIT = 30  # seconds to wait for still-running tasks before exiting
 
 VALID_MSG_TYPES = {"message", "broadcast", "shutdown_request",
                    "shutdown_response", "plan_approval_response"}
@@ -677,6 +678,23 @@ def agent_loop(messages: list):
         )
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
+            # Flush results that completed while the LLM was responding.
+            # If tasks are still running, wait up to MAX_BG_WAIT for them.
+            pending = BG.drain()
+            if not pending:
+                still_running = [t for t in BG.tasks.values() if t["status"] == "running"]
+                if still_running:
+                    deadline = time.monotonic() + MAX_BG_WAIT
+                    while time.monotonic() < deadline:
+                        if not any(t["status"] == "running" for t in BG.tasks.values()):
+                            break
+                        time.sleep(0.5)
+                    pending = BG.drain()
+            if pending:
+                txt = "\n".join(f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in pending)
+                messages.append({"role": "user", "content": f"<background-results>\n{txt}\n</background-results>"})
+                messages.append({"role": "assistant", "content": "Noted background results."})
+                continue  # let the LLM see the late-arriving results
             return
         # Tool execution
         results = []
