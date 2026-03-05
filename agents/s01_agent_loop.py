@@ -56,7 +56,8 @@ def run_bash(command: str) -> str:
         return "Error: Dangerous command blocked"
     try:
         r = subprocess.run(command, shell=True, cwd=os.getcwd(),
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True,
+                           encoding='utf-8', errors='replace', timeout=120)
         out = (r.stdout + r.stderr).strip()
         return out[:50000] if out else "(no output)"
     except subprocess.TimeoutExpired:
@@ -72,6 +73,7 @@ def agent_loop(messages: list):
         )
         # Append assistant turn
         messages.append({"role": "assistant", "content": response.content})
+        
         # If the model didn't call a tool, we're done
         if response.stop_reason != "tool_use":
             return

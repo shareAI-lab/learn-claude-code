@@ -82,7 +82,8 @@ def run_bash(command: str) -> str:
         return "Error: Dangerous command blocked"
     try:
         r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True,
+                           encoding='utf-8', errors='replace', timeout=120)
         out = (r.stdout + r.stderr).strip()
         return out[:50000] if out else "(no output)"
     except subprocess.TimeoutExpired:
@@ -339,7 +340,8 @@ class BackgroundManager:
     def _exec(self, tid: str, command: str, timeout: int):
         try:
             r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                               capture_output=True, text=True, timeout=timeout)
+                               capture_output=True, text=True,
+                               encoding='utf-8', errors='replace', timeout=timeout)
             output = (r.stdout + r.stderr).strip()[:50000]
             self.tasks[tid].update({"status": "completed", "result": output or "(no output)"})
         except Exception as e:

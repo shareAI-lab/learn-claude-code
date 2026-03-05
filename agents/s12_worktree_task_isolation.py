@@ -57,6 +57,8 @@ def detect_repo_root(cwd: Path) -> Path | None:
             cwd=cwd,
             capture_output=True,
             text=True,
+            encoding='utf-8',
+            errors='replace',
             timeout=10,
         )
         if r.returncode != 0:
@@ -240,6 +242,8 @@ class WorktreeManager:
                 cwd=self.repo_root,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
                 timeout=10,
             )
             return r.returncode == 0
@@ -254,6 +258,8 @@ class WorktreeManager:
             cwd=self.repo_root,
             capture_output=True,
             text=True,
+            encoding='utf-8',
+            errors='replace',
             timeout=120,
         )
         if r.returncode != 0:
@@ -359,6 +365,8 @@ class WorktreeManager:
             cwd=path,
             capture_output=True,
             text=True,
+            encoding='utf-8',
+            errors='replace',
             timeout=60,
         )
         text = (r.stdout + r.stderr).strip()
@@ -383,6 +391,8 @@ class WorktreeManager:
                 cwd=path,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
                 timeout=300,
             )
             out = (r.stdout + r.stderr).strip()
@@ -492,6 +502,8 @@ def run_bash(command: str) -> str:
             cwd=WORKDIR,
             capture_output=True,
             text=True,
+            encoding='utf-8',
+            errors='replace',
             timeout=120,
         )
         out = (r.stdout + r.stderr).strip()
