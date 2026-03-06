@@ -51,6 +51,7 @@ class BackgroundManager:
         self.tasks = {}  # task_id -> {status, result, command}
         self._notification_queue = []  # completed task results
         self._lock = threading.Lock()
+        self._condition = threading.Condition(self._lock)
 
     def run(self, command: str) -> str:
         """Start a background thread, return task_id immediately."""
@@ -79,13 +80,14 @@ class BackgroundManager:
             status = "error"
         self.tasks[task_id]["status"] = status
         self.tasks[task_id]["result"] = output or "(no output)"
-        with self._lock:
+        with self._condition:
             self._notification_queue.append({
                 "task_id": task_id,
                 "status": status,
                 "command": command[:80],
                 "result": (output or "(no output)")[:500],
             })
+            self._condition.notify_all()
 
     def check(self, task_id: str = None) -> str:
         """Check status of one task or list all."""
@@ -101,13 +103,40 @@ class BackgroundManager:
 
     def drain_notifications(self) -> list:
         """Return and clear all pending completion notifications."""
-        with self._lock:
+        with self._condition:
+            notifs = list(self._notification_queue)
+            self._notification_queue.clear()
+        return notifs
+
+    def _has_running_tasks_locked(self) -> bool:
+        return any(task["status"] == "running" for task in self.tasks.values())
+
+    def has_running_tasks(self) -> bool:
+        with self._condition:
+            return self._has_running_tasks_locked()
+
+    def wait_for_notifications(self) -> list:
+        """Block until at least one background notification is available or all tasks are done."""
+        with self._condition:
+            while not self._notification_queue and self._has_running_tasks_locked():
+                self._condition.wait()
             notifs = list(self._notification_queue)
             self._notification_queue.clear()
         return notifs
 
 
 BG = BackgroundManager()
+
+
+def inject_background_results(messages: list, notifs: list) -> bool:
+    if notifs and messages:
+        notif_text = "\n".join(
+            f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs
+        )
+        messages.append({"role": "user", "content": f"<background-results>\n{notif_text}\n</background-results>"})
+        messages.append({"role": "assistant", "content": "Noted background results."})
+        return True
+    return False
 
 
 # -- Tool implementations --
@@ -187,19 +216,15 @@ TOOLS = [
 def agent_loop(messages: list):
     while True:
         # Drain background notifications and inject as system message before LLM call
-        notifs = BG.drain_notifications()
-        if notifs and messages:
-            notif_text = "\n".join(
-                f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs
-            )
-            messages.append({"role": "user", "content": f"<background-results>\n{notif_text}\n</background-results>"})
-            messages.append({"role": "assistant", "content": "Noted background results."})
+        inject_background_results(messages, BG.drain_notifications())
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
             tools=TOOLS, max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
+            if BG.has_running_tasks() and inject_background_results(messages, BG.wait_for_notifications()):
+                continue
             return
         results = []
         for block in response.content:
