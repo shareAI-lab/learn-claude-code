@@ -2,6 +2,9 @@
 
 # Learn Claude Code
 
+Scan with WeChat to follow us,  
+or follow us on X: [shareAI-Lab](https://x.com/baicai003)  
+
 A teaching repository for implementers who want to build a high-completion coding-agent harness from scratch.
 
 This repo does not try to mirror every product detail from a production codebase. It focuses on the mechanisms that actually decide whether an agent can work well:
