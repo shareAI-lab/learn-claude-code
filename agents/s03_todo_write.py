@@ -311,8 +311,7 @@ def agent_loop(messages: list) -> None:
             TODO.note_round_without_update()
             reminder = TODO.reminder()
             if reminder:
-                results.insert(0, {"type": "text", "text": reminder})
-
+                results.append({"type": "text", "text": reminder})
         messages.append({"role": "user", "content": results})
 
 
