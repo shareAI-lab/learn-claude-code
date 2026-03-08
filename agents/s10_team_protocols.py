@@ -58,8 +58,8 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
+# Note: For Ollama or other OpenAI-compatible APIs, 
+# set ANTHROPIC_AUTH_TOKEN to any non-empty value (e.g., "ollama")
 
 WORKDIR = Path.cwd()
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
