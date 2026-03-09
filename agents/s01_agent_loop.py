@@ -71,7 +71,7 @@ def call_openai_api(messages: list, tools: list = None):
     try:
         with httpx.Client(timeout=120.0) as client:
             response = client.post(
-                f"{BASE_URL}/v1/chat/completions",
+                f"{BASE_URL}/chat/completions",
                 headers=headers,
                 json=payload
             )
