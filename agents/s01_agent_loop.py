@@ -78,6 +78,9 @@ def call_openai_api(messages: list, tools: list = None):
             response.raise_for_status()
             return response.json()
     except Exception as e:
+        print(f"[DEBUG] API Error: {e}")
+        if hasattr(e, 'response'):
+            print(f"[DEBUG] Response body: {e.response.text}")
         raise Exception(f"API call failed: {e}")
 
 
@@ -151,5 +154,5 @@ if __name__ == "__main__":
         if last_message["role"] == "assistant" and last_message.get("content"):
             print(last_message["content"])
         
-        history = [msg for msg in messages if msg["role"] in ("user", "assistant")]
+        history = [msg for msg in messages if msg["role"] != "system"]
         print()
