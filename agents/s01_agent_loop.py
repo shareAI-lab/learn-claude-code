@@ -25,29 +25,60 @@ policy, hooks, and lifecycle controls on top.
 
 import os
 import subprocess
+import json
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+API_KEY = os.getenv("ANTHROPIC_API_KEY")
+BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
 MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = f"You are a coding agent at {os.getcwd()}. Use bash to solve tasks. Act, don't explain."
 
 TOOLS = [{
-    "name": "bash",
-    "description": "Run a shell command.",
-    "input_schema": {
-        "type": "object",
-        "properties": {"command": {"type": "string"}},
-        "required": ["command"],
+    "type": "function",
+    "function": {
+        "name": "bash",
+        "description": "Run a shell command.",
+        "parameters": {
+            "type": "object",
+            "properties": {"command": {"type": "string"}},
+            "required": ["command"],
+        },
     },
 }]
+
+def call_openai_api(messages: list, tools: list = None):
+    import httpx
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+    }
+    
+    payload = {
+        "model": MODEL,
+        "messages": messages,
+        "max_tokens": 8000,
+        "temperature": 0.5,
+        "stream": False,
+    }
+    
+    if tools:
+        payload["tools"] = tools
+    
+    try:
+        with httpx.Client(timeout=120.0) as client:
+            response = client.post(
+                f"{BASE_URL}/v1/chat/completions",
+                headers=headers,
+                json=payload
+            )
+            response.raise_for_status()
+            return response.json()
+    except Exception as e:
+        raise Exception(f"API call failed: {e}")
 
 
 def run_bash(command: str) -> str:
@@ -66,25 +97,38 @@ def run_bash(command: str) -> str:
 # -- The core pattern: a while loop that calls tools until the model stops --
 def agent_loop(messages: list):
     while True:
-        response = client.messages.create(
-            model=MODEL, system=SYSTEM, messages=messages,
-            tools=TOOLS, max_tokens=8000,
-        )
-        # Append assistant turn
-        messages.append({"role": "assistant", "content": response.content})
-        # If the model didn't call a tool, we're done
-        if response.stop_reason != "tool_use":
+        response_data = call_openai_api(messages, TOOLS)
+        
+        choice = response_data["choices"][0]
+        message = choice["message"]
+        
+        assistant_message = {"role": "assistant", "content": message.get("content", "")}
+        
+        if "tool_calls" in message:
+            assistant_message["tool_calls"] = message["tool_calls"]
+        
+        messages.append(assistant_message)
+        
+        if choice["finish_reason"] != "tool_calls":
             return
-        # Execute each tool call, collect results
+        
         results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                print(f"\033[33m$ {block.input['command']}\033[0m")
-                output = run_bash(block.input["command"])
+        for tool_call in message.get("tool_calls", []):
+            function_name = tool_call["function"]["name"]
+            if function_name == "bash":
+                arguments = json.loads(tool_call["function"]["arguments"])
+                command = arguments["command"]
+                print(f"\033[33m$ {command}\033[0m")
+                output = run_bash(command)
                 print(output[:200])
-                results.append({"type": "tool_result", "tool_use_id": block.id,
-                                "content": output})
-        messages.append({"role": "user", "content": results})
+                results.append({
+                    "tool_call_id": tool_call["id"],
+                    "role": "tool",
+                    "content": output
+                })
+        
+        if results:
+            messages.extend(results)
 
 
 if __name__ == "__main__":
@@ -96,11 +140,16 @@ if __name__ == "__main__":
             break
         if query.strip().lower() in ("q", "exit", ""):
             break
-        history.append({"role": "user", "content": query})
-        agent_loop(history)
-        response_content = history[-1]["content"]
-        if isinstance(response_content, list):
-            for block in response_content:
-                if hasattr(block, "text"):
-                    print(block.text)
+        
+        messages = [{"role": "system", "content": SYSTEM}]
+        messages.extend(history)
+        messages.append({"role": "user", "content": query})
+        
+        agent_loop(messages)
+        
+        last_message = messages[-1]
+        if last_message["role"] == "assistant" and last_message.get("content"):
+            print(last_message["content"])
+        
+        history = [msg for msg in messages if msg["role"] in ("user", "assistant")]
         print()
