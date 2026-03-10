@@ -2,8 +2,8 @@
 # Learn Claude Code -- A nano Claude Code-like agent, built from 0 to 1
 <img width="260" src="https://github.com/user-attachments/assets/fe8b852b-97da-4061-a467-9694906b5edf" /><br>
 
-Scan with Wechat to fellow us,  
-or fellow on X: [shareAI-Lab](https://x.com/baicai003)  
+Scan with Wechat to follow us,  
+or follow us on X(formerly Twitter): [shareAI-Lab](https://x.com/baicai003)  
 
 
 ```
@@ -25,7 +25,7 @@ or fellow on X: [shareAI-Lab](https://x.com/baicai003)
     Production agents add policy, permissions, and lifecycle layers.
 ```
 
-**12 progressive sessions, from a simple loop to isolated autonomous execution.**
+**12 progressive sessions, from a simple loop up to isolated autonomous execution.**
 **Each session adds one mechanism. Each mechanism has one motto.**
 
 > **s01** &nbsp; *"One loop & Bash is all you need"* &mdash; one tool + one loop = an agent
@@ -42,7 +42,7 @@ or fellow on X: [shareAI-Lab](https://x.com/baicai003)
 >
 > **s07** &nbsp; *"Break big goals into small tasks, order them, persist to disk"* &mdash; a file-based task graph with dependencies, laying the foundation for multi-agent collaboration
 >
-> **s08** &nbsp; *"Run slow operations in the background; the agent keeps thinking"* &mdash; daemon threads run commands, inject notifications on completion
+> **s08** &nbsp; *"Run slow operations in the background; the agent keeps thinking"* &mdash; daemon threads run commands, and inject notifications on completion
 >
 > **s09** &nbsp; *"When the task is too big for one, delegate to teammates"* &mdash; persistent teammates + async mailboxes
 >
