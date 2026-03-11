@@ -20,8 +20,9 @@ Every turn:
         |
         v
 [Layer 1: micro_compact]        (silent, every turn)
-  Replace tool_result > 3 turns old
+  Replace older non-read_file tool results
   with "[Previous: used {tool_name}]"
+  Keep read_file results intact as reference material
         |
         v
 [Check: tokens > 50000?]
@@ -42,19 +43,18 @@ continue    [Layer 2: auto_compact]
 
 ## 工作原理
 
-1. **第一层 -- micro_compact**: 每次 LLM 调用前, 将旧的 tool result 替换为占位符。
+1. **第一层 -- micro_compact**: 每次 LLM 调用前, 将旧的非 `read_file` tool result 替换为占位符, 同时保留先前的 `read_file` 输出作为参考材料。
 
 ```python
 def micro_compact(messages: list) -> list:
     tool_results = []
-    for i, msg in enumerate(messages):
-        if msg["role"] == "user" and isinstance(msg.get("content"), list):
-            for j, part in enumerate(msg["content"]):
-                if isinstance(part, dict) and part.get("type") == "tool_result":
-                    tool_results.append((i, j, part))
+    # ... 收集 tool_results 并构建 tool_name_map ...
     if len(tool_results) <= KEEP_RECENT:
         return messages
     for _, _, part in tool_results[:-KEEP_RECENT]:
+        tool_name = tool_name_map.get(part.get("tool_use_id", ""), "unknown")
+        if tool_name == "read_file":
+            continue
         if len(part.get("content", "")) > 100:
             part["content"] = f"[Previous: used {tool_name}]"
     return messages
@@ -107,7 +107,7 @@ def agent_loop(messages: list):
 |----------------|------------------|--------------------------------|
 | Tools          | 5                | 5 (基础 + compact)             |
 | 上下文管理     | 无               | 三层压缩                       |
-| Micro-compact  | 无               | 旧结果 -> 占位符               |
+| Micro-compact  | 无               | 旧的非 read_file 结果 -> 占位符；保留文件上下文 |
 | Auto-compact   | 无               | token 阈值触发                 |
 | Transcripts    | 无               | 保存到 .transcripts/           |
 
@@ -120,6 +120,6 @@ python agents/s06_context_compact.py
 
 试试这些 prompt (英文 prompt 对 LLM 效果更好, 也可以用中文):
 
-1. `Read every Python file in the agents/ directory one by one` (观察 micro-compact 替换旧结果)
+1. `Read every Python file in the agents/ directory one by one` (观察 micro-compact 保留旧的 `read_file` 上下文, 同时压缩更旧的命令输出)
 2. `Keep reading files until compression triggers automatically`
 3. `Use the compact tool to manually compress the conversation`

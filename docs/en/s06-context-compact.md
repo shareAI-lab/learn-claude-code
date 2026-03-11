@@ -20,8 +20,9 @@ Every turn:
         |
         v
 [Layer 1: micro_compact]        (silent, every turn)
-  Replace tool_result > 3 turns old
+  Replace older non-read_file tool results
   with "[Previous: used {tool_name}]"
+  Keep read_file results intact as reference material
         |
         v
 [Check: tokens > 50000?]
@@ -42,19 +43,18 @@ continue    [Layer 2: auto_compact]
 
 ## How It Works
 
-1. **Layer 1 -- micro_compact**: Before each LLM call, replace old tool results with placeholders.
+1. **Layer 1 -- micro_compact**: Before each LLM call, replace old non-`read_file` tool results with placeholders while preserving prior `read_file` output as reference material.
 
 ```python
 def micro_compact(messages: list) -> list:
     tool_results = []
-    for i, msg in enumerate(messages):
-        if msg["role"] == "user" and isinstance(msg.get("content"), list):
-            for j, part in enumerate(msg["content"]):
-                if isinstance(part, dict) and part.get("type") == "tool_result":
-                    tool_results.append((i, j, part))
+    # ... collect tool_results and build tool_name_map ...
     if len(tool_results) <= KEEP_RECENT:
         return messages
     for _, _, part in tool_results[:-KEEP_RECENT]:
+        tool_name = tool_name_map.get(part.get("tool_use_id", ""), "unknown")
+        if tool_name == "read_file":
+            continue
         if len(part.get("content", "")) > 100:
             part["content"] = f"[Previous: used {tool_name}]"
     return messages
@@ -107,7 +107,7 @@ Transcripts preserve full history on disk. Nothing is truly lost -- just moved o
 |----------------|------------------|----------------------------|
 | Tools          | 5                | 5 (base + compact)         |
 | Context mgmt   | None             | Three-layer compression    |
-| Micro-compact  | None             | Old results -> placeholders|
+| Micro-compact  | None             | Old non-read results -> placeholders; keep file context |
 | Auto-compact   | None             | Token threshold trigger    |
 | Transcripts    | None             | Saved to .transcripts/     |
 
@@ -118,6 +118,6 @@ cd learn-claude-code
 python agents/s06_context_compact.py
 ```
 
-1. `Read every Python file in the agents/ directory one by one` (watch micro-compact replace old results)
+1. `Read every Python file in the agents/ directory one by one` (watch micro-compact keep older `read_file` context while shrinking older command output)
 2. `Keep reading files until compression triggers automatically`
 3. `Use the compact tool to manually compress the conversation`

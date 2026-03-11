@@ -11,8 +11,9 @@ Three-layer compression pipeline so the agent can work forever:
             |
             v
     [Layer 1: micro_compact]        (silent, every turn)
-      Replace tool_result content older than last 3
+      Replace non-read_file tool_result content older than last 3
       with "[Previous: used {tool_name}]"
+      Keep read_file results intact as reference material
             |
             v
     [Check: tokens > 50000?]
@@ -56,6 +57,7 @@ SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks."
 THRESHOLD = 50000
 TRANSCRIPT_DIR = WORKDIR / ".transcripts"
 KEEP_RECENT = 3
+PRESERVE_RESULT_TOOLS = {"read_file"}
 
 
 def estimate_tokens(messages: list) -> int:
@@ -83,13 +85,18 @@ def micro_compact(messages: list) -> list:
                 for block in content:
                     if hasattr(block, "type") and block.type == "tool_use":
                         tool_name_map[block.id] = block.name
-    # Clear old results (keep last KEEP_RECENT)
+    # Clear old results (keep last KEEP_RECENT). Preserve read_file outputs because
+    # they are reference material; compacting them into placeholders can make the
+    # agent reread the same files and loop.
     to_clear = tool_results[:-KEEP_RECENT]
     for _, _, result in to_clear:
-        if isinstance(result.get("content"), str) and len(result["content"]) > 100:
-            tool_id = result.get("tool_use_id", "")
-            tool_name = tool_name_map.get(tool_id, "unknown")
-            result["content"] = f"[Previous: used {tool_name}]"
+        if not isinstance(result.get("content"), str) or len(result["content"]) <= 100:
+            continue
+        tool_id = result.get("tool_use_id", "")
+        tool_name = tool_name_map.get(tool_id, "unknown")
+        if tool_name in PRESERVE_RESULT_TOOLS:
+            continue
+        result["content"] = f"[Previous: used {tool_name}]"
     return messages
 
 
