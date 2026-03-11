@@ -78,6 +78,7 @@ class MessageBus:
     def __init__(self, inbox_dir: Path):
         self.dir = inbox_dir
         self.dir.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.Lock()
 
     def send(self, sender: str, to: str, content: str,
              msg_type: str = "message", extra: dict = None) -> str:
@@ -92,19 +93,26 @@ class MessageBus:
         if extra:
             msg.update(extra)
         inbox_path = self.dir / f"{to}.jsonl"
-        with open(inbox_path, "a") as f:
-            f.write(json.dumps(msg) + "\n")
+        with self._lock:
+            with open(inbox_path, "a") as f:
+                f.write(json.dumps(msg) + "\n")
         return f"Sent {msg_type} to {to}"
 
     def read_inbox(self, name: str) -> list:
         inbox_path = self.dir / f"{name}.jsonl"
         if not inbox_path.exists():
             return []
+        with self._lock:
+            content = inbox_path.read_text()
+            inbox_path.write_text("")
         messages = []
-        for line in inbox_path.read_text().strip().splitlines():
+        for line in content.splitlines():
+            line = line.strip()
             if line:
-                messages.append(json.loads(line))
-        inbox_path.write_text("")
+                try:
+                    messages.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
         return messages
 
     def broadcast(self, sender: str, content: str, teammates: list) -> str:
