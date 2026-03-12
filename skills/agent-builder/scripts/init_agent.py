@@ -76,7 +76,6 @@ if __name__ == "__main__":
     while (q := input(">> ").strip()) not in ("q", "quit", ""):
         print(run(q, h), "\\n")
 ''',
-
     1: '''#!/usr/bin/env python3
 """
 Level 1 Agent - Model as Agent (~200 lines)
@@ -112,7 +111,7 @@ TOOLS = [
     {{"name": "bash", "description": "Run shell command",
      "input_schema": {{"type": "object", "properties": {{"command": {{"type": "string"}}}}, "required": ["command"]}}}},
     {{"name": "read_file", "description": "Read file contents",
-     "input_schema": {{"type": "object", "properties": {{"path": {{"type": "string"}}}}, "required": ["path"]}}}},
+     "input_schema": {{"type": "object", "properties": {{"path": {{"type": "string"}}, "limit": {{"type": "integer"}}}}, "required": ["path"]}}}},
     {{"name": "write_file", "description": "Write content to file",
      "input_schema": {{"type": "object", "properties": {{"path": {{"type": "string"}}, "content": {{"type": "string"}}}}, "required": ["path", "content"]}}}},
     {{"name": "edit_file", "description": "Replace exact text in file",
@@ -142,7 +141,13 @@ def execute(name: str, args: dict) -> str:
 
     if name == "read_file":
         try:
-            return safe_path(args["path"]).read_text()[:50000]
+            lines = safe_path(args["path"]).read_text().splitlines()
+            limit = args.get("limit")
+            if limit is not None:
+                limit = max(0, int(limit))
+                if limit < len(lines):
+                    lines = lines[:limit] + [f"... ({{len(lines) - limit}} more lines)"]
+            return "\n".join(lines)[:50000]
         except Exception as e:
             return f"Error: {{e}}"
 
@@ -207,11 +212,11 @@ if __name__ == "__main__":
 ''',
 }
 
-ENV_TEMPLATE = '''# API Configuration
+ENV_TEMPLATE = """# API Configuration
 ANTHROPIC_API_KEY=sk-xxx
 ANTHROPIC_BASE_URL=https://api.anthropic.com
 MODEL_NAME=claude-sonnet-4-20250514
-'''
+"""
 
 
 def create_agent(name: str, level: int, output_dir: Path):
@@ -263,13 +268,22 @@ Levels:
   2  Todo (~300 lines)   - + TodoWrite for structured planning
   3  Subagent (~450)     - + Task tool for context isolation
   4  Skills (~550)       - + Skill tool for domain expertise
-        """
+        """,
     )
     parser.add_argument("name", help="Name of the agent to create")
-    parser.add_argument("--level", type=int, default=1, choices=[0, 1, 2, 3, 4],
-                       help="Complexity level (default: 1)")
-    parser.add_argument("--path", type=Path, default=Path.cwd(),
-                       help="Output directory (default: current directory)")
+    parser.add_argument(
+        "--level",
+        type=int,
+        default=1,
+        choices=[0, 1, 2, 3, 4],
+        help="Complexity level (default: 1)",
+    )
+    parser.add_argument(
+        "--path",
+        type=Path,
+        default=Path.cwd(),
+        help="Output directory (default: current directory)",
+    )
 
     args = parser.parse_args()
     create_agent(args.name, args.level, args.path)

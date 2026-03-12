@@ -22,10 +22,7 @@ BASH_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "command": {
-                "type": "string",
-                "description": "The shell command to execute"
-            }
+            "command": {"type": "string", "description": "The shell command to execute"}
         },
         "required": ["command"],
     },
@@ -37,13 +34,10 @@ READ_FILE_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "path": {
-                "type": "string",
-                "description": "Relative path to the file"
-            },
+            "path": {"type": "string", "description": "Relative path to the file"},
             "limit": {
                 "type": "integer",
-                "description": "Max lines to read (default: all)"
+                "description": "Max lines to read (default: all)",
             },
         },
         "required": ["path"],
@@ -56,14 +50,8 @@ WRITE_FILE_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "path": {
-                "type": "string",
-                "description": "Relative path for the file"
-            },
-            "content": {
-                "type": "string",
-                "description": "Content to write"
-            },
+            "path": {"type": "string", "description": "Relative path for the file"},
+            "content": {"type": "string", "description": "Content to write"},
         },
         "required": ["path", "content"],
     },
@@ -75,18 +63,12 @@ EDIT_FILE_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "path": {
-                "type": "string",
-                "description": "Relative path to the file"
-            },
+            "path": {"type": "string", "description": "Relative path to the file"},
             "old_text": {
                 "type": "string",
-                "description": "Exact text to find (must match precisely)"
+                "description": "Exact text to find (must match precisely)",
             },
-            "new_text": {
-                "type": "string",
-                "description": "Replacement text"
-            },
+            "new_text": {"type": "string", "description": "Replacement text"},
         },
         "required": ["path", "old_text", "new_text"],
     },
@@ -104,9 +86,18 @@ TODO_WRITE_TOOL = {
                 "items": {
                     "type": "object",
                     "properties": {
-                        "content": {"type": "string", "description": "Task description"},
-                        "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
-                        "activeForm": {"type": "string", "description": "Present tense, e.g. 'Reading files'"},
+                        "content": {
+                            "type": "string",
+                            "description": "Task description",
+                        },
+                        "status": {
+                            "type": "string",
+                            "enum": ["pending", "in_progress", "completed"],
+                        },
+                        "activeForm": {
+                            "type": "string",
+                            "description": "Present tense, e.g. 'Reading files'",
+                        },
                     },
                     "required": ["content", "status", "activeForm"],
                 },
@@ -138,6 +129,7 @@ TASK_TOOL = {
 # TOOL IMPLEMENTATIONS
 # =============================================================================
 
+
 def safe_path(p: str) -> Path:
     """
     Security: Ensure path stays within workspace.
@@ -164,12 +156,7 @@ def run_bash(command: str) -> str:
 
     try:
         result = subprocess.run(
-            command,
-            shell=True,
-            cwd=WORKDIR,
-            capture_output=True,
-            text=True,
-            timeout=60
+            command, shell=True, cwd=WORKDIR, capture_output=True, text=True, timeout=60
         )
         output = (result.stdout + result.stderr).strip()
         return output[:50000] if output else "(no output)"
@@ -180,7 +167,7 @@ def run_bash(command: str) -> str:
         return f"Error: {e}"
 
 
-def run_read_file(path: str, limit: int = None) -> str:
+def run_read_file(path: str, limit: int | None = None) -> str:
     """
     Read file contents with optional line limit.
 
@@ -193,9 +180,10 @@ def run_read_file(path: str, limit: int = None) -> str:
         text = safe_path(path).read_text()
         lines = text.splitlines()
 
-        if limit and limit < len(lines):
-            lines = lines[:limit]
-            lines.append(f"... ({len(text.splitlines()) - limit} more lines)")
+        if limit is not None:
+            limit = max(0, int(limit))
+            if limit < len(lines):
+                lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
 
         return "\n".join(lines)[:50000]
 
@@ -215,7 +203,7 @@ def run_write_file(path: str, content: str) -> str:
     try:
         fp = safe_path(path)
         fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
+        _ = fp.write_text(content)
         return f"Wrote {len(content)} bytes to {path}"
 
     except Exception as e:
@@ -239,7 +227,7 @@ def run_edit_file(path: str, old_text: str, new_text: str) -> str:
             return f"Error: Text not found in {path}"
 
         new_content = content.replace(old_text, new_text, 1)
-        fp.write_text(new_content)
+        _ = fp.write_text(new_content)
         return f"Edited {path}"
 
     except Exception as e:
@@ -250,7 +238,8 @@ def run_edit_file(path: str, old_text: str, new_text: str) -> str:
 # DISPATCHER PATTERN
 # =============================================================================
 
-def execute_tool(name: str, args: dict) -> str:
+
+def execute_tool(name: str, args: dict[str, object]) -> str:
     """
     Dispatch tool call to implementation.
 
@@ -260,12 +249,21 @@ def execute_tool(name: str, args: dict) -> str:
     3. Add case to this dispatcher
     """
     if name == "bash":
-        return run_bash(args["command"])
+        return run_bash(str(args["command"]))
     if name == "read_file":
-        return run_read_file(args["path"], args.get("limit"))
+        raw_limit = args.get("limit")
+        if raw_limit is None:
+            limit = None
+        elif isinstance(raw_limit, (int, str)):
+            limit = int(raw_limit)
+        else:
+            return "Error: limit must be an integer"
+        return run_read_file(str(args["path"]), limit)
     if name == "write_file":
-        return run_write_file(args["path"], args["content"])
+        return run_write_file(str(args["path"]), str(args["content"]))
     if name == "edit_file":
-        return run_edit_file(args["path"], args["old_text"], args["new_text"])
+        return run_edit_file(
+            str(args["path"]), str(args["old_text"]), str(args["new_text"])
+        )
     # Add more tools here...
     return f"Unknown tool: {name}"
