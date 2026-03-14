@@ -205,8 +205,6 @@ if __name__ == "__main__":
     while True:
         try:
             query = input("\033[36ms03 >> \033[0m")
-        except UnicodeDecodeError:
-            continue
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in ("q", "exit", ""):
