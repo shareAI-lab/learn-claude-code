@@ -93,11 +93,10 @@ def agent_loop(messages: list):
 
 
 if __name__ == "__main__":
-    if readline and "libedit" in (readline.__doc__ or ""):
-        readline.parse_and_bind("bind ^[[A ed-prev-history")
-        readline.parse_and_bind("bind ^[[B ed-next-history")
-        readline.parse_and_bind("bind ^[[C em-next-char")
-        readline.parse_and_bind("bind ^[[D ed-prev-char")
+    readline.parse_and_bind("bind ^[[A ed-prev-history")
+    readline.parse_and_bind("bind ^[[B ed-next-history")
+    readline.parse_and_bind("bind ^[[C em-next-char")
+    readline.parse_and_bind("bind ^[[D ed-prev-char")
     history = []
     while True:
         try:
