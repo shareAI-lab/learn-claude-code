@@ -49,6 +49,11 @@ import threading
 import time
 from pathlib import Path
 
+try:
+    import readline
+except Exception:
+    readline = None
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
@@ -381,10 +386,17 @@ def agent_loop(messages: list):
 
 
 if __name__ == "__main__":
+    if readline and "libedit" in (readline.__doc__ or ""):
+        readline.parse_and_bind("bind ^[[A ed-prev-history")
+        readline.parse_and_bind("bind ^[[B ed-next-history")
+        readline.parse_and_bind("bind ^[[C em-next-char")
+        readline.parse_and_bind("bind ^[[D ed-prev-char")
     history = []
     while True:
         try:
             query = input("\033[36ms09 >> \033[0m")
+        except UnicodeDecodeError:
+            continue
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in ("q", "exit", ""):
