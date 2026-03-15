@@ -26,6 +26,11 @@ policy, hooks, and lifecycle controls on top.
 import os
 import subprocess
 
+try:
+    import readline
+except Exception:
+    readline = None
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
 

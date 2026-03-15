@@ -45,6 +45,11 @@ import uuid
 from pathlib import Path
 from queue import Queue
 
+try:
+    import readline
+except Exception:
+    readline = None
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
 

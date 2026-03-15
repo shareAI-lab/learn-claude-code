@@ -36,6 +36,11 @@ import subprocess
 import time
 from pathlib import Path
 
+try:
+    import readline
+except Exception:
+    readline = None
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
