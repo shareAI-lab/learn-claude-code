@@ -763,10 +763,6 @@ def agent_loop(messages: list):
 
 
 if __name__ == "__main__":
-    readline.parse_and_bind("bind ^[[A ed-prev-history")
-    readline.parse_and_bind("bind ^[[B ed-next-history")
-    readline.parse_and_bind("bind ^[[C em-next-char")
-    readline.parse_and_bind("bind ^[[D ed-prev-char")
     print(f"Repo root for s12: {REPO_ROOT}")
     if not WORKTREES.git_available:
         print("Note: Not in a git repo. worktree_* tools will return errors.")

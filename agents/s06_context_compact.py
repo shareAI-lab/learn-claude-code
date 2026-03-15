@@ -201,6 +201,7 @@ def agent_loop(messages: list):
         # Layer 1: micro_compact before each LLM call
         micro_compact(messages)
         # Layer 2: auto_compact if token estimate exceeds threshold
+        print(f"\033[33m$ Input tokens: {estimate_tokens(messages)}\033[0m")
         if estimate_tokens(messages) > THRESHOLD:
             print("[auto_compact triggered]")
             messages[:] = auto_compact(messages)
@@ -216,6 +217,7 @@ def agent_loop(messages: list):
         for block in response.content:
             if block.type == "tool_use":
                 if block.name == "compact":
+                    print(f"\033[33m$ Compact: {block.input['focus']}\033[0m")
                     manual_compact = True
                     output = "Compressing..."
                 else:
@@ -234,10 +236,6 @@ def agent_loop(messages: list):
 
 
 if __name__ == "__main__":
-    readline.parse_and_bind("bind ^[[A ed-prev-history")
-    readline.parse_and_bind("bind ^[[B ed-next-history")
-    readline.parse_and_bind("bind ^[[C em-next-char")
-    readline.parse_and_bind("bind ^[[D ed-prev-char")
     history = []
     while True:
         try:
