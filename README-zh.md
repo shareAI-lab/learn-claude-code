@@ -1,6 +1,6 @@
 # Learn Claude Code -- 从 0 到 1 构建 nano Claude Code-like agent
 
-[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
+[English](./README.md) | [简体中文](./README-zh.md) | [日本語](./README-ja.md) | [繁體中文](./README-zhtw.md)
 
 ```
                     THE AGENT PATTERN
