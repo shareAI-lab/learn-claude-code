@@ -98,7 +98,7 @@ def agent_loop(query):
 |---------------|------------|--------------------------------|
 | Agent loop    | (none)     | `while True` + stop_reason     |
 | Tools         | (none)     | `bash` (one tool)              |
-| Messages      | (none)     | 累積訊息佇列                    |
+| Messages      | (none)     | 累積訊息佇列                     |
 | Control flow  | (none)     | `stop_reason != "tool_use"`    |
 
 ## 動手試試

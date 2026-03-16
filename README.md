@@ -161,7 +161,7 @@ learn-claude-code/
 ## Documentation
 
 Mental-model-first: problem, solution, ASCII diagram, minimal code.
-Available in [English](./docs/en/) | | [简体中文](./docs/zh/) | [日本語](./docs/ja/). | [繁體中文](./docs/zhtw/)
+Available in [English](./docs/en/) | [简体中文](./docs/zh/) | [日本語](./docs/ja/). | [繁體中文](./docs/zhtw/)
 
 | Session | Topic | Motto |
 |---------|-------|-------|
