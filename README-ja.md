@@ -1,6 +1,6 @@
 # Learn Claude Code -- 0 から 1 へ構築する nano Claude Code-like agent
 
-[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
+[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md) | [Русский](./README-ru.md)
 
 ```
                     THE AGENT PATTERN
@@ -84,7 +84,7 @@ def agent_loop(messages):
 このリポジトリは、nano Claude Code-like agent を 0->1 で構築・学習するための教材プロジェクトです。
 学習を優先するため、以下の本番メカニズムは意図的に簡略化または省略しています。
 
-- 完全なイベント / Hook バス (例: PreToolUse, SessionStart/End, ConfigChange)。  
+- 完全なイベント / Hook バス (例: PreToolUse, SessionStart/End, ConfigChange)。
   s12 では教材用に最小の追記型ライフサイクルイベントのみ実装している。
 - ルールベースの権限ガバナンスと信頼フロー
 - セッションライフサイクル制御 (resume/fork) と高度な worktree ライフサイクル制御
@@ -153,7 +153,7 @@ s08  バックグラウンドタスク   [6]     s10  チームプロトコル  
 learn-claude-code/
 |
 |-- agents/                        # Python リファレンス実装 (s01-s12 + s_full 総括)
-|-- docs/{en,zh,ja}/               # メンタルモデル優先のドキュメント (3言語)
+|-- docs/{en,zh,ru,ja}/               # メンタルモデル優先のドキュメント (3言語)
 |-- web/                           # インタラクティブ学習プラットフォーム (Next.js)
 |-- skills/                        # s05 の Skill ファイル
 +-- .github/workflows/ci.yml      # CI: 型チェック + ビルド

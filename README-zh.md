@@ -1,6 +1,6 @@
 # Learn Claude Code -- 从 0 到 1 构建 nano Claude Code-like agent
 
-[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
+[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md) | [Русский](./README-ru.md)
 
 ```
                     THE AGENT PATTERN
@@ -84,7 +84,7 @@ def agent_loop(messages):
 本仓库是一个 0->1 的学习型项目，用于从零构建 nano Claude Code-like agent。
 为保证学习路径清晰，仓库有意简化或省略了部分生产机制：
 
-- 完整事件 / Hook 总线 (例如 PreToolUse、SessionStart/End、ConfigChange)。  
+- 完整事件 / Hook 总线 (例如 PreToolUse、SessionStart/End、ConfigChange)。
   s12 仅提供教学用途的最小 append-only 生命周期事件流。
 - 基于规则的权限治理与信任流程
 - 会话生命周期控制 (resume/fork) 与更完整的 worktree 生命周期控制
@@ -153,7 +153,7 @@ s08  后台任务                [6]     s10  团队协议               [12]
 learn-claude-code/
 |
 |-- agents/                        # Python 参考实现 (s01-s12 + s_full 总纲)
-|-- docs/{en,zh,ja}/               # 心智模型优先的文档 (3 种语言)
+|-- docs/{en,zh,ru,ja}/               # 心智模型优先的文档 (3 种语言)
 |-- web/                           # 交互式学习平台 (Next.js)
 |-- skills/                        # s05 的 Skill 文件
 +-- .github/workflows/ci.yml      # CI: 类型检查 + 构建
