@@ -40,6 +40,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import yaml
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
@@ -75,11 +77,7 @@ class SkillLoader:
         match = re.match(r"^---\n(.*?)\n---\n(.*)", text, re.DOTALL)
         if not match:
             return {}, text
-        meta = {}
-        for line in match.group(1).strip().splitlines():
-            if ":" in line:
-                key, val = line.split(":", 1)
-                meta[key.strip()] = val.strip()
+        meta = yaml.safe_load(match.group(1)) or {}
         return meta, match.group(2).strip()
 
     def get_descriptions(self) -> str:
