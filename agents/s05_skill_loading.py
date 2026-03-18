@@ -71,15 +71,44 @@ class SkillLoader:
             self.skills[name] = {"meta": meta, "body": body, "path": str(f)}
 
     def _parse_frontmatter(self, text: str) -> tuple:
-        """Parse YAML frontmatter between --- delimiters."""
+        """Parse YAML frontmatter between --- delimiters.
+
+        Handles both inline values (``key: value``) and YAML block scalars
+        (``key: |`` / ``key: >`` followed by indented continuation lines).
+        """
         match = re.match(r"^---\n(.*?)\n---\n(.*)", text, re.DOTALL)
         if not match:
             return {}, text
-        meta = {}
-        for line in match.group(1).strip().splitlines():
-            if ":" in line:
-                key, val = line.split(":", 1)
-                meta[key.strip()] = val.strip()
+        meta: dict[str, str] = {}
+        current_key = None
+        block_lines: list[str] = []
+        for line in match.group(1).splitlines():
+            stripped = line.strip()
+            if not stripped:
+                if current_key and block_lines:
+                    block_lines.append("")
+                continue
+            is_continuation = line.startswith((" ", "\t")) and current_key is not None
+            if is_continuation:
+                block_lines.append(stripped)
+            elif ":" in stripped:
+                if current_key and block_lines:
+                    meta[current_key] = "\n".join(block_lines)
+                    block_lines = []
+                key, val = stripped.split(":", 1)
+                current_key = key.strip()
+                val = val.strip()
+                if val in ("|", ">"):
+                    block_lines = []
+                else:
+                    meta[current_key] = val
+                    current_key = None
+                    block_lines = []
+            else:
+                if current_key:
+                    block_lines.append(stripped)
+        if current_key and block_lines:
+            meta[current_key] = "\n".join(block_lines)
         return meta, match.group(2).strip()
 
     def get_descriptions(self) -> str:
