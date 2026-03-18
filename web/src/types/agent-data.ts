@@ -70,3 +70,59 @@ export interface FlowEdge {
   to: string;
   label?: string;
 }
+
+export interface TraceToolExecution {
+  name: string;
+  input: Record<string, unknown>;
+  output: string;
+}
+
+export interface TraceContentBlock {
+  type: string;
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+  raw?: string;
+}
+
+export interface TraceUsage {
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export interface TraceRequest {
+  model: string;
+  system: string;
+  messages: unknown[];
+  tools: unknown[];
+  max_tokens: number;
+}
+
+export interface TraceResponse {
+  id: string;
+  type: string;
+  role: string;
+  model: string;
+  stop_reason: string;
+  content: TraceContentBlock[];
+  usage: TraceUsage;
+}
+
+export interface TraceCycle {
+  cycle: number;
+  elapsed_ms: number;
+  request: TraceRequest;
+  response: TraceResponse;
+  tool_executions: TraceToolExecution[];
+}
+
+export interface ApiTrace {
+  version: string;
+  prompt: string;
+  model: string;
+  total_cycles: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  cycles: TraceCycle[];
+}

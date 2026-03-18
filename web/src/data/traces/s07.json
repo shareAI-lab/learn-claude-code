@@ -1,0 +1,498 @@
+{
+  "version": "s07",
+  "prompt": "Create 3 tasks: Setup",
+  "model": "MiniMax-M2.5",
+  "total_cycles": 2,
+  "total_input_tokens": 868,
+  "total_output_tokens": 222,
+  "cycles": [
+    {
+      "cycle": 1,
+      "elapsed_ms": 26102,
+      "request": {
+        "model": "MiniMax-M2.5",
+        "system": "You are a coding agent at /home/user/learn-claude-code. Use task tools to plan and track work.",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Create 3 tasks: Setup"
+          }
+        ],
+        "tools": [
+          {
+            "name": "bash",
+            "description": "Run a shell command.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          },
+          {
+            "name": "read_file",
+            "description": "Read file contents.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "limit": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path"
+              ]
+            }
+          },
+          {
+            "name": "write_file",
+            "description": "Write content to file.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "content"
+              ]
+            }
+          },
+          {
+            "name": "edit_file",
+            "description": "Replace exact text in file.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "old_text": {
+                  "type": "string"
+                },
+                "new_text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "old_text",
+                "new_text"
+              ]
+            }
+          },
+          {
+            "name": "task_create",
+            "description": "Create a new task.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "subject": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "subject"
+              ]
+            }
+          },
+          {
+            "name": "task_update",
+            "description": "Update a task's status or dependencies.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "task_id": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "in_progress",
+                    "completed"
+                  ]
+                },
+                "addBlockedBy": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                },
+                "addBlocks": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "required": [
+                "task_id"
+              ]
+            }
+          },
+          {
+            "name": "task_list",
+            "description": "List all tasks with status summary.",
+            "input_schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          {
+            "name": "task_get",
+            "description": "Get full details of a task by ID.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "task_id": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "task_id"
+              ]
+            }
+          }
+        ],
+        "max_tokens": 8000
+      },
+      "response": {
+        "id": "0609f00066a9ff6ffbfadc9fc6923645",
+        "type": "message",
+        "role": "assistant",
+        "model": "MiniMax-M2.5",
+        "stop_reason": "tool_use",
+        "content": [
+          {
+            "type": "unknown",
+            "raw": "ThinkingBlock(signature='83f48146398e3d1bec1d3a14edae7d4ec8c6ed976bca6d9c6838c97cc1cbe9bb', thinking='The user wants me to create 3 tasks related to \"Setup\". I\\'ll create tasks for setting up a project environment.', type='thinking')"
+          },
+          {
+            "type": "tool_use",
+            "id": "call_function_aozvv99tfscq_1",
+            "name": "task_create",
+            "input": {
+              "description": "Install and configure Python environment",
+              "subject": "Setup Python environment"
+            }
+          },
+          {
+            "type": "tool_use",
+            "id": "call_function_aozvv99tfscq_2",
+            "name": "task_create",
+            "input": {
+              "description": "Install required dependencies and packages",
+              "subject": "Install dependencies"
+            }
+          },
+          {
+            "type": "tool_use",
+            "id": "call_function_aozvv99tfscq_3",
+            "name": "task_create",
+            "input": {
+              "description": "Configure project settings and initial files",
+              "subject": "Configure project settings"
+            }
+          }
+        ],
+        "usage": {
+          "input_tokens": 662,
+          "output_tokens": 139
+        }
+      },
+      "tool_executions": [
+        {
+          "name": "task_create",
+          "input": {
+            "description": "Install and configure Python environment",
+            "subject": "Setup Python environment"
+          },
+          "output": "{\n  \"id\": 1,\n  \"subject\": \"Setup Python environment\",\n  \"description\": \"Install and configure Python environment\",\n  \"status\": \"pending\",\n  \"blockedBy\": [],\n  \"blocks\": [],\n  \"owner\": \"\"\n}"
+        },
+        {
+          "name": "task_create",
+          "input": {
+            "description": "Install required dependencies and packages",
+            "subject": "Install dependencies"
+          },
+          "output": "{\n  \"id\": 2,\n  \"subject\": \"Install dependencies\",\n  \"description\": \"Install required dependencies and packages\",\n  \"status\": \"pending\",\n  \"blockedBy\": [],\n  \"blocks\": [],\n  \"owner\": \"\"\n}"
+        },
+        {
+          "name": "task_create",
+          "input": {
+            "description": "Configure project settings and initial files",
+            "subject": "Configure project settings"
+          },
+          "output": "{\n  \"id\": 3,\n  \"subject\": \"Configure project settings\",\n  \"description\": \"Configure project settings and initial files\",\n  \"status\": \"pending\",\n  \"blockedBy\": [],\n  \"blocks\": [],\n  \"owner\": \"\"\n}"
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "elapsed_ms": 2122,
+      "request": {
+        "model": "MiniMax-M2.5",
+        "system": "You are a coding agent at /home/user/learn-claude-code. Use task tools to plan and track work.",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Create 3 tasks: Setup"
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "signature": "83f48146398e3d1bec1d3a14edae7d4ec8c6ed976bca6d9c6838c97cc1cbe9bb",
+                "thinking": "The user wants me to create 3 tasks related to \"Setup\". I'll create tasks for setting up a project environment.",
+                "type": "thinking"
+              },
+              {
+                "id": "call_function_aozvv99tfscq_1",
+                "caller": null,
+                "input": {
+                  "description": "Install and configure Python environment",
+                  "subject": "Setup Python environment"
+                },
+                "name": "task_create",
+                "type": "tool_use"
+              },
+              {
+                "id": "call_function_aozvv99tfscq_2",
+                "caller": null,
+                "input": {
+                  "description": "Install required dependencies and packages",
+                  "subject": "Install dependencies"
+                },
+                "name": "task_create",
+                "type": "tool_use"
+              },
+              {
+                "id": "call_function_aozvv99tfscq_3",
+                "caller": null,
+                "input": {
+                  "description": "Configure project settings and initial files",
+                  "subject": "Configure project settings"
+                },
+                "name": "task_create",
+                "type": "tool_use"
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "call_function_aozvv99tfscq_1",
+                "content": "{\n  \"id\": 1,\n  \"subject\": \"Setup Python environment\",\n  \"description\": \"Install and configure Python environment\",\n  \"status\": \"pending\",\n  \"blockedBy\": [],\n  \"blocks\": [],\n  \"owner\": \"\"\n}"
+              },
+              {
+                "type": "tool_result",
+                "tool_use_id": "call_function_aozvv99tfscq_2",
+                "content": "{\n  \"id\": 2,\n  \"subject\": \"Install dependencies\",\n  \"description\": \"Install required dependencies and packages\",\n  \"status\": \"pending\",\n  \"blockedBy\": [],\n  \"blocks\": [],\n  \"owner\": \"\"\n}"
+              },
+              {
+                "type": "tool_result",
+                "tool_use_id": "call_function_aozvv99tfscq_3",
+                "content": "{\n  \"id\": 3,\n  \"subject\": \"Configure project settings\",\n  \"description\": \"Configure project settings and initial files\",\n  \"status\": \"pending\",\n  \"blockedBy\": [],\n  \"blocks\": [],\n  \"owner\": \"\"\n}"
+              }
+            ]
+          }
+        ],
+        "tools": [
+          {
+            "name": "bash",
+            "description": "Run a shell command.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          },
+          {
+            "name": "read_file",
+            "description": "Read file contents.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "limit": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path"
+              ]
+            }
+          },
+          {
+            "name": "write_file",
+            "description": "Write content to file.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "content"
+              ]
+            }
+          },
+          {
+            "name": "edit_file",
+            "description": "Replace exact text in file.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "old_text": {
+                  "type": "string"
+                },
+                "new_text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "old_text",
+                "new_text"
+              ]
+            }
+          },
+          {
+            "name": "task_create",
+            "description": "Create a new task.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "subject": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "subject"
+              ]
+            }
+          },
+          {
+            "name": "task_update",
+            "description": "Update a task's status or dependencies.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "task_id": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "in_progress",
+                    "completed"
+                  ]
+                },
+                "addBlockedBy": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                },
+                "addBlocks": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "required": [
+                "task_id"
+              ]
+            }
+          },
+          {
+            "name": "task_list",
+            "description": "List all tasks with status summary.",
+            "input_schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          {
+            "name": "task_get",
+            "description": "Get full details of a task by ID.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "task_id": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "task_id"
+              ]
+            }
+          }
+        ],
+        "max_tokens": 8000
+      },
+      "response": {
+        "id": "0609f01a26d6c2dfe6fd5b6cad6bbf33",
+        "type": "message",
+        "role": "assistant",
+        "model": "MiniMax-M2.5",
+        "stop_reason": "end_turn",
+        "content": [
+          {
+            "type": "unknown",
+            "raw": "ThinkingBlock(signature='be49ae2225ffcd92d6a3afc8b2ceae5910759c5e9d18964ae15e8ab6bee32525', thinking=\"I've created the 3 setup tasks successfully. Let me summarize what was created for the user.\", type='thinking')"
+          },
+          {
+            "type": "text",
+            "text": "Created 3 setup tasks:\n\n| ID | Subject | Description |\n|----|---------|-------------|\n| 1 | Setup Python environment | Install and configure Python environment |\n| 2 | Install dependencies | Install required dependencies and packages |\n| 3 | Configure project settings | Configure project settings and initial files |"
+          }
+        ],
+        "usage": {
+          "input_tokens": 206,
+          "output_tokens": 83
+        }
+      },
+      "tool_executions": []
+    }
+  ]
+}

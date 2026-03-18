@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { ArchDiagram } from "@/components/architecture/arch-diagram";
 import { WhatsNew } from "@/components/diff/whats-new";
 import { DesignDecisions } from "@/components/architecture/design-decisions";
@@ -10,6 +11,11 @@ import { ExecutionFlow } from "@/components/architecture/execution-flow";
 import { SessionVisualization } from "@/components/visualizations";
 import { Tabs } from "@/components/ui/tabs";
 import { useTranslations } from "@/lib/i18n";
+
+const ApiInspector = dynamic(
+  () => import("@/components/inspector/api-inspector").then((m) => m.ApiInspector),
+  { ssr: false }
+);
 
 interface VersionDetailClientProps {
   version: string;
@@ -36,6 +42,7 @@ export function VersionDetailClient({
   const tabs = [
     { id: "learn", label: t("tab_learn") },
     { id: "simulate", label: t("tab_simulate") },
+    { id: "inspect", label: t("tab_inspect") },
     { id: "code", label: t("tab_code") },
     { id: "deep-dive", label: t("tab_deep_dive") },
   ];
@@ -52,6 +59,9 @@ export function VersionDetailClient({
             {activeTab === "learn" && <DocRenderer version={version} />}
             {activeTab === "simulate" && (
               <AgentLoopSimulator version={version} />
+            )}
+            {activeTab === "inspect" && (
+              <ApiInspector version={version} />
             )}
             {activeTab === "code" && (
               <SourceViewer source={source} filename={filename} />
