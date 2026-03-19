@@ -8,7 +8,8 @@
     "dev": "next dev",
     "prebuild": "npm run extract",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "tsx src/lib/diff-utils.test.ts"
   },
   "dependencies": {
     "diff": "^8.0.3",

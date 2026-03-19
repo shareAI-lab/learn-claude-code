@@ -23,6 +23,8 @@ interface VersionDetailClientProps {
   } | null;
   source: string;
   filename: string;
+  prevSource?: string;
+  prevFilename?: string;
 }
 
 export function VersionDetailClient({
@@ -30,6 +32,8 @@ export function VersionDetailClient({
   diff,
   source,
   filename,
+  prevSource,
+  prevFilename,
 }: VersionDetailClientProps) {
   const t = useTranslations("version");
 
@@ -54,7 +58,12 @@ export function VersionDetailClient({
               <AgentLoopSimulator version={version} />
             )}
             {activeTab === "code" && (
-              <SourceViewer source={source} filename={filename} />
+              <SourceViewer
+                source={source}
+                filename={filename}
+                prevSource={prevSource}
+                prevFilename={prevFilename}
+              />
             )}
             {activeTab === "deep-dive" && (
               <div className="space-y-8">

@@ -41,6 +41,10 @@ export default async function VersionPage({
       ? LEARNING_PATH[pathIndex + 1]
       : null;
 
+  const prevVersionData = prevVersion
+    ? versionsData.versions.find((v) => v.id === prevVersion)
+    : null;
+
   return (
     <div className="mx-auto max-w-3xl space-y-10 py-4">
       {/* Header */}
@@ -79,6 +83,8 @@ export default async function VersionPage({
         diff={diff}
         source={versionData.source}
         filename={versionData.filename}
+        prevSource={prevVersionData?.source}
+        prevFilename={prevVersionData?.filename}
       />
 
       {/* Prev / Next navigation */}
