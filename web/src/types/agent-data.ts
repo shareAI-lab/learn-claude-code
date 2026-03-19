@@ -23,6 +23,13 @@ export interface VersionDiff {
   locDelta: number;
 }
 
+export interface VersionCompareTarget {
+  id: string;
+  label: string;
+  filename: string;
+  source: string;
+}
+
 export interface DocContent {
   version: string;
   locale: "en" | "zh" | "ja";

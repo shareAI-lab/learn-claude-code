@@ -10,6 +10,7 @@ import { ExecutionFlow } from "@/components/architecture/execution-flow";
 import { SessionVisualization } from "@/components/visualizations";
 import { Tabs } from "@/components/ui/tabs";
 import { useTranslations } from "@/lib/i18n";
+import type { VersionCompareTarget } from "@/types/agent-data";
 
 interface VersionDetailClientProps {
   version: string;
@@ -23,8 +24,9 @@ interface VersionDetailClientProps {
   } | null;
   source: string;
   filename: string;
-  prevSource?: string;
-  prevFilename?: string;
+  currentVersionId: string;
+  defaultCompareVersionId?: string | null;
+  compareTargets: VersionCompareTarget[];
 }
 
 export function VersionDetailClient({
@@ -32,8 +34,9 @@ export function VersionDetailClient({
   diff,
   source,
   filename,
-  prevSource,
-  prevFilename,
+  currentVersionId,
+  defaultCompareVersionId,
+  compareTargets,
 }: VersionDetailClientProps) {
   const t = useTranslations("version");
 
@@ -61,8 +64,9 @@ export function VersionDetailClient({
               <SourceViewer
                 source={source}
                 filename={filename}
-                prevSource={prevSource}
-                prevFilename={prevFilename}
+                currentVersionId={currentVersionId}
+                defaultCompareVersionId={defaultCompareVersionId}
+                compareTargets={compareTargets}
               />
             )}
             {activeTab === "deep-dive" && (

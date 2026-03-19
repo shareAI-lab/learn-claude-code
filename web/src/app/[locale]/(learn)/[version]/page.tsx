@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LEARNING_PATH, VERSION_META, LAYERS } from "@/lib/constants";
 import { LayerBadge } from "@/components/ui/badge";
 import versionsData from "@/data/generated/versions.json";
+import type { VersionCompareTarget } from "@/types/agent-data";
 import { VersionDetailClient } from "./client";
 import { getTranslations } from "@/lib/i18n-server";
 
@@ -35,15 +36,25 @@ export default async function VersionPage({
   const layer = LAYERS.find((l) => l.id === meta.layer);
 
   const pathIndex = LEARNING_PATH.indexOf(version as typeof LEARNING_PATH[number]);
-  const prevVersion = pathIndex > 0 ? LEARNING_PATH[pathIndex - 1] : null;
+  const prevVersion = meta.prevVersion;
   const nextVersion =
     pathIndex < LEARNING_PATH.length - 1
       ? LEARNING_PATH[pathIndex + 1]
       : null;
 
-  const prevVersionData = prevVersion
-    ? versionsData.versions.find((v) => v.id === prevVersion)
-    : null;
+  const compareTargets: VersionCompareTarget[] = LEARNING_PATH
+    .filter((id) => id !== version)
+    .flatMap((id) => {
+      const target = versionsData.versions.find((v) => v.id === id);
+      if (!target) return [];
+
+      return [{
+        id,
+        label: `${id} - ${tSession(id) || VERSION_META[id]?.title || id}`,
+        filename: target.filename,
+        source: target.source,
+      }];
+    });
 
   return (
     <div className="mx-auto max-w-3xl space-y-10 py-4">
@@ -83,8 +94,9 @@ export default async function VersionPage({
         diff={diff}
         source={versionData.source}
         filename={versionData.filename}
-        prevSource={prevVersionData?.source}
-        prevFilename={prevVersionData?.filename}
+        currentVersionId={version}
+        defaultCompareVersionId={prevVersion}
+        compareTargets={compareTargets}
       />
 
       {/* Prev / Next navigation */}
