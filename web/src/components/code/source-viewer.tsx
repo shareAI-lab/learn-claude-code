@@ -189,24 +189,6 @@ function CompareDropdown({
             className="absolute right-0 top-full mt-1.5 w-64 bg-zinc-900/95 backdrop-blur-md border border-zinc-800/80 rounded-md shadow-2xl z-50 overflow-hidden"
           >
             <div className="max-h-[300px] overflow-y-auto py-1">
-              <button
-                onClick={() => {
-                  onChange("");
-                  setIsOpen(false);
-                }}
-                className={cn(
-                  "flex items-center w-full px-3 py-2 text-left text-[11px] transition-colors",
-                  value === ""
-                    ? "bg-zinc-800 text-white font-medium"
-                    : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200",
-                )}
-              >
-                <span className="flex-1 truncate">{placeholder}</span>
-                {value === "" && (
-                  <Check className="w-3.5 h-3.5 text-zinc-300 ml-2 shrink-0" />
-                )}
-              </button>
-
               {options.map((opt) => (
                 <button
                   key={opt.id}
@@ -259,12 +241,6 @@ export function SourceViewer({
   );
   const canDiff = !!selectedBase;
 
-  useEffect(() => {
-    if (viewMode === "diff" && !canDiff) {
-      setViewMode("source");
-    }
-  }, [canDiff, viewMode]);
-
   const diffRows = useMemo(() => {
     if (viewMode === "diff" && selectedBase) {
       return computeDiffRows(selectedBase.source, source);
@@ -294,7 +270,7 @@ export function SourceViewer({
         <div className="ml-auto flex flex-wrap items-center justify-end gap-4">
           <AnimatePresence>
             {viewMode === "diff" && compareTargets.length > 0 && (
-              <motion.label
+              <motion.div
                 initial={{ opacity: 0, x: 10, filter: "blur(4px)" }}
                 animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
                 exit={{
@@ -315,7 +291,7 @@ export function SourceViewer({
                   onChange={setSelectedBaseId}
                   placeholder={t("select_compare_target") || "Select version"}
                 />
-              </motion.label>
+              </motion.div>
             )}
           </AnimatePresence>
 
@@ -343,18 +319,19 @@ export function SourceViewer({
                 </span>
               </button>
               <button
-                onClick={() => canDiff && setViewMode("diff")}
-                disabled={!canDiff}
+                onClick={() => {
+                  if (!canDiff) {
+                    const fallback = defaultCompareVersionId || compareTargets[0]?.id;
+                    if (fallback) setSelectedBaseId(fallback);
+                  }
+                  setViewMode("diff");
+                }}
                 className={cn(
                   "relative px-4 py-1.5 text-[10px] uppercase tracking-[0.1em] font-bold outline-none transition-colors rounded-sm",
-                  !canDiff && "cursor-not-allowed text-zinc-700",
-                  canDiff && viewMode === "diff" ? "text-zinc-100" : "",
-                  canDiff && viewMode !== "diff"
-                    ? "text-zinc-500 hover:text-zinc-300"
-                    : "",
+                  viewMode === "diff" ? "text-zinc-100" : "text-zinc-500 hover:text-zinc-300",
                 )}
               >
-                {viewMode === "diff" && canDiff && (
+                {viewMode === "diff" && (
                   <motion.div
                     layoutId="active-pill-source-viewer"
                     className="absolute inset-0 rounded-sm bg-zinc-800 shadow-[0_1px_2px_rgba(0,0,0,0.5)] border border-zinc-700/50"
@@ -405,6 +382,17 @@ export function SourceViewer({
                   ))}
                 </code>
               </motion.pre>
+            ) : !canDiff ? (
+              <motion.div
+                key="diff-empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center justify-center py-20 text-zinc-500 text-sm"
+              >
+                {t("select_compare_target") || "Select a version to compare"}
+              </motion.div>
             ) : (
               <motion.pre
                 key="diff"
