@@ -26,9 +26,14 @@ policy, hooks, and lifecycle controls on top.
 
 import os
 import subprocess
+from typing import Any, cast
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
+
+
+# Type alias for tools - using Any to avoid Pylance type issues with dict-based tools
+ToolDef = Any
 
 load_dotenv(override=True)
 
@@ -40,7 +45,8 @@ MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = f"You are a coding agent at {os.getcwd()}. Use bash to solve tasks. Act, don't explain."
 
-TOOLS = [{
+# Using dict format for tools - this is the standard format accepted by Anthropic SDK
+TOOLS: list[ToolDef] = [{
     "name": "bash",
     "description": "Run a shell command.",
     "input_schema": {
@@ -57,9 +63,8 @@ def run_bash(command: str) -> str:
         return "Error: Dangerous command blocked"
     try:
         r = subprocess.run(command, shell=True, cwd=os.getcwd(),
-                           capture_output=True, text=True, timeout=120)
-        out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
+        return r.stdout[:50000] if r.stdout else "(no output)"
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
 
@@ -80,8 +85,10 @@ def agent_loop(messages: list):
         results = []
         for block in response.content:
             if block.type == "tool_use":
-                print(f"\033[33m$ {block.input['command']}\033[0m")
-                output = run_bash(block.input["command"])
+                tool_input: dict[str, Any] = cast(dict[str, Any], block.input)
+                command: str = cast(str, tool_input.get("command", ""))
+                print(f"\033[33m$ {command}\033[0m")
+                output = run_bash(command)
                 print(output[:200])
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": output})
