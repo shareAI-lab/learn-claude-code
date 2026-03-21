@@ -48,9 +48,11 @@ Trackers:
 shutdown_requests = {}
 
 def handle_shutdown_request(teammate: str) -> str:
+    # request_id is the correlation key for the whole handshake.
     req_id = str(uuid.uuid4())[:8]
     shutdown_requests[req_id] = {"target": teammate, "status": "pending"}
     BUS.send("lead", teammate, "Please shut down gracefully.",
+             # The request travels through the same mailbox channel as normal mail.
              "shutdown_request", {"request_id": req_id})
     return f"Shutdown request {req_id} sent (status: pending)"
 ```
@@ -61,6 +63,7 @@ def handle_shutdown_request(teammate: str) -> str:
 if tool_name == "shutdown_response":
     req_id = args["request_id"]
     approve = args["approve"]
+    # Update the tracker before forwarding the teammate's final answer.
     shutdown_requests[req_id]["status"] = "approved" if approve else "rejected"
     BUS.send(sender, "lead", args.get("reason", ""),
              "shutdown_response",
@@ -74,6 +77,7 @@ plan_requests = {}
 
 def handle_plan_review(request_id, approve, feedback=""):
     req = plan_requests[request_id]
+    # Same FSM as shutdown: pending -> approved or rejected.
     req["status"] = "approved" if approve else "rejected"
     BUS.send("lead", req["from"], feedback,
              "plan_approval_response",

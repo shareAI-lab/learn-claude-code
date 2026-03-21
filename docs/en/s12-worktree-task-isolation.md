@@ -39,6 +39,7 @@ State machines:
 1. **Create a task.** Persist the goal first.
 
 ```python
+# The task exists before any branch or directory is created.
 TASKS.create("Implement auth refactor")
 # -> .tasks/task_1.json  status=pending  worktree=""
 ```
@@ -46,6 +47,7 @@ TASKS.create("Implement auth refactor")
 2. **Create a worktree and bind to the task.** Passing `task_id` auto-advances the task to `in_progress`.
 
 ```python
+# Binding the worktree to task 1 also moves the task into active execution.
 WORKTREES.create("auth-refactor", task_id=1)
 # -> git worktree add -b wt/auth-refactor .worktrees/auth-refactor HEAD
 # -> index.json gets new entry, task_1.json gets worktree="auth-refactor"
@@ -56,8 +58,10 @@ The binding writes state to both sides:
 ```python
 def bind_worktree(self, task_id, worktree):
     task = self._load(task_id)
+    # Store the directory name on the task so control-plane state can find execution state.
     task["worktree"] = worktree
     if task["status"] == "pending":
+        # First successful binding is what starts the task.
         task["status"] = "in_progress"
     self._save(task)
 ```
@@ -65,6 +69,7 @@ def bind_worktree(self, task_id, worktree):
 3. **Run commands in the worktree.** `cwd` points to the isolated directory.
 
 ```python
+# Commands run inside the isolated worktree, not the shared repo root.
 subprocess.run(command, shell=True, cwd=worktree_path,
                capture_output=True, text=True, timeout=300)
 ```
@@ -75,8 +80,10 @@ subprocess.run(command, shell=True, cwd=worktree_path,
 
 ```python
 def remove(self, name, force=False, complete_task=False):
+    # Tear down the isolated checkout first.
     self._run_git(["worktree", "remove", wt["path"]])
     if complete_task and wt.get("task_id") is not None:
+        # Optionally complete and unbind the linked task in the same operation.
         self.tasks.update(wt["task_id"], status="completed")
         self.tasks.unbind_worktree(wt["task_id"])
         self.events.emit("task.completed", ...)

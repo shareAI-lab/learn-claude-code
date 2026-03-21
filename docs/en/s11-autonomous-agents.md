@@ -64,6 +64,7 @@ def _loop(self, name, role, prompt):
 
         # -- IDLE PHASE --
         self._set_status(name, "idle")
+        # Do not shut down immediately; first poll for mail or unclaimed work.
         resume = self._idle_poll(name, messages)
         if not resume:
             self._set_status(name, "shutdown")
@@ -75,6 +76,7 @@ def _loop(self, name, role, prompt):
 
 ```python
 def _idle_poll(self, name, messages):
+    # Simple sleep-polling keeps idle teammates lightweight.
     for _ in range(IDLE_TIMEOUT // POLL_INTERVAL):  # 60s / 5s = 12
         time.sleep(POLL_INTERVAL)
         inbox = BUS.read_inbox(name)
@@ -84,6 +86,7 @@ def _idle_poll(self, name, messages):
             return True
         unclaimed = scan_unclaimed_tasks()
         if unclaimed:
+            # Claim first, then tell the model what task it just picked up.
             claim_task(unclaimed[0]["id"], name)
             messages.append({"role": "user",
                 "content": f"<auto-claimed>Task #{unclaimed[0]['id']}: "
@@ -102,6 +105,7 @@ def scan_unclaimed_tasks() -> list:
         if (task.get("status") == "pending"
                 and not task.get("owner")
                 and not task.get("blockedBy")):
+            # Ready means: pending, unowned, and not waiting on dependencies.
             unclaimed.append(task)
     return unclaimed
 ```
@@ -110,10 +114,12 @@ def scan_unclaimed_tasks() -> list:
 
 ```python
 if len(messages) <= 3:
+    # After compaction, restate identity so the teammate remembers who it is.
     messages.insert(0, {"role": "user",
         "content": f"<identity>You are '{name}', role: {role}, "
                    f"team: {team_name}. Continue your work.</identity>"})
     messages.insert(1, {"role": "assistant",
+        # This acknowledgement locks the identity back into the transcript.
         "content": f"I am {name}. Continuing."})
 ```
 

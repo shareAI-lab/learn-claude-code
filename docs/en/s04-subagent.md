@@ -32,6 +32,8 @@ Parent context stays clean. Subagent context is discarded.
 
 ```python
 PARENT_TOOLS = CHILD_TOOLS + [
+    # Only the parent can delegate.
+    # Child agents keep the base tools but do not get `task` again.
     {"name": "task",
      "description": "Spawn a subagent with fresh context.",
      "input_schema": {
@@ -46,8 +48,10 @@ PARENT_TOOLS = CHILD_TOOLS + [
 
 ```python
 def run_subagent(prompt: str) -> str:
+    # Start a completely fresh conversation for the delegated subtask.
     sub_messages = [{"role": "user", "content": prompt}]
     for _ in range(30):  # safety limit
+        # The child uses the same loop shape, but only with CHILD_TOOLS.
         response = client.messages.create(
             model=MODEL, system=SUBAGENT_SYSTEM,
             messages=sub_messages,
@@ -55,17 +59,20 @@ def run_subagent(prompt: str) -> str:
         )
         sub_messages.append({"role": "assistant",
                              "content": response.content})
+        # No more tool calls means the child is ready to summarize.
         if response.stop_reason != "tool_use":
             break
         results = []
         for block in response.content:
             if block.type == "tool_use":
+                # Reuse the normal handlers inside the child context.
                 handler = TOOL_HANDLERS.get(block.name)
                 output = handler(**block.input)
                 results.append({"type": "tool_result",
                     "tool_use_id": block.id,
                     "content": str(output)[:50000]})
         sub_messages.append({"role": "user", "content": results})
+    # Return only the final text; discard the child's detailed transcript.
     return "".join(
         b.text for b in response.content if hasattr(b, "text")
     ) or "(no summary)"

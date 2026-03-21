@@ -38,6 +38,7 @@ Agent --[spawn A]--[spawn B]--[other work]----
 class BackgroundManager:
     def __init__(self):
         self.tasks = {}
+        # 已完成的后台结果先堆在这里，等主循环下一轮统一注入。
         self._notification_queue = []
         self._lock = threading.Lock()
 ```
@@ -46,8 +47,10 @@ class BackgroundManager:
 
 ```python
 def run(self, command: str) -> str:
+    # 给每个后台任务分配一个稳定 ID，后面查状态时要用。
     task_id = str(uuid.uuid4())[:8]
     self.tasks[task_id] = {"status": "running", "command": command}
+    # daemon 线程让长命令可以和 agent 的思考并行进行。
     thread = threading.Thread(
         target=self._execute, args=(task_id, command), daemon=True)
     thread.start()
@@ -65,6 +68,7 @@ def _execute(self, task_id, command):
     except subprocess.TimeoutExpired:
         output = "Error: Timeout (300s)"
     with self._lock:
+        # 把一条精简完成通知放进队列，等主循环下次读取。
         self._notification_queue.append({
             "task_id": task_id, "result": output[:500]})
 ```
@@ -74,11 +78,13 @@ def _execute(self, task_id, command):
 ```python
 def agent_loop(messages: list):
     while True:
+        # 在下一次 LLM 调用前，先把已经完成的后台任务结果补进上下文。
         notifs = BG.drain_notifications()
         if notifs:
             notif_text = "\n".join(
                 f"[bg:{n['task_id']}] {n['result']}" for n in notifs)
             messages.append({"role": "user",
+                # 用结构化标签包起来，方便模型把它当成异步更新处理。
                 "content": f"<background-results>\n{notif_text}\n"
                            f"</background-results>"})
             messages.append({"role": "assistant",

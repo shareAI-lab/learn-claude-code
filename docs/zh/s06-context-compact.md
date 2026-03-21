@@ -48,16 +48,19 @@ continue    [Layer 2: auto_compact]
 
 ```python
 def micro_compact(messages: list) -> list:
+    # 先收集所有 tool_result，决定哪些旧结果可以被压缩。
     tool_results = []
     for i, msg in enumerate(messages):
         if msg["role"] == "user" and isinstance(msg.get("content"), list):
             for j, part in enumerate(msg["content"]):
                 if isinstance(part, dict) and part.get("type") == "tool_result":
                     tool_results.append((i, j, part))
+    # 最新的几条工具输出原样保留，保证局部连续性。
     if len(tool_results) <= KEEP_RECENT:
         return messages
     for _, _, part in tool_results[:-KEEP_RECENT]:
         if len(part.get("content", "")) > 100:
+            # 旧而长的输出改成占位符，不再把原文一直留在上下文里。
             part["content"] = f"[Previous: used {tool_name}]"
     return messages
 ```
@@ -71,15 +74,17 @@ def auto_compact(messages: list) -> list:
     with open(transcript_path, "w") as f:
         for msg in messages:
             f.write(json.dumps(msg, default=str) + "\n")
-    # LLM summarizes
+    # 再让模型把整段对话压成一份更短的连续性摘要。
     response = client.messages.create(
         model=MODEL,
         messages=[{"role": "user", "content":
+            # 这里也要截断输入，避免“压缩动作本身”把上下文撑爆。
             "Summarize this conversation for continuity..."
             + json.dumps(messages, default=str)[:80000]}],
         max_tokens=2000,
     )
     return [
+        # 用压缩后的摘要替换原始长对话。
         {"role": "user", "content": f"[Compressed]\n\n{response.content[0].text}"},
         {"role": "assistant", "content": "Understood. Continuing."},
     ]
@@ -92,12 +97,15 @@ def auto_compact(messages: list) -> list:
 ```python
 def agent_loop(messages: list):
     while True:
+        # 第 1 层：每轮先静默压缩过旧的工具输出。
         micro_compact(messages)                        # Layer 1
         if estimate_tokens(messages) > THRESHOLD:
+            # 第 2 层：当 token 压力过高时，重置为压缩后的短摘要。
             messages[:] = auto_compact(messages)       # Layer 2
         response = client.messages.create(...)
         # ... tool execution ...
         if manual_compact:
+            # 第 3 层：模型也可以在合适时机主动请求压缩。
             messages[:] = auto_compact(messages)       # Layer 3
 ```
 

@@ -30,12 +30,16 @@
 1. 用户 prompt 作为第一条消息。
 
 ```python
+# 先把用户问题放进对话历史里。
+# 模型后续看到的上下文，全部来自这份 messages。
 messages.append({"role": "user", "content": query})
 ```
 
 2. 将消息和工具定义一起发给 LLM。
 
 ```python
+# 把当前对话历史和工具定义一起发给模型。
+# 只有传入 TOOLS，模型才知道自己能调用哪些动作。
 response = client.messages.create(
     model=MODEL, system=SYSTEM, messages=messages,
     tools=TOOLS, max_tokens=8000,
@@ -45,7 +49,10 @@ response = client.messages.create(
 3. 追加助手响应。检查 `stop_reason` -- 如果模型没有调用工具, 结束。
 
 ```python
+# 先原样保存 assistant 这一轮的输出。
+# 这里的 response.content 里可能同时有文本块和工具调用块。
 messages.append({"role": "assistant", "content": response.content})
+# 如果模型这轮没有继续请求工具，循环就结束。
 if response.stop_reason != "tool_use":
     return
 ```
@@ -53,15 +60,21 @@ if response.stop_reason != "tool_use":
 4. 执行每个工具调用, 收集结果, 作为 user 消息追加。回到第 2 步。
 
 ```python
+# 先收集这一轮里所有工具执行结果，再统一喂回模型。
 results = []
 for block in response.content:
+    # 同一个响应里可能混着普通文本块和 tool_use 块。
+    # 真正需要执行的只有工具调用块。
     if block.type == "tool_use":
+        # 读取模型生成的命令，并在本地执行它。
         output = run_bash(block.input["command"])
         results.append({
+            # tool_result 会把执行结果挂回对应的那次工具调用。
             "type": "tool_result",
             "tool_use_id": block.id,
             "content": output,
         })
+# 作为下一条 user 消息追加，模型才能基于结果继续推理。
 messages.append({"role": "user", "content": results})
 ```
 
@@ -69,17 +82,22 @@ messages.append({"role": "user", "content": results})
 
 ```python
 def agent_loop(query):
+    # 初始化对话历史，起点只有当前用户问题。
     messages = [{"role": "user", "content": query}]
     while True:
+        # 每轮都让模型基于当前上下文决定下一步动作。
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
             tools=TOOLS, max_tokens=8000,
         )
+        # 先保存模型输出，避免后面丢失上下文。
         messages.append({"role": "assistant", "content": response.content})
 
+        # 没有工具调用时，说明 agent 已经得到最终回答。
         if response.stop_reason != "tool_use":
             return
 
+        # 否则执行工具，并把结果整理成下一轮输入。
         results = []
         for block in response.content:
             if block.type == "tool_use":
@@ -89,6 +107,7 @@ def agent_loop(query):
                     "tool_use_id": block.id,
                     "content": output,
                 })
+        # 把工具结果追加回 messages，然后继续下一轮循环。
         messages.append({"role": "user", "content": results})
 ```
 

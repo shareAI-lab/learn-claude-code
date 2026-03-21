@@ -39,13 +39,16 @@
 ```python
 class TodoManager:
     def update(self, items: list) -> str:
+        # 先把输入规范化，并统计当前有多少任务处于进行中。
         validated, in_progress_count = [], 0
         for item in items:
             status = item.get("status", "pending")
+            # 如果模型没写 status，就默认当作待处理。
             if status == "in_progress":
                 in_progress_count += 1
             validated.append({"id": item["id"], "text": item["text"],
                               "status": status})
+        # 这个约束强迫模型一次只专注一个当前步骤。
         if in_progress_count > 1:
             raise ValueError("Only one task can be in_progress")
         self.items = validated
@@ -57,6 +60,7 @@ class TodoManager:
 ```python
 TOOL_HANDLERS = {
     # ...base tools...
+    # 规划工具和其他工具一样，直接挂进 dispatch map。
     "todo": lambda **kw: TODO.update(kw["items"]),
 }
 ```
@@ -66,9 +70,11 @@ TOOL_HANDLERS = {
 ```python
 if rounds_since_todo >= 3 and messages:
     last = messages[-1]
+    # 只在上一条是 user 的工具结果消息时插入提醒。
     if last["role"] == "user" and isinstance(last.get("content"), list):
         last["content"].insert(0, {
             "type": "text",
+            # 把提醒放在最前面，让模型下轮先看到它。
             "text": "<reminder>Update your todos.</reminder>",
         })
 ```

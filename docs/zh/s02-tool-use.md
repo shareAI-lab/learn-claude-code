@@ -35,14 +35,18 @@ One lookup replaces any if/elif chain.
 
 ```python
 def safe_path(p: str) -> Path:
+    # 先把相对路径解析到工作区根目录之下。
     path = (WORKDIR / p).resolve()
+    # 如果路径试图通过 ../ 跳出工作区，就直接拒绝。
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {p}")
     return path
 
 def run_read(path: str, limit: int = None) -> str:
+    # 读文件前先复用 safe_path 做沙箱校验。
     text = safe_path(path).read_text()
     lines = text.splitlines()
+    # limit 用来截断大文件，避免一次读入太多上下文。
     if limit and limit < len(lines):
         lines = lines[:limit]
     return "\n".join(lines)[:50000]
@@ -52,6 +56,8 @@ def run_read(path: str, limit: int = None) -> str:
 
 ```python
 TOOL_HANDLERS = {
+    # key 必须和暴露给模型的工具名完全一致。
+    # value 负责把 JSON 输入转成普通 Python 函数调用。
     "bash":       lambda **kw: run_bash(kw["command"]),
     "read_file":  lambda **kw: run_read(kw["path"], kw.get("limit")),
     "write_file": lambda **kw: run_write(kw["path"], kw["content"]),
@@ -65,10 +71,13 @@ TOOL_HANDLERS = {
 ```python
 for block in response.content:
     if block.type == "tool_use":
+        # 按工具名分发，而不是写一长串 if/elif。
         handler = TOOL_HANDLERS.get(block.name)
+        # 就算遇到未知工具，也返回错误字符串而不是让循环崩掉。
         output = handler(**block.input) if handler \
             else f"Unknown tool: {block.name}"
         results.append({
+            # 模型拿到 tool_result 时，需要对应的调用 id 和输出内容。
             "type": "tool_result",
             "tool_use_id": block.id,
             "content": output,

@@ -39,6 +39,7 @@ State machines:
 1. **创建任务。** 先把目标持久化。
 
 ```python
+# 先把任务建出来，再去创建分支和隔离目录。
 TASKS.create("Implement auth refactor")
 # -> .tasks/task_1.json  status=pending  worktree=""
 ```
@@ -46,6 +47,7 @@ TASKS.create("Implement auth refactor")
 2. **创建 worktree 并绑定任务。** 传入 `task_id` 自动将任务推进到 `in_progress`。
 
 ```python
+# 绑定到 task 1 的同时，也意味着这个任务正式进入执行中。
 WORKTREES.create("auth-refactor", task_id=1)
 # -> git worktree add -b wt/auth-refactor .worktrees/auth-refactor HEAD
 # -> index.json gets new entry, task_1.json gets worktree="auth-refactor"
@@ -56,8 +58,10 @@ WORKTREES.create("auth-refactor", task_id=1)
 ```python
 def bind_worktree(self, task_id, worktree):
     task = self._load(task_id)
+    # 在任务上记录 worktree 名称，这样控制面状态就能定位执行目录。
     task["worktree"] = worktree
     if task["status"] == "pending":
+        # 第一次成功绑定 worktree，就把任务推进到 in_progress。
         task["status"] = "in_progress"
     self._save(task)
 ```
@@ -65,6 +69,7 @@ def bind_worktree(self, task_id, worktree):
 3. **在 worktree 中执行命令。** `cwd` 指向隔离目录。
 
 ```python
+# 命令会在隔离出来的 worktree 目录里执行，而不是共享仓库根目录。
 subprocess.run(command, shell=True, cwd=worktree_path,
                capture_output=True, text=True, timeout=300)
 ```
@@ -75,8 +80,10 @@ subprocess.run(command, shell=True, cwd=worktree_path,
 
 ```python
 def remove(self, name, force=False, complete_task=False):
+    # 先拆掉这个隔离 checkout。
     self._run_git(["worktree", "remove", wt["path"]])
     if complete_task and wt.get("task_id") is not None:
+        # 如果要求 complete_task，就顺手把绑定任务完成并解绑。
         self.tasks.update(wt["task_id"], status="completed")
         self.tasks.unbind_worktree(wt["task_id"])
         self.events.emit("task.completed", ...)

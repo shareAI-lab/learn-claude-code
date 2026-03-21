@@ -52,8 +52,10 @@ class SkillLoader:
     def __init__(self, skills_dir: Path):
         self.skills = {}
         for f in sorted(skills_dir.rglob("SKILL.md")):
+            # Read one markdown file, then split metadata from instruction body.
             text = f.read_text()
             meta, body = self._parse_frontmatter(text)
+            # Frontmatter `name` wins; folder name is the fallback identifier.
             name = meta.get("name", f.parent.name)
             self.skills[name] = {"meta": meta, "body": body}
 
@@ -61,6 +63,7 @@ class SkillLoader:
         lines = []
         for name, skill in self.skills.items():
             desc = skill["meta"].get("description", "")
+            # These short summaries are cheap enough to keep in the system prompt.
             lines.append(f"  - {name}: {desc}")
         return "\n".join(lines)
 
@@ -68,16 +71,19 @@ class SkillLoader:
         skill = self.skills.get(name)
         if not skill:
             return f"Error: Unknown skill '{name}'."
+        # Wrap the full body so the model can recognize the injected skill payload.
         return f"<skill name=\"{name}\">\n{skill['body']}\n</skill>"
 ```
 
 3. Layer 1 goes into the system prompt. Layer 2 is just another tool handler.
 
 ```python
+# Keep only lightweight skill descriptions in the always-on prompt.
 SYSTEM = f"""You are a coding agent at {WORKDIR}.
 Skills available:
 {SKILL_LOADER.get_descriptions()}"""
 
+# The expensive instruction body is fetched on demand through a tool call.
 TOOL_HANDLERS = {
     # ...base tools...
     "load_skill": lambda **kw: SKILL_LOADER.get_content(kw["name"]),

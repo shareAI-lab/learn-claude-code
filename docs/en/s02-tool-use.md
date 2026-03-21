@@ -35,14 +35,18 @@ One lookup replaces any if/elif chain.
 
 ```python
 def safe_path(p: str) -> Path:
+    # Resolve the requested path relative to the workspace root.
     path = (WORKDIR / p).resolve()
+    # Reject ../-style escapes before any file operation happens.
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {p}")
     return path
 
 def run_read(path: str, limit: int = None) -> str:
+    # Reuse the sandbox check before touching the filesystem.
     text = safe_path(path).read_text()
     lines = text.splitlines()
+    # Trim large files so one read does not flood the model context.
     if limit and limit < len(lines):
         lines = lines[:limit]
     return "\n".join(lines)[:50000]
@@ -52,6 +56,8 @@ def run_read(path: str, limit: int = None) -> str:
 
 ```python
 TOOL_HANDLERS = {
+    # Keys match tool names exposed to the model.
+    # Values adapt JSON tool input into normal Python calls.
     "bash":       lambda **kw: run_bash(kw["command"]),
     "read_file":  lambda **kw: run_read(kw["path"], kw.get("limit")),
     "write_file": lambda **kw: run_write(kw["path"], kw["content"]),
@@ -65,10 +71,13 @@ TOOL_HANDLERS = {
 ```python
 for block in response.content:
     if block.type == "tool_use":
+        # Route by tool name instead of hardcoding one branch per tool.
         handler = TOOL_HANDLERS.get(block.name)
+        # Unknown tools return an error string instead of crashing the loop.
         output = handler(**block.input) if handler \
             else f"Unknown tool: {block.name}"
         results.append({
+            # The model needs both the call id and the tool output.
             "type": "tool_result",
             "tool_use_id": block.id,
             "content": output,

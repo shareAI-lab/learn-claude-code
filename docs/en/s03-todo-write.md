@@ -39,13 +39,16 @@ On multi-step tasks, the model loses track. It repeats work, skips steps, or wan
 ```python
 class TodoManager:
     def update(self, items: list) -> str:
+        # Normalize incoming items and count how many tasks are actively being worked.
         validated, in_progress_count = [], 0
         for item in items:
             status = item.get("status", "pending")
+            # Missing status means a new task defaults to pending.
             if status == "in_progress":
                 in_progress_count += 1
             validated.append({"id": item["id"], "text": item["text"],
                               "status": status})
+        # This rule forces the model to focus on one step at a time.
         if in_progress_count > 1:
             raise ValueError("Only one task can be in_progress")
         self.items = validated
@@ -57,6 +60,7 @@ class TodoManager:
 ```python
 TOOL_HANDLERS = {
     # ...base tools...
+    # Planning plugs into dispatch exactly like any other tool.
     "todo": lambda **kw: TODO.update(kw["items"]),
 }
 ```
@@ -66,9 +70,11 @@ TOOL_HANDLERS = {
 ```python
 if rounds_since_todo >= 3 and messages:
     last = messages[-1]
+    # Only inject reminders into a user turn that already contains tool results.
     if last["role"] == "user" and isinstance(last.get("content"), list):
         last["content"].insert(0, {
             "type": "text",
+            # Prepend a lightweight nudge before the normal tool_result payload.
             "text": "<reminder>Update your todos.</reminder>",
         })
 ```

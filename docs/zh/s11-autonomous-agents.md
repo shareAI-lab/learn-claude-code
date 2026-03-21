@@ -64,6 +64,7 @@ def _loop(self, name, role, prompt):
 
         # -- IDLE PHASE --
         self._set_status(name, "idle")
+        # 不要立刻关机，先轮询一下有没有新消息或无人认领的任务。
         resume = self._idle_poll(name, messages)
         if not resume:
             self._set_status(name, "shutdown")
@@ -75,6 +76,7 @@ def _loop(self, name, role, prompt):
 
 ```python
 def _idle_poll(self, name, messages):
+    # 这种 sleep-polling 很简单，也足够支撑空闲队友等待新工作。
     for _ in range(IDLE_TIMEOUT // POLL_INTERVAL):  # 60s / 5s = 12
         time.sleep(POLL_INTERVAL)
         inbox = BUS.read_inbox(name)
@@ -84,6 +86,7 @@ def _idle_poll(self, name, messages):
             return True
         unclaimed = scan_unclaimed_tasks()
         if unclaimed:
+            # 先 claim，再把“刚认领到的任务”告诉模型。
             claim_task(unclaimed[0]["id"], name)
             messages.append({"role": "user",
                 "content": f"<auto-claimed>Task #{unclaimed[0]['id']}: "
@@ -102,6 +105,7 @@ def scan_unclaimed_tasks() -> list:
         if (task.get("status") == "pending"
                 and not task.get("owner")
                 and not task.get("blockedBy")):
+            # ready 的定义是：待处理、没人占用、也没有依赖阻塞。
             unclaimed.append(task)
     return unclaimed
 ```
@@ -110,10 +114,12 @@ def scan_unclaimed_tasks() -> list:
 
 ```python
 if len(messages) <= 3:
+    # 如果压缩后上下文太短，就重新提醒 teammate “你是谁”。
     messages.insert(0, {"role": "user",
         "content": f"<identity>You are '{name}', role: {role}, "
                    f"team: {team_name}. Continue your work.</identity>"})
     messages.insert(1, {"role": "assistant",
+        # 这句确认回复会把身份重新固定回当前对话历史里。
         "content": f"I am {name}. Continuing."})
 ```
 

@@ -55,12 +55,14 @@ class TaskManager:
     def __init__(self, tasks_dir: Path):
         self.dir = tasks_dir
         self.dir.mkdir(exist_ok=True)
+        # Recover the next ID from disk so restarts do not overwrite tasks.
         self._next_id = self._max_id() + 1
 
     def create(self, subject, description=""):
         task = {"id": self._next_id, "subject": subject,
                 "status": "pending", "blockedBy": [],
                 "blocks": [], "owner": ""}
+        # Persist immediately so the board survives compaction or process exit.
         self._save(task)
         self._next_id += 1
         return json.dumps(task, indent=2)
@@ -72,6 +74,7 @@ class TaskManager:
 def _clear_dependency(self, completed_id):
     for f in self.dir.glob("task_*.json"):
         task = json.loads(f.read_text())
+        # Remove the finished task from every dependent's waiting list.
         if completed_id in task.get("blockedBy", []):
             task["blockedBy"].remove(completed_id)
             self._save(task)
@@ -84,6 +87,7 @@ def update(self, task_id, status=None,
            add_blocked_by=None, add_blocks=None):
     task = self._load(task_id)
     if status:
+        # Status changes are the trigger point for graph side effects.
         task["status"] = status
         if status == "completed":
             self._clear_dependency(task_id)
@@ -95,6 +99,7 @@ def update(self, task_id, status=None,
 ```python
 TOOL_HANDLERS = {
     # ...base tools...
+    # Task graph operations become first-class tools the model can call directly.
     "task_create": lambda **kw: TASKS.create(kw["subject"]),
     "task_update": lambda **kw: TASKS.update(kw["task_id"], kw.get("status")),
     "task_list":   lambda **kw: TASKS.list_all(),

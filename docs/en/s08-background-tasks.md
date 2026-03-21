@@ -38,6 +38,7 @@ Agent --[spawn A]--[spawn B]--[other work]----
 class BackgroundManager:
     def __init__(self):
         self.tasks = {}
+        # Finished background work waits here until the main loop injects it.
         self._notification_queue = []
         self._lock = threading.Lock()
 ```
@@ -46,8 +47,10 @@ class BackgroundManager:
 
 ```python
 def run(self, command: str) -> str:
+    # Give each background job a stable ID for later status checks.
     task_id = str(uuid.uuid4())[:8]
     self.tasks[task_id] = {"status": "running", "command": command}
+    # Daemon threads let long-running subprocesses overlap with agent thinking.
     thread = threading.Thread(
         target=self._execute, args=(task_id, command), daemon=True)
     thread.start()
@@ -65,6 +68,7 @@ def _execute(self, task_id, command):
     except subprocess.TimeoutExpired:
         output = "Error: Timeout (300s)"
     with self._lock:
+        # Queue a short completion notice for the next loop iteration.
         self._notification_queue.append({
             "task_id": task_id, "result": output[:500]})
 ```
@@ -74,11 +78,13 @@ def _execute(self, task_id, command):
 ```python
 def agent_loop(messages: list):
     while True:
+        # Pull completed background jobs into context before the next LLM call.
         notifs = BG.drain_notifications()
         if notifs:
             notif_text = "\n".join(
                 f"[bg:{n['task_id']}] {n['result']}" for n in notifs)
             messages.append({"role": "user",
+                # Structured tags help the model recognize async updates.
                 "content": f"<background-results>\n{notif_text}\n"
                            f"</background-results>"})
             messages.append({"role": "assistant",

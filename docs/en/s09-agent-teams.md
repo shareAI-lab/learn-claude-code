@@ -44,8 +44,10 @@ class TeammateManager:
     def __init__(self, team_dir: Path):
         self.dir = team_dir
         self.dir.mkdir(exist_ok=True)
+        # config.json is the durable roster of teammates and their statuses.
         self.config_path = self.dir / "config.json"
         self.config = self._load_config()
+        # Threads are runtime-only handles for active teammate loops.
         self.threads = {}
 ```
 
@@ -53,9 +55,11 @@ class TeammateManager:
 
 ```python
 def spawn(self, name: str, role: str, prompt: str) -> str:
+    # Persist teammate identity before starting any background loop.
     member = {"name": name, "role": role, "status": "working"}
     self.config["members"].append(member)
     self._save_config()
+    # Each teammate runs a full agent loop in parallel with the lead.
     thread = threading.Thread(
         target=self._teammate_loop,
         args=(name, role, prompt), daemon=True)
@@ -68,6 +72,7 @@ def spawn(self, name: str, role: str, prompt: str) -> str:
 ```python
 class MessageBus:
     def send(self, sender, to, content, msg_type="message", extra=None):
+        # Append exactly one JSON line to the recipient's inbox file.
         msg = {"type": msg_type, "from": sender,
                "content": content, "timestamp": time.time()}
         if extra:
@@ -79,6 +84,7 @@ class MessageBus:
         path = self.dir / f"{name}.jsonl"
         if not path.exists(): return "[]"
         msgs = [json.loads(l) for l in path.read_text().strip().splitlines() if l]
+        # Inbox is drain-on-read so messages are processed exactly once.
         path.write_text("")  # drain
         return json.dumps(msgs, indent=2)
 ```
@@ -89,9 +95,11 @@ class MessageBus:
 def _teammate_loop(self, name, role, prompt):
     messages = [{"role": "user", "content": prompt}]
     for _ in range(50):
+        # Check mail before every model turn so teammates can react between steps.
         inbox = BUS.read_inbox(name)
         if inbox != "[]":
             messages.append({"role": "user",
+                # Inject inbox data as explicit context, not hidden mutable state.
                 "content": f"<inbox>{inbox}</inbox>"})
             messages.append({"role": "assistant",
                 "content": "Noted inbox messages."})
@@ -99,6 +107,7 @@ def _teammate_loop(self, name, role, prompt):
         if response.stop_reason != "tool_use":
             break
         # execute tools, append results...
+    # If the loop exits without more tool work, this teammate is idle for now.
     self._find_member(name)["status"] = "idle"
 ```
 

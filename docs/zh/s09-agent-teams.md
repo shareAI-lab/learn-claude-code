@@ -44,8 +44,10 @@ class TeammateManager:
     def __init__(self, team_dir: Path):
         self.dir = team_dir
         self.dir.mkdir(exist_ok=True)
+        # config.json 是持久化的团队花名册，记录成员和状态。
         self.config_path = self.dir / "config.json"
         self.config = self._load_config()
+        # threads 只是运行期句柄，用来追踪活着的 teammate 循环。
         self.threads = {}
 ```
 
@@ -53,9 +55,11 @@ class TeammateManager:
 
 ```python
 def spawn(self, name: str, role: str, prompt: str) -> str:
+    # 先把 teammate 身份写入配置，再启动线程。
     member = {"name": name, "role": role, "status": "working"}
     self.config["members"].append(member)
     self._save_config()
+    # 每个 teammate 都会并行跑一条完整的 agent loop。
     thread = threading.Thread(
         target=self._teammate_loop,
         args=(name, role, prompt), daemon=True)
@@ -68,6 +72,7 @@ def spawn(self, name: str, role: str, prompt: str) -> str:
 ```python
 class MessageBus:
     def send(self, sender, to, content, msg_type="message", extra=None):
+        # 往收件人的 inbox 文件里追加一行 JSON 消息。
         msg = {"type": msg_type, "from": sender,
                "content": content, "timestamp": time.time()}
         if extra:
@@ -79,6 +84,7 @@ class MessageBus:
         path = self.dir / f"{name}.jsonl"
         if not path.exists(): return "[]"
         msgs = [json.loads(l) for l in path.read_text().strip().splitlines() if l]
+        # 收件箱是读完即清空，避免同一条消息被重复处理。
         path.write_text("")  # drain
         return json.dumps(msgs, indent=2)
 ```
@@ -89,9 +95,11 @@ class MessageBus:
 def _teammate_loop(self, name, role, prompt):
     messages = [{"role": "user", "content": prompt}]
     for _ in range(50):
+        # 每次调用模型前先查信箱，让队友能在步骤之间响应新消息。
         inbox = BUS.read_inbox(name)
         if inbox != "[]":
             messages.append({"role": "user",
+                # inbox 内容作为显式上下文注入，而不是藏在外部状态里。
                 "content": f"<inbox>{inbox}</inbox>"})
             messages.append({"role": "assistant",
                 "content": "Noted inbox messages."})
@@ -99,6 +107,7 @@ def _teammate_loop(self, name, role, prompt):
         if response.stop_reason != "tool_use":
             break
         # execute tools, append results...
+    # 没有更多工具工作时，这个 teammate 先回到 idle。
     self._find_member(name)["status"] = "idle"
 ```
 

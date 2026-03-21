@@ -48,16 +48,19 @@ continue    [Layer 2: auto_compact]
 
 ```python
 def micro_compact(messages: list) -> list:
+    # Collect every tool_result so we can decide which ones are safe to shrink.
     tool_results = []
     for i, msg in enumerate(messages):
         if msg["role"] == "user" and isinstance(msg.get("content"), list):
             for j, part in enumerate(msg["content"]):
                 if isinstance(part, dict) and part.get("type") == "tool_result":
                     tool_results.append((i, j, part))
+    # Keep the newest tool outputs verbatim for local continuity.
     if len(tool_results) <= KEEP_RECENT:
         return messages
     for _, _, part in tool_results[:-KEEP_RECENT]:
         if len(part.get("content", "")) > 100:
+            # Old, bulky output becomes a placeholder instead of raw transcript.
             part["content"] = f"[Previous: used {tool_name}]"
     return messages
 ```
@@ -71,15 +74,17 @@ def auto_compact(messages: list) -> list:
     with open(transcript_path, "w") as f:
         for msg in messages:
             f.write(json.dumps(msg, default=str) + "\n")
-    # LLM summarizes
+    # Ask the model to compress the conversation into a shorter continuity note.
     response = client.messages.create(
         model=MODEL,
         messages=[{"role": "user", "content":
+            # Bound the payload so compaction itself does not overflow context.
             "Summarize this conversation for continuity..."
             + json.dumps(messages, default=str)[:80000]}],
         max_tokens=2000,
     )
     return [
+        # Replace the long transcript with a compact handoff summary.
         {"role": "user", "content": f"[Compressed]\n\n{response.content[0].text}"},
         {"role": "assistant", "content": "Understood. Continuing."},
     ]
@@ -92,12 +97,15 @@ def auto_compact(messages: list) -> list:
 ```python
 def agent_loop(messages: list):
     while True:
+        # Layer 1: silently shrink stale tool output every round.
         micro_compact(messages)                        # Layer 1
         if estimate_tokens(messages) > THRESHOLD:
+            # Layer 2: reset the active transcript when token pressure is too high.
             messages[:] = auto_compact(messages)       # Layer 2
         response = client.messages.create(...)
         # ... tool execution ...
         if manual_compact:
+            # Layer 3: let the model request compaction explicitly after a milestone.
             messages[:] = auto_compact(messages)       # Layer 3
 ```
 

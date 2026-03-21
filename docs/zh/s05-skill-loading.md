@@ -52,8 +52,10 @@ class SkillLoader:
     def __init__(self, skills_dir: Path):
         self.skills = {}
         for f in sorted(skills_dir.rglob("SKILL.md")):
+            # 先读 markdown，再把 frontmatter 和正文拆开。
             text = f.read_text()
             meta, body = self._parse_frontmatter(text)
+            # frontmatter 里的 name 优先；没有就退回目录名。
             name = meta.get("name", f.parent.name)
             self.skills[name] = {"meta": meta, "body": body}
 
@@ -61,6 +63,7 @@ class SkillLoader:
         lines = []
         for name, skill in self.skills.items():
             desc = skill["meta"].get("description", "")
+            # 这类简短描述足够便宜，适合常驻 system prompt。
             lines.append(f"  - {name}: {desc}")
         return "\n".join(lines)
 
@@ -68,16 +71,19 @@ class SkillLoader:
         skill = self.skills.get(name)
         if not skill:
             return f"Error: Unknown skill '{name}'."
+        # 用包裹标签把完整技能正文标出来，方便模型识别注入内容。
         return f"<skill name=\"{name}\">\n{skill['body']}\n</skill>"
 ```
 
 3. 第一层写入系统提示。第二层不过是 dispatch map 中的又一个工具。
 
 ```python
+# 常驻 system prompt 里只放轻量级的技能描述。
 SYSTEM = f"""You are a coding agent at {WORKDIR}.
 Skills available:
 {SKILL_LOADER.get_descriptions()}"""
 
+# 真正昂贵的技能正文，等模型需要时再通过工具加载。
 TOOL_HANDLERS = {
     # ...base tools...
     "load_skill": lambda **kw: SKILL_LOADER.get_content(kw["name"]),

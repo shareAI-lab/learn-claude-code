@@ -30,12 +30,16 @@ One exit condition controls the entire flow. The loop runs until the model stops
 1. User prompt becomes the first message.
 
 ```python
+# Start the conversation with the user's request.
+# The model only sees what we store in `messages`.
 messages.append({"role": "user", "content": query})
 ```
 
 2. Send messages + tool definitions to the LLM.
 
 ```python
+# Send the entire conversation state plus the tool definitions.
+# `tools=TOOLS` is what tells the model which actions it may call.
 response = client.messages.create(
     model=MODEL, system=SYSTEM, messages=messages,
     tools=TOOLS, max_tokens=8000,
@@ -45,7 +49,10 @@ response = client.messages.create(
 3. Append the assistant response. Check `stop_reason` -- if the model didn't call a tool, we're done.
 
 ```python
+# Preserve the assistant turn exactly as returned.
+# `response.content` may contain text blocks and tool calls together.
 messages.append({"role": "assistant", "content": response.content})
+# If the model is done thinking with tools, exit the loop.
 if response.stop_reason != "tool_use":
     return
 ```
@@ -53,15 +60,21 @@ if response.stop_reason != "tool_use":
 4. Execute each tool call, collect results, append as a user message. Loop back to step 2.
 
 ```python
+# Gather every tool result from this assistant turn into one payload.
 results = []
 for block in response.content:
+    # A single response can contain multiple content blocks.
+    # Only `tool_use` blocks should be executed locally.
     if block.type == "tool_use":
+        # Read the command proposed by the model and run it.
         output = run_bash(block.input["command"])
         results.append({
+            # `tool_result` links this output back to the original tool call.
             "type": "tool_result",
             "tool_use_id": block.id,
             "content": output,
         })
+# Feed the tool outputs back so the model can continue reasoning.
 messages.append({"role": "user", "content": results})
 ```
 
@@ -69,17 +82,22 @@ Assembled into one function:
 
 ```python
 def agent_loop(query):
+    # Begin with a fresh conversation containing only the current task.
     messages = [{"role": "user", "content": query}]
     while True:
+        # Ask the model what to do next given the conversation so far.
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
             tools=TOOLS, max_tokens=8000,
         )
+        # Save the assistant turn before inspecting it.
         messages.append({"role": "assistant", "content": response.content})
 
+        # No tool call means the agent has reached its final answer.
         if response.stop_reason != "tool_use":
             return
 
+        # Otherwise, execute each requested tool and collect the outputs.
         results = []
         for block in response.content:
             if block.type == "tool_use":
@@ -89,6 +107,7 @@ def agent_loop(query):
                     "tool_use_id": block.id,
                     "content": output,
                 })
+        # Turn tool outputs into the next user message, then loop again.
         messages.append({"role": "user", "content": results})
 ```
 

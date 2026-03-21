@@ -55,12 +55,14 @@ class TaskManager:
     def __init__(self, tasks_dir: Path):
         self.dir = tasks_dir
         self.dir.mkdir(exist_ok=True)
+        # 下一个任务 ID 从磁盘恢复，重启后也不会覆盖旧任务。
         self._next_id = self._max_id() + 1
 
     def create(self, subject, description=""):
         task = {"id": self._next_id, "subject": subject,
                 "status": "pending", "blockedBy": [],
                 "blocks": [], "owner": ""}
+        # 立刻持久化，这样压缩上下文或退出进程也不会丢任务板。
         self._save(task)
         self._next_id += 1
         return json.dumps(task, indent=2)
@@ -72,6 +74,7 @@ class TaskManager:
 def _clear_dependency(self, completed_id):
     for f in self.dir.glob("task_*.json"):
         task = json.loads(f.read_text())
+        # 把已完成任务从其他任务的 blockedBy 列表里移除。
         if completed_id in task.get("blockedBy", []):
             task["blockedBy"].remove(completed_id)
             self._save(task)
@@ -84,6 +87,7 @@ def update(self, task_id, status=None,
            add_blocked_by=None, add_blocks=None):
     task = self._load(task_id)
     if status:
+        # 状态变化是依赖图产生副作用的触发点。
         task["status"] = status
         if status == "completed":
             self._clear_dependency(task_id)
@@ -95,6 +99,7 @@ def update(self, task_id, status=None,
 ```python
 TOOL_HANDLERS = {
     # ...base tools...
+    # 任务图操作也和其他工具一样，成为模型可直接调用的动作。
     "task_create": lambda **kw: TASKS.create(kw["subject"]),
     "task_update": lambda **kw: TASKS.update(kw["task_id"], kw.get("status")),
     "task_list":   lambda **kw: TASKS.list_all(),

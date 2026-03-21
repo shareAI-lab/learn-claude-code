@@ -32,6 +32,8 @@ Parent context stays clean. Subagent context is discarded.
 
 ```python
 PARENT_TOOLS = CHILD_TOOLS + [
+    # 只有父 agent 可以继续委派。
+    # 子 agent 保留基础工具，但不会再次拿到 `task`。
     {"name": "task",
      "description": "Spawn a subagent with fresh context.",
      "input_schema": {
@@ -46,8 +48,10 @@ PARENT_TOOLS = CHILD_TOOLS + [
 
 ```python
 def run_subagent(prompt: str) -> str:
+    # 为这个子任务开启一段全新的对话历史。
     sub_messages = [{"role": "user", "content": prompt}]
     for _ in range(30):  # safety limit
+        # 子 agent 的循环形状不变，只是可用工具换成了 CHILD_TOOLS。
         response = client.messages.create(
             model=MODEL, system=SUBAGENT_SYSTEM,
             messages=sub_messages,
@@ -55,17 +59,20 @@ def run_subagent(prompt: str) -> str:
         )
         sub_messages.append({"role": "assistant",
                              "content": response.content})
+        # 一旦不再请求工具，说明子 agent 已经可以收尾总结。
         if response.stop_reason != "tool_use":
             break
         results = []
         for block in response.content:
             if block.type == "tool_use":
+                # 在子上下文里复用原来的工具处理函数。
                 handler = TOOL_HANDLERS.get(block.name)
                 output = handler(**block.input)
                 results.append({"type": "tool_result",
                     "tool_use_id": block.id,
                     "content": str(output)[:50000]})
         sub_messages.append({"role": "user", "content": results})
+    # 只把最终摘要文本返回给父 agent，详细过程直接丢弃。
     return "".join(
         b.text for b in response.content if hasattr(b, "text")
     ) or "(no summary)"
