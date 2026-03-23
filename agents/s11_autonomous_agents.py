@@ -64,7 +64,7 @@ client = Anthropic(
     default_headers=extra_headers,
 )
 MODEL = os.environ["MODEL_ID"]
-WORKDIR = os.getcwd()
+WORKDIR = Path.cwd()
 TEAM_DIR = WORKDIR / ".team"
 INBOX_DIR = TEAM_DIR / "inbox"
 TASKS_DIR = WORKDIR / ".tasks"

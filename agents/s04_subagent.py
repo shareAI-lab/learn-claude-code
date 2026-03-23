@@ -48,7 +48,7 @@ client = Anthropic(
     default_headers=extra_headers,
 )
 MODEL = os.environ["MODEL_ID"]
-WORKDIR = os.getcwd()
+WORKDIR = Path.cwd()
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use the task tool to delegate exploration or subtasks."
 SUBAGENT_SYSTEM = f"You are a coding subagent at {WORKDIR}. Complete the given task, then summarize your findings."

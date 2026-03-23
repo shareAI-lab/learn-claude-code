@@ -52,7 +52,7 @@ client = Anthropic(
     default_headers=extra_headers,
 )
 MODEL = os.environ["MODEL_ID"]
-WORKDIR = os.getcwd()
+WORKDIR = Path.cwd()
 
 SYSTEM = f"""You are a coding agent at {WORKDIR}.
 Use the todo tool to plan multi-step tasks. Mark in_progress before starting, completed when done.

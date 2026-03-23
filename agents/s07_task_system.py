@@ -48,7 +48,7 @@ client = Anthropic(
     default_headers=extra_headers,
 )
 MODEL = os.environ["MODEL_ID"]
-WORKDIR = os.getcwd()
+WORKDIR = Path.cwd()
 TASKS_DIR = WORKDIR / ".tasks"
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use task tools to plan and track work."
