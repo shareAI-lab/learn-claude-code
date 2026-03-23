@@ -35,9 +35,20 @@ load_dotenv(override=True)
 if os.getenv("ANTHROPIC_BASE_URL"):
     os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
 
-WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+api_key = os.getenv("ANTHROPIC_API_KEY")
+auth_type = os.getenv("AUTH_TYPE", "x-api-key")
+
+extra_headers = {}
+if auth_type == "bearer":
+    extra_headers["Authorization"] = f"Bearer {api_key}"
+
+client = Anthropic(
+    api_key=api_key,
+    base_url=os.getenv("ANTHROPIC_BASE_URL"),
+    default_headers=extra_headers,
+)
 MODEL = os.environ["MODEL_ID"]
+WORKDIR = os.getcwd()
 TASKS_DIR = WORKDIR / ".tasks"
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use task tools to plan and track work."
