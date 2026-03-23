@@ -1,0 +1,12 @@
+# OpenResponsesInputMessageItemContentInputImage
+
+Image input content item
+
+
+## Fields
+
+| Field                                                                                                            | Type                                                                                                             | Required                                                                                                         | Description                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `type`                                                                                                           | [components.OpenResponsesInputMessageItemContentType](../components/openresponsesinputmessageitemcontenttype.md) | :heavy_check_mark:                                                                                               | N/A                                                                                                              |
+| `detail`                                                                                                         | [components.OpenResponsesInputMessageItemDetail](../components/openresponsesinputmessageitemdetail.md)           | :heavy_check_mark:                                                                                               | N/A                                                                                                              |
+| `image_url`                                                                                                      | *OptionalNullable[str]*                                                                                          | :heavy_minus_sign:                                                                                               | N/A                                                                                                              |

@@ -1,0 +1,11 @@
+# ResponseTextConfig
+
+Text output configuration including format and verbosity
+
+
+## Fields
+
+| Field                                                                                                    | Type                                                                                                     | Required                                                                                                 | Description                                                                                              | Example                                                                                                  |
+| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `format_`                                                                                                | [Optional[components.ResponseFormatTextConfig]](../components/responseformattextconfig.md)               | :heavy_minus_sign:                                                                                       | Text response format configuration                                                                       | {<br/>"type": "text"<br/>}                                                                               |
+| `verbosity`                                                                                              | [OptionalNullable[components.ResponseTextConfigVerbosity]](../components/responsetextconfigverbosity.md) | :heavy_minus_sign:                                                                                       | N/A                                                                                                      |                                                                                                          |

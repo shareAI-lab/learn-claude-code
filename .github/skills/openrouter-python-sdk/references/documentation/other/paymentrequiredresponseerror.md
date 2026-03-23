@@ -1,0 +1,11 @@
+# PaymentRequiredResponseError
+
+Payment Required - Insufficient credits or quota to complete request
+
+
+## Fields
+
+| Field                                                                                            | Type                                                                                             | Required                                                                                         | Description                                                                                      | Example                                                                                          |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `error`                                                                                          | [components.PaymentRequiredResponseErrorData](../components/paymentrequiredresponseerrordata.md) | :heavy_check_mark:                                                                               | Error data for PaymentRequiredResponse                                                           | {<br/>"code": 402,<br/>"message": "Insufficient credits. Add more using https://openrouter.ai/credits"<br/>} |
+| `user_id`                                                                                        | *OptionalNullable[str]*                                                                          | :heavy_minus_sign:                                                                               | N/A                                                                                              |                                                                                                  |

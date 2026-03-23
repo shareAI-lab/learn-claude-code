@@ -1,0 +1,11 @@
+# EdgeNetworkTimeoutResponseError
+
+Infrastructure Timeout - Provider request timed out at edge network
+
+
+## Fields
+
+| Field                                                                                                  | Type                                                                                                   | Required                                                                                               | Description                                                                                            | Example                                                                                                |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `error`                                                                                                | [components.EdgeNetworkTimeoutResponseErrorData](../components/edgenetworktimeoutresponseerrordata.md) | :heavy_check_mark:                                                                                     | Error data for EdgeNetworkTimeoutResponse                                                              | {<br/>"code": 524,<br/>"message": "Request timed out. Please try again later."<br/>}                   |
+| `user_id`                                                                                              | *OptionalNullable[str]*                                                                                | :heavy_minus_sign:                                                                                     | N/A                                                                                                    |                                                                                                        |

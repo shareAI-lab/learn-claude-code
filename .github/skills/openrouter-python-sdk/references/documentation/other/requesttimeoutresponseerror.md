@@ -1,0 +1,11 @@
+# RequestTimeoutResponseError
+
+Request Timeout - Operation exceeded time limit
+
+
+## Fields
+
+| Field                                                                                          | Type                                                                                           | Required                                                                                       | Description                                                                                    | Example                                                                                        |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `error`                                                                                        | [components.RequestTimeoutResponseErrorData](../components/requesttimeoutresponseerrordata.md) | :heavy_check_mark:                                                                             | Error data for RequestTimeoutResponse                                                          | {<br/>"code": 408,<br/>"message": "Operation timed out. Please try again later."<br/>}         |
+| `user_id`                                                                                      | *OptionalNullable[str]*                                                                        | :heavy_minus_sign:                                                                             | N/A                                                                                            |                                                                                                |

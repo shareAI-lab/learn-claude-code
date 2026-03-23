@@ -1,0 +1,1081 @@
+{
+  "nodes": [
+    {
+      "file": "examples/oauth_pkce_example.py",
+      "language": "Python"
+    },
+    {
+      "file": "scripts/check_types.py",
+      "language": "Python"
+    },
+    {
+      "file": "scripts/prepare_readme.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/__init__.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/_hooks/__init__.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/_hooks/registration.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/_hooks/sdkhooks.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/_hooks/types.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/_version.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/analytics.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/api_keys.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/basesdk.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/beta.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/chat.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/__init__.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/activityitem.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/assistantmessage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/assistantmessageimages.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/badgatewayresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/badrequestresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatcompletionfinishreason.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatgenerationparams.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatgenerationtokenusage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatmessagecontentitem.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatmessagecontentitemaudio.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatmessagecontentitemcachecontrol.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatmessagecontentitemimage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatmessagecontentitemtext.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatmessagecontentitemvideo.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatmessagecontentitemvideolegacy.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatmessagetokenlogprob.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatmessagetokenlogprobs.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatmessagetoolcall.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatresponse.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatresponsechoice.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatstreamingchoice.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatstreamingmessagechunk.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatstreamingmessagetoolcall.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatstreamingresponsechunk.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/chatstreamoptions.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/createchargerequest.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/datacollection.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/debugoptions.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/defaultparameters.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/developermessage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/edgenetworktimeoutresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/endpointstatus.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/filecitation.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/filepath.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/forbiddenresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/imagegenerationstatus.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/inputmodality.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/instructtype.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/internalserverresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/jsonschemaconfig.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/listendpointsresponse.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/message.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/model.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/modelarchitecture.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/modelgroup.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/modelscountresponse.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/modelslistresponse.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/namedtoolchoice.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/notfoundresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsesannotation.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsesincludable.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsesincompletedetails.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsesinput_union.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsesprompt.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsesreasoningconfig.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsesreasoningeffort.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsesrefusalcontent.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsesresponsestatus.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsesservicetier.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsestoolchoice_union.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openairesponsestruncation.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponseseasyinputmessage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponseserrorevent.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesfunctioncalloutput.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesfunctiontoolcall.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesimagegencallcompleted.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesimagegencallgenerating.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesimagegencallinprogress.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesimagegencallpartialimage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesinput.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesinputmessageitem.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponseslogprobs.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesnonstreamingresponse.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesreasoning.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesreasoningconfig.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesreasoningdeltaevent.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesreasoningdoneevent.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesreasoningsummarypartaddedevent.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesreasoningsummarytextdeltaevent.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesreasoningsummarytextdoneevent.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesrequest.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesresponsetext.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesstreamevent.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsestoplogprobs.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponsesusage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponseswebsearch20250826tool.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponseswebsearchpreview20250311tool.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponseswebsearchpreviewtool.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/openresponseswebsearchtool.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/outputitemimagegenerationcall.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/outputmessage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/outputmodality.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/parameter.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/payloadtoolargeresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/paymentrequiredresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/pdfparserengine.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/pdfparseroptions.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/percentilelatencycutoffs.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/percentilestats.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/percentilethroughputcutoffs.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/perrequestlimits.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/preferredmaxlatency.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/preferredminthroughput.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/providername.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/provideroverloadedresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/providerpreferences.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/providersort.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/providersortconfig.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/publicendpoint.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/publicpricing.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/quantization.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/reasoningdetailencrypted.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/reasoningdetailsummary.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/reasoningdetailtext.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/reasoningdetailunion.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/reasoningsummarytext.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/reasoningsummaryverbosity.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/reasoningtextcontent.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/requesttimeoutresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseformatjsonobject.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseformatjsonschema.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseformattext.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseformattextconfig.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseformattextgrammar.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseformattextpython.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseinputaudio.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseinputfile.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseinputimage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseinputtext.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseinputvideo.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseoutputtext.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseserrorfield.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responsesformattext.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responsesformattextjsonschemaconfig.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responsesimagegenerationcall.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responsesoutputitem.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responsesoutputitemfilesearchcall.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responsesoutputitemfunctioncall.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responsesoutputitemreasoning.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responsesoutputmessage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responsesoutputmodality.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responsessearchcontextsize.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseswebsearchcalloutput.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responseswebsearchuserlocation.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/responsetextconfig.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/security.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/serviceunavailableresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/systemmessage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/toolcallstatus.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/toolchoiceoption.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/tooldefinitionjson.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/toolresponsemessage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/toomanyrequestsresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/topproviderinfo.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/unauthorizedresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/unprocessableentityresponseerrordata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/urlcitation.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/usermessage.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/videoinput.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/websearchengine.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/websearchpreviewtooluserlocation.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/components/websearchstatus.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/credits.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/embeddings.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/endpoints.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/__init__.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/badgatewayresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/badrequestresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/edgenetworktimeoutresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/forbiddenresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/internalserverresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/no_response_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/notfoundresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/openrouterdefaulterror.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/openroutererror.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/payloadtoolargeresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/paymentrequiredresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/provideroverloadedresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/requesttimeoutresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/responsevalidationerror.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/serviceunavailableresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/toomanyrequestsresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/unauthorizedresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/errors/unprocessableentityresponse_error.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/generations.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/guardrails.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/httpclient.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/models/__init__.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/models/internal/__init__.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/models/internal/globals.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/models_.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/oauth.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/__init__.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/bulkassignkeystoguardrail.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/bulkassignmemberstoguardrail.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/bulkunassignkeysfromguardrail.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/bulkunassignmembersfromguardrail.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/createauthkeyscode.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/createcoinbasecharge.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/createembeddings.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/createguardrail.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/createkeys.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/createresponses.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/deleteguardrail.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/deletekeys.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/exchangeauthcodeforapikey.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/getcredits.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/getcurrentkey.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/getgeneration.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/getguardrail.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/getkey.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/getmodels.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/getuseractivity.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/list.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/listembeddingsmodels.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/listendpoints.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/listendpointszdr.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/listguardrailkeyassignments.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/listguardrailmemberassignments.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/listguardrails.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/listkeyassignments.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/listmemberassignments.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/listmodelscount.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/listmodelsuser.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/listproviders.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/sendchatcompletionrequest.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/updateguardrail.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/operations/updatekeys.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/providers.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/responses.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/sdk.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/sdkconfiguration.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/types/__init__.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/types/basemodel.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/types/models.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/__init__.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/annotations.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/datetimes.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/enums.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/eventstreaming.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/forms.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/headers.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/logger.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/metadata.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/oauth_create_authorization_url.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/oauth_create_sha256_code_challenge.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/queryparams.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/requestbodies.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/retries.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/security.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/serializers.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/unmarshal_json_response.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/url.py",
+      "language": "Python"
+    },
+    {
+      "file": "src/openrouter/utils/values.py",
+      "language": "Python"
+    }
+  ],
+  "edges": []
+}

@@ -1,0 +1,192 @@
+[
+  {
+    "pattern_type": "Observer",
+    "category": "Behavioral",
+    "confidence": 0.95,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/sdkhooks.py",
+    "class_name": "SDKHooks",
+    "method_name": null,
+    "line_number": 19,
+    "evidence": [
+      "Attach method: register_sdk_init_hook",
+      "Attach method: register_before_request_hook",
+      "Attach method: register_after_success_hook",
+      "Attach method: register_after_error_hook"
+    ],
+    "related_classes": [],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/sdkhooks.py"
+  },
+  {
+    "pattern_type": "Observer",
+    "category": "Behavioral",
+    "confidence": 0.95,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py",
+    "class_name": "Hooks",
+    "method_name": null,
+    "line_number": 97,
+    "evidence": [
+      "Attach method: register_sdk_init_hook",
+      "Attach method: register_before_request_hook",
+      "Attach method: register_after_success_hook",
+      "Attach method: register_after_error_hook"
+    ],
+    "related_classes": [],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/_hooks/types.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/analytics.py",
+    "class_name": "Analytics",
+    "method_name": null,
+    "line_number": 12,
+    "evidence": [
+      "Factory method: get_user_activity",
+      "Factory method: get_user_activity_async",
+      "Multiple factory methods: get_user_activity, get_user_activity_async",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/analytics.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/api_keys.py",
+    "class_name": "APIKeys",
+    "method_name": null,
+    "line_number": 13,
+    "evidence": [
+      "Factory method: create",
+      "Factory method: create_async",
+      "Factory method: get",
+      "Factory method: get_async",
+      "Factory method: get_current_key_metadata",
+      "Factory method: get_current_key_metadata_async",
+      "Multiple factory methods: create, create_async, get",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/api_keys.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/basesdk.py",
+    "class_name": "BaseSDK",
+    "method_name": null,
+    "line_number": 16,
+    "evidence": [
+      "Parameterized factory method: _get_url",
+      "Parameterized factory method: _build_request_async",
+      "Parameterized factory method: _build_request",
+      "Parameterized factory method: _build_request_with_client",
+      "Multiple factory methods: _get_url, _build_request_async, _build_request"
+    ],
+    "related_classes": [],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/basesdk.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/credits.py",
+    "class_name": "Credits",
+    "method_name": null,
+    "line_number": 12,
+    "evidence": [
+      "Factory method: get_credits",
+      "Factory method: get_credits_async",
+      "Factory method: create_coinbase_charge",
+      "Factory method: create_coinbase_charge_async",
+      "Multiple factory methods: get_credits, get_credits_async, create_coinbase_charge",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/credits.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/generations.py",
+    "class_name": "Generations",
+    "method_name": null,
+    "line_number": 12,
+    "evidence": [
+      "Factory method: get_generation",
+      "Factory method: get_generation_async",
+      "Multiple factory methods: get_generation, get_generation_async",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/generations.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/guardrails.py",
+    "class_name": "Guardrails",
+    "method_name": null,
+    "line_number": 12,
+    "evidence": [
+      "Factory method: create",
+      "Factory method: create_async",
+      "Factory method: get",
+      "Factory method: get_async",
+      "Multiple factory methods: create, create_async, get",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/guardrails.py"
+  },
+  {
+    "pattern_type": "Factory",
+    "category": "Creational",
+    "confidence": 0.9,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/oauth.py",
+    "class_name": "OAuth",
+    "method_name": null,
+    "line_number": 13,
+    "evidence": [
+      "Factory method: create_auth_code",
+      "Factory method: create_auth_code_async",
+      "Multiple factory methods: create_auth_code, create_auth_code_async",
+      "Inherits from: BaseSDK"
+    ],
+    "related_classes": [
+      "BaseSDK"
+    ],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/oauth.py"
+  },
+  {
+    "pattern_type": "Adapter",
+    "category": "Structural",
+    "confidence": 0.85,
+    "location": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/sdk.py",
+    "class_name": "OpenRouter",
+    "method_name": null,
+    "line_number": 33,
+    "evidence": [
+      "Takes adaptee in constructor: ['api_key', 'http_referer', 'x_title', 'server', 'server_url', 'url_params', 'client', 'async_client', 'retry_config', 'timeout_ms', 'debug_logger']",
+      "Implements interface: BaseSDK",
+      "Has 8 interface methods"
+    ],
+    "related_classes": [],
+    "file_path": "/home/richard/CygwinDirs/rz-projects/openrouter/python-sdk/src/openrouter/sdk.py"
+  }
+]

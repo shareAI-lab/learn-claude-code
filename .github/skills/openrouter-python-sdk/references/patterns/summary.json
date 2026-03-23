@@ -1,0 +1,16 @@
+{
+  "statistics": {
+    "total": 648,
+    "critical_count": 10,
+    "high_confidence_count": 70,
+    "medium_count": 86,
+    "low_count": 562
+  },
+  "thresholds": {
+    "critical": 0.8,
+    "high": 0.7,
+    "medium": 0.6,
+    "low": 0.5
+  },
+  "files_analyzed": 133
+}

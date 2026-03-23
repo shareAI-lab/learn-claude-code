@@ -1,0 +1,15 @@
+# OpenResponsesStreamEventResponseRefusalDelta
+
+Event emitted when a refusal delta is streamed
+
+
+## Fields
+
+| Field                                                                            | Type                                                                             | Required                                                                         | Description                                                                      |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `type`                                                                           | [components.TypeResponseRefusalDelta](../components/typeresponserefusaldelta.md) | :heavy_check_mark:                                                               | N/A                                                                              |
+| `output_index`                                                                   | *float*                                                                          | :heavy_check_mark:                                                               | N/A                                                                              |
+| `item_id`                                                                        | *str*                                                                            | :heavy_check_mark:                                                               | N/A                                                                              |
+| `content_index`                                                                  | *float*                                                                          | :heavy_check_mark:                                                               | N/A                                                                              |
+| `delta`                                                                          | *str*                                                                            | :heavy_check_mark:                                                               | N/A                                                                              |
+| `sequence_number`                                                                | *float*                                                                          | :heavy_check_mark:                                                               | N/A                                                                              |

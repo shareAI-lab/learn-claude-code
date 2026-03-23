@@ -1,0 +1,28 @@
+{
+  "name": "Learn Claude Code Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/python:3",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/copilot-cli:1": {}
+  },
+  "postCreateCommand": {
+    "install-copilot-sdk": "copilot plugin install copilot-sdk@awesome-copilot"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "DavidAnson.vscode-markdownlint"
+      ],
+      "settings": {
+        "editor.fontSize": 14,
+        "terminal.integrated.fontSize": 14
+      }
+    }
+  }
+}
