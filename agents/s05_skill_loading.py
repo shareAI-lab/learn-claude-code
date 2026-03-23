@@ -62,7 +62,7 @@ client = Anthropic(
 )
 MODEL = os.environ["MODEL_ID"]
 
-WORKDIR = Path.cwd()
+WORKDIR = Path(os.getcwd())
 SKILLS_DIR = WORKDIR / "skills"
 
 

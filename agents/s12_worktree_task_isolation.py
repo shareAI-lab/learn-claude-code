@@ -58,7 +58,7 @@ client = Anthropic(
     default_headers=extra_headers,
 )
 MODEL = os.environ["MODEL_ID"]
-WORKDIR = Path.cwd()
+WORKDIR = Path(os.getcwd())
 
 
 def detect_repo_root(cwd: Path) -> Path | None:
