@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useTranslations } from "@/lib/i18n";
 import { getFlowForVersion } from "@/data/execution-flows";
 import type { FlowNode, FlowEdge } from "@/types/agent-data";
 
@@ -186,7 +185,6 @@ interface ExecutionFlowProps {
 }
 
 export function ExecutionFlow({ version }: ExecutionFlowProps) {
-  const t = useTranslations("version");
   const [flow, setFlow] = useState<ReturnType<typeof getFlowForVersion>>(null);
 
   useEffect(() => {
@@ -198,46 +196,43 @@ export function ExecutionFlow({ version }: ExecutionFlowProps) {
   const maxY = Math.max(...flow.nodes.map((n) => n.y)) + 50;
 
   return (
-    <section>
-      <h2 className="mb-4 text-xl font-semibold">{t("execution_flow")}</h2>
-      <div className="overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <svg
-          viewBox={`0 0 600 ${maxY}`}
-          className="mx-auto w-full max-w-[600px]"
-          style={{ minHeight: 300 }}
-        >
-          <defs>
-            <marker
-              id="arrowhead"
-              markerWidth={8}
-              markerHeight={6}
-              refX={8}
-              refY={3}
-              orient="auto"
-            >
-              <polygon
-                points="0 0, 8 3, 0 6"
-                fill="var(--color-text-secondary)"
-              />
-            </marker>
-          </defs>
+    <div className="overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+      <svg
+        viewBox={`0 0 600 ${maxY}`}
+        className="mx-auto w-full max-w-[600px]"
+        style={{ minHeight: 300 }}
+      >
+        <defs>
+          <marker
+            id="arrowhead"
+            markerWidth={8}
+            markerHeight={6}
+            refX={8}
+            refY={3}
+            orient="auto"
+          >
+            <polygon
+              points="0 0, 8 3, 0 6"
+              fill="var(--color-text-secondary)"
+            />
+          </marker>
+        </defs>
 
-          {flow.edges.map((edge, i) => (
-            <EdgePath key={`${edge.from}-${edge.to}`} edge={edge} nodes={flow.nodes} index={i} />
-          ))}
+        {flow.edges.map((edge, i) => (
+          <EdgePath key={`${edge.from}-${edge.to}`} edge={edge} nodes={flow.nodes} index={i} />
+        ))}
 
-          {flow.nodes.map((node, i) => (
-            <motion.g
-              key={node.id}
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06, duration: 0.3 }}
-            >
-              <NodeShape node={node} />
-            </motion.g>
-          ))}
-        </svg>
-      </div>
-    </section>
+        {flow.nodes.map((node, i) => (
+          <motion.g
+            key={node.id}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.06, duration: 0.3 }}
+          >
+            <NodeShape node={node} />
+          </motion.g>
+        ))}
+      </svg>
+    </div>
   );
 }
