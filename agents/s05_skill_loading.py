@@ -76,11 +76,43 @@ class SkillLoader:
         if not match:
             return {}, text
         meta = {}
-        for line in match.group(1).strip().splitlines():
-            if ":" in line:
-                key, val = line.split(":", 1)
-                meta[key.strip()] = val.strip()
+        lines = match.group(1).strip().splitlines()
+        index = 0
+        while index < len(lines):
+            line = lines[index]
+            if ":" not in line:
+                index += 1
+                continue
+
+            key, val = line.split(":", 1)
+            key = key.strip()
+            val = val.strip()
+            index += 1
+
+            if val in {"|", ">"}:
+                block_lines = []
+                while index < len(lines):
+                    next_line = lines[index]
+                    if next_line.startswith((" ", "\t")) or not next_line.strip():
+                        block_lines.append(next_line)
+                        index += 1
+                        continue
+                    break
+                meta[key] = self._parse_block_scalar(block_lines, val)
+                continue
+
+            meta[key] = val
         return meta, match.group(2).strip()
+
+    def _parse_block_scalar(self, lines: list[str], style: str) -> str:
+        """Parse a minimal YAML block scalar for skill metadata."""
+        non_empty = [len(line) - len(line.lstrip()) for line in lines if line.strip()]
+        indent = min(non_empty) if non_empty else 0
+        normalized = [line[indent:] if line.strip() else "" for line in lines]
+
+        if style == ">":
+            return " ".join(line.strip() for line in normalized if line.strip())
+        return "\n".join(normalized).strip()
 
     def get_descriptions(self) -> str:
         """Layer 1: short descriptions for the system prompt."""
