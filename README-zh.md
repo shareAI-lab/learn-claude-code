@@ -18,6 +18,8 @@ Agent 是一个神经网络 -- Transformer、RNN、一个被训练出来的函�
 
 - **2013 -- DeepMind DQN 玩 Atari。** 一个神经网络，只接收原始像素和游戏分数，学会了 7 款 Atari 2600 游戏 -- 超越所有先前算法，在其中 3 款上击败人类专家。到 2015 年，同一架构扩展到 [49 款游戏，达到职业人类测试员水平](https://www.nature.com/articles/nature14236)，论文发表在 *Nature*。没有游戏专属规则。没有决策树。一个模型，从经验中学习。那个模型就是 agent。
 
+- **2016-2017 -- DeepMind AlphaGo 击败李世石与柯洁。** 2016 年 3 月，AlphaGo 在首尔以 4-1 战胜李世石 -- 这是神经网络围棋系统首次在完整对局中击败顶尖人类棋手。2017 年 5 月，它又在乌镇未来围棋峰会上以 3-0 横扫当时世界排名第一的柯洁。不是人先把每一步棋都写好，再让它照着下。没有围棋名家写死的符号规则。一个训练出来的模型，在人类最古老的策略游戏之一中学出了超人的直觉。那个模型就是 agent。
+
 - **2019 -- OpenAI Five 征服 Dota 2。** 五个神经网络，在 10 个月内与自己对战了 [45,000 年的 Dota 2](https://openai.com/index/openai-five-defeats-dota-2-world-champions/)，在旧金山直播赛上 2-0 击败了 **OG** -- TI8 世界冠军。随后的公开竞技场中，AI 在 42,729 场比赛中胜率 99.4%。没有脚本化的策略。没有元编程的团队协调逻辑。模型完全通过自我对弈学会了团队协作、战术和实时适应。
 
 - **2019 -- DeepMind AlphaStar 制霸星际争霸 II。** AlphaStar 在闭门赛中 [10-1 击败职业选手](https://deepmind.google/blog/alphastar-mastering-the-real-time-strategy-game-starcraft-ii/)，随后在欧洲服务器上达到[宗师段位](https://www.nature.com/articles/d41586-019-03298-6) -- 90,000 名玩家中的前 0.15%。一个信息不完全、实时决策、组合动作空间远超国际象棋和围棋的游戏。Agent 是什么？是模型。训练出来的。不是编出来的。
