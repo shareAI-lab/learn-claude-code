@@ -118,7 +118,9 @@ def auto_compact(messages: list) -> list:
             "Be concise but preserve critical details.\n\n" + conversation_text}],
         max_tokens=2000,
     )
-    summary = response.content[0].text
+    summary = next((block.text for block in response.content if hasattr(block, "text")), "")
+    if not summary:
+        summary = "No summary generated."
     # Replace all messages with compressed summary
     return [
         {"role": "user", "content": f"[Conversation compressed. Transcript: {transcript_path}]\n\n{summary}"},
