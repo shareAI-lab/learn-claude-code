@@ -235,7 +235,13 @@ def agent_loop(messages):
 ```sh
 git clone https://github.com/shareAI-lab/learn-claude-code
 cd learn-claude-code
+
+# 直接安装依赖
 pip install -r requirements.txt
+
+# 使用 anaconda/miniconda 管理依赖
+# conda env create -f environment.yml
+
 cp .env.example .env   # 编辑 .env 填入你的 ANTHROPIC_API_KEY
 
 python agents/s01_agent_loop.py       # 从这里开始

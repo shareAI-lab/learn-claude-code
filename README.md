@@ -234,7 +234,13 @@ Treat the team JSONL mailbox protocol in this repo as a teaching implementation,
 ```sh
 git clone https://github.com/shareAI-lab/learn-claude-code
 cd learn-claude-code
+
+# Install dependency directly
 pip install -r requirements.txt
+
+# Use Anaconda/Miniconda to manage python environments
+# conda env create -f environment.yml
+
 cp .env.example .env   # Edit .env with your ANTHROPIC_API_KEY
 
 python agents/s01_agent_loop.py       # Start here

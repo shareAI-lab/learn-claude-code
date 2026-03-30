@@ -1,0 +1,6 @@
+name: learn-claude-code
+dependencies:
+- python=3.8
+- anthropic>=0.25.0
+- python-dotenv>=1.0.0
+- pyyaml>=6.0
