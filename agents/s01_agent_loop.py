@@ -73,6 +73,8 @@ def run_bash(command: str) -> str:
         return out[:50000] if out else "(no output)"
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
+    except (FileNotFoundError, OSError) as e:
+        return f"Error: {e}"
 
 
 # -- The core pattern: a while loop that calls tools until the model stops --

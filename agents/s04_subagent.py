@@ -61,6 +61,8 @@ def run_bash(command: str) -> str:
         return out[:50000] if out else "(no output)"
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
+    except (FileNotFoundError, OSError) as e:
+        return f"Error: {e}"
 
 def run_read(path: str, limit: int = None) -> str:
     try:
@@ -155,8 +157,9 @@ def agent_loop(messages: list):
             if block.type == "tool_use":
                 if block.name == "task":
                     desc = block.input.get("description", "subtask")
-                    print(f"> task ({desc}): {block.input['prompt'][:80]}")
-                    output = run_subagent(block.input["prompt"])
+                    prompt = block.input.get("prompt", "")
+                    print(f"> task ({desc}): {prompt[:80]}")
+                    output = run_subagent(prompt)
                 else:
                     handler = TOOL_HANDLERS.get(block.name)
                     output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
