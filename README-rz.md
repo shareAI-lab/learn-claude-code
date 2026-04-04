@@ -8,9 +8,9 @@ Build and maintain custom instructions/prompts/agents and agent skills with gh c
 
 Essentially build and manage agent workfoce to perform SDLC tasks and automate SDLC workflows.
 
-## Use .cladue struture for github copilot
+## Claude Code vs Github Copilot
 
-### Agent harness extensions: claude code vs github copilt
+### Agent harness extensions
 
 | Claude Code | Github Copilot | What to achieve |
 |----|----|----|
@@ -19,16 +19,17 @@ Essentially build and manage agent workfoce to perform SDLC tasks and automate S
 | agent skill | agent skill | Subject matter expertise to extand agent harness capabilities with more effective context information for more precise outputs |
 | cluade.md | copilot-instructions.md | Provide global context informtion for the project repo |
 
-### Why use .claude structure
-
 Agent harness extensions for github copilot are natively placed under ./.gitub while in ./.claude for claude code. 
 
-However, github copilot supports extensions placed under ./.claude directory, but not vice versa. The decision is to place those agent extensions in ./.claude for,
+### Agent Skills
 
-- they can seamlessly work with both claude code and github copilot
-- leave ./.github for hosting github action workflows
+Agent skill is open sourced as the common standard cross coding agent harnesses, github copilot recognizes agent skills installed in `./.github/skills/` and in `./.claude/skills/`
+
+In this project, all agent skills, either self built or installed from public repos, are all placed under `./.claude/skills/`, so that they can seamlessly work with both claude code and github copilot
 
 ## Features
+
+### Organize the python codebase into a uv project
 
 ### Support wide ragne of LLMs
 

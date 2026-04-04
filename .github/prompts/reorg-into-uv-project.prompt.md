@@ -1,0 +1,1 @@
+Reorganize the learn-claude-code python project into UV managed project
