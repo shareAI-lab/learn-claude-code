@@ -254,6 +254,8 @@ class TeammateManager:
                             output = "Entering idle phase. Will poll for new tasks."
                         else:
                             output = self._exec(name, block.name, block.input)
+                            if block.name == "shutdown_response" and block.input.get("approve"):
+                                return
                         print(f"  [{name}] {block.name}: {str(output)[:120]}")
                         results.append({
                             "type": "tool_result",
@@ -273,9 +275,6 @@ class TeammateManager:
                 inbox = BUS.read_inbox(name)
                 if inbox:
                     for msg in inbox:
-                        if msg.get("type") == "shutdown_request":
-                            self._set_status(name, "shutdown")
-                            return
                         messages.append({"role": "user", "content": json.dumps(msg)})
                     resume = True
                     break
@@ -325,6 +324,8 @@ class TeammateManager:
                 sender, "lead", args.get("reason", ""),
                 "shutdown_response", {"request_id": req_id, "approve": args["approve"]},
             )
+            if args["approve"]:
+                self._set_status(sender, "shutdown")
             return f"Shutdown {'approved' if args['approve'] else 'rejected'}"
         if tool_name == "plan_approval":
             plan_text = args.get("plan", "")
