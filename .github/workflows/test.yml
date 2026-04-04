@@ -18,10 +18,10 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install anthropic python-dotenv pytest
+        run: pip install anthropic python-dotenv pyyaml pytest
 
-      - name: Run Python smoke tests
-        run: python -m pytest tests/test_agents_smoke.py -q
+      - name: Run Python tests
+        run: python -m pytest tests/ -q
 
   web-build:
     runs-on: ubuntu-latest
