@@ -1,0 +1,11 @@
+[project]
+name = "simple-open-code"
+version = "0.1.0"
+description = "Learn Claude Code - Agent harness implementations"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.25.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0",
+]
