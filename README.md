@@ -1,4 +1,4 @@
-[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
+[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md) | [Русский](./README-ru.md)
 # Learn Claude Code -- Harness Engineering for Real Agents
 
 ## The Model IS the Agent
@@ -299,7 +299,7 @@ learn-claude-code/
 ## Documentation
 
 Mental-model-first: problem, solution, ASCII diagram, minimal code.
-Available in [English](./docs/en/) | [中文](./docs/zh/) | [日本語](./docs/ja/).
+Available in [English](./docs/en/) | [中文](./docs/zh/) | [日本語](./docs/ja/) | [Русский](./docs/ru/).
 
 | Session | Topic | Motto |
 |---------|-------|-------|
