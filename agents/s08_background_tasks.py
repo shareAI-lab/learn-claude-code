@@ -28,6 +28,7 @@ Key insight: "Fire and forget -- the agent doesn't block while the command runs.
 import os
 import subprocess
 import threading
+import time
 import uuid
 from pathlib import Path
 
@@ -44,6 +45,7 @@ client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use background_run for long-running commands."
+MAX_BG_WAIT = 30  # seconds to wait for background completions before exit
 
 
 # -- BackgroundManager: threaded execution + notification queue --
@@ -52,6 +54,7 @@ class BackgroundManager:
         self.tasks = {}  # task_id -> {status, result, command}
         self._notification_queue = []  # completed task results
         self._lock = threading.Lock()
+        self._cond = threading.Condition(self._lock)
 
     def run(self, command: str) -> str:
         """Start a background thread, return task_id immediately."""
@@ -80,13 +83,14 @@ class BackgroundManager:
             status = "error"
         self.tasks[task_id]["status"] = status
         self.tasks[task_id]["result"] = output or "(no output)"
-        with self._lock:
+        with self._cond:
             self._notification_queue.append({
                 "task_id": task_id,
                 "status": status,
                 "command": command[:80],
                 "result": (output or "(no output)")[:500],
             })
+            self._cond.notify_all()
 
     def check(self, task_id: str = None) -> str:
         """Check status of one task or list all."""
@@ -106,6 +110,16 @@ class BackgroundManager:
             notifs = list(self._notification_queue)
             self._notification_queue.clear()
         return notifs
+
+    def has_running(self) -> bool:
+        return any(t["status"] == "running" for t in self.tasks.values())
+
+    def wait_for_notification(self, timeout: float) -> bool:
+        with self._cond:
+            if self._notification_queue:
+                return True
+            self._cond.wait(timeout=timeout)
+            return bool(self._notification_queue)
 
 
 BG = BackgroundManager()
@@ -200,6 +214,35 @@ def agent_loop(messages: list):
         )
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
+            pending = BG.drain_notifications()
+            if pending and messages:
+                notif_text = "\n".join(
+                    f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in pending
+                )
+                messages.append({"role": "user", "content": f"<background-results>\n{notif_text}\n</background-results>"})
+                continue
+            if BG.has_running():
+                deadline = time.monotonic() + MAX_BG_WAIT
+                delivered = False
+                while time.monotonic() < deadline and BG.has_running():
+                    BG.wait_for_notification(timeout=0.5)
+                    pending = BG.drain_notifications()
+                    if pending and messages:
+                        notif_text = "\n".join(
+                            f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in pending
+                        )
+                        messages.append({"role": "user", "content": f"<background-results>\n{notif_text}\n</background-results>"})
+                        delivered = True
+                        break
+                if delivered:
+                    continue
+                pending = BG.drain_notifications()
+                if pending and messages:
+                    notif_text = "\n".join(
+                        f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in pending
+                    )
+                    messages.append({"role": "user", "content": f"<background-results>\n{notif_text}\n</background-results>"})
+                    continue
             return
         results = []
         for block in response.content:
