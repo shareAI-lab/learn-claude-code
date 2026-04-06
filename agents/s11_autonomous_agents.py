@@ -193,6 +193,21 @@ class TeammateManager:
             member["status"] = status
             self._save_config()
 
+    def _handle_shutdown_request(self, name: str, msg: dict):
+        request_id = msg.get("request_id", "")
+        if request_id:
+            with _tracker_lock:
+                if request_id in shutdown_requests:
+                    shutdown_requests[request_id]["status"] = "approved"
+            BUS.send(
+                name,
+                "lead",
+                "Acknowledged shutdown request. Shutting down.",
+                "shutdown_response",
+                {"request_id": request_id, "approve": True},
+            )
+        self._set_status(name, "shutdown")
+
     def spawn(self, name: str, role: str, prompt: str) -> str:
         member = self._find_member(name)
         if member:
@@ -228,7 +243,7 @@ class TeammateManager:
                 inbox = BUS.read_inbox(name)
                 for msg in inbox:
                     if msg.get("type") == "shutdown_request":
-                        self._set_status(name, "shutdown")
+                        self._handle_shutdown_request(name, msg)
                         return
                     messages.append({"role": "user", "content": json.dumps(msg)})
                 try:
@@ -274,7 +289,7 @@ class TeammateManager:
                 if inbox:
                     for msg in inbox:
                         if msg.get("type") == "shutdown_request":
-                            self._set_status(name, "shutdown")
+                            self._handle_shutdown_request(name, msg)
                             return
                         messages.append({"role": "user", "content": json.dumps(msg)})
                     resume = True
