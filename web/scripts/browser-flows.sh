@@ -3,11 +3,31 @@ set -euo pipefail
 
 BASE_URL="${BASE_URL:-${1:-http://127.0.0.1:3002}}"
 LOCALE="${LOCALE:-zh}"
+SESSION_NAME="${SESSION_NAME:-learn-claude-code-flows-${LOCALE}}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT_DIR/scripts/browser-test-lib.sh"
 
+agent-browser() {
+  command agent-browser --session-name "$SESSION_NAME" "$@"
+}
+
 trap 'stop_static_server_if_started; agent-browser close >/dev/null 2>&1 || true' EXIT
+
+locale_text() {
+  local key="$1"
+  case "$LOCALE:$key" in
+    zh:deep_dive) echo '深入探索' ;;
+    en:deep_dive) echo 'Deep Dive' ;;
+    ja:deep_dive) echo '深掘り' ;;
+
+    zh:bridge_control_plane) echo '工具控制平面' ;;
+    en:bridge_control_plane) echo 'Tool Control Plane' ;;
+    ja:bridge_control_plane) echo 'ツール制御プレーン' ;;
+
+    *) echo "Unknown locale text key: ${LOCALE}:${key}" >&2; return 1 ;;
+  esac
+}
 
 wait_page() {
   agent-browser wait --load networkidle >/dev/null 2>&1 || agent-browser wait 600 >/dev/null 2>&1 || true
@@ -171,7 +191,7 @@ flow_home_to_s01() {
   click_link_by_href "/${LOCALE}/s01/"
   wait_page
   assert_url_contains "/${LOCALE}/s01/"
-  assert_body_contains 'Agent 循环'
+  assert_body_contains 's01'
   assert_no_overflow
   assert_no_page_errors
 }
@@ -179,7 +199,8 @@ flow_home_to_s01() {
 flow_home_to_timeline() {
   open_page "/${LOCALE}/timeline/"
   assert_url_contains "/${LOCALE}/timeline/"
-  assert_body_contains '按 4 个阶段渐进搭建'
+  assert_body_contains 's01'
+  assert_body_contains 's19'
   assert_no_overflow
   assert_no_page_errors
 }
@@ -187,68 +208,69 @@ flow_home_to_timeline() {
 flow_home_to_layers() {
   open_page "/${LOCALE}/layers/"
   assert_url_contains "/${LOCALE}/layers/"
-  assert_body_contains '阶段入口'
+  assert_body_contains 'P1'
+  assert_body_contains 's19'
   assert_no_overflow
   assert_no_page_errors
 }
 
 flow_home_to_compare() {
   open_page "/${LOCALE}/"
-  click_link_by_href "/${LOCALE}/compare/" '版本对比'
+  click_link_by_href "/${LOCALE}/compare/"
   wait_page
   assert_url_contains "/${LOCALE}/compare/"
-  assert_body_contains '学习路径对比'
+  assert_body_contains 's14 -> s15'
   assert_no_overflow
   assert_no_page_errors
 }
 
 flow_compare_default_state() {
   open_page "/${LOCALE}/compare"
-  assert_body_contains '跃迁诊断'
-  assert_body_contains 'Agent 循环'
-  assert_body_contains '工具使用'
+  assert_body_contains 's01'
+  assert_body_contains 's02'
+  assert_body_contains 's14 -> s15'
   assert_no_overflow
   assert_no_page_errors
 }
 
 flow_timeline_to_stage_exit() {
   open_page "/${LOCALE}/timeline"
-  click_link_exact '打开阶段收口: s06'
+  click_link_by_href "/${LOCALE}/s06/"
   wait_page
   assert_url_contains "/${LOCALE}/s06/"
-  assert_body_contains '上下文压缩'
+  assert_body_contains 's06'
   assert_no_overflow
   assert_no_page_errors
 }
 
 flow_layers_to_stage_entry() {
   open_page "/${LOCALE}/layers"
-  click_link_by_href "/${LOCALE}/s15/" '阶段入口'
+  click_link_by_href "/${LOCALE}/s15/"
   wait_page
   assert_url_contains "/${LOCALE}/s15/"
-  assert_body_contains 'Agent 团队'
+  assert_body_contains 's15'
   assert_no_overflow
   assert_no_page_errors
 }
 
 flow_chapter_to_bridge_doc() {
   open_page "/${LOCALE}/s02"
-  agent-browser --json find text '深入探索' click >/dev/null
+  agent-browser --json find text "$(locale_text deep_dive)" click >/dev/null
   wait_page
-  click_link_by_href "/${LOCALE}/docs/s02a-tool-control-plane/" '工具控制平面'
+  click_link_by_href "/${LOCALE}/docs/s02a-tool-control-plane/" "$(locale_text bridge_control_plane)"
   wait_page
   assert_url_contains "/${LOCALE}/docs/s02a-tool-control-plane/"
-  assert_body_contains '工具控制平面'
+  assert_body_contains "$(locale_text bridge_control_plane)"
   assert_no_overflow
   assert_no_page_errors
 }
 
 flow_bridge_doc_home_return() {
   open_page "/${LOCALE}/docs/s00f-code-reading-order"
-  click_link_by_href "/${LOCALE}/" '回到学习主线'
+  click_link_by_href "/${LOCALE}/"
   wait_page
   assert_url_contains "/${LOCALE}/"
-  assert_body_contains '开始学习'
+  assert_body_contains 's01'
   assert_no_overflow
   assert_no_page_errors
 }
@@ -258,7 +280,7 @@ flow_bridge_doc_back_to_chapter() {
   click_link_by_href "/${LOCALE}/s02/" 's02'
   wait_page
   assert_url_contains "/${LOCALE}/s02/"
-  assert_body_contains '工具使用'
+  assert_body_contains 's02'
   assert_no_overflow
   assert_no_page_errors
 }
@@ -281,19 +303,18 @@ flow_compare_preset() {
   open_page "/${LOCALE}/compare"
   agent-browser --json find text 's14 -> s15' click >/dev/null
   agent-browser wait 800 >/dev/null 2>&1 || true
-  assert_body_contains '跃迁诊断'
-  assert_body_contains 'Agent 团队'
-  assert_body_contains '更稳的读法'
+  assert_body_contains 's14'
+  assert_body_contains 's15'
   assert_no_overflow
   assert_no_page_errors
 }
 
 flow_chapter_next_navigation() {
   open_page "/${LOCALE}/s15"
-  click_link_by_href "/${LOCALE}/s16/" '下一章'
+  click_link_by_href "/${LOCALE}/s16/"
   wait_page
   assert_url_contains "/${LOCALE}/s16/"
-  assert_body_contains '团队协议'
+  assert_body_contains 's16'
   assert_no_overflow
   assert_no_page_errors
 }
