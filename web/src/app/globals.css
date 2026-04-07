@@ -3,11 +3,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --color-layer-tools: #3B82F6;
-  --color-layer-planning: #10B981;
-  --color-layer-memory: #8B5CF6;
-  --color-layer-concurrency: #F59E0B;
-  --color-layer-collaboration: #EF4444;
+  --color-layer-core: #2563eb;
+  --color-layer-hardening: #059669;
+  --color-layer-runtime: #d97706;
+  --color-layer-platform: #dc2626;
   --color-bg: #ffffff;
   --color-bg-secondary: #f4f4f5;
   --color-text: #09090b;
@@ -368,10 +367,19 @@ body {
 
 /* -- Tables -- */
 
-.prose-custom table {
+.prose-custom .table-scroll {
   width: 100%;
+  overflow-x: auto;
   margin-top: 1.25rem;
   margin-bottom: 1.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose-custom table {
+  width: max-content;
+  min-width: 100%;
+  margin-top: 0;
+  margin-bottom: 0;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.8125rem;

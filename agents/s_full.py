@@ -1,39 +1,36 @@
 #!/usr/bin/env python3
 # Harness: all mechanisms combined -- the complete cockpit for the model.
 """
-s_full.py - Full Reference Agent
+s_full.py - Capstone Teaching Agent
 
-Capstone implementation combining every mechanism from s01-s11.
-Session s12 (task-aware worktree isolation) is taught separately.
-NOT a teaching session -- this is the "put it all together" reference.
+Capstone file that combines the core local mechanisms taught across
+`s01-s18` into one runnable agent.
 
-    +------------------------------------------------------------------+
-    |                        FULL AGENT                                 |
-    |                                                                   |
-    |  System prompt (s05 skills, task-first + optional todo nag)      |
-    |                                                                   |
-    |  Before each LLM call:                                            |
-    |  +--------------------+  +------------------+  +--------------+  |
-    |  | Microcompact (s06) |  | Drain bg (s08)   |  | Check inbox  |  |
-    |  | Auto-compact (s06) |  | notifications    |  | (s09)        |  |
-    |  +--------------------+  +------------------+  +--------------+  |
-    |                                                                   |
-    |  Tool dispatch (s02 pattern):                                     |
-    |  +--------+----------+----------+---------+-----------+          |
-    |  | bash   | read     | write    | edit    | TodoWrite |          |
-    |  | task   | load_sk  | compress | bg_run  | bg_check  |          |
-    |  | t_crt  | t_get    | t_upd    | t_list  | spawn_tm  |          |
-    |  | list_tm| send_msg | rd_inbox | bcast   | shutdown  |          |
-    |  | plan   | idle     | claim    |         |           |          |
-    |  +--------+----------+----------+---------+-----------+          |
-    |                                                                   |
-    |  Subagent (s04):  spawn -> work -> return summary                 |
-    |  Teammate (s09):  spawn -> work -> idle -> auto-claim (s11)      |
-    |  Shutdown (s10):  request_id handshake                            |
-    |  Plan gate (s10): submit -> approve/reject                        |
-    +------------------------------------------------------------------+
+`s19` (MCP / plugin integration) is still taught as a separate chapter,
+because external tool connectivity is easier to understand after the local
+core is already stable.
 
-    REPL commands: /compact /tasks /team /inbox
+Chapter -> Class/Function mapping:
+  s01 Agent Loop     -> agent_loop()
+  s02 Tool Dispatch  -> TOOL_HANDLERS, normalize_messages()
+  s03 TodoWrite      -> TodoManager
+  s04 Subagent       -> run_subagent()
+  s05 Skill Loading  -> SkillLoader
+  s06 Context Compact-> maybe_persist_output(), micro_compact(), auto_compact()
+  s07 Permissions    -> PermissionManager
+  s08 Hooks          -> HookManager
+  s09 Memory         -> MemoryManager
+  s10 System Prompt  -> build_system_prompt()
+  s11 Error Recovery -> recovery logic inside agent_loop()
+  s12 Task System    -> TaskManager
+  s13 Background     -> BackgroundManager
+  s14 Cron Scheduler -> CronScheduler
+  s15 Agent Teams    -> TeammateManager, MessageBus
+  s16 Team Protocols -> shutdown_requests, plan_requests dicts
+  s17 Autonomous     -> _idle_poll(), scan_unclaimed_tasks()
+  s18 Worktree       -> WorktreeManager
+
+REPL commands: /compact /tasks /team /inbox
 """
 
 import json
@@ -66,8 +63,67 @@ TOKEN_THRESHOLD = 100000
 POLL_INTERVAL = 5
 IDLE_TIMEOUT = 60
 
+# Persisted-output: large tool outputs written to disk, replaced with preview marker
+TASK_OUTPUT_DIR = WORKDIR / ".task_outputs"
+TOOL_RESULTS_DIR = TASK_OUTPUT_DIR / "tool-results"
+PERSIST_OUTPUT_TRIGGER_CHARS_DEFAULT = 50000
+PERSIST_OUTPUT_TRIGGER_CHARS_BASH = 30000
+CONTEXT_TRUNCATE_CHARS = 50000
+PERSISTED_OPEN = "<persisted-output>"
+PERSISTED_CLOSE = "</persisted-output>"
+PERSISTED_PREVIEW_CHARS = 2000
+KEEP_RECENT = 3
+PRESERVE_RESULT_TOOLS = {"read_file"}
+
 VALID_MSG_TYPES = {"message", "broadcast", "shutdown_request",
                    "shutdown_response", "plan_approval_response"}
+
+
+# === SECTION: persisted_output (s06) ===
+def _persist_tool_result(tool_use_id: str, content: str) -> Path:
+    TOOL_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    safe_id = re.sub(r"[^a-zA-Z0-9_.-]", "_", tool_use_id or "unknown")
+    path = TOOL_RESULTS_DIR / f"{safe_id}.txt"
+    if not path.exists():
+        path.write_text(content)
+    return path.relative_to(WORKDIR)
+
+def _format_size(size: int) -> str:
+    if size < 1024:
+        return f"{size}B"
+    if size < 1024 * 1024:
+        return f"{size / 1024:.1f}KB"
+    return f"{size / (1024 * 1024):.1f}MB"
+
+def _preview_slice(text: str, limit: int) -> tuple[str, bool]:
+    if len(text) <= limit:
+        return text, False
+    idx = text[:limit].rfind("\n")
+    cut = idx if idx > (limit * 0.5) else limit
+    return text[:cut], True
+
+def _build_persisted_marker(stored_path: Path, content: str) -> str:
+    preview, has_more = _preview_slice(content, PERSISTED_PREVIEW_CHARS)
+    marker = (
+        f"{PERSISTED_OPEN}\n"
+        f"Output too large ({_format_size(len(content))}). "
+        f"Full output saved to: {stored_path}\n\n"
+        f"Preview (first {_format_size(PERSISTED_PREVIEW_CHARS)}):\n"
+        f"{preview}"
+    )
+    if has_more:
+        marker += "\n..."
+    marker += f"\n{PERSISTED_CLOSE}"
+    return marker
+
+def maybe_persist_output(tool_use_id: str, output: str, trigger_chars: int = None) -> str:
+    if not isinstance(output, str):
+        return str(output)
+    trigger = PERSIST_OUTPUT_TRIGGER_CHARS_DEFAULT if trigger_chars is None else int(trigger_chars)
+    if len(output) <= trigger:
+        return output
+    stored_path = _persist_tool_result(tool_use_id, output)
+    return _build_persisted_marker(stored_path, output)
 
 
 # === SECTION: base_tools ===
@@ -77,7 +133,7 @@ def safe_path(p: str) -> Path:
         raise ValueError(f"Path escapes workspace: {p}")
     return path
 
-def run_bash(command: str) -> str:
+def run_bash(command: str, tool_use_id: str = "") -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
     if any(d in command for d in dangerous):
         return "Error: Dangerous command blocked"
@@ -85,16 +141,21 @@ def run_bash(command: str) -> str:
         r = subprocess.run(command, shell=True, cwd=WORKDIR,
                            capture_output=True, text=True, timeout=120)
         out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
+        if not out:
+            return "(no output)"
+        out = maybe_persist_output(tool_use_id, out, trigger_chars=PERSIST_OUTPUT_TRIGGER_CHARS_BASH)
+        return out[:CONTEXT_TRUNCATE_CHARS] if isinstance(out, str) else str(out)[:CONTEXT_TRUNCATE_CHARS]
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
 
-def run_read(path: str, limit: int = None) -> str:
+def run_read(path: str, tool_use_id: str = "", limit: int = None) -> str:
     try:
         lines = safe_path(path).read_text().splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more)"]
-        return "\n".join(lines)[:50000]
+        out = "\n".join(lines)
+        out = maybe_persist_output(tool_use_id, out)
+        return out[:CONTEXT_TRUNCATE_CHARS] if isinstance(out, str) else str(out)[:CONTEXT_TRUNCATE_CHARS]
     except Exception as e:
         return f"Error: {e}"
 
@@ -228,33 +289,64 @@ def estimate_tokens(messages: list) -> int:
     return len(json.dumps(messages, default=str)) // 4
 
 def microcompact(messages: list):
-    indices = []
-    for i, msg in enumerate(messages):
+    tool_results = []
+    for msg in messages:
         if msg["role"] == "user" and isinstance(msg.get("content"), list):
             for part in msg["content"]:
                 if isinstance(part, dict) and part.get("type") == "tool_result":
-                    indices.append(part)
-    if len(indices) <= 3:
+                    tool_results.append(part)
+    if len(tool_results) <= KEEP_RECENT:
         return
-    for part in indices[:-3]:
-        if isinstance(part.get("content"), str) and len(part["content"]) > 100:
-            part["content"] = "[cleared]"
+    tool_name_map = {}
+    for msg in messages:
+        if msg["role"] == "assistant":
+            content = msg.get("content", [])
+            if isinstance(content, list):
+                for block in content:
+                    if hasattr(block, "type") and block.type == "tool_use":
+                        tool_name_map[block.id] = block.name
+    for part in tool_results[:-KEEP_RECENT]:
+        if not isinstance(part.get("content"), str) or len(part["content"]) <= 100:
+            continue
+        tool_id = part.get("tool_use_id", "")
+        tool_name = tool_name_map.get(tool_id, "unknown")
+        if tool_name in PRESERVE_RESULT_TOOLS:
+            continue
+        part["content"] = f"[Previous: used {tool_name}]"
 
-def auto_compact(messages: list) -> list:
+def auto_compact(messages: list, focus: str = None) -> list:
     TRANSCRIPT_DIR.mkdir(exist_ok=True)
     path = TRANSCRIPT_DIR / f"transcript_{int(time.time())}.jsonl"
     with open(path, "w") as f:
         for msg in messages:
             f.write(json.dumps(msg, default=str) + "\n")
-    conv_text = json.dumps(messages, default=str)[-80000:]
+    conv_text = json.dumps(messages, default=str)[:80000]
+    prompt = (
+        "Summarize this conversation for continuity. Structure your summary:\n"
+        "1) Task overview: core request, success criteria, constraints\n"
+        "2) Current state: completed work, files touched, artifacts created\n"
+        "3) Key decisions and discoveries: constraints, errors, failed approaches\n"
+        "4) Next steps: remaining actions, blockers, priority order\n"
+        "5) Context to preserve: user preferences, domain details, commitments\n"
+        "Be concise but preserve critical details.\n"
+    )
+    if focus:
+        prompt += f"\nPay special attention to: {focus}\n"
     resp = client.messages.create(
         model=MODEL,
-        messages=[{"role": "user", "content": f"Summarize for continuity:\n{conv_text}"}],
-        max_tokens=2000,
+        messages=[{"role": "user", "content": prompt + "\n" + conv_text}],
+        max_tokens=4000,
     )
     summary = resp.content[0].text
+    continuation = (
+        "This session is being continued from a previous conversation that ran out "
+        "of context. The summary below covers the earlier portion of the conversation.\n\n"
+        f"{summary}\n\n"
+        "Please continue the conversation from where we left it off without asking "
+        "the user any further questions."
+    )
     return [
-        {"role": "user", "content": f"[Compressed. Transcript: {path}]\n{summary}"},
+        {"role": "user", "content": continuation},
     ]
 
 
@@ -277,7 +369,7 @@ class TaskManager:
 
     def create(self, subject: str, description: str = "") -> str:
         task = {"id": self._next_id(), "subject": subject, "description": description,
-                "status": "pending", "owner": None, "blockedBy": []}
+                "status": "pending", "owner": None, "blockedBy": [], "blocks": []}
         self._save(task)
         return json.dumps(task, indent=2)
 
@@ -285,7 +377,7 @@ class TaskManager:
         return json.dumps(self._load(tid), indent=2)
 
     def update(self, tid: int, status: str = None,
-               add_blocked_by: list = None, remove_blocked_by: list = None) -> str:
+               add_blocked_by: list = None, add_blocks: list = None) -> str:
         task = self._load(tid)
         if status:
             task["status"] = status
@@ -300,8 +392,8 @@ class TaskManager:
                 return f"Task {tid} deleted"
         if add_blocked_by:
             task["blockedBy"] = list(set(task["blockedBy"] + add_blocked_by))
-        if remove_blocked_by:
-            task["blockedBy"] = [x for x in task["blockedBy"] if x not in remove_blocked_by]
+        if add_blocks:
+            task["blocks"] = list(set(task["blocks"] + add_blocks))
         self._save(task)
         return json.dumps(task, indent=2)
 
@@ -350,7 +442,7 @@ class BackgroundManager:
     def check(self, tid: str = None) -> str:
         if tid:
             t = self.tasks.get(tid)
-            return f"[{t['status']}] {t.get('result') or '(running)'}" if t else f"Unknown: {tid}"
+            return f"[{t['status']}] {t.get('result', '(running)')}" if t else f"Unknown: {tid}"
         return "\n".join(f"{k}: [{v['status']}] {v['command'][:60]}" for k, v in self.tasks.items()) or "No bg tasks."
 
     def drain(self) -> list:
@@ -575,8 +667,8 @@ def handle_plan_review(request_id: str, approve: bool, feedback: str = "") -> st
 
 # === SECTION: tool_dispatch (s02) ===
 TOOL_HANDLERS = {
-    "bash":             lambda **kw: run_bash(kw["command"]),
-    "read_file":        lambda **kw: run_read(kw["path"], kw.get("limit")),
+    "bash":             lambda **kw: run_bash(kw["command"], kw.get("tool_use_id", "")),
+    "read_file":        lambda **kw: run_read(kw["path"], kw.get("tool_use_id", ""), kw.get("limit")),
     "write_file":       lambda **kw: run_write(kw["path"], kw["content"]),
     "edit_file":        lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"]),
     "TodoWrite":        lambda **kw: TODO.update(kw["items"]),
@@ -587,7 +679,7 @@ TOOL_HANDLERS = {
     "check_background": lambda **kw: BG.check(kw.get("task_id")),
     "task_create":      lambda **kw: TASK_MGR.create(kw["subject"], kw.get("description", "")),
     "task_get":         lambda **kw: TASK_MGR.get(kw["task_id"]),
-    "task_update":      lambda **kw: TASK_MGR.update(kw["task_id"], kw.get("status"), kw.get("add_blocked_by"), kw.get("remove_blocked_by")),
+    "task_update":      lambda **kw: TASK_MGR.update(kw["task_id"], kw.get("status"), kw.get("add_blocked_by"), kw.get("add_blocks")),
     "task_list":        lambda **kw: TASK_MGR.list_all(),
     "spawn_teammate":   lambda **kw: TEAM.spawn(kw["name"], kw["role"], kw["prompt"]),
     "list_teammates":   lambda **kw: TEAM.list_all(),
@@ -626,7 +718,7 @@ TOOLS = [
     {"name": "task_get", "description": "Get task details by ID.",
      "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
     {"name": "task_update", "description": "Update task status or dependencies.",
-     "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed", "deleted"]}, "add_blocked_by": {"type": "array", "items": {"type": "integer"}}, "remove_blocked_by": {"type": "array", "items": {"type": "integer"}}}, "required": ["task_id"]}},
+     "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed", "deleted"]}, "add_blocked_by": {"type": "array", "items": {"type": "integer"}}, "add_blocks": {"type": "array", "items": {"type": "integer"}}}, "required": ["task_id"]}},
     {"name": "task_list", "description": "List all tasks.",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "spawn_teammate", "description": "Spawn a persistent autonomous teammate.",
@@ -664,10 +756,12 @@ def agent_loop(messages: list):
         if notifs:
             txt = "\n".join(f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs)
             messages.append({"role": "user", "content": f"<background-results>\n{txt}\n</background-results>"})
+            messages.append({"role": "assistant", "content": "Noted background results."})
         # s10: check lead inbox
         inbox = BUS.read_inbox("lead")
         if inbox:
             messages.append({"role": "user", "content": f"<inbox>{json.dumps(inbox, indent=2)}</inbox>"})
+            messages.append({"role": "assistant", "content": "Noted inbox messages."})
         # LLM call
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
@@ -680,30 +774,32 @@ def agent_loop(messages: list):
         results = []
         used_todo = False
         manual_compress = False
+        compact_focus = None
         for block in response.content:
             if block.type == "tool_use":
                 if block.name == "compress":
                     manual_compress = True
+                    compact_focus = (block.input or {}).get("focus")
                 handler = TOOL_HANDLERS.get(block.name)
                 try:
-                    output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
+                    tool_input = dict(block.input or {})
+                    tool_input["tool_use_id"] = block.id
+                    output = handler(**tool_input) if handler else f"Unknown tool: {block.name}"
                 except Exception as e:
                     output = f"Error: {e}"
-                print(f"> {block.name}:")
-                print(str(output)[:200])
+                print(f"> {block.name}: {str(output)[:200]}")
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
                 if block.name == "TodoWrite":
                     used_todo = True
         # s03: nag reminder (only when todo workflow is active)
         rounds_without_todo = 0 if used_todo else rounds_without_todo + 1
         if TODO.has_open_items() and rounds_without_todo >= 3:
-            results.append({"type": "text", "text": "<reminder>Update your todos.</reminder>"})
+            results.insert(0, {"type": "text", "text": "<reminder>Update your todos.</reminder>"})
         messages.append({"role": "user", "content": results})
         # s06: manual compress
         if manual_compress:
             print("[manual compact]")
-            messages[:] = auto_compact(messages)
-            return
+            messages[:] = auto_compact(messages, focus=compact_focus)
 
 
 # === SECTION: repl ===
@@ -732,9 +828,4 @@ if __name__ == "__main__":
             continue
         history.append({"role": "user", "content": query})
         agent_loop(history)
-        response_content = history[-1]["content"]
-        if isinstance(response_content, list):
-            for block in response_content:
-                if hasattr(block, "text"):
-                    print(block.text)
         print()
