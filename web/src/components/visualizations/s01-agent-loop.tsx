@@ -4,8 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSteppedVisualization } from "@/hooks/useSteppedVisualization";
 import { StepControls } from "@/components/visualizations/shared/step-controls";
 import { useSvgPalette } from "@/hooks/useDarkMode";
-
-// -- Flowchart node definitions --
+import { useLocale } from "@/lib/i18n";
 
 interface FlowNode {
   id: string;
@@ -17,21 +16,29 @@ interface FlowNode {
   type: "rect" | "diamond";
 }
 
-const NODES: FlowNode[] = [
-  { id: "start", label: "Start", x: 160, y: 30, w: 120, h: 40, type: "rect" },
-  { id: "api_call", label: "API Call", x: 160, y: 110, w: 120, h: 40, type: "rect" },
-  { id: "check", label: "stop_reason?", x: 160, y: 200, w: 140, h: 50, type: "diamond" },
-  { id: "execute", label: "Execute Tool", x: 160, y: 300, w: 120, h: 40, type: "rect" },
-  { id: "append", label: "Append Result", x: 160, y: 380, w: 120, h: 40, type: "rect" },
-  { id: "end", label: "Break / Done", x: 380, y: 200, w: 120, h: 40, type: "rect" },
-];
-
-// Edges between nodes (SVG path data computed inline)
 interface FlowEdge {
   from: string;
   to: string;
   label?: string;
 }
+
+interface MessageBlock {
+  role: string;
+  detail: string;
+  colorClass: string;
+}
+
+type SupportedLocale = "zh" | "en" | "ja";
+type NodeId = "start" | "api_call" | "check" | "execute" | "append" | "end";
+
+const BASE_NODES: Array<Omit<FlowNode, "label">> = [
+  { id: "start", x: 160, y: 30, w: 120, h: 40, type: "rect" },
+  { id: "api_call", x: 160, y: 110, w: 120, h: 40, type: "rect" },
+  { id: "check", x: 160, y: 200, w: 140, h: 50, type: "diamond" },
+  { id: "execute", x: 160, y: 300, w: 120, h: 40, type: "rect" },
+  { id: "append", x: 160, y: 380, w: 120, h: 40, type: "rect" },
+  { id: "end", x: 380, y: 200, w: 120, h: 40, type: "rect" },
+];
 
 const EDGES: FlowEdge[] = [
   { from: "start", to: "api_call" },
@@ -42,7 +49,6 @@ const EDGES: FlowEdge[] = [
   { from: "check", to: "end", label: "end_turn" },
 ];
 
-// Which nodes light up at each step
 const ACTIVE_NODES_PER_STEP: string[][] = [
   [],
   ["start"],
@@ -53,7 +59,6 @@ const ACTIVE_NODES_PER_STEP: string[][] = [
   ["check", "end"],
 ];
 
-// Which edges highlight at each step
 const ACTIVE_EDGES_PER_STEP: string[][] = [
   [],
   [],
@@ -64,50 +69,192 @@ const ACTIVE_EDGES_PER_STEP: string[][] = [
   ["api_call->check", "check->end"],
 ];
 
-// -- Message blocks --
+const COPY: Record<
+  SupportedLocale,
+  {
+    title: string;
+    loopLabel: string;
+    emptyLabel: string;
+    lengthLabel: string;
+    iterationLabel: string;
+    nodeLabels: Record<NodeId, string>;
+    messagesPerStep: (MessageBlock | null)[][];
+    stepInfo: { title: string; desc: string }[];
+  }
+> = {
+  zh: {
+    title: "Agent 主循环",
+    loopLabel: 'while (stop_reason === "tool_use")',
+    emptyLabel: "[ 空 ]",
+    lengthLabel: "长度",
+    iterationLabel: "第 2 轮",
+    nodeLabels: {
+      start: "开始",
+      api_call: "调用模型",
+      check: "stop_reason?",
+      execute: "执行工具",
+      append: "追加结果",
+      end: "结束 / 完成",
+    },
+    messagesPerStep: [
+      [],
+      [{ role: "user", detail: "修复登录 bug", colorClass: "bg-blue-500 dark:bg-blue-600" }],
+      [],
+      [{ role: "assistant", detail: "tool_use: read_file", colorClass: "bg-zinc-600 dark:bg-zinc-500" }],
+      [{ role: "tool_result", detail: "auth.ts 内容...", colorClass: "bg-emerald-500 dark:bg-emerald-600" }],
+      [
+        { role: "assistant", detail: "tool_use: edit_file", colorClass: "bg-zinc-600 dark:bg-zinc-500" },
+        { role: "tool_result", detail: "文件已更新", colorClass: "bg-emerald-500 dark:bg-emerald-600" },
+      ],
+      [{ role: "assistant", detail: "end_turn: 完成！", colorClass: "bg-purple-500 dark:bg-purple-600" }],
+    ],
+    stepInfo: [
+      {
+        title: "主循环本身",
+        desc: "每个 agent 的核心都是一个 while 循环：不断调用模型，直到它明确表示这一轮该结束。",
+      },
+      {
+        title: "用户输入",
+        desc: "循环从用户消息进入 messages[] 开始。",
+      },
+      {
+        title: "调用模型",
+        desc: "把当前消息历史整体发给模型，让它基于已有上下文决定下一步。",
+      },
+      {
+        title: "stop_reason: tool_use",
+        desc: "模型想调用工具，所以主循环不能结束，而要继续进入执行分支。",
+      },
+      {
+        title: "执行并回写",
+        desc: "执行工具，把结果追加回 messages[]，再喂给下一轮推理。",
+      },
+      {
+        title: "再跑一轮",
+        desc: "还是同一条代码路径，只是现在模型已经能看到刚才的真实工具结果。",
+      },
+      {
+        title: "stop_reason: end_turn",
+        desc: "模型这轮已经完成，循环退出。这就是最小 agent 的完整闭环。",
+      },
+    ],
+  },
+  en: {
+    title: "The Agent While-Loop",
+    loopLabel: 'while (stop_reason === "tool_use")',
+    emptyLabel: "[ empty ]",
+    lengthLabel: "length",
+    iterationLabel: "iter #2",
+    nodeLabels: {
+      start: "Start",
+      api_call: "API Call",
+      check: "stop_reason?",
+      execute: "Execute Tool",
+      append: "Append Result",
+      end: "Break / Done",
+    },
+    messagesPerStep: [
+      [],
+      [{ role: "user", detail: "Fix the login bug", colorClass: "bg-blue-500 dark:bg-blue-600" }],
+      [],
+      [{ role: "assistant", detail: "tool_use: read_file", colorClass: "bg-zinc-600 dark:bg-zinc-500" }],
+      [{ role: "tool_result", detail: "auth.ts contents...", colorClass: "bg-emerald-500 dark:bg-emerald-600" }],
+      [
+        { role: "assistant", detail: "tool_use: edit_file", colorClass: "bg-zinc-600 dark:bg-zinc-500" },
+        { role: "tool_result", detail: "file updated", colorClass: "bg-emerald-500 dark:bg-emerald-600" },
+      ],
+      [{ role: "assistant", detail: "end_turn: Done!", colorClass: "bg-purple-500 dark:bg-purple-600" }],
+    ],
+    stepInfo: [
+      { title: "The While Loop", desc: "Every agent is a while loop that keeps calling the model until it says 'stop'." },
+      { title: "User Input", desc: "The loop starts when the user sends a message." },
+      { title: "Call the Model", desc: "Send all messages to the LLM. It sees everything and decides what to do." },
+      { title: "stop_reason: tool_use", desc: "The model wants to use a tool. The loop continues." },
+      { title: "Execute & Append", desc: "Run the tool, append the result to messages[]. Feed it back." },
+      { title: "Loop Again", desc: "Same code path, second iteration. The model decides to edit a file." },
+      { title: "stop_reason: end_turn", desc: "The model is done. Loop exits. That's the entire agent." },
+    ],
+  },
+  ja: {
+    title: "Agent 主ループ",
+    loopLabel: 'while (stop_reason === "tool_use")',
+    emptyLabel: "[ 空 ]",
+    lengthLabel: "長さ",
+    iterationLabel: "2 周目",
+    nodeLabels: {
+      start: "開始",
+      api_call: "API 呼び出し",
+      check: "stop_reason?",
+      execute: "Tool 実行",
+      append: "結果を追加",
+      end: "終了 / 完了",
+    },
+    messagesPerStep: [
+      [],
+      [{ role: "user", detail: "ログイン bug を直す", colorClass: "bg-blue-500 dark:bg-blue-600" }],
+      [],
+      [{ role: "assistant", detail: "tool_use: read_file", colorClass: "bg-zinc-600 dark:bg-zinc-500" }],
+      [{ role: "tool_result", detail: "auth.ts の内容...", colorClass: "bg-emerald-500 dark:bg-emerald-600" }],
+      [
+        { role: "assistant", detail: "tool_use: edit_file", colorClass: "bg-zinc-600 dark:bg-zinc-500" },
+        { role: "tool_result", detail: "ファイルを更新", colorClass: "bg-emerald-500 dark:bg-emerald-600" },
+      ],
+      [{ role: "assistant", detail: "end_turn: 完了！", colorClass: "bg-purple-500 dark:bg-purple-600" }],
+    ],
+    stepInfo: [
+      {
+        title: "主ループそのもの",
+        desc: "すべての agent の核は while ループです。モデルが明示的に止まるまで呼び続けます。",
+      },
+      {
+        title: "ユーザー入力",
+        desc: "ループはユーザーのメッセージが messages[] に入るところから始まります。",
+      },
+      {
+        title: "モデル呼び出し",
+        desc: "現在のメッセージ履歴をまとめてモデルへ渡し、次に何をするか判断させます。",
+      },
+      {
+        title: "stop_reason: tool_use",
+        desc: "モデルは tool を使いたいので、ループは終了せず実行分岐へ進みます。",
+      },
+      {
+        title: "実行して回写",
+        desc: "tool を実行し、その結果を messages[] に追加して次の推論へ戻します。",
+      },
+      {
+        title: "もう一度回る",
+        desc: "コード経路は同じですが、今回は直前の実行結果を見た上でモデルが次を決めます。",
+      },
+      {
+        title: "stop_reason: end_turn",
+        desc: "モデルはこのターンを終えました。ループが抜けて、最小 agent 閉ループが完成します。",
+      },
+    ],
+  },
+};
 
-interface MessageBlock {
-  role: string;
-  detail: string;
-  colorClass: string;
+function normalizeLocale(locale: string): SupportedLocale {
+  if (locale === "zh" || locale === "ja") return locale;
+  return "en";
 }
 
-const MESSAGES_PER_STEP: (MessageBlock | null)[][] = [
-  [],
-  [{ role: "user", detail: "Fix the login bug", colorClass: "bg-blue-500 dark:bg-blue-600" }],
-  [],
-  [{ role: "assistant", detail: "tool_use: read_file", colorClass: "bg-zinc-600 dark:bg-zinc-500" }],
-  [{ role: "tool_result", detail: "auth.ts contents...", colorClass: "bg-emerald-500 dark:bg-emerald-600" }],
-  [
-    { role: "assistant", detail: "tool_use: edit_file", colorClass: "bg-zinc-600 dark:bg-zinc-500" },
-    { role: "tool_result", detail: "file updated", colorClass: "bg-emerald-500 dark:bg-emerald-600" },
-  ],
-  [{ role: "assistant", detail: "end_turn: Done!", colorClass: "bg-purple-500 dark:bg-purple-600" }],
-];
-
-// -- Step annotations --
-
-const STEP_INFO = [
-  { title: "The While Loop", desc: "Every agent is a while loop that keeps calling the model until it says 'stop'." },
-  { title: "User Input", desc: "The loop starts when the user sends a message." },
-  { title: "Call the Model", desc: "Send all messages to the LLM. It sees everything and decides what to do." },
-  { title: "stop_reason: tool_use", desc: "The model wants to use a tool. The loop continues." },
-  { title: "Execute & Append", desc: "Run the tool, append the result to messages[]. Feed it back." },
-  { title: "Loop Again", desc: "Same code path, second iteration. The model decides to edit a file." },
-  { title: "stop_reason: end_turn", desc: "The model is done. Loop exits. That's the entire agent." },
-];
-
-// -- Helpers --
-
-function getNode(id: string): FlowNode {
-  return NODES.find((n) => n.id === id)!;
+function getNodes(locale: SupportedLocale): FlowNode[] {
+  const labels = COPY[locale].nodeLabels;
+  return BASE_NODES.map((node) => ({
+    ...node,
+    label: labels[node.id as NodeId],
+  }));
 }
 
-function edgePath(fromId: string, toId: string): string {
-  const from = getNode(fromId);
-  const to = getNode(toId);
+function getNode(nodes: FlowNode[], id: string): FlowNode {
+  return nodes.find((node) => node.id === id)!;
+}
 
-  // Loop-back: append -> api_call (goes to the left side and back up)
+function edgePath(nodes: FlowNode[], fromId: string, toId: string): string {
+  const from = getNode(nodes, fromId);
+  const to = getNode(nodes, toId);
+
   if (fromId === "append" && toId === "api_call") {
     const startX = from.x - from.w / 2;
     const startY = from.y;
@@ -116,7 +263,6 @@ function edgePath(fromId: string, toId: string): string {
     return `M ${startX} ${startY} L ${startX - 50} ${startY} L ${endX - 50} ${endY} L ${endX} ${endY}`;
   }
 
-  // Horizontal: check -> end
   if (fromId === "check" && toId === "end") {
     const startX = from.x + from.w / 2;
     const startY = from.y;
@@ -125,7 +271,6 @@ function edgePath(fromId: string, toId: string): string {
     return `M ${startX} ${startY} L ${endX} ${endY}`;
   }
 
-  // Vertical (default)
   const startX = from.x;
   const startY = from.y + from.h / 2;
   const endX = to.x;
@@ -133,9 +278,10 @@ function edgePath(fromId: string, toId: string): string {
   return `M ${startX} ${startY} L ${endX} ${endY}`;
 }
 
-// -- Component --
-
 export default function AgentLoop({ title }: { title?: string }) {
+  const locale = normalizeLocale(useLocale());
+  const copy = COPY[locale];
+  const nodes = getNodes(locale);
   const {
     currentStep,
     totalSteps,
@@ -149,29 +295,27 @@ export default function AgentLoop({ title }: { title?: string }) {
   const palette = useSvgPalette();
   const activeNodes = ACTIVE_NODES_PER_STEP[currentStep];
   const activeEdges = ACTIVE_EDGES_PER_STEP[currentStep];
-
-  // Build accumulated messages up to the current step
   const visibleMessages: MessageBlock[] = [];
-  for (let s = 0; s <= currentStep; s++) {
-    for (const msg of MESSAGES_PER_STEP[s]) {
-      if (msg) visibleMessages.push(msg);
+
+  for (let step = 0; step <= currentStep; step++) {
+    for (const message of copy.messagesPerStep[step]) {
+      if (message) visibleMessages.push(message);
     }
   }
 
-  const stepInfo = STEP_INFO[currentStep];
+  const stepInfo = copy.stepInfo[currentStep];
 
   return (
     <section className="min-h-[500px] space-y-4">
       <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-        {title || "The Agent While-Loop"}
+        {title || copy.title}
       </h2>
 
       <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
         <div className="flex flex-col gap-4 lg:flex-row">
-          {/* Left panel: SVG Flowchart (60%) */}
           <div className="w-full lg:w-[60%]">
             <div className="mb-2 font-mono text-xs text-zinc-400 dark:text-zinc-500">
-              while (stop_reason === "tool_use")
+              {copy.loopLabel}
             </div>
             <svg
               viewBox="0 0 500 440"
@@ -185,33 +329,18 @@ export default function AgentLoop({ title }: { title?: string }) {
                 <filter id="glow-purple">
                   <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#a855f7" floodOpacity="0.7" />
                 </filter>
-                <marker
-                  id="arrowhead"
-                  markerWidth="8"
-                  markerHeight="6"
-                  refX="8"
-                  refY="3"
-                  orient="auto"
-                >
+                <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
                   <polygon points="0 0, 8 3, 0 6" fill={palette.arrowFill} />
                 </marker>
-                <marker
-                  id="arrowhead-active"
-                  markerWidth="8"
-                  markerHeight="6"
-                  refX="8"
-                  refY="3"
-                  orient="auto"
-                >
+                <marker id="arrowhead-active" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
                   <polygon points="0 0, 8 3, 0 6" fill={palette.activeEdgeStroke} />
                 </marker>
               </defs>
 
-              {/* Edges */}
               {EDGES.map((edge) => {
                 const key = `${edge.from}->${edge.to}`;
                 const isActive = activeEdges.includes(key);
-                const d = edgePath(edge.from, edge.to);
+                const d = edgePath(nodes, edge.from, edge.to);
 
                 return (
                   <g key={key}>
@@ -220,7 +349,6 @@ export default function AgentLoop({ title }: { title?: string }) {
                       fill="none"
                       stroke={isActive ? palette.activeEdgeStroke : palette.edgeStroke}
                       strokeWidth={isActive ? 2.5 : 1.5}
-                      strokeDasharray={isActive ? "none" : "none"}
                       markerEnd={isActive ? "url(#arrowhead-active)" : "url(#arrowhead)"}
                       animate={{
                         stroke: isActive ? palette.activeEdgeStroke : palette.edgeStroke,
@@ -232,13 +360,13 @@ export default function AgentLoop({ title }: { title?: string }) {
                       <text
                         x={
                           edge.from === "check" && edge.to === "end"
-                            ? (getNode("check").x + getNode("end").x) / 2
-                            : getNode(edge.from).x + 75
+                            ? (getNode(nodes, "check").x + getNode(nodes, "end").x) / 2
+                            : getNode(nodes, edge.from).x + 75
                         }
                         y={
                           edge.from === "check" && edge.to === "end"
-                            ? getNode("check").y - 10
-                            : (getNode(edge.from).y + getNode(edge.to).y) / 2
+                            ? getNode(nodes, "check").y - 10
+                            : (getNode(nodes, edge.from).y + getNode(nodes, edge.to).y) / 2
                         }
                         textAnchor="middle"
                         className="fill-zinc-400 text-[10px] dark:fill-zinc-500"
@@ -250,8 +378,7 @@ export default function AgentLoop({ title }: { title?: string }) {
                 );
               })}
 
-              {/* Nodes */}
-              {NODES.map((node) => {
+              {nodes.map((node) => {
                 const isActive = activeNodes.includes(node.id);
                 const isEnd = node.id === "end";
                 const filterAttr = isActive
@@ -261,17 +388,16 @@ export default function AgentLoop({ title }: { title?: string }) {
                   : "none";
 
                 if (node.type === "diamond") {
-                  // Diamond shape for decision node
                   const cx = node.x;
                   const cy = node.y;
                   const hw = node.w / 2;
                   const hh = node.h / 2;
                   const points = `${cx},${cy - hh} ${cx + hw},${cy} ${cx},${cy + hh} ${cx - hw},${cy}`;
+
                   return (
                     <g key={node.id}>
                       <motion.polygon
                         points={points}
-                        rx={6}
                         fill={isActive ? palette.activeNodeFill : palette.nodeFill}
                         stroke={isActive ? palette.activeNodeStroke : palette.nodeStroke}
                         strokeWidth={1.5}
@@ -332,7 +458,6 @@ export default function AgentLoop({ title }: { title?: string }) {
                 );
               })}
 
-              {/* Iteration counter */}
               {currentStep >= 5 && (
                 <motion.text
                   x={60}
@@ -344,13 +469,12 @@ export default function AgentLoop({ title }: { title?: string }) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  iter #2
+                  {copy.iterationLabel}
                 </motion.text>
               )}
             </svg>
           </div>
 
-          {/* Right panel: messages[] array (40%) */}
           <div className="w-full lg:w-[40%]">
             <div className="mb-2 font-mono text-xs text-zinc-400 dark:text-zinc-500">
               messages[]
@@ -365,33 +489,33 @@ export default function AgentLoop({ title }: { title?: string }) {
                     exit={{ opacity: 0 }}
                     className="py-8 text-center text-xs text-zinc-400 dark:text-zinc-600"
                   >
-                    [ empty ]
+                    {copy.emptyLabel}
                   </motion.div>
                 )}
-                {visibleMessages.map((msg, i) => (
+
+                {visibleMessages.map((message, index) => (
                   <motion.div
-                    key={`${msg.role}-${msg.detail}-${i}`}
+                    key={`${message.role}-${message.detail}-${index}`}
                     initial={{ opacity: 0, y: 12, scale: 0.9 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ duration: 0.35, type: "spring", bounce: 0.3 }}
-                    className={`rounded-md px-3 py-2 ${msg.colorClass}`}
+                    className={`rounded-md px-3 py-2 ${message.colorClass}`}
                   >
                     <div className="font-mono text-[11px] font-semibold text-white">
-                      {msg.role}
+                      {message.role}
                     </div>
                     <div className="mt-0.5 text-[10px] text-white/80">
-                      {msg.detail}
+                      {message.detail}
                     </div>
                   </motion.div>
                 ))}
               </AnimatePresence>
 
-              {/* Array index markers */}
               {visibleMessages.length > 0 && (
                 <div className="mt-3 border-t border-zinc-200 pt-2 dark:border-zinc-700">
                   <span className="font-mono text-[10px] text-zinc-400">
-                    length: {visibleMessages.length}
+                    {copy.lengthLabel}: {visibleMessages.length}
                   </span>
                 </div>
               )}

@@ -6,13 +6,16 @@ import { LAYERS, VERSION_META } from "@/lib/constants";
 import { useTranslations } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-const LAYER_DOT_BG: Record<string, string> = {
-  tools: "bg-blue-500",
-  planning: "bg-emerald-500",
-  memory: "bg-purple-500",
-  concurrency: "bg-amber-500",
-  collaboration: "bg-red-500",
+const LAYER_DOT_COLORS: Record<string, string> = {
+  core: "bg-blue-500",
+  hardening: "bg-emerald-500",
+  runtime: "bg-amber-500",
+  platform: "bg-red-500",
 };
+
+function isActiveLink(pathname: string, href: string) {
+  return pathname === href || pathname === `${href}/`;
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -21,12 +24,12 @@ export function Sidebar() {
   const tLayer = useTranslations("layer_labels");
 
   return (
-    <nav className="hidden w-56 shrink-0 md:block">
-      <div className="sticky top-[calc(3.5rem+2rem)] space-y-5">
+    <nav className="hidden w-72 shrink-0 md:block">
+      <div className="sticky top-[calc(3.5rem+2rem)] max-h-[calc(100vh-6rem)] space-y-6 overflow-y-auto pr-2">
         {LAYERS.map((layer) => (
           <div key={layer.id}>
-            <div className="flex items-center gap-1.5 pb-1.5">
-              <span className={cn("h-2 w-2 rounded-full", LAYER_DOT_BG[layer.id])} />
+            <div className="flex items-center gap-1.5 pb-2">
+              <span className={cn("h-2 w-2 rounded-full", LAYER_DOT_COLORS[layer.id])} />
               <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                 {tLayer(layer.id)}
               </span>
@@ -36,8 +39,7 @@ export function Sidebar() {
                 const meta = VERSION_META[vId];
                 const href = `/${locale}/${vId}`;
                 const isActive =
-                  pathname === href ||
-                  pathname === `${href}/` ||
+                  isActiveLink(pathname, href) ||
                   pathname.startsWith(`${href}/diff`);
 
                 return (

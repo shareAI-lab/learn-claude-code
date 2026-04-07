@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/lib/i18n";
 import type { SimStep } from "@/types/agent-data";
 import { User, Bot, Terminal, ArrowRight, AlertCircle } from "lucide-react";
 
@@ -47,8 +48,34 @@ const TYPE_CONFIG: Record<
 };
 
 export function SimulatorMessage({ step, index }: SimulatorMessageProps) {
+  const locale = useLocale();
+  const labels =
+    locale === "zh"
+      ? {
+          user_message: "用户",
+          assistant_text: "助手",
+          tool_call: "工具调用",
+          tool_result: "工具结果",
+          system_event: "系统事件",
+        }
+      : locale === "ja"
+        ? {
+            user_message: "ユーザー",
+            assistant_text: "アシスタント",
+            tool_call: "ツール呼び出し",
+            tool_result: "ツール結果",
+            system_event: "システムイベント",
+          }
+        : {
+            user_message: "User",
+            assistant_text: "Assistant",
+            tool_call: "Tool Call",
+            tool_result: "Tool Result",
+            system_event: "System",
+          };
   const config = TYPE_CONFIG[step.type] || TYPE_CONFIG.assistant_text;
   const Icon = config.icon;
+  const label = labels[step.type as keyof typeof labels] || config.label;
 
   return (
     <motion.div
@@ -64,7 +91,7 @@ export function SimulatorMessage({ step, index }: SimulatorMessageProps) {
       <div className="mb-1.5 flex items-center gap-2">
         <Icon size={14} className="shrink-0 text-[var(--color-text-secondary)]" />
         <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-          {config.label}
+          {label}
           {step.toolName && (
             <span className="ml-1.5 font-mono text-[var(--color-text)]">
               {step.toolName}
