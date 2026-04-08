@@ -16,6 +16,36 @@ interface DocRendererProps {
   slug?: string;
 }
 
+interface DocIndexEntry {
+  version?: string | null;
+  slug?: string;
+  locale: string;
+  kind?: string;
+  filename?: string;
+}
+
+interface DocRouteTarget {
+  kind: "bridge" | "chapter";
+  slug?: string;
+  version?: string;
+}
+
+const docRouteByFilename = new Map<string, DocRouteTarget>();
+
+for (const doc of docsData as DocIndexEntry[]) {
+  if (!doc.filename || (doc.kind !== "bridge" && doc.kind !== "chapter")) {
+    continue;
+  }
+
+  if (!docRouteByFilename.has(doc.filename)) {
+    docRouteByFilename.set(doc.filename, {
+      kind: doc.kind,
+      slug: doc.slug,
+      version: doc.version ?? undefined,
+    });
+  }
+}
+
 function renderMarkdown(md: string): string {
   const result = unified()
     .use(remarkParse)
@@ -28,7 +58,49 @@ function renderMarkdown(md: string): string {
   return String(result);
 }
 
-function postProcessHtml(html: string): string {
+function resolveDocHref(href: string, locale: string): string {
+  if (
+    !href ||
+    href.startsWith("#") ||
+    href.startsWith("/") ||
+    href.startsWith("//") ||
+    /^[a-z][a-z0-9+.-]*:/i.test(href)
+  ) {
+    return href;
+  }
+
+  const [rawPath, rawHash] = href.split("#", 2);
+  if (!rawPath.endsWith(".md")) {
+    return href;
+  }
+
+  const normalizedPath = rawPath
+    .replace(/\\/g, "/")
+    .replace(/^\.\/+/, "")
+    .replace(/^(?:\.\.\/)+/, "");
+  const target = docRouteByFilename.get(normalizedPath);
+
+  if (!target) {
+    return href;
+  }
+
+  const basePath =
+    target.kind === "chapter"
+      ? target.version
+        ? `/${locale}/${target.version}`
+        : null
+      : target.slug
+        ? `/${locale}/docs/${target.slug}`
+        : null;
+
+  if (!basePath) {
+    return href;
+  }
+
+  return rawHash ? `${basePath}#${rawHash}` : basePath;
+}
+
+function postProcessHtml(html: string, locale: string): string {
   // Add language labels to highlighted code blocks
   html = html.replace(
     /<pre><code class="hljs language-(\w+)">/g,
@@ -60,6 +132,12 @@ function postProcessHtml(html: string): string {
   // stretching the whole doc page.
   html = html.replace(/<table>/g, '<div class="table-scroll"><table>');
   html = html.replace(/<\/table>/g, "</table></div>");
+
+  // Route markdown doc links through app pages instead of broken raw .md paths.
+  html = html.replace(/href="([^"]+)"/g, (_, href: string) => {
+    const resolvedHref = resolveDocHref(href, locale);
+    return `href="${resolvedHref}"`;
+  });
 
   return html;
 }
@@ -93,8 +171,8 @@ export function DocRenderer({ version, slug }: DocRendererProps) {
 
   const html = useMemo(() => {
     const raw = renderMarkdown(doc.content);
-    return postProcessHtml(raw);
-  }, [doc.content]);
+    return postProcessHtml(raw, locale);
+  }, [doc.content, locale]);
 
   return (
     <div className="py-4">
