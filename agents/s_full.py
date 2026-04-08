@@ -742,6 +742,21 @@ TOOLS = [
 ]
 
 
+def inject_background_results(messages: list, notifs: list) -> bool:
+    if notifs:
+        txt = "\n".join(
+            f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs
+        )
+        messages.append(
+            {
+                "role": "user",
+                "content": f"<background-results>\n{txt}\n</background-results>",
+            }
+        )
+        return True
+    return False
+
+
 # === SECTION: agent_loop ===
 def agent_loop(messages: list):
     rounds_without_todo = 0
@@ -752,11 +767,7 @@ def agent_loop(messages: list):
             print("[auto-compact triggered]")
             messages[:] = auto_compact(messages)
         # s08: drain background notifications
-        notifs = BG.drain()
-        if notifs:
-            txt = "\n".join(f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs)
-            messages.append({"role": "user", "content": f"<background-results>\n{txt}\n</background-results>"})
-            messages.append({"role": "assistant", "content": "Noted background results."})
+        inject_background_results(messages, BG.drain())
         # s10: check lead inbox
         inbox = BUS.read_inbox("lead")
         if inbox:
@@ -769,6 +780,10 @@ def agent_loop(messages: list):
         )
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
+            if BG.has_running_tasks() and inject_background_results(
+                messages, BG.wait_for_notifications()
+            ):
+                continue
             return
         # Tool execution
         results = []
