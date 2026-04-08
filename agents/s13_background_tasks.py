@@ -305,11 +305,16 @@ TOOLS = [
 
 def inject_background_results(messages: list, notifs: list) -> bool:
     if notifs and messages:
-        notif_text = "\n".join(
-            f"[bg:{n['task_id']}] {n['status']}: {n.get('preview') or '(no output)'}"
-            f"{f' (output_file={n['output_file']})' if n.get('output_file') else ''}"
-            for n in notifs
-        )
+        lines = []
+        for notif in notifs:
+            suffix = ""
+            if notif.get("output_file"):
+                suffix = f" (output_file={notif['output_file']})"
+            lines.append(
+                f"[bg:{notif['task_id']}] {notif['status']}: "
+                f"{notif.get('preview') or '(no output)'}{suffix}"
+            )
+        notif_text = "\n".join(lines)
         messages.append(
             {
                 "role": "user",
