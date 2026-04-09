@@ -98,6 +98,136 @@ python agents/s02_tool_use.py
 3. `Edit greet.py to add a docstring to the function`
 4. `Read greet.py to verify the edit worked`
 
+## tool が handler map 以上に見え始めたら
+
+ここまでは、教学上の主線として tool を次の 3 つに絞って捉えます。
+
+- schema
+- handler
+- `tool_result`
+
+この順番で学ぶのは正しいですし、まずはここを固める必要があります。
+
+ただし system を大きくしていくと、tool 層はすぐに次のようなものを抱え込み始めます。
+
+- 権限コンテキスト
+- 現在の messages と app state
+- MCP client
+- file read cache
+- 通知と query tracking
+
+つまり、より完全な system では tool 層は単なる dispatch table というより、
+小さな「tool control plane」に近づいていきます。
+
+この層にいま主線を奪わせないでください。まずはこの章を理解してから、
+次へ進むのがよいです。
+
+- [`s02a-tool-control-plane.md`](./s02a-tool-control-plane.md)
+
+## メッセージ正規化
+
+教学版では内部の `messages` リストをそのまま API に送っています。見えている
+ものがそのまま送信内容です。しかし system が複雑になると
+(tool timeout、user cancel、compaction / replacement など)、内部メッセージ列が
+API に拒否される形へ崩れていくことがあります。そこで API 呼び出し前に
+1 回正規化が必要になります。
+
+### なぜ必要か
+
+API プロトコルには 3 つの強い制約があります。
+
+1. 各 `tool_use` block には、`tool_use_id` で対応づけられた `tool_result`
+   block が必ず必要
+2. `user` / `assistant` メッセージは厳密に交互である必要がある
+3. プロトコルで定義された field しか受け付けない。内部 metadata は
+   400 error の原因になる
+
+### 実装
+
+```python
+def normalize_messages(messages: list) -> list:
+    """内部メッセージ列を API が受け取れる形式へ正規化する。"""
+    cleaned = []
+
+    for msg in messages:
+        # Step 1: 内部用 metadata field を剥がす
+        clean = {"role": msg["role"]}
+        if isinstance(msg.get("content"), str):
+            clean["content"] = msg["content"]
+        elif isinstance(msg.get("content"), list):
+            clean["content"] = [
+                {k: v for k, v in block.items()
+                 if not k.startswith("_")}
+                for block in msg["content"]
+                if isinstance(block, dict)
+            ]
+        else:
+            clean["content"] = msg.get("content", "")
+        cleaned.append(clean)
+
+    # Step 2: 欠けている tool_result の対応を補う
+    existing_results = set()
+    for msg in cleaned:
+        if isinstance(msg.get("content"), list):
+            for block in msg["content"]:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    existing_results.add(block.get("tool_use_id"))
+
+    repaired = []
+    for msg in cleaned:
+        repaired.append(msg)
+
+        if msg["role"] != "assistant" or not isinstance(msg.get("content"), list):
+            continue
+
+        missing_results = []
+        for block in msg["content"]:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_use" and block.get("id") not in existing_results:
+                missing_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block["id"],
+                    "content": "(cancelled)",
+                })
+
+        if missing_results:
+            repaired.append({"role": "user", "content": missing_results})
+
+    cleaned = repaired
+
+    # Step 3: 連続する同一 role のメッセージを結合する
+    if not cleaned:
+        return cleaned
+
+    merged = [cleaned[0]]
+    for msg in cleaned[1:]:
+        if msg["role"] == merged[-1]["role"]:
+            prev = merged[-1]
+            prev_content = prev["content"] if isinstance(prev["content"], list) \
+                else [{"type": "text", "text": str(prev["content"])}]
+            curr_content = msg["content"] if isinstance(msg["content"], list) \
+                else [{"type": "text", "text": str(msg["content"])}]
+            prev["content"] = prev_content + curr_content
+        else:
+            merged.append(msg)
+
+    return merged
+```
+
+agent loop では、各 API 呼び出しの前に実行します。
+
+```python
+response = client.messages.create(
+    model=MODEL, system=system,
+    messages=normalize_messages(messages),
+    tools=TOOLS, max_tokens=8000,
+)
+```
+
+**重要な洞察**: メモリ上の `messages` リストは system の内部表現です。
+API が見るのは、そのままの内部列ではなく、正規化後のコピーです。
+
 ## 教学上の簡略化
 
 この章で本当に学ぶべきなのは、細かな production 差分ではありません。

@@ -102,6 +102,136 @@ python agents/s02_tool_use.py
 3. `Edit greet.py to add a docstring to the function`
 4. `Read greet.py to verify the edit worked`
 
+## If You Start Feeling Tools Are More Than a Handler Map
+
+Up to this point, the teaching path deliberately presents tools as:
+
+- schema
+- handler
+- `tool_result`
+
+That is the right way to learn it first.
+
+But once the system grows, the tool layer quickly starts accumulating more:
+
+- permission context
+- current messages and app state
+- MCP clients
+- file read caches
+- notifications and query tracking
+
+In a more complete system, the tool layer eventually looks more like a small
+"tool control plane" than a simple dispatch table.
+
+Do not let that distract from the main line of this chapter. Master this layer
+first, then continue to:
+
+- [s02a-tool-control-plane.md](./s02a-tool-control-plane.md)
+
+## Message Normalization
+
+In the teaching version, the internal `messages` list is sent directly to the
+API. What you see is what gets sent. But as the system becomes more complex
+(tool timeouts, user cancellation, compaction/replacement), the internal
+message list can drift into shapes the API will reject. Before each API call,
+you need one normalization pass.
+
+### Why It Matters
+
+The API protocol has three hard constraints:
+
+1. Every `tool_use` block must have a matching `tool_result` block linked by
+   `tool_use_id`.
+2. `user` and `assistant` messages must strictly alternate.
+3. Only protocol-defined fields are accepted. Internal metadata will trigger
+   400 errors.
+
+### Implementation
+
+```python
+def normalize_messages(messages: list) -> list:
+    """Normalize the internal message list into API-acceptable format."""
+    cleaned = []
+
+    for msg in messages:
+        # Step 1: strip internal-only metadata fields
+        clean = {"role": msg["role"]}
+        if isinstance(msg.get("content"), str):
+            clean["content"] = msg["content"]
+        elif isinstance(msg.get("content"), list):
+            clean["content"] = [
+                {k: v for k, v in block.items()
+                 if not k.startswith("_")}
+                for block in msg["content"]
+                if isinstance(block, dict)
+            ]
+        else:
+            clean["content"] = msg.get("content", "")
+        cleaned.append(clean)
+
+    # Step 2: repair missing tool_result pairs
+    existing_results = set()
+    for msg in cleaned:
+        if isinstance(msg.get("content"), list):
+            for block in msg["content"]:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    existing_results.add(block.get("tool_use_id"))
+
+    repaired = []
+    for msg in cleaned:
+        repaired.append(msg)
+
+        if msg["role"] != "assistant" or not isinstance(msg.get("content"), list):
+            continue
+
+        missing_results = []
+        for block in msg["content"]:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_use" and block.get("id") not in existing_results:
+                missing_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block["id"],
+                    "content": "(cancelled)",
+                })
+
+        if missing_results:
+            repaired.append({"role": "user", "content": missing_results})
+
+    cleaned = repaired
+
+    # Step 3: merge consecutive same-role messages
+    if not cleaned:
+        return cleaned
+
+    merged = [cleaned[0]]
+    for msg in cleaned[1:]:
+        if msg["role"] == merged[-1]["role"]:
+            prev = merged[-1]
+            prev_content = prev["content"] if isinstance(prev["content"], list) \
+                else [{"type": "text", "text": str(prev["content"])}]
+            curr_content = msg["content"] if isinstance(msg["content"], list) \
+                else [{"type": "text", "text": str(msg["content"])}]
+            prev["content"] = prev_content + curr_content
+        else:
+            merged.append(msg)
+
+    return merged
+```
+
+Run it before every API call in the agent loop:
+
+```python
+response = client.messages.create(
+    model=MODEL, system=system,
+    messages=normalize_messages(messages),
+    tools=TOOLS, max_tokens=8000,
+)
+```
+
+**Key insight**: the in-memory `messages` list is the system's internal
+representation. The API sees a normalized copy, not the raw internal list.
+
 ## What You've Mastered
 
 At this point, you can:
