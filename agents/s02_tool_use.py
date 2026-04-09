@@ -139,18 +139,29 @@ def normalize_messages(messages: list) -> list:
                 if isinstance(block, dict) and block.get("type") == "tool_result":
                     existing_results.add(block.get("tool_use_id"))
 
-    # Find orphaned tool_use blocks and insert placeholder results
+    # Insert missing tool_results immediately after the assistant message
+    repaired = []
     for msg in cleaned:
+        repaired.append(msg)
+
         if msg["role"] != "assistant" or not isinstance(msg.get("content"), list):
             continue
+
+        missing_results = []
         for block in msg["content"]:
             if not isinstance(block, dict):
                 continue
             if block.get("type") == "tool_use" and block.get("id") not in existing_results:
-                cleaned.append({"role": "user", "content": [
-                    {"type": "tool_result", "tool_use_id": block["id"],
-                     "content": "(cancelled)"}
-                ]})
+                missing_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block["id"],
+                    "content": "(cancelled)",
+                })
+
+        if missing_results:
+            repaired.append({"role": "user", "content": missing_results})
+
+    cleaned = repaired
 
     # Merge consecutive same-role messages
     if not cleaned:
