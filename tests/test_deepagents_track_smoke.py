@@ -8,20 +8,20 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LANGCHAIN_DIR = ROOT / "agents_deepagents"
-LANGCHAIN_FILES = sorted(
-    path for path in LANGCHAIN_DIR.glob("*.py") if path.name != "__init__.py"
+TRACK_DIR = ROOT / "agents_deepagents"
+TRACK_FILES = sorted(
+    path for path in TRACK_DIR.glob("*.py") if path.name != "__init__.py"
 )
-LANGCHAIN_IDS = [path.name for path in LANGCHAIN_FILES]
+TRACK_IDS = [path.name for path in TRACK_FILES]
 
 
-@pytest.mark.parametrize("agent_path", LANGCHAIN_FILES, ids=LANGCHAIN_IDS)
-def test_langchain_agent_scripts_compile(agent_path: Path) -> None:
+@pytest.mark.parametrize("agent_path", TRACK_FILES, ids=TRACK_IDS)
+def test_deepagents_track_scripts_compile(agent_path: Path) -> None:
     _ = py_compile.compile(str(agent_path), doraise=True)
 
 
-def test_langchain_agent_scripts_exist() -> None:
-    assert LANGCHAIN_FILES, "expected Deep Agents teaching scripts"
+def test_deepagents_track_scripts_exist() -> None:
+    assert TRACK_FILES, "expected Deep Agents teaching scripts"
     for filename in [
         "s01_agent_loop.py",
         "s02_tool_use.py",
@@ -30,7 +30,7 @@ def test_langchain_agent_scripts_exist() -> None:
         "s05_skill_loading.py",
         "s06_context_compact.py",
     ]:
-        assert LANGCHAIN_DIR.joinpath(filename).exists()
+        assert TRACK_DIR.joinpath(filename).exists()
 
 
 def test_pure_helpers_import_without_openai_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -39,7 +39,7 @@ def test_pure_helpers_import_without_openai_key(monkeypatch: pytest.MonkeyPatch)
     common = importlib.import_module("agents_deepagents.common")
     s03 = importlib.import_module("agents_deepagents.s03_todo_write")
 
-    assert common.langchain_model_name()
+    assert common.deepagents_model_name()
     with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
         common.build_openai_model()
 
