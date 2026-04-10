@@ -37,7 +37,19 @@ from langchain.agents.middleware.types import AgentMiddleware
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models.chat_models import BaseChatModel
 
-StageName = Literal["s01", "s02", "s03", "s04", "s05", "s06"]
+StageName = Literal[
+    "s01",
+    "s02",
+    "s03",
+    "s04",
+    "s05",
+    "s06",
+    "s07",
+    "s08",
+    "s09",
+    "s10",
+    "s11",
+]
 
 
 @dataclass(frozen=True)
@@ -60,6 +72,11 @@ STAGE_CAPABILITIES: dict[StageName, StageCapabilities] = {
         skills=True,
         compaction=True,
     ),
+    "s07": StageCapabilities(),
+    "s08": StageCapabilities(),
+    "s09": StageCapabilities(),
+    "s10": StageCapabilities(),
+    "s11": StageCapabilities(),
 }
 
 SubagentSpec = SubAgent | CompiledSubAgent

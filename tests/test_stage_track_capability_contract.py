@@ -22,6 +22,11 @@ CAPABILITY_MATRIX = {
         "edit_file",
         "compact",
     },
+    "s07_permission_system": {"bash", "read_file", "write_file", "edit_file"},
+    "s08_hook_system": {"bash", "read_file", "write_file", "edit_file"},
+    "s09_memory_system": {"bash", "read_file", "write_file", "edit_file", "save_memory"},
+    "s10_system_prompt": {"bash", "read_file", "write_file", "edit_file"},
+    "s11_error_recovery": {"bash", "read_file", "write_file", "edit_file"},
 }
 
 FUTURE_STAGE_CAPABILITIES = {"todo", "task", "load_skill", "compact"}
@@ -32,7 +37,10 @@ def module_tool_names(module_name: str) -> set[str]:
     tools = getattr(module, "PARENT_TOOLS", None)
     if tools is None:
         tools = getattr(module, "TOOLS")
-    return {tool.__name__ for tool in tools}
+    return {
+        getattr(tool, "name", getattr(tool, "__name__", type(tool).__name__))
+        for tool in tools
+    }
 
 
 def test_stage_track_exposes_only_expected_capabilities() -> None:

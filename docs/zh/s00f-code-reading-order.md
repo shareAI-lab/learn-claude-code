@@ -124,7 +124,7 @@ CLI 入口当然有用，但它不应该成为第一屏。
 
 ### 阶段 1 的 Deep Agents 轨道
 
-读完手写版 `agents/s01-s06` 以后，可以继续看 `agents_deepagents/s01_agent_loop.py` 到 `agents_deepagents/s06_context_compact.py`。这是一条 Deep Agents 教学轨道：原来的 `agents/*.py` 不变，运行时继续使用 OpenAI 风格的 `OPENAI_API_KEY` / `OPENAI_MODEL`（可选 `OPENAI_BASE_URL`）配置，但能力会按章节逐步开放——`s01` 只保留最小 loop，`s03` 才引入 planning，`s04` 才引入 subagent，`s05` 才引入 skills，`s06` 才引入 context compact。当前 web UI 暂不展示这条轨道。
+读完手写版 `agents/s01-s06` 以后，可以继续看 `agents_deepagents/s01_agent_loop.py` 到 `agents_deepagents/s11_error_recovery.py`。这是一条 Deep Agents 教学轨道：原来的 `agents/*.py` 不变，运行时继续使用 OpenAI 风格的 `OPENAI_API_KEY` / `OPENAI_MODEL`（可选 `OPENAI_BASE_URL`）配置，但能力会按章节逐步开放——`s01` 只保留最小 loop，`s03` 才引入 planning，`s04` 才引入 subagent，`s05` 才引入 skills，`s06` 才引入 context compact。当前 web UI 暂不展示这条轨道。
 
 ### 这一段最值得反复看的 3 个代码点
 
@@ -146,6 +146,10 @@ CLI 入口当然有用，但它不应该成为第一屏。
 - 一个最小压缩层
 
 ## 阶段 2：`s07-s11` 应该怎样读代码
+
+### 阶段 2 的 Deep Agents 轨道
+
+继续阅读 `agents_deepagents/s07_permission_system.py` 到 `agents_deepagents/s11_error_recovery.py`。这一段保持原教程章节顺序，把 permissions、hooks、memory、prompt、error recovery 挂回同一条 Deep Agents 分阶段轨道。
 
 这一段不是在学“又多了五种功能”。
 

@@ -99,9 +99,9 @@
 4. 然后按四阶段读主线：`s01-s06 -> s07-s11 -> s12-s14 -> s15-s19`。
 5. 每学完一个阶段，停下来自己手写一个最小版本，不要等全部看完再回头补实现。
 
-## Deep Agents s01-s06 轨道
+## Deep Agents s01-s11 轨道
 
-仓库现在还提供第一阶段里程碑的 Deep Agents 教学轨道：[`agents_deepagents/`](./agents_deepagents/)。它只覆盖 `s01-s06`，不替换原来的 `agents/*.py` Anthropic SDK 手写基线，也暂时不接入 web UI。重点是用 Deep Agents 逐章复现原教程逻辑，并把 planning、subagent、skills、context compact 等能力按章节顺序逐步开放。
+仓库现在还提供第一阶段里程碑的 Deep Agents 教学轨道：[`agents_deepagents/`](./agents_deepagents/)。它覆盖 `s01-s11`，不替换原来的 `agents/*.py` Anthropic SDK 手写基线，也暂时不接入 web UI。重点是用 Deep Agents 逐章复现原教程逻辑，并把 planning、subagent、skills、context compact，以及权限、hooks、memory、prompt、error recovery 等能力按章节顺序逐步开放。
 
 如果你读到一半开始打结，最稳的重启顺序是：
 
@@ -271,11 +271,12 @@ python agents/s19_mcp_plugin.py
 python agents/s_full.py
 ```
 
-如果要运行 Deep Agents s01-s06 轨道，请另外配置 `OPENAI_API_KEY`，可选配置 `OPENAI_MODEL` 和 `OPENAI_BASE_URL`，然后运行：
+如果要运行 Deep Agents s01-s11 轨道，请另外配置 `OPENAI_API_KEY`，可选配置 `OPENAI_MODEL` 和 `OPENAI_BASE_URL`，然后运行：
 
 ```sh
 python agents_deepagents/s01_agent_loop.py
 python agents_deepagents/s06_context_compact.py
+python agents_deepagents/s11_error_recovery.py
 ```
 
 建议顺序：
@@ -285,7 +286,7 @@ python agents_deepagents/s06_context_compact.py
 3. 等前 10 章吃透后，再进入 `s11 -> s19`。
 4. 最后再看 `s_full.py`，把所有机制放回同一张图里。
 
-### Deep Agents 轨道（s01-s06）
+### Deep Agents 轨道（s01-s11）
 
 第一阶段新增的 Deep Agents 教学实现放在 `agents_deepagents/`。它只覆盖
 `s01-s06`，运行时使用 OpenAI-compatible 的 `OPENAI_API_KEY`、可选
@@ -296,6 +297,7 @@ Anthropic SDK 基线。它的重点不是做框架对照，而是把同一套 `s
 ```sh
 python agents_deepagents/s01_agent_loop.py
 python agents_deepagents/s06_context_compact.py
+python agents_deepagents/s11_error_recovery.py
 ```
 
 文件对应关系与“测试不需要 live API key / 网络调用”的说明见
@@ -347,7 +349,7 @@ python agents_deepagents/s06_context_compact.py
 ```text
 learn-claude-code/
 ├── agents/              # 每一章对应一个可运行的 Python 参考实现
-├── agents_deepagents/   # s01-s06 的 Deep Agents 分阶段教学轨道
+├── agents_deepagents/   # s01-s11 的 Deep Agents 分阶段教学轨道
 ├── docs/zh/             # 中文主线文档
 ├── docs/en/             # 英文文档，当前为部分同步
 ├── docs/ja/             # 日文文档，当前为部分同步

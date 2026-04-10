@@ -3,24 +3,33 @@
 """
 s03_todo_write.py - Session Planning with Deep Agents tools
 
-Deep Agents owns the model/tool loop, but it does not remove the need for visible
-harness state.  ``TodoManager`` remains local Python state and is exposed through
-a tool, matching the original chapter's "plan outside the model's head" lesson.
+This is the first chapter where custom state becomes natural. The session plan
+belongs in explicit runtime state, not in the model's hidden chain-of-thought.
+Middleware renders that state back into the prompt, and the todo tool updates it
+through LangChain state updates.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
+
+from langchain.agents import AgentState, create_agent
+from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
+from langchain.messages import SystemMessage, ToolMessage
+from langchain.tools import ToolRuntime
+from langgraph.types import Command
+from typing_extensions import NotRequired
 
 try:
     from .common import (
         WORKDIR,
         bash,
-        create_agent_runtime,
+        build_openai_model,
         edit_file,
         extract_text,
-        invoke_and_append,
+        latest_assistant_text,
         read_file,
         write_file,
     )
@@ -28,10 +37,10 @@ except ImportError:
     from common import (
         WORKDIR,
         bash,
-        create_agent_runtime,
+        build_openai_model,
         edit_file,
         extract_text,
-        invoke_and_append,
+        latest_assistant_text,
         read_file,
         write_file,
     )
@@ -50,100 +59,170 @@ class PlanItem:
     active_form: str = ""
 
 
-@dataclass
-class PlanningState:
-    items: list[PlanItem] = field(default_factory=list)
-    rounds_since_update: int = 0
+class PlanningState(AgentState):
+    plan_items: NotRequired[list[dict[str, str]]]
+    rounds_since_update: NotRequired[int]
+    updated_this_turn: NotRequired[bool]
 
 
-class TodoManager:
-    def __init__(self) -> None:
-        self.state = PlanningState()
-        self.updated_this_turn = False
+def normalize_plan_items(items: list[dict[str, Any]]) -> list[dict[str, str]]:
+    if len(items) > 12:
+        raise ValueError("Keep the session plan short (max 12 items)")
 
-    def update(self, items: list[dict[str, Any]]) -> str:
-        if len(items) > 12:
-            raise ValueError("Keep the session plan short (max 12 items)")
+    normalized: list[dict[str, str]] = []
+    in_progress_count = 0
+    for index, raw_item in enumerate(items):
+        content = str(raw_item.get("content", "")).strip()
+        status = str(raw_item.get("status", "pending")).lower()
+        active_form = str(raw_item.get("activeForm", raw_item.get("active_form", ""))).strip()
 
-        normalized: list[PlanItem] = []
-        in_progress_count = 0
-        for index, raw_item in enumerate(items):
-            content = str(raw_item.get("content", "")).strip()
-            status = str(raw_item.get("status", "pending")).lower()
-            active_form = str(raw_item.get("activeForm", "")).strip()
+        if not content:
+            raise ValueError(f"Item {index}: content required")
+        if status not in {"pending", "in_progress", "completed"}:
+            raise ValueError(f"Item {index}: invalid status '{status}'")
+        if status == "in_progress":
+            in_progress_count += 1
 
-            if not content:
-                raise ValueError(f"Item {index}: content required")
-            if status not in {"pending", "in_progress", "completed"}:
-                raise ValueError(f"Item {index}: invalid status '{status}'")
-            if status == "in_progress":
-                in_progress_count += 1
+        normalized.append({
+            "content": content,
+            "status": status,
+            "active_form": active_form,
+        })
 
-            normalized.append(PlanItem(content=content, status=status, active_form=active_form))
+    if in_progress_count > 1:
+        raise ValueError("Only one plan item can be in_progress")
 
-        if in_progress_count > 1:
-            raise ValueError("Only one plan item can be in_progress")
-
-        self.state.items = normalized
-        self.state.rounds_since_update = 0
-        self.updated_this_turn = True
-        return self.render()
-
-    def note_round_without_update(self) -> None:
-        self.state.rounds_since_update += 1
-
-    def reminder(self) -> str | None:
-        if not self.state.items:
-            return None
-        if self.state.rounds_since_update < PLAN_REMINDER_INTERVAL:
-            return None
-        return "<reminder>Refresh your current plan before continuing.</reminder>"
-
-    def render(self) -> str:
-        if not self.state.items:
-            return "No session plan yet."
-
-        lines: list[str] = []
-        for item in self.state.items:
-            marker = {"pending": "[ ]", "in_progress": "[>]", "completed": "[x]"}[item.status]
-            line = f"{marker} {item.content}"
-            if item.status == "in_progress" and item.active_form:
-                line += f" ({item.active_form})"
-            lines.append(line)
-
-        completed = sum(1 for item in self.state.items if item.status == "completed")
-        lines.append(f"\n({completed}/{len(self.state.items)} completed)")
-        return "\n".join(lines)
+    return normalized
 
 
-TODO = TodoManager()
+def render_plan_items(items: list[dict[str, str]]) -> str:
+    if not items:
+        return "No session plan yet."
+
+    lines: list[str] = []
+    for raw_item in items:
+        item = PlanItem(**raw_item)
+        marker = {"pending": "[ ]", "in_progress": "[>]", "completed": "[x]"}[item.status]
+        line = f"{marker} {item.content}"
+        if item.status == "in_progress" and item.active_form:
+            line += f" ({item.active_form})"
+        lines.append(line)
+
+    completed = sum(1 for item in items if item["status"] == "completed")
+    lines.append(f"\n({completed}/{len(items)} completed)")
+    return "\n".join(lines)
 
 
-def todo(items: list[dict[str, Any]]) -> str:
+def reminder_text(items: list[dict[str, str]], rounds_since_update: int) -> str | None:
+    if not items:
+        return None
+    if rounds_since_update < PLAN_REMINDER_INTERVAL:
+        return None
+    return "<reminder>Refresh your current plan before continuing.</reminder>"
+
+
+def todo(items: list[dict[str, Any]], runtime: ToolRuntime[None, PlanningState]) -> Command:
     """Rewrite the current session plan for multi-step work."""
 
-    return TODO.update(items)
+    normalized = normalize_plan_items(items)
+    rendered = render_plan_items(normalized)
+    return Command(
+        update={
+            "plan_items": normalized,
+            "rounds_since_update": 0,
+            "updated_this_turn": True,
+            "messages": [
+                ToolMessage(content=rendered, tool_call_id=runtime.tool_call_id)
+            ],
+        }
+    )
 
 
 TOOLS = [bash, read_file, write_file, edit_file, todo]
 
 
+class PlanningMiddleware(AgentMiddleware[PlanningState]):
+    """Render planning state into the prompt and track stale-plan rounds."""
+
+    state_schema = PlanningState
+
+    def before_agent(self, state: PlanningState, runtime) -> dict[str, Any] | None:
+        updates: dict[str, Any] = {}
+        if "plan_items" not in state:
+            updates["plan_items"] = []
+        if "rounds_since_update" not in state:
+            updates["rounds_since_update"] = 0
+        if "updated_this_turn" not in state:
+            updates["updated_this_turn"] = False
+        return updates or None
+
+    def wrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], ModelResponse],
+    ) -> ModelResponse:
+        plan_items = request.state.get("plan_items", [])
+        rounds_since_update = request.state.get("rounds_since_update", 0)
+        extra_blocks: list[dict[str, str]] = []
+
+        if plan_items:
+            extra_blocks.append(
+                {
+                    "type": "text",
+                    "text": "Current session plan:\n" + render_plan_items(plan_items),
+                }
+            )
+            reminder = reminder_text(plan_items, rounds_since_update)
+            if reminder:
+                extra_blocks.append({"type": "text", "text": reminder})
+
+        if not extra_blocks:
+            return handler(request)
+
+        return handler(
+            request.override(
+                system_message=SystemMessage(
+                    content=[*request.system_message.content_blocks, *extra_blocks]
+                )
+            )
+        )
+
+    def after_agent(self, state: PlanningState, runtime) -> dict[str, Any] | None:
+        if state.get("updated_this_turn"):
+            return {"updated_this_turn": False}
+        if state.get("plan_items"):
+            return {"rounds_since_update": state.get("rounds_since_update", 0) + 1}
+        return None
+
+
+SESSION_STATE: dict[str, Any] = {
+    "plan_items": [],
+    "rounds_since_update": 0,
+    "updated_this_turn": False,
+}
+
+
 def build_agent():
-    return create_agent_runtime(SYSTEM, TOOLS)
+    return create_agent(
+        model=build_openai_model(),
+        tools=TOOLS,
+        system_prompt=SYSTEM,
+        middleware=[PlanningMiddleware()],
+    )
 
 
 def agent_loop(messages: list[dict[str, Any]]) -> str:
-    # If the plan has gone stale, inject a harness-owned reminder before Deep Agents runs.
-    reminder = TODO.reminder()
-    input_messages = list(messages)
-    if reminder:
-        input_messages.append({"role": "user", "content": reminder})
-
-    TODO.updated_this_turn = False
-    final_text = invoke_and_append(build_agent(), input_messages)
-    messages.append({"role": "assistant", "content": final_text})
-    if not TODO.updated_this_turn:
-        TODO.note_round_without_update()
+    result = build_agent().invoke({"messages": list(messages), **SESSION_STATE})
+    SESSION_STATE.update(
+        {
+            "plan_items": result.get("plan_items", []),
+            "rounds_since_update": result.get("rounds_since_update", 0),
+            "updated_this_turn": result.get("updated_this_turn", False),
+        }
+    )
+    final_text = latest_assistant_text(result)
+    if final_text:
+        messages.append({"role": "assistant", "content": final_text})
     return final_text
 
 

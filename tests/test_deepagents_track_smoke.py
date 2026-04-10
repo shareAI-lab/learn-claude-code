@@ -29,6 +29,11 @@ def test_deepagents_track_scripts_exist() -> None:
         "s04_subagent.py",
         "s05_skill_loading.py",
         "s06_context_compact.py",
+        "s07_permission_system.py",
+        "s08_hook_system.py",
+        "s09_memory_system.py",
+        "s10_system_prompt.py",
+        "s11_error_recovery.py",
     ]:
         assert TRACK_DIR.joinpath(filename).exists()
 
@@ -43,11 +48,11 @@ def test_pure_helpers_import_without_openai_key(monkeypatch: pytest.MonkeyPatch)
     with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
         common.build_openai_model()
 
-    todo = s03.TodoManager()
-    rendered = todo.update([
+    normalized = s03.normalize_plan_items([
         {"content": "Inspect task", "status": "completed"},
         {"content": "Implement", "status": "in_progress", "activeForm": "Implementing"},
     ])
+    rendered = s03.render_plan_items(normalized)
     assert "[x] Inspect task" in rendered
     assert "[>] Implement (Implementing)" in rendered
 

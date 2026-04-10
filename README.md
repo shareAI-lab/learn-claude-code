@@ -101,10 +101,10 @@ The safest path is:
 4. Follow the four stages in order: `s01-s06 -> s07-s11 -> s12-s14 -> s15-s19`.
 5. After each stage, stop and rebuild the smallest version yourself before continuing.
 
-## Deep Agents s01-s06 Track
+## Deep Agents s01-s11 Track
 
 This repo also includes a first-milestone Deep Agents track in
-[`agents_deepagents/`](./agents_deepagents/). It mirrors `agents/s01-s06`
+[`agents_deepagents/`](./agents_deepagents/). It mirrors `agents/s01-s11`
 without replacing the original Anthropic SDK scripts and is intentionally not
 wired into the web UI yet. Use it when you want to study the same chapter logic
 through a staged Deep Agents harness.
@@ -204,11 +204,12 @@ python agents/s19_mcp_plugin.py
 python agents/s_full.py
 ```
 
-For the parallel Deep Agents s01-s06 track, configure `OPENAI_API_KEY` (plus optional `OPENAI_MODEL` and `OPENAI_BASE_URL`) and run:
+For the parallel Deep Agents s01-s11 track, configure `OPENAI_API_KEY` (plus optional `OPENAI_MODEL` and `OPENAI_BASE_URL`) and run:
 
 ```sh
 python agents_deepagents/s01_agent_loop.py
 python agents_deepagents/s06_context_compact.py
+python agents_deepagents/s11_error_recovery.py
 ```
 
 Suggested order:
@@ -218,16 +219,17 @@ Suggested order:
 3. Only after the single-agent core plus its control plane feel stable, continue into `s12 -> s19`.
 4. Read `s_full.py` last, after the mechanisms already make sense separately.
 
-### Deep Agents track (s01-s06)
+### Deep Agents track (s01-s11)
 
 A first parallel Deep Agents track now lives in `agents_deepagents/`. It mirrors
-`s01-s06` only, uses an OpenAI-compatible Deep Agents setup
+`s01-s11`, uses an OpenAI-compatible Deep Agents setup
 (`OPENAI_API_KEY`, optional `OPENAI_BASE_URL`, `OPENAI_MODEL`), and keeps the
 original `agents/*.py` Anthropic SDK baseline intact for side-by-side reading.
 
 ```sh
 python agents_deepagents/s01_agent_loop.py
 python agents_deepagents/s06_context_compact.py
+python agents_deepagents/s11_error_recovery.py
 ```
 
 See [`agents_deepagents/README.md`](./agents_deepagents/README.md) for the file
@@ -261,7 +263,7 @@ go back to:
 ```text
 learn-claude-code/
 ├── agents/              # runnable Python reference implementations per chapter
-├── agents_deepagents/    # Deep Agents staged teaching track for s01-s06
+├── agents_deepagents/    # Deep Agents staged teaching track for s01-s11
 ├── docs/zh/             # Chinese mainline docs
 ├── docs/en/             # English docs
 ├── docs/ja/             # Japanese docs

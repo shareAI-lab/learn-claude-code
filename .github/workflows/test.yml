@@ -25,7 +25,7 @@ jobs:
           python -m pytest
           tests/test_agents_smoke.py
           tests/test_agents_baseline_contract.py
-          tests/test_deepagents_track_smoke.py
+          tests/test_deepagents_track_smoke.py tests/test_deepagents_control_plane.py
           tests/test_deepagents_gating_spike.py
           tests/test_provider_safety.py
           tests/test_stage_track_capability_contract.py

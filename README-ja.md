@@ -97,9 +97,9 @@
 4. `s01-s06 -> s07-s11 -> s12-s14 -> s15-s19` の 4 段階で主線を順に進める
 5. 各段階の終わりで一度止まり、最小版を自分で書き直してから次へ進む
 
-## Deep Agents s01-s06 トラック
+## Deep Agents s01-s11 トラック
 
-このリポジトリには、第一マイルストーンとして Deep Agents 教材トラック [`agents_deepagents/`](./agents_deepagents/) もあります。対象は `s01-s06` だけです。既存の `agents/*.py` Anthropic SDK 手書き実装は置き換えず、web UI にもまだ接続していません。目的は Deep Agents を使って元のチュートリアルロジックを章ごとに再現し、planning・subagent・skills・context compact を段階的に開放していくことです。
+このリポジトリには、第一マイルストーンとして Deep Agents 教材トラック [`agents_deepagents/`](./agents_deepagents/) もあります。対象は `s01-s11` です。既存の `agents/*.py` Anthropic SDK 手書き実装は置き換えず、web UI にもまだ接続していません。目的は Deep Agents を使って元のチュートリアルロジックを章ごとに再現し、planning・subagent・skills・context compact に加えて permission・hook・memory・prompt・error recovery も段階的に開放していくことです。
 
 中盤以降で境界が混ざり始めたら、次の順で立て直すのが安定です。
 
@@ -196,11 +196,12 @@ python agents/s19_mcp_plugin.py
 python agents/s_full.py
 ```
 
-Deep Agents s01-s06 トラックを動かす場合は、`OPENAI_API_KEY` （必要なら `OPENAI_MODEL` と `OPENAI_BASE_URL`）を設定してから実行します:
+Deep Agents s01-s11 トラックを動かす場合は、`OPENAI_API_KEY` （必要なら `OPENAI_MODEL` と `OPENAI_BASE_URL`）を設定してから実行します:
 
 ```sh
 python agents_deepagents/s01_agent_loop.py
 python agents_deepagents/s06_context_compact.py
+python agents_deepagents/s11_error_recovery.py
 ```
 
 おすすめの進め方:
@@ -210,7 +211,7 @@ python agents_deepagents/s06_context_compact.py
 3. 単体 agent 本体と control plane が安定して理解できてから `s12 -> s19` に入る
 4. 最後に `s_full.py` を見て、全部の機構を一枚の全体像に戻す
 
-### Deep Agents トラック（s01-s06）
+### Deep Agents トラック（s01-s11）
 
 第一マイルストーンの Deep Agents 教材実装は `agents_deepagents/` にあります。対象は
 `s01-s06` のみで、OpenAI 互換の `OPENAI_API_KEY`、任意の
@@ -221,6 +222,7 @@ Anthropic SDK ベースラインはそのまま残しつつ、同じ `s01-s06`
 ```sh
 python agents_deepagents/s01_agent_loop.py
 python agents_deepagents/s06_context_compact.py
+python agents_deepagents/s11_error_recovery.py
 ```
 
 ファイル対応表と「テストでは live API key / ネットワーク呼び出しを使わない」
@@ -254,7 +256,7 @@ python agents_deepagents/s06_context_compact.py
 ```text
 learn-claude-code/
 ├── agents/              # 章ごとの実行可能な Python 参考実装
-├── agents_deepagents/   # s01-s06 の Deep Agents 段階別教材トラック
+├── agents_deepagents/   # s01-s11 の Deep Agents 段階別教材トラック
 ├── docs/zh/             # 中国語の主線文書
 ├── docs/en/             # 英語文書
 ├── docs/ja/             # 日本語文書

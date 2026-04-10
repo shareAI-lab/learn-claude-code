@@ -96,13 +96,17 @@ This stage is the single-agent backbone taking shape.
 
 After reading the hand-written `agents/s01-s06` baseline, you can open
 `agents_deepagents/s01_agent_loop.py` through
-`agents_deepagents/s06_context_compact.py` as the staged Deep Agents track. It
+`agents_deepagents/s11_error_recovery.py` as the staged Deep Agents track. It
 keeps the original files unchanged, uses OpenAI-style `OPENAI_API_KEY` /
 `OPENAI_MODEL` configuration, and shows how the stage track evolves chapter by
 chapter without exposing later capabilities too early. The web UI does not
 surface this track yet.
 
 ## Stage 2: `s07-s11`
+
+### Deep Agents track for Stage 2
+
+After the stage-1 Deep Agents files, continue with `agents_deepagents/s07_permission_system.py` through `agents_deepagents/s11_error_recovery.py`. This Stage-2 slice keeps the original chapter order while layering permissions, hooks, memory, prompt assembly, and recovery on top of the same staged Deep Agents harness.
 
 This stage hardens the control plane around a working single agent.
 
