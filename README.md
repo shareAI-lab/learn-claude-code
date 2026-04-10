@@ -261,7 +261,7 @@ go back to:
 ```text
 learn-claude-code/
 ├── agents/              # runnable Python reference implementations per chapter
-├── agents_deepagents/    # Deep Agents/OpenAI comparison track for s01-s06
+├── agents_deepagents/    # Deep Agents staged teaching track for s01-s06
 ├── docs/zh/             # Chinese mainline docs
 ├── docs/en/             # English docs
 ├── docs/ja/             # Japanese docs
