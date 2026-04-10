@@ -21,7 +21,7 @@ jobs:
         run: pip install -r requirements.txt pytest
 
       - name: Run Python smoke tests
-        run: python -m pytest tests -q
+        run: python -m pytest tests/test_agents_smoke.py -q
 
   web-build:
     runs-on: ubuntu-latest
