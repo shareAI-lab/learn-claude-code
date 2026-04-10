@@ -1,95 +1,47 @@
-# LangChain teaching track (`s01-s06`)
+# LangChain s01-s06 Teaching Track
 
-This directory is the parallel LangChain/OpenAI-interface track for the first
-six chapters of the repository. It is a comparison track, not a replacement for
-the original hand-written baseline in `agents/`.
+This directory is a parallel comparison track for the first milestone.  It does
+not replace the original `agents/*.py` Anthropic SDK teaching baseline, and it is
+not surfaced by the current web UI.
 
-The milestone boundary is intentionally small:
+## What changed vs. `agents/`
 
-- included now: `s01` through `s06`
-- not included yet: `s07` through `s19`
-- not changed here: the web learning app under `web/`
+| Original baseline | LangChain comparison | Teaching focus |
+|---|---|---|
+| `agents/s01_agent_loop.py` | `agents_langchain/s01_agent_loop.py` | visible model -> tool -> result loop with `ChatOpenAI.bind_tools` |
+| `agents/s02_tool_use.py` | `agents_langchain/s02_tool_use.py` | expanding tool dispatch with LangChain tools |
+| `agents/s03_todo_write.py` | `agents_langchain/s03_todo_write.py` | keeping session planning state outside the model |
+| `agents/s04_subagent.py` | `agents_langchain/s04_subagent.py` | fresh child-agent context with summary-only return |
+| `agents/s05_skill_loading.py` | `agents_langchain/s05_skill_loading.py` | discover skill summaries, load full skill bodies on demand |
+| `agents/s06_context_compact.py` | `agents_langchain/s06_context_compact.py` | compaction policy remains harness-owned around LangChain |
 
-## Why this lives outside `agents/`
+## OpenAI-compatible configuration
 
-The original `agents/*.py` files teach the harness mechanics directly: model
-turns, tool dispatch, todo state, subagent context isolation, skill discovery,
-and context compaction. The LangChain track keeps those files untouched so you
-can compare:
+The LangChain track uses OpenAI-interface chat models through
+`langchain-openai`:
 
-- what the hand-written harness owns
-- what LangChain now owns
-- what state still has to remain visible in the surrounding teaching code
-
-Keeping the track in `agents_langchain/` also prevents the current web extractor
-from treating the comparison scripts as mainline chapters before the web UI has
-an explicit LangChain milestone.
-
-## Environment
-
-Install the normal Python requirements:
-
-```sh
-pip install -r requirements.txt
-```
-
-For manual LangChain demo runs, configure the OpenAI-compatible variables in
-`.env`:
-
-```dotenv
+```env
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-5.2
+OPENAI_MODEL=gpt-5
+# Optional for OpenAI-compatible endpoints:
 # OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-Rules for this track:
+Model precedence is `OPENAI_MODEL` first, then `MODEL_ID` only when it does not
+look like the Anthropic default (`claude-*`), and finally `gpt-5`.  This keeps an
+existing `.env` for the original Anthropic demos from silently becoming the
+LangChain track's default.
 
-- `OPENAI_API_KEY` is required only when you actually run a live LangChain demo.
-- `OPENAI_BASE_URL` is optional and is for OpenAI-compatible endpoints.
-- `OPENAI_MODEL` is the preferred model variable for this track.
-- If a script also accepts the repo-wide `MODEL_ID` for compatibility,
-  `OPENAI_MODEL` should take precedence.
-- Automated tests must not require `OPENAI_API_KEY` and must not make network
-  calls.
+## Run a demo
 
-The package choice follows the current LangChain Python installation guidance:
-the core `langchain` package plus the OpenAI provider integration
-`langchain-openai`.
+Install dependencies and configure the OpenAI-compatible variables first:
 
-## Chapter map
+```sh
+pip install -r requirements.txt
+cp .env.example .env
+python agents_langchain/s01_agent_loop.py
+python agents_langchain/s06_context_compact.py
+```
 
-| Original baseline | LangChain comparison | What to compare |
-|---|---|---|
-| `agents/s01_agent_loop.py` | `agents_langchain/s01_agent_loop.py` | Which parts of `messages -> model -> tool_result -> next turn` remain visible when LangChain owns model/tool plumbing |
-| `agents/s02_tool_use.py` | `agents_langchain/s02_tool_use.py` | How adding tools expands the dispatch surface without rewriting the loop |
-| `agents/s03_todo_write.py` | `agents_langchain/s03_todo_write.py` | Which planning state stays in explicit harness code instead of disappearing into model text |
-| `agents/s04_subagent.py` | `agents_langchain/s04_subagent.py` | How a child agent keeps fresh messages and returns a bounded summary |
-| `agents/s05_skill_loading.py` | `agents_langchain/s05_skill_loading.py` | How cheap skill discovery and on-demand full loading map into LangChain tools |
-| `agents/s06_context_compact.py` | `agents_langchain/s06_context_compact.py` | How compaction remains a harness-owned context operation around LangChain calls |
-
-## Reading order
-
-Read each LangChain file side-by-side with its original baseline:
-
-1. Open the original `agents/sXX_*.py`.
-2. Identify the state structure and the path that advances one turn.
-3. Open the matching `agents_langchain/sXX_*.py`.
-4. Look for comments or code blocks that explain:
-   - what LangChain owns now
-   - what the surrounding harness still owns
-   - what is intentionally left as explicit teaching state
-5. Run the script manually only after setting the OpenAI-compatible environment.
-
-## Review checklist for this track
-
-Use this checklist when reviewing new or changed LangChain examples:
-
-- `agents/s01_agent_loop.py` through `agents/s06_context_compact.py` remain
-  unchanged as the baseline.
-- The LangChain examples do not instantiate a live model at import time.
-- Pure helpers remain importable without `OPENAI_API_KEY`.
-- Tests compile or exercise pure helpers only; they do not call the live model.
-- The scripts document when LangChain owns a loop/tool behavior that the
-  original baseline implements by hand.
-- `web/` remains untouched for this milestone.
-- s01-s06 remain teaching examples, not a production agent framework.
+Automated tests compile and inspect pure helpers only; they do not call a live
+LLM and do not require `OPENAI_API_KEY`.
