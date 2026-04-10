@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+# Harness（执行框架）: tool dispatch（工具分发）——扩展模型可达能力边界。
+"""
+s02_tool_use.py - 工具分发 + 消息规范化（message normalization）
+
+s01 的 agent loop（智能体循环）没有改。新增内容只有两类：
+1. 把工具接入 dispatch map（分发表）；
+2. 在每次 API 调用前，用 normalize_messages() 清理消息列表。
+
+关键洞察：
+"循环本身完全没变，我只是加了工具。"
+"""
+
+import os
+import subprocess
+from pathlib import Path
+
+try:
+    from agents.llm_client import create_client
+except ModuleNotFoundError:
+    from llm_client import create_client
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
+WORKDIR = Path.cwd()
+client = create_client()
+MODEL = os.environ["MODEL_ID"]
+
+SYSTEM = (
+    f"你是位于 {WORKDIR} 的 coding agent（编码智能体）。"
+    "优先使用工具解决任务。先执行，再解释。"
+)
+
+
+def safe_path(p: str) -> Path:
+    path = (WORKDIR / p).resolve()
+    if not path.is_relative_to(WORKDIR):
+        raise ValueError(f"Path escapes workspace: {p}")
+    return path
+
+
+def run_bash(command: str) -> str:
+    dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
+    if any(d in command for d in dangerous):
+        return "Error: 危险命令已拦截"
+    try:
+        r = subprocess.run(command, shell=True, cwd=WORKDIR,
+                           capture_output=True, text=True, timeout=120)
+        out = (r.stdout + r.stderr).strip()
+        return out[:50000] if out else "(no output)"
+    except subprocess.TimeoutExpired:
+        return "Error: Timeout (120s)"
+
+
+def run_read(path: str, limit: int = None) -> str:
+    try:
+        text = safe_path(path).read_text()
+        lines = text.splitlines()
+        if limit and limit < len(lines):
+            lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
+        return "\n".join(lines)[:50000]
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def run_write(path: str, content: str) -> str:
+    try:
+        fp = safe_path(path)
+        fp.parent.mkdir(parents=True, exist_ok=True)
+        fp.write_text(content)
+        return f"Wrote {len(content)} bytes to {path}"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def run_edit(path: str, old_text: str, new_text: str) -> str:
+    try:
+        fp = safe_path(path)
+        content = fp.read_text()
+        if old_text not in content:
+            return f"Error: Text not found in {path}"
+        fp.write_text(content.replace(old_text, new_text, 1))
+        return f"Edited {path}"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# -- 并发安全分类（concurrency safety） --
+# 只读工具可并行；有副作用的写入工具必须串行。
+CONCURRENCY_SAFE = {"read_file"}
+CONCURRENCY_UNSAFE = {"write_file", "edit_file"}
+
+# -- 分发表（dispatch map）: {tool_name: handler} --
+TOOL_HANDLERS = {
+    "bash":       lambda **kw: run_bash(kw["command"]),
+    "read_file":  lambda **kw: run_read(kw["path"], kw.get("limit")),
+    "write_file": lambda **kw: run_write(kw["path"], kw["content"]),
+    "edit_file":  lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"]),
+}
+
+TOOLS = [
+    {"name": "bash", "description": "执行 shell 命令。",
+     "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
+    {"name": "read_file", "description": "读取文件内容。",
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["path"]}},
+    {"name": "write_file", "description": "向文件写入内容。",
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
+    {"name": "edit_file", "description": "在文件中替换一次精确文本。",
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
+]
+
+
+def normalize_messages(messages: list) -> list:
+    """发送 API 前清理消息列表。
+
+    主要做三件事：
+    1. 移除 API 不识别的内部元数据字段；
+    2. 确保每个 tool_use（工具调用）都有对应 tool_result（工具结果）；
+       若缺失则插入占位结果；
+    3. 合并连续同角色消息（API 侧通常要求严格交替）。
+    """
+    cleaned = []
+    for msg in messages:
+        clean = {"role": msg["role"]}
+        if isinstance(msg.get("content"), str):
+            clean["content"] = msg["content"]
+        elif isinstance(msg.get("content"), list):
+            clean["content"] = [
+                {k: v for k, v in block.items()
+                 if not k.startswith("_")}
+                for block in msg["content"]
+                if isinstance(block, dict)
+            ]
+        else:
+            clean["content"] = msg.get("content", "")
+        cleaned.append(clean)
+
+    # 收集已有 tool_result 的 ID
+    existing_results = set()
+    for msg in cleaned:
+        if isinstance(msg.get("content"), list):
+            for block in msg["content"]:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    existing_results.add(block.get("tool_use_id"))
+
+    # 查找孤立 tool_use 并补充占位 tool_result
+    for msg in cleaned:
+        if msg["role"] != "assistant" or not isinstance(msg.get("content"), list):
+            continue
+        for block in msg["content"]:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_use" and block.get("id") not in existing_results:
+                cleaned.append({"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": block["id"],
+                     "content": "(cancelled)"}
+                ]})
+
+    # 合并连续同角色消息
+    if not cleaned:
+        return cleaned
+    merged = [cleaned[0]]
+    for msg in cleaned[1:]:
+        if msg["role"] == merged[-1]["role"]:
+            prev = merged[-1]
+            prev_c = prev["content"] if isinstance(prev["content"], list) \
+                else [{"type": "text", "text": str(prev["content"])}]
+            curr_c = msg["content"] if isinstance(msg["content"], list) \
+                else [{"type": "text", "text": str(msg["content"])}]
+            prev["content"] = prev_c + curr_c
+        else:
+            merged.append(msg)
+    return merged
+
+
+def agent_loop(messages: list):
+    while True:
+        response = client.messages.create(
+            model=MODEL, system=SYSTEM,
+            messages=normalize_messages(messages),
+            tools=TOOLS, max_tokens=8000,
+        )
+        messages.append({"role": "assistant", "content": response.content})
+        if response.stop_reason != "tool_use":
+            return
+        results = []
+        for block in response.content:
+            if block.type == "tool_use":
+                handler = TOOL_HANDLERS.get(block.name)
+                output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
+                print(f"> {block.name}:")
+                print(output[:200])
+                results.append({"type": "tool_result", "tool_use_id": block.id, "content": output})
+        messages.append({"role": "user", "content": results})
+
+
+if __name__ == "__main__":
+    history = []
+    while True:
+        try:
+            query = input("\033[36ms02 >> \033[0m")
+        except (EOFError, KeyboardInterrupt):
+            break
+        if query.strip().lower() in ("q", "exit", ""):
+            break
+        history.append({"role": "user", "content": query})
+        agent_loop(history)
+        response_content = history[-1]["content"]
+        if isinstance(response_content, list):
+            for block in response_content:
+                if hasattr(block, "text"):
+                    print(block.text)
+        print()

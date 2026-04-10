@@ -187,7 +187,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Then configure `ANTHROPIC_API_KEY` or a compatible endpoint in `.env`, and run:
+Then configure OpenAI-compatible settings in `.env` (DashScope example: `OPENAI_API_KEY`, `OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1`, `MODEL_ID=qwen3.6-plus`), and run:
 
 ```sh
 python agents/s01_agent_loop.py

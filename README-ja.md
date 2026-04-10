@@ -183,7 +183,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-その後、`.env` に `ANTHROPIC_API_KEY` または互換エンドポイントを設定してから:
+その後、`.env` に `OPENAI_API_KEY` または互換エンドポイントを設定してから:
 
 ```sh
 python agents/s01_agent_loop.py

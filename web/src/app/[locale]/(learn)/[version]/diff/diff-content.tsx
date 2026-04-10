@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "@/lib/i18n";
 import { VERSION_META } from "@/lib/constants";
 import { getVersionContent } from "@/lib/version-content";
+import { getLocalizedSource } from "@/lib/version-source";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { LayerBadge } from "@/components/ui/badge";
 import { CodeDiff } from "@/components/diff/code-diff";
@@ -197,8 +198,8 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
       <div>
         <h2 className="mb-4 text-xl font-semibold">Source Code Diff</h2>
         <CodeDiff
-          oldSource={prevVersion.source}
-          newSource={currentVersion.source}
+          oldSource={getLocalizedSource(prevVersion, locale)}
+          newSource={getLocalizedSource(currentVersion, locale)}
           oldLabel={`${prevVersion.id} (${prevVersion.filename})`}
           newLabel={`${version} (${currentVersion.filename})`}
         />

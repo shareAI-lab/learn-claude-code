@@ -15,6 +15,7 @@ import versionData from "@/data/generated/versions.json";
 import docsData from "@/data/generated/docs.json";
 import { getBridgeDocDescriptors } from "@/lib/bridge-docs";
 import { getChapterGuide } from "@/lib/chapter-guides";
+import { getLocalizedSource } from "@/lib/version-source";
 
 const data = versionData as VersionIndex;
 const docs = docsData as DocContent[];
@@ -759,8 +760,8 @@ export default function ComparePage() {
               </p>
             </div>
             <CodeDiff
-              oldSource={infoA.source}
-              newSource={infoB.source}
+              oldSource={getLocalizedSource(infoA, locale)}
+              newSource={getLocalizedSource(infoB, locale)}
               oldLabel={`${infoA.id} (${infoA.filename})`}
               newLabel={`${infoB.id} (${infoB.filename})`}
             />

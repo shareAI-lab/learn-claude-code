@@ -8,6 +8,7 @@ import { getTranslations } from "@/lib/i18n-server";
 import { getChapterGuide } from "@/lib/chapter-guides";
 import { getBridgeDocDescriptors } from "@/lib/bridge-docs";
 import { getVersionContent } from "@/lib/version-content";
+import { getLocalizedSource } from "@/lib/version-source";
 
 export function generateStaticParams() {
   return LEARNING_PATH.map((version) => ({ version }));
@@ -137,7 +138,7 @@ export default async function VersionPage({
       <VersionDetailClient
         version={version}
         diff={diff}
-        source={versionData.source}
+        source={getLocalizedSource(versionData, locale)}
         filename={versionData.filename}
         guideData={guide}
         bridgeDocs={bridgeDocs}

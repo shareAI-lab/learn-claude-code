@@ -12,6 +12,8 @@ import { VERSION_META, VERSION_ORDER, LEARNING_PATH } from "../src/lib/constants
 const WEB_DIR = path.resolve(__dirname, "..");
 const REPO_ROOT = path.resolve(WEB_DIR, "..");
 const AGENTS_DIR = path.join(REPO_ROOT, "agents");
+const AGENTS_EN_DIR = path.join(AGENTS_DIR, "en");
+const AGENTS_ZH_DIR = path.join(AGENTS_DIR, "zh");
 const DOCS_DIR = path.join(REPO_ROOT, "docs");
 const OUT_DIR = path.join(WEB_DIR, "src", "data", "generated");
 
@@ -123,6 +125,52 @@ function slugFromFilename(filename: string): string {
   return path.basename(filename, ".md");
 }
 
+function normalizeNewlines(content: string): string {
+  return content.replace(/\r\n/g, "\n");
+}
+
+function listAgentFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.startsWith("s") && f.endsWith(".py"));
+}
+
+function resolveBaselineAgentsDir(): string | null {
+  if (listAgentFiles(AGENTS_EN_DIR).length > 0) return AGENTS_EN_DIR;
+  if (listAgentFiles(AGENTS_DIR).length > 0) return AGENTS_DIR;
+  if (listAgentFiles(AGENTS_ZH_DIR).length > 0) return AGENTS_ZH_DIR;
+  return null;
+}
+
+function readIfExists(filePath: string): string | null {
+  if (!fs.existsSync(filePath)) return null;
+  return normalizeNewlines(fs.readFileSync(filePath, "utf-8"));
+}
+
+function loadSourceByLocale(
+  filename: string,
+  baselineDir: string
+): { en: string; zh: string; ja: string } {
+  const baselinePath = path.join(baselineDir, filename);
+  const baselineSource = normalizeNewlines(fs.readFileSync(baselinePath, "utf-8"));
+
+  const englishSource =
+    readIfExists(path.join(AGENTS_EN_DIR, filename)) ??
+    readIfExists(path.join(AGENTS_DIR, filename)) ??
+    baselineSource;
+
+  const chineseSource =
+    readIfExists(path.join(AGENTS_ZH_DIR, filename)) ?? englishSource;
+
+  return {
+    en: englishSource,
+    zh: chineseSource,
+    // Japanese users currently read the original English source.
+    ja: englishSource,
+  };
+}
+
 // Main extraction
 function main() {
   console.log("Extracting content from agents and docs...");
@@ -138,12 +186,18 @@ function main() {
     return;
   }
 
-  // 1. Read all agent files
-  const agentFiles = fs
-    .readdirSync(AGENTS_DIR)
-    .filter((f) => f.startsWith("s") && f.endsWith(".py"));
+  // 1. Read all agent files (prefer localized layout: agents/en + agents/zh)
+  const baselineAgentsDir = resolveBaselineAgentsDir();
+  if (!baselineAgentsDir) {
+    console.log("  No agent sources found, skipping extraction.");
+    console.log("  Expected either agents/*.py or agents/en/*.py.");
+    return;
+  }
+
+  const agentFiles = listAgentFiles(baselineAgentsDir);
 
   console.log(`  Found ${agentFiles.length} agent files`);
+  console.log(`  Baseline source dir: ${path.relative(REPO_ROOT, baselineAgentsDir)}`);
 
   const versions: AgentVersion[] = [];
 
@@ -154,8 +208,8 @@ function main() {
       continue;
     }
 
-    const filePath = path.join(AGENTS_DIR, filename);
-    const source = fs.readFileSync(filePath, "utf-8");
+    const sourceByLocale = loadSourceByLocale(filename, baselineAgentsDir);
+    const source = sourceByLocale.en;
     const lines = source.split("\n");
 
     const meta = VERSION_META[versionId];
@@ -177,6 +231,7 @@ function main() {
       classes,
       functions,
       layer: meta?.layer ?? "core",
+      sourceByLocale,
       source,
     });
   }
@@ -244,7 +299,7 @@ function main() {
         const version = extractDocVersion(filename);
         const kind = isMainlineChapterVersion(version) ? "chapter" : "bridge";
         const filePath = path.join(localeDir, filename);
-        const content = fs.readFileSync(filePath, "utf-8");
+        const content = normalizeNewlines(fs.readFileSync(filePath, "utf-8"));
 
         const titleMatch = content.match(/^#\s+(.+)$/m);
         const title = titleMatch ? titleMatch[1] : filename;

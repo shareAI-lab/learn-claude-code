@@ -11,6 +11,11 @@ export interface AgentVersion {
   classes: { name: string; startLine: number; endLine: number }[];
   functions: { name: string; signature: string; startLine: number }[];
   layer: "core" | "hardening" | "runtime" | "platform";
+  sourceByLocale?: {
+    en?: string;
+    zh?: string;
+    ja?: string;
+  };
   source: string;
 }
 

@@ -258,7 +258,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-把 `.env` 里的 `ANTHROPIC_API_KEY` 或兼容接口配置好以后：
+把 `.env` 里的 `OPENAI_API_KEY` 或兼容接口配置好以后：
 
 ```sh
 python agents/s01_agent_loop.py
