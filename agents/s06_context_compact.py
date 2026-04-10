@@ -144,7 +144,10 @@ def summarize_history(messages: list) -> str:
         messages=[{"role": "user", "content": prompt}],
         max_tokens=2000,
     )
-    return response.content[0].text.strip()
+    summary = extract_text(response.content)
+    if summary:
+        return summary
+    return "Summary failed, but conversation was compacted to continue working."
 
 
 def compact_history(messages: list, state: CompactState, focus: str | None = None) -> list:
