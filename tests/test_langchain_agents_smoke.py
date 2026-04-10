@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 import py_compile
 
@@ -8,39 +9,67 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 LANGCHAIN_DIR = ROOT / "agents_langchain"
-EXPECTED_CHAPTERS = [
-    "s01_agent_loop.py",
-    "s02_tool_use.py",
-    "s03_todo_write.py",
-    "s04_subagent.py",
-    "s05_skill_loading.py",
-    "s06_context_compact.py",
-]
-PY_FILES = sorted(LANGCHAIN_DIR.glob("*.py"))
+LANGCHAIN_FILES = sorted(
+    path for path in LANGCHAIN_DIR.glob("*.py") if path.name != "__init__.py"
+)
+LANGCHAIN_IDS = [path.name for path in LANGCHAIN_FILES]
 
 
-@pytest.mark.parametrize("agent_path", PY_FILES, ids=[path.name for path in PY_FILES])
-def test_langchain_track_python_files_compile(agent_path: Path) -> None:
+@pytest.mark.parametrize("agent_path", LANGCHAIN_FILES, ids=LANGCHAIN_IDS)
+def test_langchain_agent_scripts_compile(agent_path: Path) -> None:
     _ = py_compile.compile(str(agent_path), doraise=True)
 
 
-def test_langchain_chapter_scripts_exist() -> None:
-    for filename in EXPECTED_CHAPTERS:
-        assert (LANGCHAIN_DIR / filename).is_file()
-    assert (LANGCHAIN_DIR / "README.md").is_file()
+def test_langchain_agent_scripts_exist() -> None:
+    assert LANGCHAIN_FILES, "expected LangChain teaching scripts"
+    for filename in [
+        "s01_agent_loop.py",
+        "s02_tool_use.py",
+        "s03_todo_write.py",
+        "s04_subagent.py",
+        "s05_skill_loading.py",
+        "s06_context_compact.py",
+    ]:
+        assert LANGCHAIN_DIR.joinpath(filename).exists()
 
 
-def test_openai_model_resolution_does_not_default_to_anthropic(monkeypatch: pytest.MonkeyPatch) -> None:
-    from agents_langchain import _common
+def test_pure_helpers_import_without_openai_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    monkeypatch.delenv("OPENAI_MODEL", raising=False)
-    monkeypatch.setenv("MODEL_ID", "claude-sonnet-4-6")
+    common = importlib.import_module("agents_langchain.common")
+    s03 = importlib.import_module("agents_langchain.s03_todo_write")
 
-    assert _common.resolve_openai_model() == _common.DEFAULT_OPENAI_MODEL
+    assert common.langchain_model_name()
+    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+        common.build_openai_model()
+
+    todo = s03.TodoManager()
+    rendered = todo.update([
+        {"content": "Inspect task", "status": "completed"},
+        {"content": "Implement", "status": "in_progress", "activeForm": "Implementing"},
+    ])
+    assert "[x] Inspect task" in rendered
+    assert "[>] Implement (Implementing)" in rendered
 
 
 def test_safe_path_rejects_workspace_escape() -> None:
-    from agents_langchain._common import safe_path
+    common = importlib.import_module("agents_langchain.common")
 
     with pytest.raises(ValueError, match="escapes workspace"):
-        safe_path("../outside-workspace")
+        common.safe_path("../outside.txt")
+
+
+def test_skill_registry_parses_frontmatter(tmp_path: Path) -> None:
+    s05 = importlib.import_module("agents_langchain.s05_skill_loading")
+    skill_dir = tmp_path / "demo"
+    skill_dir.mkdir()
+    skill_file = skill_dir / "SKILL.md"
+    skill_file.write_text(
+        "---\nname: demo\ndescription: Demo skill\n---\n\nUse this skill.\n",
+        encoding="utf-8",
+    )
+
+    registry = s05.SkillRegistry(tmp_path)
+
+    assert "- demo: Demo skill" in registry.describe_available()
+    assert "Use this skill." in registry.load_full_text("demo")
