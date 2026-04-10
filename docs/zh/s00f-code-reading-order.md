@@ -122,9 +122,9 @@ CLI 入口当然有用，但它不应该成为第一屏。
 | `s05` | `agents/s05_skill_loading.py` | `SkillManifest` / `SkillDocument` / `SkillRegistry` | `get_descriptions()` / `get_content()` -> `agent_loop()` | 你已经能看懂“先发现、再按需加载” |
 | `s06` | `agents/s06_context_compact.py` | `CompactState` | `persist_large_output()` -> `micro_compact()` -> `compact_history()` -> `agent_loop()` | 你已经能看懂“压缩不是删历史，而是转移细节” |
 
-### 阶段 1 的 LangChain 对照轨道
+### 阶段 1 的 Deep Agents 轨道
 
-读完手写版 `agents/s01-s06` 以后，可以继续看 `agents_langchain/s01_agent_loop.py` 到 `agents_langchain/s06_context_compact.py`。这是一条框架对照轨道：原来的 `agents/*.py` 不变，配置使用 OpenAI 风格的 `OPENAI_API_KEY` / `OPENAI_MODEL`，重点比较 LangChain 接管了哪些循环细节，以及外层 harness 仍然保留哪些状态和边界。当前 web UI 暂不展示这条轨道。
+读完手写版 `agents/s01-s06` 以后，可以继续看 `agents_deepagents/s01_agent_loop.py` 到 `agents_deepagents/s06_context_compact.py`。这是一条 Deep Agents 教学轨道：原来的 `agents/*.py` 不变，运行时继续使用 OpenAI 风格的 `OPENAI_API_KEY` / `OPENAI_MODEL`（可选 `OPENAI_BASE_URL`）配置，但能力会按章节逐步开放——`s01` 只保留最小 loop，`s03` 才引入 planning，`s04` 才引入 subagent，`s05` 才引入 skills，`s06` 才引入 context compact。当前 web UI 暂不展示这条轨道。
 
 ### 这一段最值得反复看的 3 个代码点
 

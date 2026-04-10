@@ -97,9 +97,9 @@
 4. `s01-s06 -> s07-s11 -> s12-s14 -> s15-s19` の 4 段階で主線を順に進める
 5. 各段階の終わりで一度止まり、最小版を自分で書き直してから次へ進む
 
-## LangChain s01-s06 比較トラック
+## Deep Agents s01-s06 トラック
 
-このリポジトリには、第一マイルストーンとして LangChain 版の比較実装 [`agents_langchain/`](./agents_langchain/) もあります。対象は `s01-s06` だけです。既存の `agents/*.py` Anthropic SDK 手書き実装は置き換えず、web UI にもまだ接続していません。手書き loop と LangChain の OpenAI 互換 `create_agent` 経路を比べたいときに使います。
+このリポジトリには、第一マイルストーンとして Deep Agents 教材トラック [`agents_deepagents/`](./agents_deepagents/) もあります。対象は `s01-s06` だけです。既存の `agents/*.py` Anthropic SDK 手書き実装は置き換えず、web UI にもまだ接続していません。目的は LangChain との比較線を増やすことではなく、Deep Agents を使って元のチュートリアルロジックを章ごとに再現し、planning・subagent・skills・context compact を段階的に開放していくことです。
 
 中盤以降で境界が混ざり始めたら、次の順で立て直すのが安定です。
 
@@ -196,11 +196,11 @@ python agents/s19_mcp_plugin.py
 python agents/s_full.py
 ```
 
-LangChain s01-s06 比較トラックを動かす場合は、`OPENAI_API_KEY` （必要なら `OPENAI_MODEL` と `OPENAI_BASE_URL`）を設定してから実行します:
+Deep Agents s01-s06 トラックを動かす場合は、`OPENAI_API_KEY` （必要なら `OPENAI_MODEL` と `OPENAI_BASE_URL`）を設定してから実行します:
 
 ```sh
-python agents_langchain/s01_agent_loop.py
-python agents_langchain/s06_context_compact.py
+python agents_deepagents/s01_agent_loop.py
+python agents_deepagents/s06_context_compact.py
 ```
 
 おすすめの進め方:
@@ -210,21 +210,22 @@ python agents_langchain/s06_context_compact.py
 3. 単体 agent 本体と control plane が安定して理解できてから `s12 -> s19` に入る
 4. 最後に `s_full.py` を見て、全部の機構を一枚の全体像に戻す
 
-### LangChain 比較トラック（s01-s06）
+### Deep Agents トラック（s01-s06）
 
-最初の LangChain 比較実装は `agents_langchain/` にあります。対象は
-`s01-s06` のみで、OpenAI 互換の LangChain 連携（`OPENAI_API_KEY`、任意の
-`OPENAI_BASE_URL`、`OPENAI_MODEL`）を使います。既存の `agents/*.py`
-Anthropic SDK ベースラインはそのまま残し、横に並べて読めるようにしています。
+第一マイルストーンの Deep Agents 教材実装は `agents_deepagents/` にあります。対象は
+`s01-s06` のみで、OpenAI 互換の `OPENAI_API_KEY`、任意の
+`OPENAI_BASE_URL`、`OPENAI_MODEL` を使います。既存の `agents/*.py`
+Anthropic SDK ベースラインはそのまま残しつつ、同じ `s01-s06`
+ロジックを Deep Agents harness 上で段階的に開いていくためのトラックです。
 
 ```sh
-python agents_langchain/s01_agent_loop.py
-python agents_langchain/s06_context_compact.py
+python agents_deepagents/s01_agent_loop.py
+python agents_deepagents/s06_context_compact.py
 ```
 
 ファイル対応表と「テストでは live API key / ネットワーク呼び出しを使わない」
-方針は [`agents_langchain/README.md`](./agents_langchain/README.md) を参照してください。
-現在の Web 学習 UI には、この比較トラックはまだ表示されません。
+方針は [`agents_deepagents/README.md`](./agents_deepagents/README.md) を参照してください。
+現在の Web 学習 UI には、この Deep Agents トラックはまだ表示されません。
 
 ## 各章の読み方
 
@@ -253,7 +254,7 @@ python agents_langchain/s06_context_compact.py
 ```text
 learn-claude-code/
 ├── agents/              # 章ごとの実行可能な Python 参考実装
-├── agents_langchain/    # s01-s06 の LangChain/OpenAI 比較トラック
+├── agents_deepagents/   # s01-s06 の Deep Agents 段階別教材トラック
 ├── docs/zh/             # 中国語の主線文書
 ├── docs/en/             # 英語文書
 ├── docs/ja/             # 日本語文書
