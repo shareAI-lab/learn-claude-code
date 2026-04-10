@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
+from langchain_core.language_models.fake_chat_models import (
+    FakeMessagesListChatModel,
+)
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import BaseTool
 
@@ -25,7 +27,11 @@ class SpyFakeModel(FakeMessagesListChatModel):
 
 def _tool_name(tool: dict[str, Any] | type | Any | BaseTool) -> str:
     if isinstance(tool, dict):
-        return tool.get("name") or tool.get("function", {}).get("name") or type(tool).__name__
+        return (
+            tool.get("name")
+            or tool.get("function", {}).get("name")
+            or type(tool).__name__
+        )
     return getattr(tool, "name", type(tool).__name__)
 
 
@@ -33,7 +39,8 @@ def _error_messages(result: dict[str, Any]) -> list[ToolMessage]:
     return [
         message
         for message in result["messages"]
-        if isinstance(message, ToolMessage) and getattr(message, "status", None) == "error"
+        if isinstance(message, ToolMessage)
+        and getattr(message, "status", None) == "error"
     ]
 
 
@@ -59,7 +66,14 @@ def test_s01_rejects_write_todos_at_runtime() -> None:
                 tool_calls=[
                     {
                         "name": "write_todos",
-                        "args": {"todos": [{"content": "Plan", "status": "in_progress"}]},
+                        "args": {
+                            "todos": [
+                                {
+                                    "content": "Plan",
+                                    "status": "in_progress",
+                                }
+                            ]
+                        },
                         "id": "call_1",
                         "type": "tool_call",
                     }
@@ -87,7 +101,14 @@ def test_s03_enables_write_todos_but_still_blocks_task() -> None:
                 tool_calls=[
                     {
                         "name": "write_todos",
-                        "args": {"todos": [{"content": "Plan", "status": "in_progress"}]},
+                        "args": {
+                            "todos": [
+                                {
+                                    "content": "Plan",
+                                    "status": "in_progress",
+                                }
+                            ]
+                        },
                         "id": "call_1",
                         "type": "tool_call",
                     }

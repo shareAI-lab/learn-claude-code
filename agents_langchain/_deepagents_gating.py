@@ -7,9 +7,10 @@ fully-loaded coding harness, but it is too permissive for this repository's
 chapter-by-chapter tutorial: `s01` must not expose planning yet, and `s03`
 must still block subagents.
 
-This module proves the gating requirement is technically viable by composing the
-Deep Agents middleware stack directly with `langchain.agents.create_agent()`.
-Each stage only receives the middleware that should be visible at that chapter.
+This module proves the gating requirement is technically viable by
+composing the Deep Agents middleware stack directly with
+`langchain.agents.create_agent()`. Each stage only receives the
+middleware that should be visible at that chapter.
 """
 
 from __future__ import annotations
@@ -21,7 +22,11 @@ from deepagents.backends import StateBackend
 from deepagents.middleware.filesystem import FilesystemMiddleware
 from deepagents.middleware.patch_tool_calls import PatchToolCallsMiddleware
 from deepagents.middleware.skills import SkillsMiddleware
-from deepagents.middleware.subagents import CompiledSubAgent, SubAgent, SubAgentMiddleware
+from deepagents.middleware.subagents import (
+    CompiledSubAgent,
+    SubAgent,
+    SubAgentMiddleware,
+)
 from deepagents.middleware.summarization import (
     create_summarization_middleware,
     create_summarization_tool_middleware,
@@ -49,7 +54,12 @@ STAGE_CAPABILITIES: dict[StageName, StageCapabilities] = {
     "s03": StageCapabilities(planning=True),
     "s04": StageCapabilities(planning=True, subagents=True),
     "s05": StageCapabilities(planning=True, subagents=True, skills=True),
-    "s06": StageCapabilities(planning=True, subagents=True, skills=True, compaction=True),
+    "s06": StageCapabilities(
+        planning=True,
+        subagents=True,
+        skills=True,
+        compaction=True,
+    ),
 }
 
 SubagentSpec = SubAgent | CompiledSubAgent
@@ -60,7 +70,9 @@ def capabilities_for_stage(stage: StageName) -> StageCapabilities:
         return STAGE_CAPABILITIES[stage]
     except KeyError as exc:  # pragma: no cover - defensive guard
         expected = ", ".join(STAGE_CAPABILITIES)
-        raise ValueError(f"Unsupported stage '{stage}'. Expected one of: {expected}") from exc
+        raise ValueError(
+            f"Unsupported stage '{stage}'. Expected one of: {expected}"
+        ) from exc
 
 
 def _resolve_model(model: str | BaseChatModel) -> BaseChatModel:
@@ -77,7 +89,9 @@ def _validate_stage_inputs(
     if capabilities.subagents and not subagents:
         raise ValueError(f"{stage} requires at least one configured subagent")
     if capabilities.skills and not skill_sources:
-        raise ValueError(f"{stage} requires at least one configured skill source")
+        raise ValueError(
+            f"{stage} requires at least one configured skill source"
+        )
 
 
 def build_stage_middleware(
@@ -92,23 +106,47 @@ def build_stage_middleware(
     """Build the middleware stack for a staged Deep Agents chapter."""
 
     capabilities = capabilities_for_stage(stage)
-    _validate_stage_inputs(stage, capabilities, subagents=subagents, skill_sources=skill_sources)
+    _validate_stage_inputs(
+        stage,
+        capabilities,
+        subagents=subagents,
+        skill_sources=skill_sources,
+    )
 
-    resolved_model = _resolve_model(model) if capabilities.compaction else model
+    resolved_model = (
+        _resolve_model(model) if capabilities.compaction else model
+    )
 
     middleware: list[AgentMiddleware[Any, Any]] = []
     if capabilities.planning:
         middleware.append(TodoListMiddleware())
     if capabilities.skills and skill_sources:
-        middleware.append(SkillsMiddleware(backend=backend, sources=list(skill_sources)))
+        middleware.append(
+            SkillsMiddleware(
+                backend=backend,
+                sources=list(skill_sources),
+            )
+        )
 
     middleware.append(FilesystemMiddleware(backend=backend))
 
     if capabilities.subagents and subagents:
-        middleware.append(SubAgentMiddleware(backend=backend, subagents=list(subagents)))
+        middleware.append(
+            SubAgentMiddleware(
+                backend=backend,
+                subagents=list(subagents),
+            )
+        )
     if capabilities.compaction:
-        middleware.append(create_summarization_tool_middleware(resolved_model, backend))
-        middleware.append(create_summarization_middleware(resolved_model, backend))
+        middleware.append(
+            create_summarization_tool_middleware(
+                resolved_model,
+                backend,
+            )
+        )
+        middleware.append(
+            create_summarization_middleware(resolved_model, backend)
+        )
 
     middleware.append(PatchToolCallsMiddleware())
     middleware.extend(extra_middleware)
@@ -129,7 +167,9 @@ def build_stage_agent(
     """Create a stage-gated agent using Deep Agents middleware primitives."""
 
     capabilities = capabilities_for_stage(stage)
-    resolved_model = _resolve_model(model) if capabilities.compaction else model
+    resolved_model = (
+        _resolve_model(model) if capabilities.compaction else model
+    )
 
     return create_agent(
         resolved_model,
