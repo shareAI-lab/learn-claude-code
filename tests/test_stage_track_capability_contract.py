@@ -28,7 +28,7 @@ FUTURE_STAGE_CAPABILITIES = {"todo", "task", "load_skill", "compact"}
 
 
 def module_tool_names(module_name: str) -> set[str]:
-    module = importlib.import_module(f"agents_langchain.{module_name}")
+    module = importlib.import_module(f"agents_deepagents.{module_name}")
     tools = getattr(module, "PARENT_TOOLS", None)
     if tools is None:
         tools = getattr(module, "TOOLS")

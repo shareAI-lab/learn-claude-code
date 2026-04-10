@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# LangChain track: context isolation -- a child agent gets fresh messages.
+# Deep Agents track: context isolation -- a child agent gets fresh messages.
 """
-s04_subagent.py - Subagents with LangChain
+s04_subagent.py - Subagents with Deep Agents
 
-A LangChain agent can be created inside a tool call.  The parent and child share
+A Deep Agents agent can be created inside a tool call.  The parent and child share
 the filesystem tools, but the child receives fresh ``messages=[]`` and returns
 only a summary.  That preserves the original context-isolation lesson.
 """
@@ -71,7 +71,7 @@ CHILD_TOOLS = [bash, read_file, write_file, edit_file]
 
 
 def run_subagent(prompt: str) -> str:
-    """Run a child LangChain agent with fresh context and return a summary only."""
+    """Run a child Deep Agents agent with fresh context and return a summary only."""
 
     child_messages = [{"role": "user", "content": prompt}]
     child_agent = create_agent_runtime(SUBAGENT_SYSTEM, CHILD_TOOLS)

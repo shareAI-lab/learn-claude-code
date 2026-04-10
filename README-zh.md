@@ -101,7 +101,7 @@
 
 ## Deep Agents s01-s06 轨道
 
-仓库现在还提供第一阶段里程碑的 Deep Agents 教学轨道：[`agents_deepagents/`](./agents_deepagents/)。它只覆盖 `s01-s06`，不替换原来的 `agents/*.py` Anthropic SDK 手写基线，也暂时不接入 web UI。重点不是再开一条 LangChain 对照线，而是用 Deep Agents 逐章复现原教程逻辑，并把 planning、subagent、skills、context compact 等能力按章节顺序逐步开放。
+仓库现在还提供第一阶段里程碑的 Deep Agents 教学轨道：[`agents_deepagents/`](./agents_deepagents/)。它只覆盖 `s01-s06`，不替换原来的 `agents/*.py` Anthropic SDK 手写基线，也暂时不接入 web UI。重点不是再开一条 Deep Agents 对照线，而是用 Deep Agents 逐章复现原教程逻辑，并把 planning、subagent、skills、context compact 等能力按章节顺序逐步开放。
 
 如果你读到一半开始打结，最稳的重启顺序是：
 

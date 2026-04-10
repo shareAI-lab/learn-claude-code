@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared helpers for the LangChain s01-s06 teaching track.
+"""Shared helpers for the Deep Agents s01-s06 teaching track.
 
 This module intentionally stays tiny.  The chapter files should still be read
 as the teaching surface; the shared code only avoids repeating the same safe
@@ -28,9 +28,9 @@ DANGEROUS_COMMANDS = ("rm -rf /", "sudo", "shutdown", "reboot", "> /dev/")
 
 
 def langchain_model_name() -> str:
-    """Return the model name for the LangChain track.
+    """Return the model name for the Deep Agents track.
 
-    ``OPENAI_MODEL`` is the explicit LangChain-track variable.  ``MODEL_ID`` is
+    ``OPENAI_MODEL`` is the explicit Deep Agents-track variable.  ``MODEL_ID`` is
     accepted only as a compatibility fallback for people reusing the original
     Anthropic-track ``.env`` shape.
     """
@@ -47,7 +47,7 @@ def build_openai_model(*, temperature: float = 0.0, timeout: int = 60):
 
     if not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError(
-            "OPENAI_API_KEY is required to run the LangChain examples. "
+            "OPENAI_API_KEY is required to run the Deep Agents examples. "
             "Set OPENAI_MODEL to choose a model and OPENAI_BASE_URL for an "
             "OpenAI-compatible endpoint."
         )
@@ -66,7 +66,7 @@ def build_openai_model(*, temperature: float = 0.0, timeout: int = 60):
 
 
 def create_agent_runtime(system_prompt: str, tools: Iterable[Any]):
-    """Create a LangChain v1 agent with the current OpenAI-style model."""
+    """Create a Deep Agents v1 agent with the current OpenAI-style model."""
 
     from langchain.agents import create_agent
 
@@ -154,7 +154,7 @@ def _message_content(message: Any) -> Any:
 
 
 def extract_text(content: Any) -> str:
-    """Extract readable text from LangChain or dict message content."""
+    """Extract readable text from Deep Agents or dict message content."""
 
     if content is None:
         return ""
@@ -186,7 +186,7 @@ def extract_text(content: Any) -> str:
 
 
 def latest_assistant_text(result: Any) -> str:
-    """Return the final assistant text from a LangChain agent/model result."""
+    """Return the final assistant text from a Deep Agents agent/model result."""
 
     if isinstance(result, dict):
         messages = result.get("messages") or []
@@ -202,9 +202,9 @@ def latest_assistant_text(result: Any) -> str:
 
 
 def invoke_and_append(agent: Any, messages: list[dict[str, Any]]) -> str:
-    """Invoke a LangChain agent and append only the final answer to history.
+    """Invoke a Deep Agents agent and append only the final answer to history.
 
-    LangChain owns the internal model -> tool -> tool-result loop.  For the next
+    Deep Agents owns the internal model -> tool -> tool-result loop.  For the next
     CLI turn we keep a compact teaching history: the user's prompt plus the final
     assistant answer, while the original ``agents/`` files remain the place to
     inspect every raw provider block.

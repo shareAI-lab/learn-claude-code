@@ -101,9 +101,9 @@ The safest path is:
 4. Follow the four stages in order: `s01-s06 -> s07-s11 -> s12-s14 -> s15-s19`.
 5. After each stage, stop and rebuild the smallest version yourself before continuing.
 
-## LangChain s01-s06 Comparison Track
+## Deep Agents s01-s06 Comparison Track
 
-This repo also includes a first-milestone LangChain comparison track in [`agents_langchain/`](./agents_langchain/). It mirrors `agents/s01-s06` without replacing the original Anthropic SDK scripts and is intentionally not wired into the web UI yet. Use it when you want to compare the hand-written loop with LangChain's OpenAI-compatible `create_agent` path.
+This repo also includes a first-milestone Deep Agents comparison track in [`agents_deepagents/`](./agents_deepagents/). It mirrors `agents/s01-s06` without replacing the original Anthropic SDK scripts and is intentionally not wired into the web UI yet. Use it when you want to compare the hand-written loop with Deep Agents's OpenAI-compatible `create_agent` path.
 
 If the middle and late chapters start to blur together, reset in this order:
 
@@ -200,11 +200,11 @@ python agents/s19_mcp_plugin.py
 python agents/s_full.py
 ```
 
-For the parallel LangChain s01-s06 track, configure `OPENAI_API_KEY` (plus optional `OPENAI_MODEL` and `OPENAI_BASE_URL`) and run:
+For the parallel Deep Agents s01-s06 track, configure `OPENAI_API_KEY` (plus optional `OPENAI_MODEL` and `OPENAI_BASE_URL`) and run:
 
 ```sh
-python agents_langchain/s01_agent_loop.py
-python agents_langchain/s06_context_compact.py
+python agents_deepagents/s01_agent_loop.py
+python agents_deepagents/s06_context_compact.py
 ```
 
 Suggested order:
@@ -214,19 +214,19 @@ Suggested order:
 3. Only after the single-agent core plus its control plane feel stable, continue into `s12 -> s19`.
 4. Read `s_full.py` last, after the mechanisms already make sense separately.
 
-### LangChain comparison track (s01-s06)
+### Deep Agents comparison track (s01-s06)
 
-A first parallel LangChain track now lives in `agents_langchain/`. It mirrors
-`s01-s06` only, uses the OpenAI-compatible LangChain integration
+A first parallel Deep Agents track now lives in `agents_deepagents/`. It mirrors
+`s01-s06` only, uses the OpenAI-compatible Deep Agents integration
 (`OPENAI_API_KEY`, optional `OPENAI_BASE_URL`, `OPENAI_MODEL`), and keeps the
 original `agents/*.py` Anthropic SDK baseline intact for side-by-side reading.
 
 ```sh
-python agents_langchain/s01_agent_loop.py
-python agents_langchain/s06_context_compact.py
+python agents_deepagents/s01_agent_loop.py
+python agents_deepagents/s06_context_compact.py
 ```
 
-See [`agents_langchain/README.md`](./agents_langchain/README.md) for the file map
+See [`agents_deepagents/README.md`](./agents_deepagents/README.md) for the file map
 and no-live-API test contract. The current web learning interface intentionally
 does not surface this comparison track yet.
 
@@ -257,7 +257,7 @@ go back to:
 ```text
 learn-claude-code/
 ├── agents/              # runnable Python reference implementations per chapter
-├── agents_langchain/    # LangChain/OpenAI comparison track for s01-s06
+├── agents_deepagents/    # Deep Agents/OpenAI comparison track for s01-s06
 ├── docs/zh/             # Chinese mainline docs
 ├── docs/en/             # English docs
 ├── docs/ja/             # Japanese docs

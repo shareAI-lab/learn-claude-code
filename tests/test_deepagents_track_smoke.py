@@ -8,7 +8,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LANGCHAIN_DIR = ROOT / "agents_langchain"
+LANGCHAIN_DIR = ROOT / "agents_deepagents"
 LANGCHAIN_FILES = sorted(
     path for path in LANGCHAIN_DIR.glob("*.py") if path.name != "__init__.py"
 )
@@ -21,7 +21,7 @@ def test_langchain_agent_scripts_compile(agent_path: Path) -> None:
 
 
 def test_langchain_agent_scripts_exist() -> None:
-    assert LANGCHAIN_FILES, "expected LangChain teaching scripts"
+    assert LANGCHAIN_FILES, "expected Deep Agents teaching scripts"
     for filename in [
         "s01_agent_loop.py",
         "s02_tool_use.py",
@@ -36,8 +36,8 @@ def test_langchain_agent_scripts_exist() -> None:
 def test_pure_helpers_import_without_openai_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    common = importlib.import_module("agents_langchain.common")
-    s03 = importlib.import_module("agents_langchain.s03_todo_write")
+    common = importlib.import_module("agents_deepagents.common")
+    s03 = importlib.import_module("agents_deepagents.s03_todo_write")
 
     assert common.langchain_model_name()
     with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
@@ -53,14 +53,14 @@ def test_pure_helpers_import_without_openai_key(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_safe_path_rejects_workspace_escape() -> None:
-    common = importlib.import_module("agents_langchain.common")
+    common = importlib.import_module("agents_deepagents.common")
 
     with pytest.raises(ValueError, match="escapes workspace"):
         common.safe_path("../outside.txt")
 
 
 def test_skill_registry_parses_frontmatter(tmp_path: Path) -> None:
-    s05 = importlib.import_module("agents_langchain.s05_skill_loading")
+    s05 = importlib.import_module("agents_deepagents.s05_skill_loading")
     skill_dir = tmp_path / "demo"
     skill_dir.mkdir()
     skill_file = skill_dir / "SKILL.md"

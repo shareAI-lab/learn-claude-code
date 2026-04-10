@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# LangChain track: the framework-owned loop -- model, tool, result, repeat.
+# Deep Agents track: the framework-owned loop -- model, tool, result, repeat.
 """
-s01_agent_loop.py - The Agent Loop with LangChain
+s01_agent_loop.py - The Agent Loop with Deep Agents
 
 The original ``agents/s01_agent_loop.py`` hand-writes every provider turn.  This
-parallel version uses LangChain's ``create_agent``.  The important comparison:
-LangChain now owns the repeated model -> tool -> tool-result loop, while this
+parallel version uses Deep Agents's ``create_agent``.  The important comparison:
+Deep Agents now owns the repeated model -> tool -> tool-result loop, while this
 harness still owns the user history, workspace tool, and CLI boundary.
 """
 
@@ -16,7 +16,7 @@ from typing import Any
 
 try:
     from .common import WORKDIR, bash, create_agent_runtime, extract_text, invoke_and_append
-except ImportError:  # direct script execution: python agents_langchain/s01_agent_loop.py
+except ImportError:  # direct script execution: python agents_deepagents/s01_agent_loop.py
     from common import WORKDIR, bash, create_agent_runtime, extract_text, invoke_and_append
 
 SYSTEM = (
@@ -35,7 +35,7 @@ class LoopState:
 
 
 def build_agent():
-    """Create the LangChain agent that owns the inner model/tool loop."""
+    """Create the Deep Agents agent that owns the inner model/tool loop."""
 
     return create_agent_runtime(SYSTEM, TOOLS)
 

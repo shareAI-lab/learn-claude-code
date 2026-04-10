@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# LangChain track: compression -- keep the active context small enough to work.
+# Deep Agents track: compression -- keep the active context small enough to work.
 """
-s06_context_compact.py - Context Compact with LangChain
+s06_context_compact.py - Context Compact with Deep Agents
 
-LangChain can provide middleware for memory and summarization, but this chapter
+Deep Agents can provide middleware for memory and summarization, but this chapter
 keeps compaction visible as harness code around the agent invocation: persist
 large tool outputs, micro-compact old results, and replace long history with a
 summary when needed.

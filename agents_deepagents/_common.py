@@ -1,8 +1,8 @@
-"""Small shared helpers for the LangChain teaching track.
+"""Small shared helpers for the Deep Agents teaching track.
 
 The chapter files stay runnable and readable, while this module keeps repeated
 OpenAI-compatible model configuration and safe filesystem helpers in one place.
-It intentionally does not instantiate a LangChain model at import time, so tests
+It intentionally does not instantiate a Deep Agents model at import time, so tests
 can import pure helpers without an API key or network access.
 """
 
@@ -24,7 +24,7 @@ DANGEROUS_COMMANDS = ("rm -rf /", "sudo", "shutdown", "reboot", "> /dev/")
 
 
 def resolve_openai_model() -> str:
-    """Return the model name for the OpenAI-interface LangChain track.
+    """Return the model name for the OpenAI-interface Deep Agents track.
 
     `OPENAI_MODEL` is the canonical variable for this track.  `MODEL_ID` is only
     treated as a compatibility fallback when it does not look like the existing
@@ -48,7 +48,7 @@ def require_openai_api_key() -> None:
 
     if not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError(
-            "Set OPENAI_API_KEY before running the LangChain demos. "
+            "Set OPENAI_API_KEY before running the Deep Agents demos. "
             "OPENAI_BASE_URL is optional for OpenAI-compatible endpoints."
         )
 
@@ -135,7 +135,7 @@ def edit_file(path: str, old_text: str, new_text: str) -> str:
 
 
 def message_text(message: Any) -> str:
-    """Extract printable text from LangChain BaseMessage or dict content."""
+    """Extract printable text from Deep Agents BaseMessage or dict content."""
 
     content = getattr(message, "content", None)
     if content is None and isinstance(message, dict):
