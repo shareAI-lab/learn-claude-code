@@ -101,6 +101,10 @@ The safest path is:
 4. Follow the four stages in order: `s01-s06 -> s07-s11 -> s12-s14 -> s15-s19`.
 5. After each stage, stop and rebuild the smallest version yourself before continuing.
 
+## LangChain s01-s06 Comparison Track
+
+This repo also includes a first-milestone LangChain comparison track in [`agents_langchain/`](./agents_langchain/). It mirrors `agents/s01-s06` without replacing the original Anthropic SDK scripts and is intentionally not wired into the web UI yet. Use it when you want to compare the hand-written loop with LangChain's OpenAI-compatible `create_agent` path.
+
 If the middle and late chapters start to blur together, reset in this order:
 
 1. [`docs/en/data-structures.md`](./docs/en/data-structures.md)
@@ -196,16 +200,12 @@ python agents/s19_mcp_plugin.py
 python agents/s_full.py
 ```
 
-Optional LangChain comparison track:
+For the parallel LangChain s01-s06 track, configure `OPENAI_API_KEY` (plus optional `OPENAI_MODEL` and `OPENAI_BASE_URL`) and run:
 
-- The hand-written `agents/` files remain the baseline.
-- The parallel `agents_langchain/` track covers `s01-s06` only in this
-  milestone.
-- It uses OpenAI-compatible configuration: `OPENAI_API_KEY`,
-  optional `OPENAI_BASE_URL`, and `OPENAI_MODEL`.
-- See [`agents_langchain/README.md`](./agents_langchain/README.md) before
-  running it; automated tests must not require a live API key or network call.
-- The web learning interface does not surface this comparison track yet.
+```sh
+python agents_langchain/s01_agent_loop.py
+python agents_langchain/s06_context_compact.py
+```
 
 Suggested order:
 
@@ -257,7 +257,7 @@ go back to:
 ```text
 learn-claude-code/
 ├── agents/              # runnable Python reference implementations per chapter
-├── agents_langchain/    # parallel LangChain/OpenAI-interface examples for s01-s06
+├── agents_langchain/    # LangChain/OpenAI comparison track for s01-s06
 ├── docs/zh/             # Chinese mainline docs
 ├── docs/en/             # English docs
 ├── docs/ja/             # Japanese docs

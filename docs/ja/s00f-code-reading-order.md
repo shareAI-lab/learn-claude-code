@@ -86,20 +86,7 @@
 
 ### Stage 1 の LangChain 比較トラック
 
-比較用に、`agents_langchain/` は OpenAI-interface LangChain でこの段階を
-ミラーしています。まず元の `agents/s01-s06` ベースラインを理解してから読みます。
-
-| ベースライン | LangChain 比較 | 比較する点 |
-|---|---|---|
-| `agents/s01_agent_loop.py` | `agents_langchain/s01_agent_loop.py` | 明示的な loop と LangChain message/tool オブジェクト |
-| `agents/s02_tool_use.py` | `agents_langchain/s02_tool_use.py` | harness の dispatch と LangChain tools |
-| `agents/s03_todo_write.py` | `agents_langchain/s03_todo_write.py` | session plan state を model の外に置くこと |
-| `agents/s04_subagent.py` | `agents_langchain/s04_subagent.py` | fresh child context と summary-only return |
-| `agents/s05_skill_loading.py` | `agents_langchain/s05_skill_loading.py` | discover light / load deep の skill access |
-| `agents/s06_context_compact.py` | `agents_langchain/s06_context_compact.py` | framework runtime の周りにある harness-owned compaction |
-
-最初の milestone では `web/` には接続しません。ローカル索引として
-`agents_langchain/README.md` を使ってください。
+手書き版の `agents/s01-s06` を読んだ後で、`agents_langchain/s01_agent_loop.py` から `agents_langchain/s06_context_compact.py` を比較トラックとして読めます。既存の `agents/*.py` は変更せず、OpenAI 形式の `OPENAI_API_KEY` / `OPENAI_MODEL` を使い、LangChain が引き受ける部分と 外側の harness がまだ持つ状態・境界を比べるためのものです。現時点では web UI には表示しません。
 
 ## Stage 2: `s07-s11`
 

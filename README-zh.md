@@ -99,6 +99,10 @@
 4. 然后按四阶段读主线：`s01-s06 -> s07-s11 -> s12-s14 -> s15-s19`。
 5. 每学完一个阶段，停下来自己手写一个最小版本，不要等全部看完再回头补实现。
 
+## LangChain s01-s06 对照轨道
+
+仓库现在还提供第一阶段里程碑的 LangChain 对照实现：[`agents_langchain/`](./agents_langchain/)。它只覆盖 `s01-s06`，不替换原来的 `agents/*.py` Anthropic SDK 手写基线，也暂时不接入 web UI。如果你想比较“手写循环”和 LangChain OpenAI 兼容 `create_agent` 路径，可以从这里读。
+
 如果你读到一半开始打结，最稳的重启顺序是：
 
 1. [`docs/zh/data-structures.md`](./docs/zh/data-structures.md)
@@ -267,15 +271,12 @@ python agents/s19_mcp_plugin.py
 python agents/s_full.py
 ```
 
-可选的 LangChain 对照轨道：
+如果要运行 LangChain s01-s06 对照轨道，请另外配置 `OPENAI_API_KEY`，可选配置 `OPENAI_MODEL` 和 `OPENAI_BASE_URL`，然后运行：
 
-- 手写的 `agents/` 仍然是主线基线。
-- 新的 `agents_langchain/` 只覆盖当前里程碑的 `s01-s06`。
-- 这条轨道使用 OpenAI 兼容配置：`OPENAI_API_KEY`、可选
-  `OPENAI_BASE_URL` 和 `OPENAI_MODEL`。
-- 运行前先看 [`agents_langchain/README.md`](./agents_langchain/README.md)；
-  自动化测试不应该依赖真实 API key 或网络请求。
-- 当前 web 学习界面还不会展示这条对照轨道。
+```sh
+python agents_langchain/s01_agent_loop.py
+python agents_langchain/s06_context_compact.py
+```
 
 建议顺序：
 
@@ -345,7 +346,7 @@ python agents_langchain/s06_context_compact.py
 ```text
 learn-claude-code/
 ├── agents/              # 每一章对应一个可运行的 Python 参考实现
-├── agents_langchain/    # s01-s06 的 LangChain / OpenAI 兼容对照轨道
+├── agents_langchain/    # s01-s06 的 LangChain/OpenAI 对照轨道
 ├── docs/zh/             # 中文主线文档
 ├── docs/en/             # 英文文档，当前为部分同步
 ├── docs/ja/             # 日文文档，当前为部分同步

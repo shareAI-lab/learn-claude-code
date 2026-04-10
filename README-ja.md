@@ -97,6 +97,10 @@
 4. `s01-s06 -> s07-s11 -> s12-s14 -> s15-s19` の 4 段階で主線を順に進める
 5. 各段階の終わりで一度止まり、最小版を自分で書き直してから次へ進む
 
+## LangChain s01-s06 比較トラック
+
+このリポジトリには、第一マイルストーンとして LangChain 版の比較実装 [`agents_langchain/`](./agents_langchain/) もあります。対象は `s01-s06` だけです。既存の `agents/*.py` Anthropic SDK 手書き実装は置き換えず、web UI にもまだ接続していません。手書き loop と LangChain の OpenAI 互換 `create_agent` 経路を比べたいときに使います。
+
 中盤以降で境界が混ざり始めたら、次の順で立て直すのが安定です。
 
 1. [`docs/ja/data-structures.md`](./docs/ja/data-structures.md)
@@ -192,15 +196,12 @@ python agents/s19_mcp_plugin.py
 python agents/s_full.py
 ```
 
-任意の LangChain 比較トラック:
+LangChain s01-s06 比較トラックを動かす場合は、`OPENAI_API_KEY` （必要なら `OPENAI_MODEL` と `OPENAI_BASE_URL`）を設定してから実行します:
 
-- 手書きの `agents/` は引き続き基準実装です。
-- `agents_langchain/` は、このマイルストーンでは `s01-s06` だけを扱います。
-- このトラックは OpenAI 互換設定を使います: `OPENAI_API_KEY`、任意の
-  `OPENAI_BASE_URL`、`OPENAI_MODEL`。
-- 実行前に [`agents_langchain/README.md`](./agents_langchain/README.md) を読んでください。
-  自動テストは実 API key やネットワーク呼び出しを要求してはいけません。
-- 現時点では web 学習画面にはこの比較トラックは表示されません。
+```sh
+python agents_langchain/s01_agent_loop.py
+python agents_langchain/s06_context_compact.py
+```
 
 おすすめの進め方:
 
@@ -252,7 +253,7 @@ python agents_langchain/s06_context_compact.py
 ```text
 learn-claude-code/
 ├── agents/              # 章ごとの実行可能な Python 参考実装
-├── agents_langchain/    # s01-s06 の LangChain / OpenAI 互換比較トラック
+├── agents_langchain/    # s01-s06 の LangChain/OpenAI 比較トラック
 ├── docs/zh/             # 中国語の主線文書
 ├── docs/en/             # 英語文書
 ├── docs/ja/             # 日本語文書
