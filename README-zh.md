@@ -284,6 +284,22 @@ python agents/s_full.py
 3. 等前 10 章吃透后，再进入 `s11 -> s19`。
 4. 最后再看 `s_full.py`，把所有机制放回同一张图里。
 
+### LangChain 对照轨道（s01-s06）
+
+新增的第一阶段 LangChain 对照实现放在 `agents_langchain/`。它只覆盖
+`s01-s06`，使用 OpenAI-compatible LangChain 接口（`OPENAI_API_KEY`、可选
+`OPENAI_BASE_URL`、`OPENAI_MODEL`），并保留原来的 `agents/*.py` Anthropic SDK
+基线，方便并排比较。
+
+```sh
+python agents_langchain/s01_agent_loop.py
+python agents_langchain/s06_context_compact.py
+```
+
+文件对应关系和“测试不需要 live API key / 网络调用”的说明见
+[`agents_langchain/README.md`](./agents_langchain/README.md)。当前 web 学习界面
+暂时不会展示这条对照轨道。
+
 ## 如何读这套教程
 
 每章都建议按这个顺序看：

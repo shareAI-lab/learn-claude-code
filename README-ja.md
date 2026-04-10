@@ -209,6 +209,22 @@ python agents/s_full.py
 3. 単体 agent 本体と control plane が安定して理解できてから `s12 -> s19` に入る
 4. 最後に `s_full.py` を見て、全部の機構を一枚の全体像に戻す
 
+### LangChain 比較トラック（s01-s06）
+
+最初の LangChain 比較実装は `agents_langchain/` にあります。対象は
+`s01-s06` のみで、OpenAI 互換の LangChain 連携（`OPENAI_API_KEY`、任意の
+`OPENAI_BASE_URL`、`OPENAI_MODEL`）を使います。既存の `agents/*.py`
+Anthropic SDK ベースラインはそのまま残し、横に並べて読めるようにしています。
+
+```sh
+python agents_langchain/s01_agent_loop.py
+python agents_langchain/s06_context_compact.py
+```
+
+ファイル対応表と「テストでは live API key / ネットワーク呼び出しを使わない」
+方針は [`agents_langchain/README.md`](./agents_langchain/README.md) を参照してください。
+現在の Web 学習 UI には、この比較トラックはまだ表示されません。
+
 ## 各章の読み方
 
 各章は、次の順序で読むと理解しやすいです。

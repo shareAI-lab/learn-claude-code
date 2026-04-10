@@ -84,23 +84,22 @@
 | `s05` | `agents/s05_skill_loading.py` | skill registry | registry 周り -> `agent_loop()` | discover light / load deep が分かる |
 | `s06` | `agents/s06_context_compact.py` | `CompactState` | compact 周辺 -> `agent_loop()` | compact の本質が分かる |
 
-### 任意の `s01-s06` LangChain 比較トラック
+### Stage 1 の LangChain 比較トラック
 
-基準の `agents/s01-s06` を理解したあとで、並行する
-`agents_langchain/` トラックを比較できます。このトラックは意図的に
-`agents/` の外に置かれ、OpenAI 互換の LangChain 設定を使います。
-このマイルストーンでは web 学習画面には表示しません。
+比較用に、`agents_langchain/` は OpenAI-interface LangChain でこの段階を
+ミラーしています。まず元の `agents/s01-s06` ベースラインを理解してから読みます。
 
-新しい主線ではなく、比較レイヤーとして読みます。
+| ベースライン | LangChain 比較 | 比較する点 |
+|---|---|---|
+| `agents/s01_agent_loop.py` | `agents_langchain/s01_agent_loop.py` | 明示的な loop と LangChain message/tool オブジェクト |
+| `agents/s02_tool_use.py` | `agents_langchain/s02_tool_use.py` | harness の dispatch と LangChain tools |
+| `agents/s03_todo_write.py` | `agents_langchain/s03_todo_write.py` | session plan state を model の外に置くこと |
+| `agents/s04_subagent.py` | `agents_langchain/s04_subagent.py` | fresh child context と summary-only return |
+| `agents/s05_skill_loading.py` | `agents_langchain/s05_skill_loading.py` | discover light / load deep の skill access |
+| `agents/s06_context_compact.py` | `agents_langchain/s06_context_compact.py` | framework runtime の周りにある harness-owned compaction |
 
-1. 先に元の `agents/sXX_*.py` を読む
-2. 次に対応する `agents_langchain/sXX_*.py` を読む
-3. LangChain が何を受け持つようになったかを確認する
-4. 教学 harness がまだ明示的に持つ状態を確認する
-5. 実モデル呼び出しは手動実行に限定する。自動テストは API key や
-   ネットワーク呼び出しなしで、compile または純粋 helper を確認する
-
-ローカル索引は [`agents_langchain/README.md`](../../agents_langchain/README.md) です。
+最初の milestone では `web/` には接続しません。ローカル索引として
+`agents_langchain/README.md` を使ってください。
 
 ## Stage 2: `s07-s11`
 

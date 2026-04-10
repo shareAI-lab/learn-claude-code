@@ -122,22 +122,22 @@ CLI 入口当然有用，但它不应该成为第一屏。
 | `s05` | `agents/s05_skill_loading.py` | `SkillManifest` / `SkillDocument` / `SkillRegistry` | `get_descriptions()` / `get_content()` -> `agent_loop()` | 你已经能看懂“先发现、再按需加载” |
 | `s06` | `agents/s06_context_compact.py` | `CompactState` | `persist_large_output()` -> `micro_compact()` -> `compact_history()` -> `agent_loop()` | 你已经能看懂“压缩不是删历史，而是转移细节” |
 
-### 可选的 `s01-s06` LangChain 对照轨道
+### 阶段 1 的 LangChain 对照轨道
 
-当你已经读懂基线 `agents/s01-s06` 之后，可以再看并行的
-`agents_langchain/` 轨道。它故意放在 `agents/` 外面，使用 OpenAI 兼容的
-LangChain 配置，并且当前里程碑不会出现在 web 学习界面里。
+作为对照，`agents_langchain/` 用 OpenAI-interface LangChain 实现镜像了这一阶段。
+建议先看懂原始 `agents/s01-s06` 基线，再看这条轨道：
 
-阅读时不要把它当成新的主线，而要当成对照层：
+| 原始基线 | LangChain 对照 | 重点比较什么 |
+|---|---|---|
+| `agents/s01_agent_loop.py` | `agents_langchain/s01_agent_loop.py` | 显式循环与 LangChain message/tool 对象 |
+| `agents/s02_tool_use.py` | `agents_langchain/s02_tool_use.py` | harness 分发面与 LangChain tools |
+| `agents/s03_todo_write.py` | `agents_langchain/s03_todo_write.py` | 会话计划状态仍然放在模型外面 |
+| `agents/s04_subagent.py` | `agents_langchain/s04_subagent.py` | 新鲜子上下文与只返回摘要 |
+| `agents/s05_skill_loading.py` | `agents_langchain/s05_skill_loading.py` | 先轻量发现、再深度加载技能 |
+| `agents/s06_context_compact.py` | `agents_langchain/s06_context_compact.py` | 框架运行时外围的 harness-owned 压缩策略 |
 
-1. 先读原来的 `agents/sXX_*.py`
-2. 再读对应的 `agents_langchain/sXX_*.py`
-3. 找出哪些行为现在由 LangChain 接管
-4. 找出教学 harness 仍然显式保留了哪些状态
-5. 真实模型调用只手动运行；自动化测试应该只做编译或纯 helper 检查，
-   不依赖 API key 或网络请求
-
-本地索引在 [`agents_langchain/README.md`](../../agents_langchain/README.md)。
+第一里程碑刻意不改 `web/`；这条轨道的本地索引是
+`agents_langchain/README.md`。
 
 ### 这一段最值得反复看的 3 个代码点
 

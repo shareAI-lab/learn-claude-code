@@ -214,6 +214,22 @@ Suggested order:
 3. Only after the single-agent core plus its control plane feel stable, continue into `s12 -> s19`.
 4. Read `s_full.py` last, after the mechanisms already make sense separately.
 
+### LangChain comparison track (s01-s06)
+
+A first parallel LangChain track now lives in `agents_langchain/`. It mirrors
+`s01-s06` only, uses the OpenAI-compatible LangChain integration
+(`OPENAI_API_KEY`, optional `OPENAI_BASE_URL`, `OPENAI_MODEL`), and keeps the
+original `agents/*.py` Anthropic SDK baseline intact for side-by-side reading.
+
+```sh
+python agents_langchain/s01_agent_loop.py
+python agents_langchain/s06_context_compact.py
+```
+
+See [`agents_langchain/README.md`](./agents_langchain/README.md) for the file map
+and no-live-API test contract. The current web learning interface intentionally
+does not surface this comparison track yet.
+
 ## How To Read Each Chapter
 
 Each chapter is easier to absorb if you keep the same reading rhythm:
@@ -241,7 +257,7 @@ go back to:
 ```text
 learn-claude-code/
 ├── agents/              # runnable Python reference implementations per chapter
-├── agents_langchain/    # optional LangChain/OpenAI-interface comparison track for s01-s06
+├── agents_langchain/    # parallel LangChain/OpenAI-interface examples for s01-s06
 ├── docs/zh/             # Chinese mainline docs
 ├── docs/en/             # English docs
 ├── docs/ja/             # Japanese docs
