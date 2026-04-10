@@ -8,7 +8,7 @@ from langchain_core.language_models.fake_chat_models import (
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import BaseTool
 
-from agents_langchain._deepagents_gating import build_stage_agent
+from agents_deepagents._deepagents_gating import build_stage_agent
 
 
 class SpyFakeModel(FakeMessagesListChatModel):

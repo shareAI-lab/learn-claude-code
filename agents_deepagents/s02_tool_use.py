@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# LangChain track: tool dispatch -- expanding what the agent can reach.
+# Deep Agents track: tool dispatch -- expanding what the agent can reach.
 """
-s02_tool_use.py - Tool dispatch with LangChain
+s02_tool_use.py - Tool dispatch with Deep Agents
 
 The original chapter adds read/write/edit tools without changing the agent loop.
 Here the same lesson is even sharper: ``create_agent`` still owns the loop, and
-this file only grows the callable tool surface passed into LangChain.
+this file only grows the callable tool surface passed into Deep Agents.
 """
 
 from __future__ import annotations

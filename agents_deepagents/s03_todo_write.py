@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# LangChain track: planning -- keep session plan state outside the model's head.
+# Deep Agents track: planning -- keep session plan state outside the model's head.
 """
-s03_todo_write.py - Session Planning with LangChain tools
+s03_todo_write.py - Session Planning with Deep Agents tools
 
-LangChain owns the model/tool loop, but it does not remove the need for visible
+Deep Agents owns the model/tool loop, but it does not remove the need for visible
 harness state.  ``TodoManager`` remains local Python state and is exposed through
 a tool, matching the original chapter's "plan outside the model's head" lesson.
 """
@@ -133,7 +133,7 @@ def build_agent():
 
 
 def agent_loop(messages: list[dict[str, Any]]) -> str:
-    # If the plan has gone stale, inject a harness-owned reminder before LangChain runs.
+    # If the plan has gone stale, inject a harness-owned reminder before Deep Agents runs.
     reminder = TODO.reminder()
     input_messages = list(messages)
     if reminder:

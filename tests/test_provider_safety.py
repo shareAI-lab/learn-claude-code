@@ -42,7 +42,7 @@ def test_common_build_openai_model_uses_stubbed_client(
 ) -> None:
     del fake_langchain_openai
 
-    common = importlib.import_module("agents_langchain.common")
+    common = importlib.import_module("agents_deepagents.common")
 
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setenv("OPENAI_MODEL", "gpt-test-mini")
@@ -66,7 +66,7 @@ def test_private_common_build_openai_chat_model_uses_stubbed_client(
 ) -> None:
     del fake_langchain_openai
 
-    common = importlib.import_module("agents_langchain._common")
+    common = importlib.import_module("agents_deepagents._common")
 
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setenv("OPENAI_MODEL", "gpt-test-nano")

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# LangChain track: on-demand knowledge -- discover light, load deep.
+# Deep Agents track: on-demand knowledge -- discover light, load deep.
 """
-s05_skill_loading.py - Skills with LangChain
+s05_skill_loading.py - Skills with Deep Agents
 
-The skill registry remains normal Python harness state.  LangChain sees a small
+The skill registry remains normal Python harness state.  Deep Agents sees a small
 catalog in the system prompt and can call ``load_skill`` to fetch the full body
 only when needed.
 """
