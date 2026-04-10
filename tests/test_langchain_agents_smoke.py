@@ -37,6 +37,15 @@ def _call_name(node: ast.Call) -> str:
 def _top_level_calls(tree: ast.Module) -> list[str]:
     calls: list[str] = []
     for node in tree.body:
+        if isinstance(
+            node,
+            (
+                ast.AsyncFunctionDef,
+                ast.ClassDef,
+                ast.FunctionDef,
+            ),
+        ):
+            continue
         if isinstance(node, ast.If):
             # Calls under `if __name__ == "__main__"` are direct-run CLI code, not
             # import-time behavior, so they are allowed for these teaching scripts.
