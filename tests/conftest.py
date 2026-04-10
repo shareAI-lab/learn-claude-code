@@ -6,6 +6,7 @@ from typing import Any
 
 
 PROVIDER_ENV_VARS = (
+    "ANTHROPIC_AUTH_TOKEN",
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_BASE_URL",
     "OPENAI_API_KEY",

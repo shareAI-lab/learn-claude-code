@@ -7,6 +7,8 @@ import types
 
 import pytest
 
+import conftest
+
 
 class FakeChatOpenAI:
     def __init__(self, **kwargs):
@@ -24,6 +26,14 @@ def fake_langchain_openai(monkeypatch: pytest.MonkeyPatch) -> type[FakeChatOpenA
 def test_network_access_is_blocked_in_tests() -> None:
     with pytest.raises(AssertionError, match="Network access is disabled"):
         socket.create_connection(("example.com", 443))
+
+
+def test_provider_credential_guard_covers_live_auth_env_vars() -> None:
+    assert {
+        "ANTHROPIC_AUTH_TOKEN",
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+    }.issubset(conftest.PROVIDER_ENV_VARS)
 
 
 def test_common_build_openai_model_uses_stubbed_client(
