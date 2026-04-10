@@ -84,9 +84,9 @@
 | `s05` | `agents/s05_skill_loading.py` | skill registry | registry 周り -> `agent_loop()` | discover light / load deep が分かる |
 | `s06` | `agents/s06_context_compact.py` | `CompactState` | compact 周辺 -> `agent_loop()` | compact の本質が分かる |
 
-### Stage 1 の LangChain 比較トラック
+### Stage 1 の Deep Agents トラック
 
-手書き版の `agents/s01-s06` を読んだ後で、`agents_langchain/s01_agent_loop.py` から `agents_langchain/s06_context_compact.py` を比較トラックとして読めます。既存の `agents/*.py` は変更せず、OpenAI 形式の `OPENAI_API_KEY` / `OPENAI_MODEL` を使い、LangChain が引き受ける部分と 外側の harness がまだ持つ状態・境界を比べるためのものです。現時点では web UI には表示しません。
+手書き版の `agents/s01-s06` を読んだ後で、`agents_deepagents/s01_agent_loop.py` から `agents_deepagents/s06_context_compact.py` を Deep Agents トラックとして読めます。既存の `agents/*.py` は変更せず、OpenAI 形式の `OPENAI_API_KEY` / `OPENAI_MODEL`（必要なら `OPENAI_BASE_URL`）を使いながら、能力は章ごとに段階的に開放されます。つまり `s01` は最小 loop のまま、`s03` で planning、`s04` で subagent、`s05` で skills、`s06` で context compact が入ります。現時点では web UI には表示しません。
 
 ## Stage 2: `s07-s11`
 
