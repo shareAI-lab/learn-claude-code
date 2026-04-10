@@ -101,7 +101,7 @@
 
 ## Deep Agents s01-s11 轨道
 
-仓库现在还提供第一阶段里程碑的 Deep Agents 教学轨道：[`agents_deepagents/`](./agents_deepagents/)。它覆盖 `s01-s11`，不替换原来的 `agents/*.py` Anthropic SDK 手写基线，也暂时不接入 web UI。重点是用 Deep Agents 逐章复现原教程逻辑，并把 planning、subagent、skills、context compact，以及权限、hooks、memory、prompt、error recovery 等能力按章节顺序逐步开放。
+仓库现在还提供第一阶段里程碑的 LangChain / Deep Agents 教学轨道：[`agents_deepagents/`](./agents_deepagents/)。它覆盖 `s01-s11`，保留原来的 `agents/*.py` Anthropic SDK 手写基线做对照，不强求逐行照搬原教程内部机制，而是优先保留每章的关键行为，并在各个 `sNN` 文件里选择更自然的 LangChain-native 实现。它也暂时不接入 web UI。
 
 如果你读到一半开始打结，最稳的重启顺序是：
 
@@ -288,11 +288,11 @@ python agents_deepagents/s11_error_recovery.py
 
 ### Deep Agents 轨道（s01-s11）
 
-第一阶段新增的 Deep Agents 教学实现放在 `agents_deepagents/`。它只覆盖
-`s01-s06`，运行时使用 OpenAI-compatible 的 `OPENAI_API_KEY`、可选
-`OPENAI_BASE_URL` 与 `OPENAI_MODEL` 配置，同时保留原来的 `agents/*.py`
-Anthropic SDK 基线。它的重点不是做框架对照，而是把同一套 `s01-s06`
-逻辑用 Deep Agents harness 严格分阶段展开。
+第一阶段新增的 LangChain / Deep Agents 教学实现放在 `agents_deepagents/`。它保留
+`s01-s11` 的章节外壳作为导航线索，但在每个文件内部优先采用更自然的
+LangChain-native 实现；运行时使用 OpenAI-compatible 的
+`OPENAI_API_KEY`、可选 `OPENAI_BASE_URL` 与 `OPENAI_MODEL` 配置，同时保留
+原来的 `agents/*.py` Anthropic SDK 基线做对照。
 
 ```sh
 python agents_deepagents/s01_agent_loop.py
@@ -300,7 +300,7 @@ python agents_deepagents/s06_context_compact.py
 python agents_deepagents/s11_error_recovery.py
 ```
 
-文件对应关系与“测试不需要 live API key / 网络调用”的说明见
+文件对应关系、迁移策略，以及“测试不需要 live API key / 网络调用”的说明见
 [`agents_deepagents/README.md`](./agents_deepagents/README.md)。当前 web 学习界面
 暂时不会展示这条 Deep Agents 轨道。
 
@@ -349,7 +349,7 @@ python agents_deepagents/s11_error_recovery.py
 ```text
 learn-claude-code/
 ├── agents/              # 每一章对应一个可运行的 Python 参考实现
-├── agents_deepagents/   # s01-s11 的 Deep Agents 分阶段教学轨道
+├── agents_deepagents/   # s01-s11 的 LangChain-native Deep Agents 教学轨道
 ├── docs/zh/             # 中文主线文档
 ├── docs/en/             # 英文文档，当前为部分同步
 ├── docs/ja/             # 日文文档，当前为部分同步

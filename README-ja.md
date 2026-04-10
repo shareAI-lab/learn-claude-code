@@ -99,7 +99,7 @@
 
 ## Deep Agents s01-s11 トラック
 
-このリポジトリには、第一マイルストーンとして Deep Agents 教材トラック [`agents_deepagents/`](./agents_deepagents/) もあります。対象は `s01-s11` です。既存の `agents/*.py` Anthropic SDK 手書き実装は置き換えず、web UI にもまだ接続していません。目的は Deep Agents を使って元のチュートリアルロジックを章ごとに再現し、planning・subagent・skills・context compact に加えて permission・hook・memory・prompt・error recovery も段階的に開放していくことです。
+このリポジトリには、第一マイルストーンとして LangChain / Deep Agents 教材トラック [`agents_deepagents/`](./agents_deepagents/) もあります。対象は `s01-s11` です。既存の `agents/*.py` Anthropic SDK 手書き実装は対照用にそのまま残しつつ、元チュートリアルの内部機構を逐語的に再現するのではなく、各章の重要な振る舞いを保ったまま、各 `sNN` ファイルでより自然な LangChain-native 実装を選ぶ方針です。web UI にはまだ接続していません。
 
 中盤以降で境界が混ざり始めたら、次の順で立て直すのが安定です。
 
@@ -213,11 +213,7 @@ python agents_deepagents/s11_error_recovery.py
 
 ### Deep Agents トラック（s01-s11）
 
-第一マイルストーンの Deep Agents 教材実装は `agents_deepagents/` にあります。対象は
-`s01-s06` のみで、OpenAI 互換の `OPENAI_API_KEY`、任意の
-`OPENAI_BASE_URL`、`OPENAI_MODEL` を使います。既存の `agents/*.py`
-Anthropic SDK ベースラインはそのまま残しつつ、同じ `s01-s06`
-ロジックを Deep Agents harness 上で段階的に開いていくためのトラックです。
+第一マイルストーンの LangChain / Deep Agents 教材実装は `agents_deepagents/` にあります。`s01-s11` の章立てはナビゲーション用に残しつつ、各ファイル内部ではより自然な LangChain-native 実装を優先します。実行時は OpenAI 互換の `OPENAI_API_KEY`、任意の `OPENAI_BASE_URL`、`OPENAI_MODEL` を使い、既存の `agents/*.py` Anthropic SDK ベースラインはそのまま比較用に維持します。
 
 ```sh
 python agents_deepagents/s01_agent_loop.py
@@ -225,7 +221,7 @@ python agents_deepagents/s06_context_compact.py
 python agents_deepagents/s11_error_recovery.py
 ```
 
-ファイル対応表と「テストでは live API key / ネットワーク呼び出しを使わない」
+ファイル対応表、移行方針、および「テストでは live API key / ネットワーク呼び出しを使わない」
 方針は [`agents_deepagents/README.md`](./agents_deepagents/README.md) を参照してください。
 現在の Web 学習 UI には、この Deep Agents トラックはまだ表示されません。
 
@@ -256,7 +252,7 @@ python agents_deepagents/s11_error_recovery.py
 ```text
 learn-claude-code/
 ├── agents/              # 章ごとの実行可能な Python 参考実装
-├── agents_deepagents/   # s01-s11 の Deep Agents 段階別教材トラック
+├── agents_deepagents/   # s01-s11 の LangChain-native Deep Agents 教材トラック
 ├── docs/zh/             # 中国語の主線文書
 ├── docs/en/             # 英語文書
 ├── docs/ja/             # 日本語文書

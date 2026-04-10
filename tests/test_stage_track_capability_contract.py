@@ -8,13 +8,9 @@ CAPABILITY_MATRIX = {
     "s02_tool_use": {"bash", "read_file", "write_file", "edit_file"},
     "s03_todo_write": {"bash", "read_file", "write_file", "edit_file", "todo"},
     "s04_subagent": {"bash", "read_file", "write_file", "edit_file", "task"},
-    "s05_skill_loading": {
-        "bash",
-        "read_file",
-        "write_file",
-        "edit_file",
-        "load_skill",
-    },
+    # s05 skills now arrive through Deep Agents middleware + read_file, not a
+    # bespoke load_skill tool.
+    "s05_skill_loading": {"bash", "read_file", "write_file", "edit_file"},
     "s06_context_compact": {
         "bash",
         "read_file",
@@ -29,7 +25,10 @@ CAPABILITY_MATRIX = {
     "s11_error_recovery": {"bash", "read_file", "write_file", "edit_file"},
 }
 
-FUTURE_STAGE_CAPABILITIES = {"todo", "task", "load_skill", "compact"}
+FUTURE_STAGE_CAPABILITIES = {"todo", "task", "compact"}
+MIDDLEWARE_TOOL_MATRIX = {
+    "s04_subagent": {"task"},
+}
 
 
 def module_tool_names(module_name: str) -> set[str]:
@@ -37,10 +36,11 @@ def module_tool_names(module_name: str) -> set[str]:
     tools = getattr(module, "PARENT_TOOLS", None)
     if tools is None:
         tools = getattr(module, "TOOLS")
-    return {
+    names = {
         getattr(tool, "name", getattr(tool, "__name__", type(tool).__name__))
         for tool in tools
     }
+    return names | MIDDLEWARE_TOOL_MATRIX.get(module_name, set())
 
 
 def test_stage_track_exposes_only_expected_capabilities() -> None:

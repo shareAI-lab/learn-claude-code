@@ -103,11 +103,11 @@ The safest path is:
 
 ## Deep Agents s01-s11 Track
 
-This repo also includes a first-milestone Deep Agents track in
-[`agents_deepagents/`](./agents_deepagents/). It mirrors `agents/s01-s11`
-without replacing the original Anthropic SDK scripts and is intentionally not
-wired into the web UI yet. Use it when you want to study the same chapter logic
-through a staged Deep Agents harness.
+This repo also includes a first-milestone LangChain/Deep Agents track in
+[`agents_deepagents/`](./agents_deepagents/). It preserves the meaningful
+behavior of `agents/s01-s11` without forcing line-by-line tutorial fidelity,
+keeps the original Anthropic SDK scripts intact for side-by-side reading, and
+is intentionally not wired into the web UI yet.
 
 If the middle and late chapters start to blur together, reset in this order:
 
@@ -221,8 +221,10 @@ Suggested order:
 
 ### Deep Agents track (s01-s11)
 
-A first parallel Deep Agents track now lives in `agents_deepagents/`. It mirrors
-`s01-s11`, uses an OpenAI-compatible Deep Agents setup
+A first parallel LangChain/Deep Agents track now lives in `agents_deepagents/`.
+It keeps the `s01-s11` chapter shell as a navigation aid while preferring the
+most natural LangChain-native implementation inside each file, uses an
+OpenAI-compatible setup
 (`OPENAI_API_KEY`, optional `OPENAI_BASE_URL`, `OPENAI_MODEL`), and keeps the
 original `agents/*.py` Anthropic SDK baseline intact for side-by-side reading.
 
@@ -233,8 +235,8 @@ python agents_deepagents/s11_error_recovery.py
 ```
 
 See [`agents_deepagents/README.md`](./agents_deepagents/README.md) for the file
-map and no-live-API test contract. The current web learning interface
-intentionally does not surface this track yet.
+map, migration policy, and no-live-API test contract. The current web learning
+interface intentionally does not surface this track yet.
 
 ## How To Read Each Chapter
 
@@ -263,7 +265,7 @@ go back to:
 ```text
 learn-claude-code/
 ├── agents/              # runnable Python reference implementations per chapter
-├── agents_deepagents/    # Deep Agents staged teaching track for s01-s11
+├── agents_deepagents/    # LangChain-native Deep Agents teaching track for s01-s11
 ├── docs/zh/             # Chinese mainline docs
 ├── docs/en/             # English docs
 ├── docs/ja/             # Japanese docs

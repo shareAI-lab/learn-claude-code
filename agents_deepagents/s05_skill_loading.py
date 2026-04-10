@@ -3,126 +3,87 @@
 """
 s05_skill_loading.py - Skills with Deep Agents
 
-The skill registry remains normal Python harness state.  Deep Agents sees a small
-catalog in the system prompt and can call ``load_skill`` to fetch the full body
-only when needed.
+The original chapter teaches progressive disclosure: keep a cheap skill catalog
+visible, then read the full skill instructions only when they are relevant.
+This version keeps that behavior but uses Deep Agents' native skills middleware
+instead of a custom ``load_skill`` tool.
 """
 
 from __future__ import annotations
 
-import re
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
+
+from deepagents.backends.filesystem import FilesystemBackend
+from deepagents.middleware.skills import SkillsMiddleware
+from langchain.agents import create_agent
+from langchain_core.language_models.chat_models import BaseChatModel
 
 try:
     from .common import (
         WORKDIR,
         bash,
-        create_agent_runtime,
+        build_openai_model,
         edit_file,
         extract_text,
         invoke_and_append,
-        read_file,
+        read_file as common_read_file,
         write_file,
     )
 except ImportError:
     from common import (
         WORKDIR,
         bash,
-        create_agent_runtime,
+        build_openai_model,
         edit_file,
         extract_text,
         invoke_and_append,
-        read_file,
+        read_file as common_read_file,
         write_file,
     )
 
-SKILLS_DIR = WORKDIR / "skills"
+SKILL_SOURCE = "/skills"
+SYSTEM = f"""You are a coding agent at {WORKDIR}.
+Use the skills catalog when a task needs specialized instructions.
+When a skill looks relevant, read its SKILL.md path before following it."""
 
 
-@dataclass
-class SkillManifest:
-    name: str
-    description: str
-    path: Path
+def normalize_skill_path(path: str) -> str:
+    """Map Deep Agents' virtual skill paths onto the local workspace."""
+
+    if path.startswith("/skills/"):
+        return path[1:]
+    return path
 
 
-@dataclass
-class SkillDocument:
-    manifest: SkillManifest
-    body: str
+def read_file(path: str, limit: int | None = None) -> str:
+    """Read normal workspace files and SkillsMiddleware virtual skill paths."""
+
+    return common_read_file(normalize_skill_path(path), limit)
 
 
-class SkillRegistry:
-    def __init__(self, skills_dir: Path) -> None:
-        self.skills_dir = skills_dir
-        self.documents: dict[str, SkillDocument] = {}
-        self._load_all()
-
-    def _load_all(self) -> None:
-        if not self.skills_dir.exists():
-            return
-        for path in sorted(self.skills_dir.rglob("SKILL.md")):
-            meta, body = self._parse_frontmatter(path.read_text(encoding="utf-8"))
-            name = meta.get("name", path.parent.name)
-            description = meta.get("description", "No description")
-            manifest = SkillManifest(name=name, description=description, path=path)
-            self.documents[name] = SkillDocument(manifest=manifest, body=body.strip())
-
-    def _parse_frontmatter(self, text: str) -> tuple[dict[str, str], str]:
-        match = re.match(r"^---\n(.*?)\n---\n(.*)", text, re.DOTALL)
-        if not match:
-            return {}, text
-
-        meta: dict[str, str] = {}
-        for line in match.group(1).strip().splitlines():
-            if ":" not in line:
-                continue
-            key, value = line.split(":", 1)
-            meta[key.strip()] = value.strip()
-        return meta, match.group(2)
-
-    def describe_available(self) -> str:
-        if not self.documents:
-            return "(no skills available)"
-        lines = []
-        for name in sorted(self.documents):
-            manifest = self.documents[name].manifest
-            lines.append(f"- {manifest.name}: {manifest.description}")
-        return "\n".join(lines)
-
-    def load_full_text(self, name: str) -> str:
-        document = self.documents.get(name)
-        if not document:
-            known = ", ".join(sorted(self.documents)) or "(none)"
-            return f"Error: Unknown skill '{name}'. Available skills: {known}"
-        return f"<skill name=\"{document.manifest.name}\">\n{document.body}\n</skill>"
+TOOLS = [bash, read_file, write_file, edit_file]
 
 
-SKILL_REGISTRY = SkillRegistry(SKILLS_DIR)
+def build_agent(
+    *,
+    model: BaseChatModel | None = None,
+    backend: FilesystemBackend | None = None,
+    skill_sources: list[str] | None = None,
+):
+    """Build the agent with Deep Agents' skills middleware."""
 
-
-def load_skill(name: str) -> str:
-    """Load the full body of a named skill into the current context."""
-
-    return SKILL_REGISTRY.load_full_text(name)
-
-
-def system_prompt() -> str:
-    return f"""You are a coding agent at {WORKDIR}.
-Use load_skill when a task needs specialized instructions before you act.
-
-Skills available:
-{SKILL_REGISTRY.describe_available()}
-"""
-
-
-TOOLS = [bash, read_file, write_file, edit_file, load_skill]
-
-
-def build_agent():
-    return create_agent_runtime(system_prompt(), TOOLS)
+    return create_agent(
+        model=model or build_openai_model(),
+        tools=TOOLS,
+        system_prompt=SYSTEM,
+        middleware=[
+            SkillsMiddleware(
+                backend=backend
+                or FilesystemBackend(root_dir=WORKDIR, virtual_mode=True),
+                sources=skill_sources or [SKILL_SOURCE],
+            )
+        ],
+    )
 
 
 def agent_loop(messages: list[dict[str, Any]]) -> str:

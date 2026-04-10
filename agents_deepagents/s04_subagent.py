@@ -3,26 +3,28 @@
 """
 s04_subagent.py - Subagents with Deep Agents
 
-A Deep Agents agent can be created inside a tool call.  The parent and child share
-the filesystem tools, but the child receives fresh ``messages=[]`` and returns
-only a summary.  That preserves the original context-isolation lesson.
+This chapter keeps the original lesson -- delegate a context-heavy side task and
+return only a short summary -- but now uses Deep Agents' native task/subagent
+middleware instead of a handwritten nested agent loop.
 """
 
 from __future__ import annotations
 
-import re
-from pathlib import Path
 from typing import Any
+
+from deepagents.backends import StateBackend
+from deepagents.middleware.subagents import SubAgent, SubAgentMiddleware
+from langchain.agents import create_agent
+from langchain_core.language_models.chat_models import BaseChatModel
 
 try:
     from .common import (
         WORKDIR,
         bash,
-        create_agent_runtime,
+        build_openai_model,
         edit_file,
         extract_text,
         invoke_and_append,
-        latest_assistant_text,
         read_file,
         write_file,
     )
@@ -30,66 +32,69 @@ except ImportError:
     from common import (
         WORKDIR,
         bash,
-        create_agent_runtime,
+        build_openai_model,
         edit_file,
         extract_text,
         invoke_and_append,
-        latest_assistant_text,
         read_file,
         write_file,
     )
 
-SYSTEM = f"You are a coding agent at {WORKDIR}. Use the task tool to delegate exploration or subtasks."
-SUBAGENT_SYSTEM = f"You are a coding subagent at {WORKDIR}. Complete the given task, then summarize your findings."
+SYSTEM = (
+    f"You are a coding agent at {WORKDIR}. "
+    "Use the task tool when a subtask needs fresh context or would otherwise "
+    "bloat the main thread."
+)
+SUBAGENT_SYSTEM = (
+    f"You are a coding subagent at {WORKDIR}. "
+    "Complete the delegated task autonomously, then return a concise summary "
+    "of what you found or changed."
+)
+SUBAGENT_TYPE = "general-purpose"
+SUBAGENT_DESCRIPTION = (
+    "Fresh-context coding subagent for isolated exploration, editing, and "
+    "verification tasks. Return only a short summary to the parent agent."
+)
+
+TOOLS = [bash, read_file, write_file, edit_file]
 
 
-class AgentTemplate:
-    """Parse an agent definition from markdown frontmatter."""
+def build_subagents(
+    model: BaseChatModel,
+) -> list[SubAgent]:
+    """Return the stage's available subagent specs."""
 
-    def __init__(self, path: str | Path) -> None:
-        self.path = Path(path)
-        self.name = self.path.stem
-        self.config: dict[str, str] = {}
-        self.system_prompt = ""
-        self._parse()
-
-    def _parse(self) -> None:
-        text = self.path.read_text(encoding="utf-8")
-        match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)", text, re.DOTALL)
-        if not match:
-            self.system_prompt = text
-            return
-        for line in match.group(1).splitlines():
-            if ":" in line:
-                key, _, value = line.partition(":")
-                self.config[key.strip()] = value.strip()
-        self.system_prompt = match.group(2).strip()
-        self.name = self.config.get("name", self.name)
+    return [
+        {
+            "name": SUBAGENT_TYPE,
+            "description": SUBAGENT_DESCRIPTION,
+            "system_prompt": SUBAGENT_SYSTEM,
+            "model": model,
+            "tools": TOOLS,
+        }
+    ]
 
 
-CHILD_TOOLS = [bash, read_file, write_file, edit_file]
+def build_agent(
+    *,
+    model: BaseChatModel | None = None,
+    subagent_model: BaseChatModel | None = None,
+):
+    """Build the parent agent with Deep Agents' native task tool."""
 
-
-def run_subagent(prompt: str) -> str:
-    """Run a child Deep Agents agent with fresh context and return a summary only."""
-
-    child_messages = [{"role": "user", "content": prompt}]
-    child_agent = create_agent_runtime(SUBAGENT_SYSTEM, CHILD_TOOLS)
-    result = child_agent.invoke({"messages": child_messages})
-    return latest_assistant_text(result) or "(no summary)"
-
-
-def task(prompt: str, description: str = "subtask") -> str:
-    """Spawn a subagent with fresh context and return its short summary."""
-
-    return run_subagent(f"Task: {description}\n\n{prompt}")
-
-
-PARENT_TOOLS = CHILD_TOOLS + [task]
-
-
-def build_agent():
-    return create_agent_runtime(SYSTEM, PARENT_TOOLS)
+    main_model = model or build_openai_model()
+    child_model = subagent_model or main_model
+    return create_agent(
+        model=main_model,
+        tools=TOOLS,
+        system_prompt=SYSTEM,
+        middleware=[
+            SubAgentMiddleware(
+                backend=StateBackend,
+                subagents=build_subagents(child_model),
+            )
+        ],
+    )
 
 
 def agent_loop(messages: list[dict[str, Any]]) -> str:

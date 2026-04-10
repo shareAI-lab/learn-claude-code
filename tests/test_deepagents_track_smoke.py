@@ -64,17 +64,10 @@ def test_safe_path_rejects_workspace_escape() -> None:
         common.safe_path("../outside.txt")
 
 
-def test_skill_registry_parses_frontmatter(tmp_path: Path) -> None:
+def test_s05_read_file_supports_virtual_skill_paths() -> None:
     s05 = importlib.import_module("agents_deepagents.s05_skill_loading")
-    skill_dir = tmp_path / "demo"
-    skill_dir.mkdir()
-    skill_file = skill_dir / "SKILL.md"
-    skill_file.write_text(
-        "---\nname: demo\ndescription: Demo skill\n---\n\nUse this skill.\n",
-        encoding="utf-8",
-    )
 
-    registry = s05.SkillRegistry(tmp_path)
+    text = s05.read_file("/skills/code-review/SKILL.md", limit=4)
 
-    assert "- demo: Demo skill" in registry.describe_available()
-    assert "Use this skill." in registry.load_full_text("demo")
+    assert "name: code-review" in text
+    assert "description:" in text
