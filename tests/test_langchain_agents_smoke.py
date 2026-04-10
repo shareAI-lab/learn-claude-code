@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import py_compile
+import sys
 from pathlib import Path
 
 import pytest
@@ -23,6 +25,25 @@ EXPECTED_FILES = [LANGCHAIN_AGENTS_DIR / name for name in EXPECTED_CHAPTERS]
 
 def _parse(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+
+
+def _import_chapter(path: Path, monkeypatch: pytest.MonkeyPatch) -> object:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+
+    module_name = f"_langchain_smoke_{path.stem}"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    assert spec is not None
+    assert spec.loader is not None
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(module_name, None)
+    return module
 
 
 def _call_name(node: ast.Call) -> str:
@@ -131,3 +152,33 @@ def test_planning_track_exposes_pure_todo_manager_contract() -> None:
         node.name for node in manager.body if isinstance(node, ast.FunctionDef)
     }
     assert {"update", "render"} <= method_names
+
+
+def test_todo_manager_is_importable_and_validates_state_without_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _import_chapter(
+        LANGCHAIN_AGENTS_DIR / "s03_todo_write.py", monkeypatch
+    )
+    manager = module.TodoManager()
+
+    rendered = manager.update(
+        [
+            {
+                "content": "Write the LangChain smoke tests",
+                "status": "in_progress",
+                "activeForm": "Writing tests",
+            },
+            {"content": "Run them without a live API key", "status": "pending"},
+        ]
+    )
+    assert "[>] Write the LangChain smoke tests (Writing tests)" in rendered
+    assert "(0/2 completed)" in rendered
+
+    with pytest.raises(ValueError, match="Only one"):
+        manager.update(
+            [
+                {"content": "First", "status": "in_progress"},
+                {"content": "Second", "status": "in_progress"},
+            ]
+        )
