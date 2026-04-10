@@ -169,11 +169,11 @@ def test_tool_track_keeps_workspace_path_guard_visible() -> None:
         if function is not None:
             break
 
+    assert function is not None
     safe_path_body = "\n".join(
         ast.dump(node, include_attributes=False)
         for node in function.body
     )
-    assert function is not None
     assert "resolve" in safe_path_body
     assert "is_relative_to" in safe_path_body or "relative_to" in safe_path_body
 
