@@ -53,9 +53,15 @@ def test_s01_tools_exclude_planning_and_subagents() -> None:
 
     assert "write_todos" not in model.bound_tool_names
     assert "task" not in model.bound_tool_names
-    assert {"ls", "read_file", "write_file", "edit_file", "glob", "grep"}.issubset(
-        set(model.bound_tool_names)
-    )
+    expected_tools = {
+        "ls",
+        "read_file",
+        "write_file",
+        "edit_file",
+        "glob",
+        "grep",
+    }
+    assert expected_tools.issubset(set(model.bound_tool_names))
 
 
 def test_s01_rejects_write_todos_at_runtime() -> None:
@@ -124,7 +130,9 @@ def test_s03_enables_write_todos_but_still_blocks_task() -> None:
 
     assert "write_todos" in planning_model.bound_tool_names
     assert "task" not in planning_model.bound_tool_names
-    assert planning_result["todos"] == [{"content": "Plan", "status": "in_progress"}]
+    assert planning_result["todos"] == [
+        {"content": "Plan", "status": "in_progress"}
+    ]
 
     task_model = SpyFakeModel(
         responses=[
@@ -133,7 +141,10 @@ def test_s03_enables_write_todos_but_still_blocks_task() -> None:
                 tool_calls=[
                     {
                         "name": "task",
-                        "args": {"description": "delegate", "prompt": "inspect"},
+                        "args": {
+                            "description": "delegate",
+                            "prompt": "inspect",
+                        },
                         "id": "call_2",
                         "type": "tool_call",
                     }
