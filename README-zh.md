@@ -267,6 +267,16 @@ python agents/s19_mcp_plugin.py
 python agents/s_full.py
 ```
 
+可选的 LangChain 对照轨道：
+
+- 手写的 `agents/` 仍然是主线基线。
+- 新的 `agents_langchain/` 只覆盖当前里程碑的 `s01-s06`。
+- 这条轨道使用 OpenAI 兼容配置：`OPENAI_API_KEY`、可选
+  `OPENAI_BASE_URL` 和 `OPENAI_MODEL`。
+- 运行前先看 [`agents_langchain/README.md`](./agents_langchain/README.md)；
+  自动化测试不应该依赖真实 API key 或网络请求。
+- 当前 web 学习界面还不会展示这条对照轨道。
+
 建议顺序：
 
 1. 先跑 `s01`，确认最小循环真的能工作。
@@ -319,6 +329,7 @@ python agents/s_full.py
 ```text
 learn-claude-code/
 ├── agents/              # 每一章对应一个可运行的 Python 参考实现
+├── agents_langchain/    # s01-s06 的 LangChain / OpenAI 兼容对照轨道
 ├── docs/zh/             # 中文主线文档
 ├── docs/en/             # 英文文档，当前为部分同步
 ├── docs/ja/             # 日文文档，当前为部分同步

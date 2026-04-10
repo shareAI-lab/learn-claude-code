@@ -92,6 +92,24 @@ This stage is the single-agent backbone taking shape.
 | `s05` | `agents/s05_skill_loading.py` | skill registry types | registry methods -> `agent_loop()` | You understand discover light, load deep |
 | `s06` | `agents/s06_context_compact.py` | `CompactState` | persist / micro compact / history compact -> `agent_loop()` | You understand that compaction relocates detail instead of deleting continuity |
 
+### Optional LangChain comparison track for `s01-s06`
+
+After you understand the baseline `agents/s01-s06` files, you can compare them
+with the parallel `agents_langchain/` track. This track is intentionally outside
+`agents/`, uses OpenAI-compatible LangChain configuration, and is not surfaced
+in the web UI for this milestone.
+
+Read it as a comparison layer, not as the new mainline:
+
+1. read the original `agents/sXX_*.py` file first
+2. then read the matching `agents_langchain/sXX_*.py`
+3. identify what LangChain now owns
+4. identify what the teaching harness still keeps explicit
+5. keep live model runs manual; automated tests should compile or exercise pure
+   helpers without an API key or network call
+
+The local index is [`agents_langchain/README.md`](../../agents_langchain/README.md).
+
 ## Stage 2: `s07-s11`
 
 This stage hardens the control plane around a working single agent.

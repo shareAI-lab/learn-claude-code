@@ -192,6 +192,16 @@ python agents/s19_mcp_plugin.py
 python agents/s_full.py
 ```
 
+任意の LangChain 比較トラック:
+
+- 手書きの `agents/` は引き続き基準実装です。
+- `agents_langchain/` は、このマイルストーンでは `s01-s06` だけを扱います。
+- このトラックは OpenAI 互換設定を使います: `OPENAI_API_KEY`、任意の
+  `OPENAI_BASE_URL`、`OPENAI_MODEL`。
+- 実行前に [`agents_langchain/README.md`](./agents_langchain/README.md) を読んでください。
+  自動テストは実 API key やネットワーク呼び出しを要求してはいけません。
+- 現時点では web 学習画面にはこの比較トラックは表示されません。
+
 おすすめの進め方:
 
 1. まず `s01` を動かし、最小ループが本当に動くことを確認する
@@ -226,6 +236,7 @@ python agents/s_full.py
 ```text
 learn-claude-code/
 ├── agents/              # 章ごとの実行可能な Python 参考実装
+├── agents_langchain/    # s01-s06 の LangChain / OpenAI 互換比較トラック
 ├── docs/zh/             # 中国語の主線文書
 ├── docs/en/             # 英語文書
 ├── docs/ja/             # 日本語文書

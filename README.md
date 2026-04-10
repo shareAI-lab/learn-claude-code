@@ -196,6 +196,17 @@ python agents/s19_mcp_plugin.py
 python agents/s_full.py
 ```
 
+Optional LangChain comparison track:
+
+- The hand-written `agents/` files remain the baseline.
+- The parallel `agents_langchain/` track covers `s01-s06` only in this
+  milestone.
+- It uses OpenAI-compatible configuration: `OPENAI_API_KEY`,
+  optional `OPENAI_BASE_URL`, and `OPENAI_MODEL`.
+- See [`agents_langchain/README.md`](./agents_langchain/README.md) before
+  running it; automated tests must not require a live API key or network call.
+- The web learning interface does not surface this comparison track yet.
+
 Suggested order:
 
 1. Run `s01` and make sure the minimal loop really works.
@@ -230,6 +241,7 @@ go back to:
 ```text
 learn-claude-code/
 ├── agents/              # runnable Python reference implementations per chapter
+├── agents_langchain/    # optional LangChain/OpenAI-interface comparison track for s01-s06
 ├── docs/zh/             # Chinese mainline docs
 ├── docs/en/             # English docs
 ├── docs/ja/             # Japanese docs

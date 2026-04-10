@@ -84,6 +84,24 @@
 | `s05` | `agents/s05_skill_loading.py` | skill registry | registry 周り -> `agent_loop()` | discover light / load deep が分かる |
 | `s06` | `agents/s06_context_compact.py` | `CompactState` | compact 周辺 -> `agent_loop()` | compact の本質が分かる |
 
+### 任意の `s01-s06` LangChain 比較トラック
+
+基準の `agents/s01-s06` を理解したあとで、並行する
+`agents_langchain/` トラックを比較できます。このトラックは意図的に
+`agents/` の外に置かれ、OpenAI 互換の LangChain 設定を使います。
+このマイルストーンでは web 学習画面には表示しません。
+
+新しい主線ではなく、比較レイヤーとして読みます。
+
+1. 先に元の `agents/sXX_*.py` を読む
+2. 次に対応する `agents_langchain/sXX_*.py` を読む
+3. LangChain が何を受け持つようになったかを確認する
+4. 教学 harness がまだ明示的に持つ状態を確認する
+5. 実モデル呼び出しは手動実行に限定する。自動テストは API key や
+   ネットワーク呼び出しなしで、compile または純粋 helper を確認する
+
+ローカル索引は [`agents_langchain/README.md`](../../agents_langchain/README.md) です。
+
 ## Stage 2: `s07-s11`
 
 ここは control plane を固める段階です。
