@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# LangChain track: on-demand knowledge -- discover light, load deep.
+# LangChain track: on-demand knowledge -- discover skill summaries cheaply, load full bodies by tool.
 """
 s05_skill_loading.py - Skills with LangChain
 
-The skill registry remains normal Python harness state.  LangChain sees a small
-catalog in the system prompt and can call ``load_skill`` to fetch the full body
-only when needed.
+The two-layer model stays the same as the baseline: the system prompt contains a
+cheap skill catalog, while the `load_skill` tool returns the full SKILL.md body
+only when the model decides it is relevant.
 """
 
 from __future__ import annotations
@@ -15,27 +15,28 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from langchain.agents import create_agent
+from langchain.tools import tool
+
 try:
-    from .common import (
+    from agents_langchain._common import (
         WORKDIR,
-        bash,
-        create_agent_runtime,
-        edit_file,
-        extract_text,
-        invoke_and_append,
-        read_file,
-        write_file,
+        build_openai_chat_model,
+        edit_file as edit_file_impl,
+        latest_text,
+        read_file as read_file_impl,
+        run_bash,
+        write_file as write_file_impl,
     )
-except ImportError:
-    from common import (
+except ModuleNotFoundError:  # pragma: no cover - direct script fallback
+    from _common import (
         WORKDIR,
-        bash,
-        create_agent_runtime,
-        edit_file,
-        extract_text,
-        invoke_and_append,
-        read_file,
-        write_file,
+        build_openai_chat_model,
+        edit_file as edit_file_impl,
+        latest_text,
+        read_file as read_file_impl,
+        run_bash,
+        write_file as write_file_impl,
     )
 
 SKILLS_DIR = WORKDIR / "skills"
@@ -55,7 +56,7 @@ class SkillDocument:
 
 
 class SkillRegistry:
-    def __init__(self, skills_dir: Path) -> None:
+    def __init__(self, skills_dir: Path):
         self.skills_dir = skills_dir
         self.documents: dict[str, SkillDocument] = {}
         self._load_all()
@@ -64,7 +65,7 @@ class SkillRegistry:
         if not self.skills_dir.exists():
             return
         for path in sorted(self.skills_dir.rglob("SKILL.md")):
-            meta, body = self._parse_frontmatter(path.read_text(encoding="utf-8"))
+            meta, body = self._parse_frontmatter(path.read_text())
             name = meta.get("name", path.parent.name)
             description = meta.get("description", "No description")
             manifest = SkillManifest(name=name, description=description, path=path)
@@ -86,11 +87,10 @@ class SkillRegistry:
     def describe_available(self) -> str:
         if not self.documents:
             return "(no skills available)"
-        lines = []
-        for name in sorted(self.documents):
-            manifest = self.documents[name].manifest
-            lines.append(f"- {manifest.name}: {manifest.description}")
-        return "\n".join(lines)
+        return "\n".join(
+            f"- {doc.manifest.name}: {doc.manifest.description}"
+            for _, doc in sorted(self.documents.items())
+        )
 
     def load_full_text(self, name: str) -> str:
         document = self.documents.get(name)
@@ -102,15 +102,7 @@ class SkillRegistry:
 
 SKILL_REGISTRY = SkillRegistry(SKILLS_DIR)
 
-
-def load_skill(name: str) -> str:
-    """Load the full body of a named skill into the current context."""
-
-    return SKILL_REGISTRY.load_full_text(name)
-
-
-def system_prompt() -> str:
-    return f"""You are a coding agent at {WORKDIR}.
+SYSTEM = f"""You are a coding agent at {WORKDIR}.
 Use load_skill when a task needs specialized instructions before you act.
 
 Skills available:
@@ -118,32 +110,63 @@ Skills available:
 """
 
 
+@tool
+def bash(command: str) -> str:
+    """Run a shell command in the current workspace."""
+
+    return run_bash(command)
+
+
+@tool
+def read_file(path: str, limit: int | None = None) -> str:
+    """Read file contents from the workspace, optionally limiting lines."""
+
+    return read_file_impl(path, limit)
+
+
+@tool
+def write_file(path: str, content: str) -> str:
+    """Write content to a workspace file."""
+
+    return write_file_impl(path, content)
+
+
+@tool
+def edit_file(path: str, old_text: str, new_text: str) -> str:
+    """Replace one exact text occurrence in a workspace file."""
+
+    return edit_file_impl(path, old_text, new_text)
+
+
+@tool
+def load_skill(name: str) -> str:
+    """Load the full body of a named skill into the current context."""
+
+    return SKILL_REGISTRY.load_full_text(name)
+
+
 TOOLS = [bash, read_file, write_file, edit_file, load_skill]
 
 
 def build_agent():
-    return create_agent_runtime(system_prompt(), TOOLS)
+    return create_agent(build_openai_chat_model(), tools=TOOLS, system_prompt=SYSTEM)
 
 
-def agent_loop(messages: list[dict[str, Any]]) -> str:
-    return invoke_and_append(build_agent(), messages)
+def invoke_agent(agent: Any, messages: list[Any], query: str) -> list[Any]:
+    result = agent.invoke({"messages": [*messages, {"role": "user", "content": query}]})
+    return list(result["messages"])
 
 
 if __name__ == "__main__":
-    history: list[dict[str, Any]] = []
+    agent = build_agent()
+    history: list[Any] = []
     while True:
         try:
-            query = input("\033[36ms05-lc >> \033[0m")
+            query = input("\033[36mlc-s05 >> \033[0m")
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in ("q", "exit", ""):
             break
-
-        history.append({"role": "user", "content": query})
-        try:
-            final = agent_loop(history)
-        except RuntimeError as exc:
-            print(f"Error: {exc}")
-            continue
-        print(extract_text(final) or "(no response)")
+        history = invoke_agent(agent, history, query)
+        print(latest_text(history))
         print()

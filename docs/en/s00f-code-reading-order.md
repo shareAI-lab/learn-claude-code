@@ -92,9 +92,23 @@ This stage is the single-agent backbone taking shape.
 | `s05` | `agents/s05_skill_loading.py` | skill registry types | registry methods -> `agent_loop()` | You understand discover light, load deep |
 | `s06` | `agents/s06_context_compact.py` | `CompactState` | persist / micro compact / history compact -> `agent_loop()` | You understand that compaction relocates detail instead of deleting continuity |
 
-### LangChain comparison track for Stage 1
+### Parallel LangChain Track for Stage 1
 
-After reading the hand-written `agents/s01-s06` baseline, you can open `agents_langchain/s01_agent_loop.py` through `agents_langchain/s06_context_compact.py` as a framework comparison track. It keeps the original files unchanged, uses OpenAI-style `OPENAI_API_KEY` / `OPENAI_MODEL` configuration, and shows what LangChain owns versus what the surrounding harness still owns. The web UI does not surface this track yet.
+For comparison, `agents_langchain/` mirrors this stage with an OpenAI-interface
+LangChain implementation. Read it only after the original `agents/s01-s06`
+baseline is clear:
+
+| Baseline | LangChain comparison | What to compare |
+|---|---|---|
+| `agents/s01_agent_loop.py` | `agents_langchain/s01_agent_loop.py` | visible loop vs. LangChain message/tool objects |
+| `agents/s02_tool_use.py` | `agents_langchain/s02_tool_use.py` | tool dispatch owned by the harness vs. LangChain tools |
+| `agents/s03_todo_write.py` | `agents_langchain/s03_todo_write.py` | external session plan state stays outside the model |
+| `agents/s04_subagent.py` | `agents_langchain/s04_subagent.py` | fresh child context and summary-only return |
+| `agents/s05_skill_loading.py` | `agents_langchain/s05_skill_loading.py` | discover-light / load-deep skill access |
+| `agents/s06_context_compact.py` | `agents_langchain/s06_context_compact.py` | harness-owned compaction around a framework runtime |
+
+This track is intentionally not wired into `web/` in the first milestone; use
+`agents_langchain/README.md` as its local index.
 
 ## Stage 2: `s07-s11`
 

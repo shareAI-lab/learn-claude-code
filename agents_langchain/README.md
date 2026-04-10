@@ -1,47 +1,47 @@
 # LangChain s01-s06 Teaching Track
 
-This directory is a parallel comparison track for the first milestone of the
-course. The original `agents/*.py` files remain the hand-written Anthropic SDK
-baseline; these files show the same s01-s06 lessons through LangChain's
-OpenAI-compatible model interface.
+This directory is a parallel comparison track for the first milestone.  It does
+not replace the original `agents/*.py` Anthropic SDK teaching baseline, and it is
+not surfaced by the current web UI.
 
-The web UI does not surface this directory yet. Read and run these files from
-the terminal.
+## What changed vs. `agents/`
 
-## Environment
+| Original baseline | LangChain comparison | Teaching focus |
+|---|---|---|
+| `agents/s01_agent_loop.py` | `agents_langchain/s01_agent_loop.py` | visible model -> tool -> result loop with `ChatOpenAI.bind_tools` |
+| `agents/s02_tool_use.py` | `agents_langchain/s02_tool_use.py` | expanding tool dispatch with LangChain tools |
+| `agents/s03_todo_write.py` | `agents_langchain/s03_todo_write.py` | keeping session planning state outside the model |
+| `agents/s04_subagent.py` | `agents_langchain/s04_subagent.py` | fresh child-agent context with summary-only return |
+| `agents/s05_skill_loading.py` | `agents_langchain/s05_skill_loading.py` | discover skill summaries, load full skill bodies on demand |
+| `agents/s06_context_compact.py` | `agents_langchain/s06_context_compact.py` | compaction policy remains harness-owned around LangChain |
 
-Configure the LangChain track with OpenAI-style variables:
+## OpenAI-compatible configuration
 
-```sh
+The LangChain track uses OpenAI-interface chat models through
+`langchain-openai`:
+
+```env
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4.1-mini        # optional; defaults to gpt-4.1-mini
-OPENAI_BASE_URL=https://...      # optional OpenAI-compatible endpoint
+OPENAI_MODEL=gpt-5
+# Optional for OpenAI-compatible endpoints:
+# OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-`OPENAI_MODEL` is preferred for this track. `MODEL_ID` is accepted only as a
-compatibility fallback if you already use the original `.env` file.
+Model precedence is `OPENAI_MODEL` first, then `MODEL_ID` only when it does not
+look like the Anthropic default (`claude-*`), and finally `gpt-5`.  This keeps an
+existing `.env` for the original Anthropic demos from silently becoming the
+LangChain track's default.
 
-## Chapter Map
+## Run a demo
 
-| Original baseline | LangChain comparison | Lesson |
-|---|---|---|
-| `agents/s01_agent_loop.py` | `agents_langchain/s01_agent_loop.py` | LangChain owns the repeated model/tool loop; the harness owns history and CLI boundaries. |
-| `agents/s02_tool_use.py` | `agents_langchain/s02_tool_use.py` | Add read/write/edit callables without rewriting the loop. |
-| `agents/s03_todo_write.py` | `agents_langchain/s03_todo_write.py` | Keep visible session planning state in Python and expose it as a tool. |
-| `agents/s04_subagent.py` | `agents_langchain/s04_subagent.py` | Spawn a child LangChain agent with fresh messages and return only a summary. |
-| `agents/s05_skill_loading.py` | `agents_langchain/s05_skill_loading.py` | Put a cheap skill catalog in the prompt and load full skill bodies on demand. |
-| `agents/s06_context_compact.py` | `agents_langchain/s06_context_compact.py` | Keep compaction as harness logic around LangChain invocation. |
-
-## Run
+Install dependencies and configure the OpenAI-compatible variables first:
 
 ```sh
+pip install -r requirements.txt
+cp .env.example .env
 python agents_langchain/s01_agent_loop.py
-python agents_langchain/s02_tool_use.py
-python agents_langchain/s03_todo_write.py
-python agents_langchain/s04_subagent.py
-python agents_langchain/s05_skill_loading.py
 python agents_langchain/s06_context_compact.py
 ```
 
-Automated tests compile the files and import pure helpers only; they do not use
-`OPENAI_API_KEY` and do not make network calls.
+Automated tests compile and inspect pure helpers only; they do not call a live
+LLM and do not require `OPENAI_API_KEY`.

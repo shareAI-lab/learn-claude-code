@@ -124,7 +124,20 @@ CLI 入口当然有用，但它不应该成为第一屏。
 
 ### 阶段 1 的 LangChain 对照轨道
 
-读完手写版 `agents/s01-s06` 以后，可以继续看 `agents_langchain/s01_agent_loop.py` 到 `agents_langchain/s06_context_compact.py`。这是一条框架对照轨道：原来的 `agents/*.py` 不变，配置使用 OpenAI 风格的 `OPENAI_API_KEY` / `OPENAI_MODEL`，重点比较 LangChain 接管了哪些循环细节，以及外层 harness 仍然保留哪些状态和边界。当前 web UI 暂不展示这条轨道。
+作为对照，`agents_langchain/` 用 OpenAI-interface LangChain 实现镜像了这一阶段。
+建议先看懂原始 `agents/s01-s06` 基线，再看这条轨道：
+
+| 原始基线 | LangChain 对照 | 重点比较什么 |
+|---|---|---|
+| `agents/s01_agent_loop.py` | `agents_langchain/s01_agent_loop.py` | 显式循环与 LangChain message/tool 对象 |
+| `agents/s02_tool_use.py` | `agents_langchain/s02_tool_use.py` | harness 分发面与 LangChain tools |
+| `agents/s03_todo_write.py` | `agents_langchain/s03_todo_write.py` | 会话计划状态仍然放在模型外面 |
+| `agents/s04_subagent.py` | `agents_langchain/s04_subagent.py` | 新鲜子上下文与只返回摘要 |
+| `agents/s05_skill_loading.py` | `agents_langchain/s05_skill_loading.py` | 先轻量发现、再深度加载技能 |
+| `agents/s06_context_compact.py` | `agents_langchain/s06_context_compact.py` | 框架运行时外围的 harness-owned 压缩策略 |
+
+第一里程碑刻意不改 `web/`；这条轨道的本地索引是
+`agents_langchain/README.md`。
 
 ### 这一段最值得反复看的 3 个代码点
 
