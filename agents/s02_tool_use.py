@@ -107,6 +107,18 @@ TOOLS = [
 ]
 
 
+def _block_to_dict(block) -> dict:
+    """Convert an Anthropic SDK content block (or plain dict) to a plain dict."""
+    if isinstance(block, dict):
+        return {k: v for k, v in block.items() if not k.startswith("_")}
+    # Anthropic SDK objects: use .model_dump() if available, else vars()
+    if hasattr(block, "model_dump"):
+        return {k: v for k, v in block.model_dump().items() if not k.startswith("_")}
+    if hasattr(block, "__dict__"):
+        return {k: v for k, v in vars(block).items() if not k.startswith("_")}
+    return block
+
+
 def normalize_messages(messages: list) -> list:
     """Clean up messages before sending to the API.
 
@@ -122,10 +134,8 @@ def normalize_messages(messages: list) -> list:
             clean["content"] = msg["content"]
         elif isinstance(msg.get("content"), list):
             clean["content"] = [
-                {k: v for k, v in block.items()
-                 if not k.startswith("_")}
+                _block_to_dict(block)
                 for block in msg["content"]
-                if isinstance(block, dict)
             ]
         else:
             clean["content"] = msg.get("content", "")
