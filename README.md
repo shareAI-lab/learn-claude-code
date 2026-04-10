@@ -257,7 +257,7 @@ go back to:
 ```text
 learn-claude-code/
 ├── agents/              # runnable Python reference implementations per chapter
-├── agents_langchain/    # parallel LangChain/OpenAI-interface examples for s01-s06
+├── agents_langchain/    # LangChain/OpenAI comparison track for s01-s06
 ├── docs/zh/             # Chinese mainline docs
 ├── docs/en/             # English docs
 ├── docs/ja/             # Japanese docs

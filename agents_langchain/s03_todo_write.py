@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# LangChain track: planning -- keep the current session plan outside the model's hidden state.
+# LangChain track: planning -- keep session plan state outside the model's head.
 """
 s03_todo_write.py - Session Planning with LangChain tools
 
-LangChain owns the agent runtime; the harness still owns visible Todo state.  The
-model updates the plan through a tool, and the next turn's system prompt includes
-the current rendered plan plus reminders when the plan has gone stale.
+LangChain owns the model/tool loop, but it does not remove the need for visible
+harness state.  ``TodoManager`` remains local Python state and is exposed through
+a tool, matching the original chapter's "plan outside the model's head" lesson.
 """
 
 from __future__ import annotations
@@ -13,33 +13,32 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from langchain.agents import create_agent
-from langchain.tools import tool
-
 try:
-    from agents_langchain._common import (
+    from .common import (
         WORKDIR,
-        build_openai_chat_model,
-        edit_file as edit_file_impl,
-        latest_text,
-        read_file as read_file_impl,
-        run_bash,
-        write_file as write_file_impl,
+        bash,
+        create_agent_runtime,
+        edit_file,
+        extract_text,
+        invoke_and_append,
+        read_file,
+        write_file,
     )
-except ModuleNotFoundError:  # pragma: no cover - direct script fallback
-    from _common import (
+except ImportError:
+    from common import (
         WORKDIR,
-        build_openai_chat_model,
-        edit_file as edit_file_impl,
-        latest_text,
-        read_file as read_file_impl,
-        run_bash,
-        write_file as write_file_impl,
+        bash,
+        create_agent_runtime,
+        edit_file,
+        extract_text,
+        invoke_and_append,
+        read_file,
+        write_file,
     )
 
 PLAN_REMINDER_INTERVAL = 3
-BASE_SYSTEM = f"""You are a coding agent at {WORKDIR}.
-Use update_todo for multi-step work.
+SYSTEM = f"""You are a coding agent at {WORKDIR}.
+Use the todo tool for multi-step work.
 Keep exactly one step in_progress when a task has multiple steps.
 Refresh the plan as work advances. Prefer tools over prose."""
 
@@ -60,7 +59,7 @@ class PlanningState:
 class TodoManager:
     def __init__(self) -> None:
         self.state = PlanningState()
-        self.update_count = 0
+        self.updated_this_turn = False
 
     def update(self, items: list[dict[str, Any]]) -> str:
         if len(items) > 12:
@@ -87,7 +86,7 @@ class TodoManager:
 
         self.state.items = normalized
         self.state.rounds_since_update = 0
-        self.update_count += 1
+        self.updated_this_turn = True
         return self.render()
 
     def note_round_without_update(self) -> None:
@@ -98,7 +97,7 @@ class TodoManager:
             return None
         if self.state.rounds_since_update < PLAN_REMINDER_INTERVAL:
             return None
-        return "<reminder>Refresh your current plan with update_todo before continuing.</reminder>"
+        return "<reminder>Refresh your current plan before continuing.</reminder>"
 
     def render(self) -> str:
         if not self.state.items:
@@ -120,70 +119,49 @@ class TodoManager:
 TODO = TodoManager()
 
 
-@tool
-def bash(command: str) -> str:
-    """Run a shell command in the current workspace."""
-
-    return run_bash(command)
-
-
-@tool
-def read_file(path: str, limit: int | None = None) -> str:
-    """Read file contents from the workspace, optionally limiting lines."""
-
-    return read_file_impl(path, limit)
-
-
-@tool
-def write_file(path: str, content: str) -> str:
-    """Write content to a workspace file."""
-
-    return write_file_impl(path, content)
-
-
-@tool
-def edit_file(path: str, old_text: str, new_text: str) -> str:
-    """Replace one exact text occurrence in a workspace file."""
-
-    return edit_file_impl(path, old_text, new_text)
-
-
-@tool
-def update_todo(items: list[dict[str, Any]]) -> str:
-    """Rewrite the current short session plan with pending/in_progress/completed items."""
+def todo(items: list[dict[str, Any]]) -> str:
+    """Rewrite the current session plan for multi-step work."""
 
     return TODO.update(items)
 
 
-TOOLS = [bash, read_file, write_file, edit_file, update_todo]
+TOOLS = [bash, read_file, write_file, edit_file, todo]
 
 
-def build_system_prompt() -> str:
+def build_agent():
+    return create_agent_runtime(SYSTEM, TOOLS)
+
+
+def agent_loop(messages: list[dict[str, Any]]) -> str:
+    # If the plan has gone stale, inject a harness-owned reminder before LangChain runs.
     reminder = TODO.reminder()
-    parts = [BASE_SYSTEM, "\nCurrent session plan:\n" + TODO.render()]
+    input_messages = list(messages)
     if reminder:
-        parts.append(reminder)
-    return "\n\n".join(parts)
+        input_messages.append({"role": "user", "content": reminder})
 
-
-def invoke_agent(messages: list[Any], query: str) -> list[Any]:
-    before = TODO.update_count
-    agent = create_agent(build_openai_chat_model(), tools=TOOLS, system_prompt=build_system_prompt())
-    result = agent.invoke({"messages": [*messages, {"role": "user", "content": query}]})
-    if TODO.update_count == before:
+    TODO.updated_this_turn = False
+    final_text = invoke_and_append(build_agent(), input_messages)
+    messages.append({"role": "assistant", "content": final_text})
+    if not TODO.updated_this_turn:
         TODO.note_round_without_update()
-    return list(result["messages"])
+    return final_text
 
 
 if __name__ == "__main__":
-    history: list[Any] = []
+    history: list[dict[str, Any]] = []
     while True:
         try:
-            query = input("\033[36mlc-s03 >> \033[0m")
+            query = input("\033[36ms03-lc >> \033[0m")
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in ("q", "exit", ""):
             break
-        history = invoke_agent(history, query)
-        print(latest_text(history))
+
+        history.append({"role": "user", "content": query})
+        try:
+            final = agent_loop(history)
+        except RuntimeError as exc:
+            print(f"Error: {exc}")
+            continue
+        print(extract_text(final) or "(no response)")
         print()

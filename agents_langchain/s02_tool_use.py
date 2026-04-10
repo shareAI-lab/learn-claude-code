@@ -1,97 +1,96 @@
 #!/usr/bin/env python3
-# LangChain track: tool dispatch -- adding tools grows the dispatch surface, not the user's CLI contract.
+# LangChain track: tool dispatch -- expanding what the agent can reach.
 """
 s02_tool_use.py - Tool dispatch with LangChain
 
-LangChain's create_agent owns the repeated model/tool loop here.  The harness
-still owns the concrete tool implementations, path safety, and output limits.
+The original chapter adds read/write/edit tools without changing the agent loop.
+Here the same lesson is even sharper: ``create_agent`` still owns the loop, and
+this file only grows the callable tool surface passed into LangChain.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from langchain.agents import create_agent
-from langchain.tools import tool
-
 try:
-    from agents_langchain._common import (
+    from .common import (
         WORKDIR,
-        build_openai_chat_model,
-        edit_file as edit_file_impl,
-        latest_text,
-        read_file as read_file_impl,
-        run_bash,
-        write_file as write_file_impl,
+        bash,
+        create_agent_runtime,
+        edit_file,
+        extract_text,
+        invoke_and_append,
+        read_file,
+        write_file,
     )
-except ModuleNotFoundError:  # pragma: no cover - direct script fallback
-    from _common import (
+except ImportError:
+    from common import (
         WORKDIR,
-        build_openai_chat_model,
-        edit_file as edit_file_impl,
-        latest_text,
-        read_file as read_file_impl,
-        run_bash,
-        write_file as write_file_impl,
+        bash,
+        create_agent_runtime,
+        edit_file,
+        extract_text,
+        invoke_and_append,
+        read_file,
+        write_file,
     )
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. Act, don't explain."
 
-
-@tool
-def bash(command: str) -> str:
-    """Run a shell command in the current workspace."""
-
-    return run_bash(command)
-
-
-@tool
-def read_file(path: str, limit: int | None = None) -> str:
-    """Read file contents from the workspace, optionally limiting lines."""
-
-    return read_file_impl(path, limit)
-
-
-@tool
-def write_file(path: str, content: str) -> str:
-    """Write content to a workspace file, creating parents when needed."""
-
-    return write_file_impl(path, content)
-
-
-@tool
-def edit_file(path: str, old_text: str, new_text: str) -> str:
-    """Replace one exact text occurrence in a workspace file."""
-
-    return edit_file_impl(path, old_text, new_text)
-
-
-TOOLS = [bash, read_file, write_file, edit_file]
-
-# Read-only tools can safely run in parallel; mutating tools should serialize.
+# Read-only tools can safely run in parallel; mutating tools must be serialized.
 CONCURRENCY_SAFE = {"read_file"}
 CONCURRENCY_UNSAFE = {"write_file", "edit_file"}
+TOOLS = [bash, read_file, write_file, edit_file]
+
+
+def normalize_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep only provider-facing message fields and merge consecutive roles."""
+
+    cleaned: list[dict[str, Any]] = []
+    for message in messages:
+        role = message.get("role", "user")
+        content = message.get("content", "")
+        cleaned.append({"role": role, "content": content})
+
+    if not cleaned:
+        return cleaned
+
+    merged = [cleaned[0]]
+    for message in cleaned[1:]:
+        if message["role"] == merged[-1]["role"]:
+            merged[-1]["content"] = f"{merged[-1]['content']}\n\n{message['content']}"
+        else:
+            merged.append(message)
+    return merged
 
 
 def build_agent():
-    return create_agent(build_openai_chat_model(), tools=TOOLS, system_prompt=SYSTEM)
+    return create_agent_runtime(SYSTEM, TOOLS)
 
 
-def invoke_agent(agent: Any, messages: list[Any], query: str) -> list[Any]:
-    result = agent.invoke({"messages": [*messages, {"role": "user", "content": query}]})
-    return list(result["messages"])
+def agent_loop(messages: list[dict[str, Any]]) -> str:
+    normalized = normalize_messages(messages)
+    final_text = invoke_and_append(build_agent(), normalized)
+    if normalized is not messages:
+        messages.append({"role": "assistant", "content": final_text})
+    return final_text
 
 
 if __name__ == "__main__":
-    agent = build_agent()
-    history: list[Any] = []
+    history: list[dict[str, Any]] = []
     while True:
         try:
-            query = input("\033[36mlc-s02 >> \033[0m")
+            query = input("\033[36ms02-lc >> \033[0m")
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in ("q", "exit", ""):
             break
-        history = invoke_agent(agent, history, query)
-        print(latest_text(history))
+
+        history.append({"role": "user", "content": query})
+        try:
+            final = agent_loop(history)
+        except RuntimeError as exc:
+            print(f"Error: {exc}")
+            continue
+        print(extract_text(final) or "(no response)")
         print()
