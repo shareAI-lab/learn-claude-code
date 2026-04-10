@@ -99,7 +99,7 @@
 
 ## Deep Agents s01-s06 トラック
 
-このリポジトリには、第一マイルストーンとして Deep Agents 教材トラック [`agents_deepagents/`](./agents_deepagents/) もあります。対象は `s01-s06` だけです。既存の `agents/*.py` Anthropic SDK 手書き実装は置き換えず、web UI にもまだ接続していません。目的は Deep Agents との比較線を増やすことではなく、Deep Agents を使って元のチュートリアルロジックを章ごとに再現し、planning・subagent・skills・context compact を段階的に開放していくことです。
+このリポジトリには、第一マイルストーンとして Deep Agents 教材トラック [`agents_deepagents/`](./agents_deepagents/) もあります。対象は `s01-s06` だけです。既存の `agents/*.py` Anthropic SDK 手書き実装は置き換えず、web UI にもまだ接続していません。目的は Deep Agents を使って元のチュートリアルロジックを章ごとに再現し、planning・subagent・skills・context compact を段階的に開放していくことです。
 
 中盤以降で境界が混ざり始めたら、次の順で立て直すのが安定です。
 
