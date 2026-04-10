@@ -92,9 +92,15 @@ This stage is the single-agent backbone taking shape.
 | `s05` | `agents/s05_skill_loading.py` | skill registry types | registry methods -> `agent_loop()` | You understand discover light, load deep |
 | `s06` | `agents/s06_context_compact.py` | `CompactState` | persist / micro compact / history compact -> `agent_loop()` | You understand that compaction relocates detail instead of deleting continuity |
 
-### Deep Agents comparison track for Stage 1
+### Deep Agents track for Stage 1
 
-After reading the hand-written `agents/s01-s06` baseline, you can open `agents_deepagents/s01_agent_loop.py` through `agents_deepagents/s06_context_compact.py` as a framework comparison track. It keeps the original files unchanged, uses OpenAI-style `OPENAI_API_KEY` / `OPENAI_MODEL` configuration, and shows what Deep Agents owns versus what the surrounding harness still owns. The web UI does not surface this track yet.
+After reading the hand-written `agents/s01-s06` baseline, you can open
+`agents_deepagents/s01_agent_loop.py` through
+`agents_deepagents/s06_context_compact.py` as the staged Deep Agents track. It
+keeps the original files unchanged, uses OpenAI-style `OPENAI_API_KEY` /
+`OPENAI_MODEL` configuration, and shows how the stage track evolves chapter by
+chapter without exposing later capabilities too early. The web UI does not
+surface this track yet.
 
 ## Stage 2: `s07-s11`
 

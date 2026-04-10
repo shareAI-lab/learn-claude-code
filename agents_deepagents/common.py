@@ -27,7 +27,7 @@ OUTPUT_LIMIT = 50_000
 DANGEROUS_COMMANDS = ("rm -rf /", "sudo", "shutdown", "reboot", "> /dev/")
 
 
-def langchain_model_name() -> str:
+def deepagents_model_name() -> str:
     """Return the model name for the Deep Agents track.
 
     ``OPENAI_MODEL`` is the explicit Deep Agents-track variable.  ``MODEL_ID`` is
@@ -36,6 +36,11 @@ def langchain_model_name() -> str:
     """
 
     return os.getenv("OPENAI_MODEL") or os.getenv("MODEL_ID") or DEFAULT_OPENAI_MODEL
+
+
+# Backward-compatible alias while the track rename propagates through tests and
+# external notes.
+langchain_model_name = deepagents_model_name
 
 
 def build_openai_model(*, temperature: float = 0.0, timeout: int = 60):
@@ -55,7 +60,7 @@ def build_openai_model(*, temperature: float = 0.0, timeout: int = 60):
     from langchain_openai import ChatOpenAI
 
     kwargs: dict[str, Any] = {
-        "model": langchain_model_name(),
+        "model": deepagents_model_name(),
         "temperature": temperature,
         "timeout": timeout,
     }
@@ -66,7 +71,7 @@ def build_openai_model(*, temperature: float = 0.0, timeout: int = 60):
 
 
 def create_agent_runtime(system_prompt: str, tools: Iterable[Any]):
-    """Create a Deep Agents v1 agent with the current OpenAI-style model."""
+    """Create the stage-track agent with the current OpenAI-style model."""
 
     from langchain.agents import create_agent
 
