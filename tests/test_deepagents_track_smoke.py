@@ -28,6 +28,7 @@ def test_deepagents_track_scripts_exist() -> None:
         "s03_todo_write.py",
         "s04_subagent.py",
         "s05_skill_loading.py",
+        "s06_context_compact.py",
     ]:
         assert TRACK_DIR.joinpath(filename).exists()
 
@@ -37,14 +38,21 @@ def test_pure_helpers_import_without_openai_key(monkeypatch: pytest.MonkeyPatch)
 
     common = importlib.import_module("agents_deepagents.common")
     s03 = importlib.import_module("agents_deepagents.s03_todo_write")
+    s06 = importlib.import_module("agents_deepagents.s06_context_compact")
 
     assert common.deepagents_model_name()
+    assert s06.PIPELINE_STAGE_ORDER[0] == "apply_tool_result_budget"
+    assert "reactive_compact_on_overflow" in s06.PIPELINE_STAGE_ORDER
     with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
         common.build_openai_model()
 
     normalized = s03.normalize_plan_items([
         {"content": "Inspect task", "status": "completed"},
-        {"content": "Implement", "status": "in_progress", "activeForm": "Implementing"},
+        {
+            "content": "Implement",
+            "status": "in_progress",
+            "activeForm": "Implementing",
+        },
     ])
     rendered = s03.render_plan_items(normalized)
     assert "[x] Inspect task" in rendered
