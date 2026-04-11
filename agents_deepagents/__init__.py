@@ -2,6 +2,6 @@
 
 The original ``agents/`` scripts stay as the hand-written Anthropic SDK
 baseline. Files in this package show the first six lessons through a
-staged Deep Agents track, with ``s06`` reserved for explicit context
-compaction disclosure.
+staged Deep Agents track, including the s06 context-compression chapter
+with explicit source-backed vs inferred disclosure.
 """
