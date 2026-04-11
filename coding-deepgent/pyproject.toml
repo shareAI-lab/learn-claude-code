@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coding-deepgent"
 version = "0.1.0"
-description = "Independent cumulative LangChain Deep Agents project through s03"
+description = "Staged LangChain cc product surface"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from coding_deepgent.state import PlanItemState
+from coding_deepgent.state import TodoItemState
 
 PLAN_REMINDER_INTERVAL = 3
 
@@ -11,13 +11,13 @@ PLAN_REMINDER_INTERVAL = 3
 class PlanRenderer(Protocol):
     """Render planning state for a display surface."""
 
-    def render_plan_items(self, items: list[PlanItemState]) -> str:
+    def render_plan_items(self, items: list[TodoItemState]) -> str:
         """Return display text for the current session plan."""
         ...
 
     def reminder_text(
         self,
-        items: list[PlanItemState],
+        items: list[TodoItemState],
         rounds_since_update: int,
     ) -> str | None:
         """Return reminder text when the current plan is stale."""
@@ -26,11 +26,11 @@ class PlanRenderer(Protocol):
 
 @dataclass(frozen=True)
 class TerminalPlanRenderer:
-    """Terminal-compatible renderer for the s03 planning display."""
+    """Terminal-compatible renderer for the TodoWrite planning display."""
 
     reminder_interval: int = PLAN_REMINDER_INTERVAL
 
-    def render_plan_items(self, items: list[PlanItemState]) -> str:
+    def render_plan_items(self, items: list[TodoItemState]) -> str:
         if not items:
             return "No session plan yet."
 
@@ -51,7 +51,7 @@ class TerminalPlanRenderer:
 
     def reminder_text(
         self,
-        items: list[PlanItemState],
+        items: list[TodoItemState],
         rounds_since_update: int,
     ) -> str | None:
         if not items or rounds_since_update < self.reminder_interval:
@@ -63,7 +63,7 @@ DEFAULT_PLAN_RENDERER = TerminalPlanRenderer()
 
 
 def render_plan_items(
-    items: list[PlanItemState],
+    items: list[TodoItemState],
     renderer: PlanRenderer = DEFAULT_PLAN_RENDERER,
 ) -> str:
     """Compatibility wrapper for the default planning renderer."""
@@ -72,7 +72,7 @@ def render_plan_items(
 
 
 def reminder_text(
-    items: list[PlanItemState],
+    items: list[TodoItemState],
     rounds_since_update: int,
     renderer: PlanRenderer = DEFAULT_PLAN_RENDERER,
 ) -> str | None:

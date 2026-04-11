@@ -33,12 +33,13 @@ def test_project_has_no_public_stage_modules() -> None:
     assert staged_modules == []
 
 
-def test_project_status_declares_s03_gate() -> None:
+def test_project_status_declares_product_stage() -> None:
     marker = json.loads((PROJECT_ROOT / "project_status.json").read_text(encoding="utf-8"))
 
-    assert marker["current_confirmed_milestone"] == "s03"
-    assert marker["shape"] == "cumulative_project"
-    assert "explicit user confirmation" in marker["upgrade_policy"].lower()
+    assert marker["current_product_stage"] == "stage-1-todowrite-foundation"
+    assert marker["compatibility_anchor"] == "s03"
+    assert marker["shape"] == "staged_langchain_cc_product"
+    assert "product-stage plan approval" in marker["upgrade_policy"]
     assert marker["public_entrypoints"] == ["coding-deepgent"]
 
 

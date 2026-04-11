@@ -1,12 +1,11 @@
 {
   "project": "coding-deepgent",
-  "current_confirmed_milestone": "s03",
-  "shape": "cumulative_project",
-  "upgrade_policy": "Advance only after explicit user confirmation that the next chapter is complete.",
+  "current_product_stage": "stage-1-todowrite-foundation",
+  "compatibility_anchor": "s03",
+  "shape": "staged_langchain_cc_product",
+  "public_shape": "single cumulative app",
+  "upgrade_policy": "Advance by explicit product-stage plan approval, not tutorial chapter completion.",
   "public_entrypoints": [
     "coding-deepgent"
-  ],
-  "current_milestone": "s03",
-  "public_shape": "single cumulative app",
-  "upgrade_rule": "Advance only after explicit user confirmation that the next chapter is complete."
+  ]
 }

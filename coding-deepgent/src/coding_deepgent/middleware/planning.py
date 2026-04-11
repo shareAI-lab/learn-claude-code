@@ -10,9 +10,11 @@ from langchain.tools.tool_node import ToolCallRequest
 from coding_deepgent.renderers.planning import reminder_text, render_plan_items
 from coding_deepgent.state import PlanningState
 
+TODO_WRITE_TOOL_NAME = "TodoWrite"
+
 
 class PlanContextMiddleware(AgentMiddleware[PlanningState]):
-    """Render planning state into the prompt and track stale-plan rounds."""
+    """Render todo state into the prompt and track stale-todo rounds."""
 
     state_schema = PlanningState
 
@@ -24,12 +26,12 @@ class PlanContextMiddleware(AgentMiddleware[PlanningState]):
         self._updated_this_turn = False
         return {
             key: value
-            for key, value in (("items", []), ("rounds_since_update", 0))
+            for key, value in (("todos", []), ("rounds_since_update", 0))
             if key not in state
         } or None
 
     def wrap_tool_call(self, request: ToolCallRequest, handler: Callable):
-        if request.tool_call["name"] == "write_plan":
+        if request.tool_call["name"] == TODO_WRITE_TOOL_NAME:
             self._updated_this_turn = True
         return handler(request)
 
@@ -38,18 +40,18 @@ class PlanContextMiddleware(AgentMiddleware[PlanningState]):
         request: ModelRequest,
         handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
-        items = request.state.get("items", [])
+        todos = request.state.get("todos", [])
         rounds_since_update = request.state.get("rounds_since_update", 0)
         extra_blocks: list[dict[str, str]] = []
 
-        if items:
+        if todos:
             extra_blocks.append(
                 {
                     "type": "text",
-                    "text": "Current session plan:\n" + render_plan_items(items),
+                    "text": "Current session todos:\n" + render_plan_items(todos),
                 }
             )
-            reminder = reminder_text(items, rounds_since_update)
+            reminder = reminder_text(todos, rounds_since_update)
             if reminder:
                 extra_blocks.append({"type": "text", "text": reminder})
 
@@ -76,28 +78,30 @@ class PlanContextMiddleware(AgentMiddleware[PlanningState]):
         if last_ai_message is None or not last_ai_message.tool_calls:
             return None
 
-        write_plan_calls = [call for call in last_ai_message.tool_calls if call["name"] == "write_plan"]
-        if len(write_plan_calls) <= 1:
+        todo_write_calls = [
+            call for call in last_ai_message.tool_calls if call["name"] == TODO_WRITE_TOOL_NAME
+        ]
+        if len(todo_write_calls) <= 1:
             return None
 
         return {
             "messages": [
                 ToolMessage(
                     content=(
-                        "Error: The `write_plan` tool should never be called multiple times in "
-                        "parallel. Call it once per model response so the session plan has "
+                        "Error: The `TodoWrite` tool should never be called multiple times in "
+                        "parallel. Call it once per model response so the session todos have "
                         "one unambiguous replacement."
                     ),
                     tool_call_id=call["id"],
                     status="error",
                 )
-                for call in write_plan_calls
+                for call in todo_write_calls
             ]
         }
 
     def after_agent(self, state: PlanningState, runtime) -> dict[str, Any] | None:
         if self._updated_this_turn:
             return None
-        if state.get("items"):
+        if state.get("todos"):
             return {"rounds_since_update": state.get("rounds_since_update", 0) + 1}
         return None

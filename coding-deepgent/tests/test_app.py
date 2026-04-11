@@ -18,7 +18,7 @@ class RecordingFakeModel(FakeMessagesListChatModel):
         return self
 
 
-def test_build_agent_wires_cumulative_s03_components(monkeypatch) -> None:
+def test_build_agent_binds_todowrite_product_tools(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
     def fake_create_agent(**kwargs):
@@ -35,12 +35,13 @@ def test_build_agent_wires_cumulative_s03_components(monkeypatch) -> None:
     assert len(captured["middleware"]) == 1
     assert isinstance(captured["middleware"][0], PlanContextMiddleware)
     tool_names = [getattr(tool, "name", getattr(tool, "__name__", "")) for tool in captured["tools"]]
-    assert tool_names == ["bash", "read_file", "write_file", "edit_file", "write_plan"]
+    assert tool_names == ["bash", "read_file", "write_file", "edit_file", "TodoWrite"]
     assert "explicit progress tracking helps on multi-step work" in captured["system_prompt"]
-    assert "Never call write_plan multiple times in parallel" not in captured["system_prompt"]
+    assert "activeForm for every todo" in captured["system_prompt"]
+    assert "write_plan" not in captured["system_prompt"]
 
 
-def test_agent_loop_roundtrips_runtime_state(monkeypatch) -> None:
+def test_agent_loop_roundtrips_todo_state(monkeypatch) -> None:
     class FakeAgent:
         def __init__(self) -> None:
             self.payloads = []
@@ -49,7 +50,7 @@ def test_agent_loop_roundtrips_runtime_state(monkeypatch) -> None:
             self.payloads.append(payload)
             return {
                 "messages": [*payload["messages"], {"role": "assistant", "content": "planned"}],
-                "items": [{"content": "Ship it", "status": "in_progress", "activeForm": "Shipping"}],
+                "todos": [{"content": "Ship it", "status": "in_progress", "activeForm": "Shipping"}],
                 "rounds_since_update": 0,
             }
 
@@ -59,7 +60,7 @@ def test_agent_loop_roundtrips_runtime_state(monkeypatch) -> None:
         app,
         "SESSION_STATE",
         {
-            "items": [{"content": "Inspect", "status": "completed"}],
+            "todos": [{"content": "Inspect", "status": "completed", "activeForm": "Inspecting"}],
             "rounds_since_update": 2,
         },
     )
@@ -72,31 +73,35 @@ def test_agent_loop_roundtrips_runtime_state(monkeypatch) -> None:
     assert app.agent_loop(history) == "planned"
     assert fake.payloads[0]["messages"] == [{"role": "user", "content": "hello\n\ncontinue"}]
     assert fake.payloads[0]["rounds_since_update"] == 2
-    assert fake.payloads[0]["items"] == [
-        {"content": "Inspect", "status": "completed"}
+    assert fake.payloads[0]["todos"] == [
+        {"content": "Inspect", "status": "completed", "activeForm": "Inspecting"}
     ]
     assert history[-1] == {"role": "assistant", "content": "planned"}
-    assert app.SESSION_STATE["items"] == [
+    assert app.SESSION_STATE["todos"] == [
         {"content": "Ship it", "status": "in_progress", "activeForm": "Shipping"}
     ]
 
 
-def test_free_agent_path_executes_todo_without_runtime_injection_error(monkeypatch) -> None:
+def test_free_agent_path_executes_todowrite_without_runtime_injection_error(monkeypatch) -> None:
     model = RecordingFakeModel(
         responses=[
             AIMessage(
                 content="",
                 tool_calls=[
                     {
-                        "name": "write_plan",
+                        "name": "TodoWrite",
                         "args": {
-                            "items": [
+                            "todos": [
                                 {
                                     "content": "Inspect repo",
                                     "status": "in_progress",
                                     "activeForm": "Inspecting",
                                 },
-                                {"content": "Summarize findings", "status": "pending"},
+                                {
+                                    "content": "Summarize findings",
+                                    "status": "pending",
+                                    "activeForm": "Summarizing",
+                                },
                             ]
                         },
                         "id": "call_1",
@@ -113,15 +118,15 @@ def test_free_agent_path_executes_todo_without_runtime_injection_error(monkeypat
         app,
         "SESSION_STATE",
         {
-            "items": [],
+            "todos": [],
             "rounds_since_update": 0,
         },
     )
 
     history = [{"role": "user", "content": "plan this work"}]
     assert app.agent_loop(history) == "planned"
-    assert model._bound_tool_names == ["bash", "read_file", "write_file", "edit_file", "write_plan"]
-    assert app.SESSION_STATE["items"] == [
+    assert model._bound_tool_names == ["bash", "read_file", "write_file", "edit_file", "TodoWrite"]
+    assert app.SESSION_STATE["todos"] == [
         {"content": "Inspect repo", "status": "in_progress", "activeForm": "Inspecting"},
-        {"content": "Summarize findings", "status": "pending"},
+        {"content": "Summarize findings", "status": "pending", "activeForm": "Summarizing"},
     ]

@@ -8,7 +8,7 @@ from coding_deepgent.rendering import extract_text
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the coding-deepgent cumulative s03 agent")
+    parser = argparse.ArgumentParser(description="Run the coding-deepgent LangChain cc product agent")
     parser.add_argument("--prompt", help="Run one prompt and exit")
     return parser
 
@@ -30,7 +30,7 @@ def main(argv: list[str] | None = None) -> int:
     history: list[dict[str, Any]] = []
     while True:
         try:
-            query = input("[36mcoding-deepgent >> [0m")
+            query = input("\033[36mcoding-deepgent >> \033[0m")
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in {"", "q", "exit"}:

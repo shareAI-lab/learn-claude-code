@@ -8,96 +8,89 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing_extensions import NotRequired, TypedDict
 
 
-class PlanItemState(TypedDict):
+class TodoItemState(TypedDict):
     content: str
     status: Literal["pending", "in_progress", "completed"]
-    activeForm: NotRequired[str]
+    activeForm: str
 
 
 class PlanningState(AgentState):
-    items: NotRequired[list[PlanItemState]]
+    todos: NotRequired[list[TodoItemState]]
     rounds_since_update: NotRequired[int]
 
 
 def default_session_state() -> dict[str, Any]:
     return {
-        "items": [],
+        "todos": [],
         "rounds_since_update": 0,
     }
 
 
-class PlanItemInput(BaseModel):
+class TodoItemInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: str = Field(
         ...,
         min_length=1,
-        description="Non-empty description of this plan step.",
+        description="Imperative description of this todo item.",
     )
     status: Literal["pending", "in_progress", "completed"] = Field(
         ...,
-        description="Current step status. Exactly one item should be in_progress.",
+        description="Current todo status. Exactly one item should be in_progress.",
     )
-    activeForm: str | None = Field(
-        default=None,
-        description="Short gerund phrase for the current in-progress step.",
+    activeForm: str = Field(
+        ...,
+        min_length=1,
+        description="Present-continuous form shown while this todo is active.",
     )
 
-    @field_validator("content")
+    @field_validator("content", "activeForm")
     @classmethod
-    def _content_must_not_be_blank(cls, value: str) -> str:
+    def _text_must_not_be_blank(cls, value: str) -> str:
         value = value.strip()
         if not value:
-            raise ValueError("content required")
+            raise ValueError("value required")
         return value
 
-    @field_validator("activeForm")
-    @classmethod
-    def _active_form_must_not_be_blank(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        value = value.strip()
-        return value or None
 
-
-class WritePlanInput(BaseModel):
+class TodoWriteInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    items: list[PlanItemInput] = Field(
+    todos: list[TodoItemInput] = Field(
         ...,
         min_length=1,
         max_length=12,
         description=(
-            "Complete current plan. Every item must have content and status; "
-            "use pending, in_progress, or completed."
+            "Complete current todo list. Every todo must have content, status, "
+            "and activeForm; use pending, in_progress, or completed."
         ),
     )
     tool_call_id: Annotated[str | None, InjectedToolCallId] = None
 
 
-def normalize_plan_items(
-    items: list[PlanItemInput | dict[str, Any]],
-) -> list[PlanItemState]:
-    if len(items) > 12:
-        raise ValueError("Keep the session plan short (max 12 items)")
+def normalize_todos(
+    todos: list[TodoItemInput | dict[str, Any]],
+) -> list[TodoItemState]:
+    if len(todos) > 12:
+        raise ValueError("Keep the todo list short (max 12 todos)")
 
-    validated = WritePlanInput(items=items)
+    validated = TodoWriteInput(todos=todos)
 
-    normalized: list[PlanItemState] = []
+    normalized: list[TodoItemState] = []
     in_progress_count = 0
-    for item_input in validated.items:
-        if item_input.status == "in_progress":
+    for todo_input in validated.todos:
+        if todo_input.status == "in_progress":
             in_progress_count += 1
 
-        item: PlanItemState = {
-            "content": item_input.content,
-            "status": item_input.status,
-        }
-        if item_input.activeForm:
-            item["activeForm"] = item_input.activeForm
-        normalized.append(item)
+        normalized.append(
+            {
+                "content": todo_input.content,
+                "status": todo_input.status,
+                "activeForm": todo_input.activeForm,
+            }
+        )
 
     if in_progress_count > 1:
-        raise ValueError("Only one plan item can be in_progress")
+        raise ValueError("Only one todo item can be in_progress")
 
     return normalized

@@ -7,49 +7,59 @@ import pytest
 from langgraph.types import Command
 
 from coding_deepgent.middleware.planning import PlanContextMiddleware
-from coding_deepgent.tools.planning import _write_plan_command, reminder_text, write_plan
+from coding_deepgent.tools.planning import _todo_write_command, reminder_text, todo_write
 
 
-def test_write_plan_updates_custom_state_via_command() -> None:
-    command = _write_plan_command(
+def test_todowrite_updates_custom_state_via_command() -> None:
+    command = _todo_write_command(
         [
-            {"content": "Inspect repo", "status": "completed"},
+            {"content": "Inspect repo", "status": "completed", "activeForm": "Inspecting"},
             {"content": "Implement change", "status": "in_progress", "activeForm": "Implementing"},
         ],
         tool_call_id="call-1",
     )
 
     assert isinstance(command, Command)
-    assert command.update["items"] == [
-        {"content": "Inspect repo", "status": "completed"},
+    assert command.update["todos"] == [
+        {"content": "Inspect repo", "status": "completed", "activeForm": "Inspecting"},
         {"content": "Implement change", "status": "in_progress", "activeForm": "Implementing"},
     ]
     assert command.update["rounds_since_update"] == 0
     assert isinstance(command.update["messages"][0], ToolMessage)
 
 
-def test_write_plan_tool_call_schema_hides_injected_tool_call_id() -> None:
-    schema = write_plan.tool_call_schema.model_json_schema()
-    item_schema = schema["$defs"]["PlanItemInput"]
+def test_todowrite_tool_call_schema_hides_injected_tool_call_id() -> None:
+    schema = todo_write.tool_call_schema.model_json_schema()
+    item_schema = schema["$defs"]["TodoItemInput"]
 
-    assert schema["required"] == ["items"]
+    assert getattr(todo_write, "name", None) == "TodoWrite"
+    assert schema["required"] == ["todos"]
+    assert "items" not in schema["properties"]
     assert "tool_call_id" not in schema["properties"]
-    assert item_schema["required"] == ["content", "status"]
+    assert item_schema["required"] == ["content", "status", "activeForm"]
     assert item_schema["additionalProperties"] is False
 
 
-def test_write_plan_rejects_mismatched_json_without_fallback() -> None:
+def test_todowrite_rejects_mismatched_json_without_fallback() -> None:
     with pytest.raises(ValidationError):
-        _write_plan_command([{}], tool_call_id="call-1")
+        _todo_write_command([{}], tool_call_id="call-1")
 
     with pytest.raises(ValidationError):
-        _write_plan_command([{"task": "Inspect repo", "status": "done"}], tool_call_id="call-1")
+        _todo_write_command([{"task": "Inspect repo", "status": "done", "activeForm": "Inspecting"}], tool_call_id="call-1")
 
     with pytest.raises(ValueError, match="tool_call_id is required"):
-        _write_plan_command([{"content": "Inspect repo", "status": "pending"}])
+        _todo_write_command([{"content": "Inspect repo", "status": "pending", "activeForm": "Inspecting"}])
 
 
-def test_plan_context_middleware_rejects_parallel_write_plan_calls() -> None:
+def test_todowrite_requires_active_form_for_every_item() -> None:
+    with pytest.raises(ValidationError):
+        _todo_write_command([{"content": "Inspect repo", "status": "pending"}], tool_call_id="call-1")
+
+    with pytest.raises(ValidationError):
+        _todo_write_command([{"content": "Inspect repo", "status": "pending", "activeForm": "   "}], tool_call_id="call-1")
+
+
+def test_plan_context_middleware_rejects_parallel_todowrite_calls() -> None:
     middleware = PlanContextMiddleware()
 
     state = {
@@ -58,14 +68,14 @@ def test_plan_context_middleware_rejects_parallel_write_plan_calls() -> None:
                 content="",
                 tool_calls=[
                     {
-                        "name": "write_plan",
-                        "args": {"items": [{"content": "Inspect repo", "status": "in_progress"}]},
+                        "name": "TodoWrite",
+                        "args": {"todos": [{"content": "Inspect repo", "status": "in_progress", "activeForm": "Inspecting"}]},
                         "id": "call_1",
                         "type": "tool_call",
                     },
                     {
-                        "name": "write_plan",
-                        "args": {"items": [{"content": "Summarize findings", "status": "pending"}]},
+                        "name": "TodoWrite",
+                        "args": {"todos": [{"content": "Summarize findings", "status": "pending", "activeForm": "Summarizing"}]},
                         "id": "call_2",
                         "type": "tool_call",
                     },
@@ -89,7 +99,7 @@ def test_plan_context_middleware_tracks_stale_rounds() -> None:
     assert middleware.after_agent(
         {
             "messages": [],
-            "items": [{"content": "Keep going", "status": "pending"}],
+            "todos": [{"content": "Keep going", "status": "pending", "activeForm": "Keeping"}],
             "rounds_since_update": 2,
         },
         runtime=None,
@@ -99,7 +109,7 @@ def test_plan_context_middleware_tracks_stale_rounds() -> None:
     assert middleware.after_agent(
         {
             "messages": [],
-            "items": [{"content": "Keep going", "status": "pending"}],
+            "todos": [{"content": "Keep going", "status": "pending", "activeForm": "Keeping"}],
             "rounds_since_update": 0,
         },
         runtime=None,
@@ -110,12 +120,12 @@ def test_plan_context_middleware_seeds_missing_defaults() -> None:
     middleware = PlanContextMiddleware()
 
     assert middleware.before_agent({"messages": []}, runtime=None) == {
-        "items": [],
+        "todos": [],
         "rounds_since_update": 0,
     }
 
 
 def test_reminder_text_triggers_only_for_stale_plans() -> None:
-    items = [{"content": "Keep going", "status": "pending"}]
-    assert reminder_text(items, 2) is None
-    assert reminder_text(items, 3) == "<reminder>Refresh your current plan before continuing.</reminder>"
+    todos = [{"content": "Keep going", "status": "pending", "activeForm": "Keeping"}]
+    assert reminder_text(todos, 2) is None
+    assert reminder_text(todos, 3) == "<reminder>Refresh your current plan before continuing.</reminder>"

@@ -31,12 +31,14 @@ def test_project_avoids_agents_deepagents_imports() -> None:
     assert offenders == []
 
 
-def test_project_status_tracks_confirmed_milestone() -> None:
+def test_product_status_uses_stage_language_not_chapter_gate() -> None:
     status = json.loads((ROOT / "project_status.json").read_text(encoding="utf-8"))
 
-    assert status["current_milestone"] == "s03"
-    assert status["public_shape"] == "single cumulative app"
-    assert "explicit user confirmation" in status["upgrade_rule"].lower()
+    assert status["current_product_stage"] == "stage-1-todowrite-foundation"
+    assert status["compatibility_anchor"] == "s03"
+    assert status["shape"] == "staged_langchain_cc_product"
+    assert "product-stage plan approval" in status["upgrade_policy"]
+    assert "chapter is complete" not in status["upgrade_policy"]
 
 
 def test_package_does_not_expose_stage_named_modules() -> None:
