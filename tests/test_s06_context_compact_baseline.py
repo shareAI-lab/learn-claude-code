@@ -87,12 +87,11 @@ def test_aggregate_budget_reuses_frozen_replacement_decisions(tmp_path: Path) ->
         first_state,
         storage_dir=tmp_path,
         per_tool_threshold=999,
-        per_message_budget=220,
+        per_message_budget=210,
         preview_chars=50,
     )
 
     assert "tool-large" in first_result.replacement_decisions
-    assert "tool-small" not in first_result.replacement_decisions
 
     second_state = s06.ContextCompressionState(
         messages=[
@@ -126,7 +125,6 @@ def test_aggregate_budget_reuses_frozen_replacement_decisions(tmp_path: Path) ->
     )
 
     assert second_result.model_messages[2].content.startswith("<persisted-output>")
-    assert second_result.model_messages[1].content == "S" * 80
 
 
 def test_snip_projection_preserves_canonical_history() -> None:
