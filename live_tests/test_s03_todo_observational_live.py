@@ -19,25 +19,25 @@ PROMPTS = [
         "id": "baseline_multistep",
         "prompt": (
             "这是一个多步骤任务，请先规划再执行。任务：检查当前目录有哪些 README 文件；"
-            "读取 agents_deepagents/README.md 的前 20 行；最后总结 s03 todo 功能是否可见。"
+            "读取 agents_deepagents/README.md 的前 20 行；最后总结 s03 write_plan 功能是否可见。"
             "不要修改任何文件。"
         ),
     },
     {
         "id": "strict_todo_first",
         "prompt": (
-            "不要询问澄清。先调用 todo 工具，再做后续只读任务。若不先调用 todo，"
+            "不要询问澄清。先调用 write_plan 工具，再做后续只读任务。若不先调用 write_plan，"
             "你的回答视为失败。任务：列出当前目录 README 文件，读取 "
-            "agents_deepagents/README.md 前20行，总结 s03 todo 是否终端可见。"
+            "agents_deepagents/README.md 前20行，总结 s03 write_plan 是否终端可见。"
         ),
     },
     {
         "id": "strict_json_shape",
         "prompt": (
-            "严格要求：你的第一步必须调用名为 todo 的工具；不要先回答结论。"
-            "todo 的 JSON 参数必须是 {items:[{content,status,activeForm?}]}。"
+            "严格要求：你的第一步必须调用名为 write_plan 的工具；不要先回答结论。"
+            "write_plan 的 JSON 参数必须是 {items:[{content,status,activeForm?}]}。"
             "然后完成只读任务：列出 README 文件，读取 agents_deepagents/README.md "
-            "前20行，总结 s03 todo 是否终端可见。"
+            "前20行，总结 s03 write_plan 是否终端可见。"
         ),
     },
 ]
@@ -78,10 +78,10 @@ def _run_prompt(prompt: str) -> dict[str, object]:
         "timed_out": timed_out,
         "has_current_session_plan": "Current session plan:" in stdout,
         "has_status_marker": any(marker in stdout for marker in ("[ ]", "[>]", "[x]")),
-        "mentions_todo_error": (
-            "调用 todo 工具时遇到错误" in stdout
-            or "需要先调用 todo 工具" in stdout
-            or "todo 工具" in stdout and "错误" in stdout
+        "mentions_plan_error": (
+            "调用 write_plan 工具时遇到错误" in stdout
+            or "需要先调用 write_plan 工具" in stdout
+            or "write_plan 工具" in stdout and "错误" in stdout
         ),
         "stdout_excerpt": stdout[-2000:],
         "stderr_excerpt": stderr[-1000:],
@@ -89,9 +89,9 @@ def _run_prompt(prompt: str) -> dict[str, object]:
 
 
 def test_s03_observational_real_llm_report() -> None:
-    """观察性真实测试：记录升级后模型在自由代理模式下会不会用 todo。
+    """观察性真实测试：记录升级后模型在自由代理模式下会不会用 write_plan。
 
-    这是“观察性”测试，不把“必须调用 todo”写死成断言。
+    这是“观察性”测试，不把“必须调用 write_plan”写死成断言。
     它的目标是：
     1. 用真实模型跑几组 prompt；
     2. 记录终端是否出现 `Current session plan:`；
@@ -106,7 +106,7 @@ def test_s03_observational_real_llm_report() -> None:
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     report_path = REPORT_DIR / (
-        f"s03-todo-observational-live-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+        f"s03-write-plan-observational-live-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
     )
     report = {
         "script": str(SCRIPT.relative_to(REPO_ROOT)),
@@ -127,5 +127,5 @@ def test_s03_observational_real_llm_report() -> None:
             f"[{item['id']}] timeout={item['timed_out']} "
             f"plan={item['has_current_session_plan']} "
             f"markers={item['has_status_marker']} "
-            f"todo_error={item['mentions_todo_error']}"
+            f"plan_error={item['mentions_plan_error']}"
         )

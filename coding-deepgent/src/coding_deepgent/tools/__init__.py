@@ -1,5 +1,5 @@
 from .filesystem import bash, edit_file, read_file, safe_path, write_file
-from .planning import PLAN_REMINDER_INTERVAL, render_plan_items, reminder_text, todo
+from .planning import PLAN_REMINDER_INTERVAL, render_plan_items, reminder_text, write_plan
 
 __all__ = [
     "PLAN_REMINDER_INTERVAL",
@@ -9,6 +9,6 @@ __all__ = [
     "render_plan_items",
     "reminder_text",
     "safe_path",
-    "todo",
+    "write_plan",
     "write_file",
 ]

@@ -6,14 +6,14 @@ import importlib
 CAPABILITY_MATRIX = {
     "s01_agent_loop": {"bash"},
     "s02_tool_use": {"bash", "read_file", "write_file", "edit_file"},
-    "s03_todo_write": {"bash", "read_file", "write_file", "edit_file", "todo"},
+    "s03_todo_write": {"bash", "read_file", "write_file", "edit_file", "write_plan"},
     "s04_subagent": {"bash", "read_file", "write_file", "edit_file", "task"},
     # s05 skills now arrive through Deep Agents middleware + read_file, not a
     # bespoke load_skill tool.
     "s05_skill_loading": {"bash", "read_file", "write_file", "edit_file"},
 }
 
-FUTURE_STAGE_CAPABILITIES = {"todo", "task", "compact"}
+FUTURE_STAGE_CAPABILITIES = {"write_plan", "task", "compact"}
 MIDDLEWARE_TOOL_MATRIX = {
     "s04_subagent": {"task"},
 }

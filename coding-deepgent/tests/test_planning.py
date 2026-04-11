@@ -6,12 +6,12 @@ from pydantic import ValidationError
 import pytest
 from langgraph.types import Command
 
-from coding_deepgent.middleware.planning import PlanningMiddleware
-from coding_deepgent.tools.planning import _todo_command, reminder_text, todo
+from coding_deepgent.middleware.planning import PlanContextMiddleware
+from coding_deepgent.tools.planning import _write_plan_command, reminder_text, write_plan
 
 
-def test_todo_updates_custom_state_via_command() -> None:
-    command = _todo_command(
+def test_write_plan_updates_custom_state_via_command() -> None:
+    command = _write_plan_command(
         [
             {"content": "Inspect repo", "status": "completed"},
             {"content": "Implement change", "status": "in_progress", "activeForm": "Implementing"},
@@ -28,9 +28,9 @@ def test_todo_updates_custom_state_via_command() -> None:
     assert isinstance(command.update["messages"][0], ToolMessage)
 
 
-def test_todo_tool_call_schema_hides_injected_tool_call_id() -> None:
-    schema = todo.tool_call_schema.model_json_schema()
-    item_schema = schema["$defs"]["TodoPlanItemInput"]
+def test_write_plan_tool_call_schema_hides_injected_tool_call_id() -> None:
+    schema = write_plan.tool_call_schema.model_json_schema()
+    item_schema = schema["$defs"]["PlanItemInput"]
 
     assert schema["required"] == ["items"]
     assert "tool_call_id" not in schema["properties"]
@@ -38,19 +38,19 @@ def test_todo_tool_call_schema_hides_injected_tool_call_id() -> None:
     assert item_schema["additionalProperties"] is False
 
 
-def test_todo_rejects_mismatched_json_without_fallback() -> None:
+def test_write_plan_rejects_mismatched_json_without_fallback() -> None:
     with pytest.raises(ValidationError):
-        _todo_command([{}], tool_call_id="call-1")
+        _write_plan_command([{}], tool_call_id="call-1")
 
     with pytest.raises(ValidationError):
-        _todo_command([{"task": "Inspect repo", "status": "done"}], tool_call_id="call-1")
+        _write_plan_command([{"task": "Inspect repo", "status": "done"}], tool_call_id="call-1")
 
     with pytest.raises(ValueError, match="tool_call_id is required"):
-        _todo_command([{"content": "Inspect repo", "status": "pending"}])
+        _write_plan_command([{"content": "Inspect repo", "status": "pending"}])
 
 
-def test_planning_middleware_rejects_parallel_todo_calls() -> None:
-    middleware = PlanningMiddleware()
+def test_plan_context_middleware_rejects_parallel_write_plan_calls() -> None:
+    middleware = PlanContextMiddleware()
 
     state = {
         "messages": [
@@ -58,13 +58,13 @@ def test_planning_middleware_rejects_parallel_todo_calls() -> None:
                 content="",
                 tool_calls=[
                     {
-                        "name": "todo",
+                        "name": "write_plan",
                         "args": {"items": [{"content": "Inspect repo", "status": "in_progress"}]},
                         "id": "call_1",
                         "type": "tool_call",
                     },
                     {
-                        "name": "todo",
+                        "name": "write_plan",
                         "args": {"items": [{"content": "Summarize findings", "status": "pending"}]},
                         "id": "call_2",
                         "type": "tool_call",
@@ -83,8 +83,8 @@ def test_planning_middleware_rejects_parallel_todo_calls() -> None:
     assert "should never be called multiple times in parallel" in update["messages"][0].content
 
 
-def test_planning_middleware_tracks_stale_rounds() -> None:
-    middleware = PlanningMiddleware()
+def test_plan_context_middleware_tracks_stale_rounds() -> None:
+    middleware = PlanContextMiddleware()
 
     assert middleware.after_agent(
         {
@@ -106,8 +106,8 @@ def test_planning_middleware_tracks_stale_rounds() -> None:
     ) is None
 
 
-def test_planning_middleware_seeds_missing_defaults() -> None:
-    middleware = PlanningMiddleware()
+def test_plan_context_middleware_seeds_missing_defaults() -> None:
+    middleware = PlanContextMiddleware()
 
     assert middleware.before_agent({"messages": []}, runtime=None) == {
         "items": [],

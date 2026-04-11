@@ -1,3 +1,3 @@
-from .planning import PlanningMiddleware
+from .planning import PlanContextMiddleware
 
-__all__ = ["PlanningMiddleware"]
+__all__ = ["PlanContextMiddleware"]

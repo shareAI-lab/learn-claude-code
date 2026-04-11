@@ -11,7 +11,7 @@ from coding_deepgent.renderers.planning import reminder_text, render_plan_items
 from coding_deepgent.state import PlanningState
 
 
-class PlanningMiddleware(AgentMiddleware[PlanningState]):
+class PlanContextMiddleware(AgentMiddleware[PlanningState]):
     """Render planning state into the prompt and track stale-plan rounds."""
 
     state_schema = PlanningState
@@ -29,7 +29,7 @@ class PlanningMiddleware(AgentMiddleware[PlanningState]):
         } or None
 
     def wrap_tool_call(self, request: ToolCallRequest, handler: Callable):
-        if request.tool_call["name"] == "todo":
+        if request.tool_call["name"] == "write_plan":
             self._updated_this_turn = True
         return handler(request)
 
@@ -76,22 +76,22 @@ class PlanningMiddleware(AgentMiddleware[PlanningState]):
         if last_ai_message is None or not last_ai_message.tool_calls:
             return None
 
-        todo_calls = [call for call in last_ai_message.tool_calls if call["name"] == "todo"]
-        if len(todo_calls) <= 1:
+        write_plan_calls = [call for call in last_ai_message.tool_calls if call["name"] == "write_plan"]
+        if len(write_plan_calls) <= 1:
             return None
 
         return {
             "messages": [
                 ToolMessage(
                     content=(
-                        "Error: The `todo` tool should never be called multiple times in "
+                        "Error: The `write_plan` tool should never be called multiple times in "
                         "parallel. Call it once per model response so the session plan has "
                         "one unambiguous replacement."
                     ),
                     tool_call_id=call["id"],
                     status="error",
                 )
-                for call in todo_calls
+                for call in write_plan_calls
             ]
         }
 

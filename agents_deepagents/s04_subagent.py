@@ -79,28 +79,67 @@ class TaskActivity(TypedDict):
     summary: str
 
 
-def _message_type(message: Any) -> str:
-    if isinstance(message, dict):
-        return str(message.get("type") or message.get("role") or "")
-    return str(getattr(message, "type", ""))
+def _task_calls_from_message(message: Any) -> list[tuple[str, str, str]]:
+    """Return task-call metadata from one AI message.
+
+    This keeps the extractor focused on task semantics instead of repeatedly
+    branching over generic message attributes.
+    """
+
+    message_type = (
+        str(message.get("type") or message.get("role") or "")
+        if isinstance(message, dict)
+        else str(getattr(message, "type", ""))
+    )
+    if message_type != "ai":
+        return []
+
+    tool_calls = (
+        list(message.get("tool_calls") or [])
+        if isinstance(message, dict)
+        else list(getattr(message, "tool_calls", []) or [])
+    )
+    events: list[tuple[str, str, str]] = []
+    for tool_call in tool_calls:
+        if tool_call.get("name") != "task":
+            continue
+        args = tool_call.get("args") or {}
+        events.append(
+            (
+                str(tool_call.get("id") or ""),
+                str(args.get("description") or "").strip(),
+                str(args.get("subagent_type") or "").strip(),
+            )
+        )
+    return events
 
 
-def _tool_calls(message: Any) -> list[dict[str, Any]]:
-    if isinstance(message, dict):
-        return list(message.get("tool_calls") or [])
-    return list(getattr(message, "tool_calls", []) or [])
+def _task_result_from_message(message: Any) -> tuple[str, str] | None:
+    """Return the task tool-call id plus rendered summary from one tool message."""
 
+    message_type = (
+        str(message.get("type") or message.get("role") or "")
+        if isinstance(message, dict)
+        else str(getattr(message, "type", ""))
+    )
+    if message_type != "tool":
+        return None
 
-def _tool_name(message: Any) -> str:
-    if isinstance(message, dict):
-        return str(message.get("name") or "")
-    return str(getattr(message, "name", ""))
+    tool_name = (
+        str(message.get("name") or "")
+        if isinstance(message, dict)
+        else str(getattr(message, "name", ""))
+    )
+    if tool_name != "task":
+        return None
 
-
-def _tool_call_id(message: Any) -> str:
-    if isinstance(message, dict):
-        return str(message.get("tool_call_id") or message.get("id") or "")
-    return str(getattr(message, "tool_call_id", "") or getattr(message, "id", ""))
+    tool_call_id = (
+        str(message.get("tool_call_id") or message.get("id") or "")
+        if isinstance(message, dict)
+        else str(getattr(message, "tool_call_id", "") or getattr(message, "id", ""))
+    )
+    content = message.get("content", "") if isinstance(message, dict) else getattr(message, "content", "")
+    return tool_call_id, extract_text(content)
 
 
 def extract_task_activity(result: dict[str, Any]) -> list[TaskActivity]:
@@ -116,26 +155,26 @@ def extract_task_activity(result: dict[str, Any]) -> list[TaskActivity]:
     events: list[TaskActivity] = []
 
     for message in messages:
-        if _message_type(message) == "ai":
-            for tool_call in _tool_calls(message):
-                if tool_call.get("name") != "task":
-                    continue
-                args = tool_call.get("args") or {}
-                pending_calls[str(tool_call.get("id") or "")] = {
-                    "description": str(args.get("description") or "").strip(),
-                    "subagent_type": str(args.get("subagent_type") or "").strip(),
+        task_calls = _task_calls_from_message(message)
+        if task_calls:
+            for tool_call_id, description, subagent_type in task_calls:
+                pending_calls[tool_call_id] = {
+                    "description": description,
+                    "subagent_type": subagent_type,
                 }
             continue
 
-        if _message_type(message) != "tool" or _tool_name(message) != "task":
+        task_result = _task_result_from_message(message)
+        if task_result is None:
             continue
 
-        event_data = pending_calls.get(_tool_call_id(message), {})
+        tool_call_id, summary = task_result
+        event_data = pending_calls.get(tool_call_id, {})
         events.append(
             {
                 "description": event_data.get("description", ""),
                 "subagent_type": event_data.get("subagent_type", ""),
-                "summary": extract_text(getattr(message, "content", message.get("content", "") if isinstance(message, dict) else "")),
+                "summary": summary,
             }
         )
 

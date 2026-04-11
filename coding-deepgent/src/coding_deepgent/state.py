@@ -26,7 +26,7 @@ def default_session_state() -> dict[str, Any]:
     }
 
 
-class TodoPlanItemInput(BaseModel):
+class PlanItemInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: str = Field(
@@ -60,10 +60,10 @@ class TodoPlanItemInput(BaseModel):
         return value or None
 
 
-class TodoInput(BaseModel):
+class WritePlanInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    items: list[TodoPlanItemInput] = Field(
+    items: list[PlanItemInput] = Field(
         ...,
         min_length=1,
         max_length=12,
@@ -76,12 +76,12 @@ class TodoInput(BaseModel):
 
 
 def normalize_plan_items(
-    items: list[TodoPlanItemInput | dict[str, Any]],
+    items: list[PlanItemInput | dict[str, Any]],
 ) -> list[PlanItemState]:
     if len(items) > 12:
         raise ValueError("Keep the session plan short (max 12 items)")
 
-    validated = TodoInput(items=items)
+    validated = WritePlanInput(items=items)
 
     normalized: list[PlanItemState] = []
     in_progress_count = 0

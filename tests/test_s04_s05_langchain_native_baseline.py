@@ -190,7 +190,7 @@ def test_s05_default_workspace_skill_path_is_advertised_then_read_on_demand() ->
     assert "Code Review Skill" not in system_text
     assert "Review Checklist" not in system_text
 
-    full_skill_text = s05.read_file("/skills/code-review/SKILL.md")
+    full_skill_text = s05.read_file.invoke({"path": "/skills/code-review/SKILL.md"})
 
     assert "# Code Review Skill" in full_skill_text
     assert "## Review Checklist" in full_skill_text

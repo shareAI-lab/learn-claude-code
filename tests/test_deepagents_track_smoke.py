@@ -61,7 +61,7 @@ def test_safe_path_rejects_workspace_escape() -> None:
 def test_s05_read_file_supports_virtual_skill_paths() -> None:
     s05 = importlib.import_module("agents_deepagents.s05_skill_loading")
 
-    text = s05.read_file("/skills/code-review/SKILL.md")
+    text = s05.read_file.invoke({"path": "/skills/code-review/SKILL.md"})
 
     assert "name: code-review" in text
     assert "description:" in text

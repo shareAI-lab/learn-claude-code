@@ -10,28 +10,28 @@ from coding_deepgent.renderers.planning import (
     render_plan_items,
 )
 from coding_deepgent.state import (
-    TodoInput,
-    TodoPlanItemInput,
+    WritePlanInput,
+    PlanItemInput,
     normalize_plan_items,
 )
 
 __all__ = [
     "PLAN_REMINDER_INTERVAL",
-    "_todo_command",
+    "_write_plan_command",
     "reminder_text",
     "render_plan_items",
-    "todo",
+    "write_plan",
 ]
 
 
-def _todo_command(
-    items: list[TodoPlanItemInput],
+def _write_plan_command(
+    items: list[PlanItemInput],
     tool_call_id: str | None = None,
 ) -> Command:
-    """Implementation helper for the todo tool."""
+    """Implementation helper for the write_plan tool."""
 
     if tool_call_id is None:
-        raise ValueError("tool_call_id is required for todo tool execution")
+        raise ValueError("tool_call_id is required for write_plan tool execution")
 
     normalized = normalize_plan_items(items)
 
@@ -46,8 +46,8 @@ def _todo_command(
 
 
 @tool(
-    "todo",
-    args_schema=TodoInput,
+    "write_plan",
+    args_schema=WritePlanInput,
     description=(
         "Create or replace the session plan for complex multi-step work. Use this "
         "when explicit progress tracking helps; skip it for simple one-step or "
@@ -55,10 +55,10 @@ def _todo_command(
         "items[]. Do not call this tool multiple times in parallel within the same response."
     ),
 )
-def todo(
-    items: list[TodoPlanItemInput],
+def write_plan(
+    items: list[PlanItemInput],
     tool_call_id: str | None = None,
 ) -> Command:
     """Create or replace the session plan for complex multi-step work."""
 
-    return _todo_command(items, tool_call_id)
+    return _write_plan_command(items, tool_call_id)

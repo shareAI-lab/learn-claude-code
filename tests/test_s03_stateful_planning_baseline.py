@@ -10,10 +10,10 @@ import pytest
 from langgraph.types import Command
 
 
-def test_s03_todo_updates_custom_state_via_command() -> None:
+def test_s03_write_plan_updates_custom_state_via_command() -> None:
     s03 = importlib.import_module('agents_deepagents.s03_todo_write')
 
-    command = s03.todo(
+    command = s03._write_plan_command(
         [
             {'content': 'Inspect repo', 'status': 'completed'},
             {'content': 'Implement change', 'status': 'in_progress', 'activeForm': 'Implementing'},
@@ -30,11 +30,11 @@ def test_s03_todo_updates_custom_state_via_command() -> None:
     assert isinstance(command.update['messages'][0], ToolMessage)
 
 
-def test_s03_todo_schema_requires_structured_items() -> None:
+def test_s03_write_plan_schema_requires_structured_items() -> None:
     s03 = importlib.import_module('agents_deepagents.s03_todo_write')
 
-    schema = s03.todo_tool.tool_call_schema.model_json_schema()
-    item_schema = schema['$defs']['TodoPlanItemInput']
+    schema = s03.write_plan_tool.tool_call_schema.model_json_schema()
+    item_schema = schema['$defs']['PlanItemInput']
 
     assert schema['required'] == ['items']
     assert item_schema['required'] == ['content', 'status']
@@ -47,31 +47,31 @@ def test_s03_todo_schema_requires_structured_items() -> None:
     assert 'tool_call_id' not in schema['properties']
 
 
-def test_s03_todo_prompts_include_complexity_guidance() -> None:
+def test_s03_write_plan_prompts_include_complexity_guidance() -> None:
     s03 = importlib.import_module('agents_deepagents.s03_todo_write')
 
     assert 'complex multi-step work' in s03.SYSTEM
-    assert 'Skip the todo tool for simple' in s03.SYSTEM
-    assert 'Never call todo multiple times in parallel' in s03.SYSTEM
+    assert 'Skip the write_plan tool for simple' in s03.SYSTEM
+    assert 'Never call write_plan multiple times in parallel' in s03.SYSTEM
     assert 'skip it for simple one-step or purely conversational requests' in (
-        s03.todo_tool.description
+        s03.write_plan_tool.description
     )
 
 
-def test_s03_todo_rejects_mismatched_json_without_fallback() -> None:
+def test_s03_write_plan_rejects_mismatched_json_without_fallback() -> None:
     s03 = importlib.import_module('agents_deepagents.s03_todo_write')
 
     with pytest.raises(ValidationError):
-        s03.todo([{}], tool_call_id='call-1')
+        s03._write_plan_command([{}], tool_call_id='call-1')
 
     with pytest.raises(ValidationError):
-        s03.todo(
+        s03._write_plan_command(
             [{'task': 'Inspect README files', 'status': 'done'}],
             tool_call_id='call-1',
         )
 
     with pytest.raises(ValueError, match='tool_call_id is required'):
-        s03.todo(
+        s03._write_plan_command(
             [{'content': 'Inspect README files', 'status': 'pending'}],
         )
 
@@ -85,9 +85,9 @@ class RecordingFakeModel(FakeMessagesListChatModel):
         return self
 
 
-def test_s03_after_model_rejects_parallel_todo_calls() -> None:
+def test_s03_after_model_rejects_parallel_write_plan_calls() -> None:
     s03 = importlib.import_module('agents_deepagents.s03_todo_write')
-    middleware = s03.PlanningMiddleware()
+    middleware = s03.PlanContextMiddleware()
 
     state = {
         'messages': [
@@ -95,7 +95,7 @@ def test_s03_after_model_rejects_parallel_todo_calls() -> None:
                 content='',
                 tool_calls=[
                     {
-                        'name': 'todo',
+                        'name': 'write_plan',
                         'args': {
                             'items': [{'content': 'Inspect repo', 'status': 'in_progress'}]
                         },
@@ -103,7 +103,7 @@ def test_s03_after_model_rejects_parallel_todo_calls() -> None:
                         'type': 'tool_call',
                     },
                     {
-                        'name': 'todo',
+                        'name': 'write_plan',
                         'args': {
                             'items': [{'content': 'Summarize findings', 'status': 'pending'}]
                         },
@@ -126,7 +126,7 @@ def test_s03_after_model_rejects_parallel_todo_calls() -> None:
 
 def test_s03_middleware_tracks_stale_rounds() -> None:
     s03 = importlib.import_module('agents_deepagents.s03_todo_write')
-    middleware = s03.PlanningMiddleware()
+    middleware = s03.PlanContextMiddleware()
 
     middleware._updated_this_turn = False
     assert middleware.after_agent(
@@ -196,7 +196,7 @@ def test_s03_free_agent_path_executes_todo_without_runtime_injection_error(monke
                 content='',
                 tool_calls=[
                     {
-                        'name': 'todo',
+                        'name': 'write_plan',
                         'args': {
                             'items': [
                                 {
@@ -228,7 +228,7 @@ def test_s03_free_agent_path_executes_todo_without_runtime_injection_error(monke
 
     history = [{'role': 'user', 'content': 'plan this work'}]
     assert s03.agent_loop(history) == 'planned'
-    assert 'todo' in model.bound_tool_names
+    assert 'write_plan' in model.bound_tool_names
     assert s03.SESSION_STATE['items'] == [
         {'content': 'Inspect repo', 'status': 'in_progress', 'activeForm': 'Inspecting'},
         {'content': 'Summarize findings', 'status': 'pending'},

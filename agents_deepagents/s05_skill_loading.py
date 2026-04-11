@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from langchain.tools import tool
+
 from deepagents.backends.filesystem import FilesystemBackend
 from deepagents.middleware.skills import SkillsMiddleware
 from langchain.agents import create_agent
@@ -26,7 +28,7 @@ try:
         edit_file,
         extract_text,
         invoke_and_append,
-        read_file as common_read_file,
+        read_file_content,
         write_file,
     )
 except ImportError:
@@ -37,7 +39,7 @@ except ImportError:
         edit_file,
         extract_text,
         invoke_and_append,
-        read_file as common_read_file,
+        read_file_content,
         write_file,
     )
 
@@ -55,10 +57,11 @@ def normalize_skill_path(path: str) -> str:
     return path
 
 
+@tool("read_file")
 def read_file(path: str, limit: int | None = None) -> str:
     """Read normal workspace files and SkillsMiddleware virtual skill paths."""
 
-    return common_read_file(normalize_skill_path(path), limit)
+    return read_file_content(normalize_skill_path(path), limit)
 
 
 TOOLS = [bash, read_file, write_file, edit_file]

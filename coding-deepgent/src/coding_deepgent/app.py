@@ -5,18 +5,18 @@ from typing import Any
 from langchain.agents import create_agent
 
 from coding_deepgent.config import build_openai_model, load_settings
-from coding_deepgent.middleware import PlanningMiddleware
+from coding_deepgent.middleware import PlanContextMiddleware
 from coding_deepgent.rendering import latest_assistant_text, normalize_messages
 from coding_deepgent.state import PlanningState, default_session_state
-from coding_deepgent.tools import bash, edit_file, read_file, todo, write_file
+from coding_deepgent.tools import bash, edit_file, read_file, write_file, write_plan
 
 SYSTEM_PROMPT = (
     "You are coding-deepgent, an independent cumulative coding agent. "
     f"Current workspace: {load_settings().workdir}. "
-    "Use the todo tool when explicit progress tracking helps on multi-step work, "
+    "Use the write_plan tool when explicit progress tracking helps on multi-step work, "
     "preserve exactly one in-progress step, and prefer tools over prose."
 )
-TOOLS = [bash, read_file, write_file, edit_file, todo]
+TOOLS = [bash, read_file, write_file, edit_file, write_plan]
 SESSION_STATE: dict[str, Any] = default_session_state()
 
 
@@ -25,7 +25,7 @@ def build_agent():
         model=build_openai_model(),
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
-        middleware=[PlanningMiddleware()],
+        middleware=[PlanContextMiddleware()],
         state_schema=PlanningState,
         name="coding-deepgent",
     )

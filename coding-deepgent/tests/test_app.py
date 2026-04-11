@@ -5,7 +5,7 @@ from langchain_core.messages import AIMessage
 from pydantic import PrivateAttr
 
 from coding_deepgent import app
-from coding_deepgent.middleware import PlanningMiddleware
+from coding_deepgent.middleware import PlanContextMiddleware
 from coding_deepgent.state import PlanningState
 
 
@@ -33,11 +33,11 @@ def test_build_agent_wires_cumulative_s03_components(monkeypatch) -> None:
     assert agent is not None
     assert captured["state_schema"] is PlanningState
     assert len(captured["middleware"]) == 1
-    assert isinstance(captured["middleware"][0], PlanningMiddleware)
+    assert isinstance(captured["middleware"][0], PlanContextMiddleware)
     tool_names = [getattr(tool, "name", getattr(tool, "__name__", "")) for tool in captured["tools"]]
-    assert tool_names == ["bash", "read_file", "write_file", "edit_file", "todo"]
+    assert tool_names == ["bash", "read_file", "write_file", "edit_file", "write_plan"]
     assert "explicit progress tracking helps on multi-step work" in captured["system_prompt"]
-    assert "Never call todo multiple times in parallel" not in captured["system_prompt"]
+    assert "Never call write_plan multiple times in parallel" not in captured["system_prompt"]
 
 
 def test_agent_loop_roundtrips_runtime_state(monkeypatch) -> None:
@@ -88,7 +88,7 @@ def test_free_agent_path_executes_todo_without_runtime_injection_error(monkeypat
                 content="",
                 tool_calls=[
                     {
-                        "name": "todo",
+                        "name": "write_plan",
                         "args": {
                             "items": [
                                 {
@@ -120,7 +120,7 @@ def test_free_agent_path_executes_todo_without_runtime_injection_error(monkeypat
 
     history = [{"role": "user", "content": "plan this work"}]
     assert app.agent_loop(history) == "planned"
-    assert model._bound_tool_names == ["bash", "read_file", "write_file", "edit_file", "todo"]
+    assert model._bound_tool_names == ["bash", "read_file", "write_file", "edit_file", "write_plan"]
     assert app.SESSION_STATE["items"] == [
         {"content": "Inspect repo", "status": "in_progress", "activeForm": "Inspecting"},
         {"content": "Summarize findings", "status": "pending"},

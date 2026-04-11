@@ -13,6 +13,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Iterable
 
+from langchain.tools import tool
+
 try:
     from dotenv import load_dotenv
 except ImportError:
@@ -99,8 +101,8 @@ def safe_path(path_str: str) -> Path:
     return path
 
 
-def bash(command: str) -> str:
-    """Run a shell command in the current workspace."""
+def _bash_impl(command: str) -> str:
+    """Implementation helper for the bash tool."""
 
     if any(item in command for item in DANGEROUS_COMMANDS):
         return "Error: Dangerous command blocked"
@@ -122,7 +124,7 @@ def bash(command: str) -> str:
     return output[:OUTPUT_LIMIT] if output else "(no output)"
 
 
-def read_file(path: str, limit: int | None = None) -> str:
+def read_file_content(path: str, limit: int | None = None) -> str:
     """Read a workspace file, optionally limiting returned lines."""
 
     try:
@@ -134,8 +136,8 @@ def read_file(path: str, limit: int | None = None) -> str:
         return f"Error: {exc}"
 
 
-def write_file(path: str, content: str) -> str:
-    """Write content to a workspace file."""
+def _write_file_impl(path: str, content: str) -> str:
+    """Implementation helper for the write_file tool."""
 
     try:
         file_path = safe_path(path)
@@ -146,8 +148,8 @@ def write_file(path: str, content: str) -> str:
         return f"Error: {exc}"
 
 
-def edit_file(path: str, old_text: str, new_text: str) -> str:
-    """Replace one exact text fragment in a workspace file."""
+def _edit_file_impl(path: str, old_text: str, new_text: str) -> str:
+    """Implementation helper for the edit_file tool."""
 
     try:
         file_path = safe_path(path)
@@ -161,6 +163,34 @@ def edit_file(path: str, old_text: str, new_text: str) -> str:
         return f"Edited {path}"
     except Exception as exc:
         return f"Error: {exc}"
+
+
+@tool("bash")
+def bash(command: str) -> str:
+    """Run a shell command in the current workspace."""
+
+    return _bash_impl(command)
+
+
+@tool("read_file")
+def read_file(path: str, limit: int | None = None) -> str:
+    """Read a workspace file, optionally limiting returned lines."""
+
+    return read_file_content(path, limit)
+
+
+@tool("write_file")
+def write_file(path: str, content: str) -> str:
+    """Write content to a workspace file."""
+
+    return _write_file_impl(path, content)
+
+
+@tool("edit_file")
+def edit_file(path: str, old_text: str, new_text: str) -> str:
+    """Replace one exact text fragment in a workspace file."""
+
+    return _edit_file_impl(path, old_text, new_text)
 
 
 def _message_content(message: Any) -> Any:
