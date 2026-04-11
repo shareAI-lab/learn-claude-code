@@ -3,6 +3,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from langchain.tools import tool
+
 from coding_deepgent.config import load_settings
 
 OUTPUT_LIMIT = 50_000
@@ -10,6 +12,8 @@ DANGEROUS_COMMANDS = ("rm -rf /", "sudo", "shutdown", "reboot", "> /dev/")
 
 
 def safe_path(path_str: str, *, workdir: Path | None = None) -> Path:
+    """Resolve a path within the current coding-deepgent workspace."""
+
     root = (workdir or load_settings().workdir).resolve()
     path = (root / path_str).resolve()
     if not path.is_relative_to(root):
@@ -17,7 +21,9 @@ def safe_path(path_str: str, *, workdir: Path | None = None) -> Path:
     return path
 
 
-def bash(command: str) -> str:
+def _run_bash(command: str) -> str:
+    """Implementation helper for the bash tool."""
+
     if any(item in command for item in DANGEROUS_COMMANDS):
         return "Error: Dangerous command blocked"
     try:
@@ -38,7 +44,9 @@ def bash(command: str) -> str:
     return output[:OUTPUT_LIMIT] if output else "(no output)"
 
 
-def read_file(path: str, limit: int | None = None) -> str:
+def _read_file(path: str, limit: int | None = None) -> str:
+    """Implementation helper for the read_file tool."""
+
     try:
         lines = safe_path(path).read_text(encoding="utf-8").splitlines()
         if limit is not None and limit < len(lines):
@@ -48,7 +56,9 @@ def read_file(path: str, limit: int | None = None) -> str:
         return f"Error: {exc}"
 
 
-def write_file(path: str, content: str) -> str:
+def _write_file(path: str, content: str) -> str:
+    """Implementation helper for the write_file tool."""
+
     try:
         file_path = safe_path(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -58,7 +68,9 @@ def write_file(path: str, content: str) -> str:
         return f"Error: {exc}"
 
 
-def edit_file(path: str, old_text: str, new_text: str) -> str:
+def _edit_file(path: str, old_text: str, new_text: str) -> str:
+    """Implementation helper for the edit_file tool."""
+
     try:
         file_path = safe_path(path)
         content = file_path.read_text(encoding="utf-8")
@@ -68,3 +80,31 @@ def edit_file(path: str, old_text: str, new_text: str) -> str:
         return f"Edited {path}"
     except Exception as exc:  # pragma: no cover - teaching tool reports errors as output
         return f"Error: {exc}"
+
+
+@tool("bash")
+def bash(command: str) -> str:
+    """Run a shell command in the current workspace."""
+
+    return _run_bash(command)
+
+
+@tool("read_file")
+def read_file(path: str, limit: int | None = None) -> str:
+    """Read a workspace file, optionally limiting returned lines."""
+
+    return _read_file(path, limit)
+
+
+@tool("write_file")
+def write_file(path: str, content: str) -> str:
+    """Write content to a workspace file."""
+
+    return _write_file(path, content)
+
+
+@tool("edit_file")
+def edit_file(path: str, old_text: str, new_text: str) -> str:
+    """Replace one exact text fragment in a workspace file."""
+
+    return _edit_file(path, old_text, new_text)

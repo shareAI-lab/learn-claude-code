@@ -13,3 +13,8 @@ Only advance this project when the user explicitly confirms that the next chapte
 ## Abstraction freeze checkpoint
 
 Before implementing the first post-`s03` upgrade, re-evaluate whether the current split between `tools/planning.py` and `middleware/planning.py` still reflects separate responsibilities.
+
+
+## Renderer boundary note
+
+The `s03` project now has a dependency-free planning renderer seam for terminal plan/reminder output. This is a behavior-preserving boundary, not a browser/API/event-bus implementation.

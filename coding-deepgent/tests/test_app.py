@@ -1,8 +1,21 @@
 from __future__ import annotations
 
+from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
+from langchain_core.messages import AIMessage
+from pydantic import PrivateAttr
+
 from coding_deepgent import app
 from coding_deepgent.middleware import PlanningMiddleware
 from coding_deepgent.state import PlanningState
+
+
+class RecordingFakeModel(FakeMessagesListChatModel):
+    _bound_tool_names: list[str] = PrivateAttr(default_factory=list)
+
+    def bind_tools(self, tools, *, tool_choice=None, **kwargs):
+        del tool_choice, kwargs
+        self._bound_tool_names = [getattr(tool, "name", type(tool).__name__) for tool in tools]
+        return self
 
 
 def test_build_agent_wires_cumulative_s03_components(monkeypatch) -> None:
@@ -21,9 +34,10 @@ def test_build_agent_wires_cumulative_s03_components(monkeypatch) -> None:
     assert captured["state_schema"] is PlanningState
     assert len(captured["middleware"]) == 1
     assert isinstance(captured["middleware"][0], PlanningMiddleware)
-    tool_names = [tool.__name__ for tool in captured["tools"]]
+    tool_names = [getattr(tool, "name", getattr(tool, "__name__", "")) for tool in captured["tools"]]
     assert tool_names == ["bash", "read_file", "write_file", "edit_file", "todo"]
-    assert "todo tool" in captured["system_prompt"]
+    assert "explicit progress tracking helps on multi-step work" in captured["system_prompt"]
+    assert "Never call todo multiple times in parallel" not in captured["system_prompt"]
 
 
 def test_agent_loop_roundtrips_runtime_state(monkeypatch) -> None:
@@ -35,9 +49,8 @@ def test_agent_loop_roundtrips_runtime_state(monkeypatch) -> None:
             self.payloads.append(payload)
             return {
                 "messages": [*payload["messages"], {"role": "assistant", "content": "planned"}],
-                "plan_items": [{"content": "Ship it", "status": "in_progress", "active_form": "Shipping"}],
+                "items": [{"content": "Ship it", "status": "in_progress", "activeForm": "Shipping"}],
                 "rounds_since_update": 0,
-                "updated_this_turn": False,
             }
 
     fake = FakeAgent()
@@ -46,9 +59,8 @@ def test_agent_loop_roundtrips_runtime_state(monkeypatch) -> None:
         app,
         "SESSION_STATE",
         {
-            "plan_items": [{"content": "Inspect", "status": "completed", "active_form": ""}],
+            "items": [{"content": "Inspect", "status": "completed"}],
             "rounds_since_update": 2,
-            "updated_this_turn": False,
         },
     )
 
@@ -60,10 +72,56 @@ def test_agent_loop_roundtrips_runtime_state(monkeypatch) -> None:
     assert app.agent_loop(history) == "planned"
     assert fake.payloads[0]["messages"] == [{"role": "user", "content": "hello\n\ncontinue"}]
     assert fake.payloads[0]["rounds_since_update"] == 2
-    assert fake.payloads[0]["plan_items"] == [
-        {"content": "Inspect", "status": "completed", "active_form": ""}
+    assert fake.payloads[0]["items"] == [
+        {"content": "Inspect", "status": "completed"}
     ]
     assert history[-1] == {"role": "assistant", "content": "planned"}
-    assert app.SESSION_STATE["plan_items"] == [
-        {"content": "Ship it", "status": "in_progress", "active_form": "Shipping"}
+    assert app.SESSION_STATE["items"] == [
+        {"content": "Ship it", "status": "in_progress", "activeForm": "Shipping"}
+    ]
+
+
+def test_free_agent_path_executes_todo_without_runtime_injection_error(monkeypatch) -> None:
+    model = RecordingFakeModel(
+        responses=[
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "todo",
+                        "args": {
+                            "items": [
+                                {
+                                    "content": "Inspect repo",
+                                    "status": "in_progress",
+                                    "activeForm": "Inspecting",
+                                },
+                                {"content": "Summarize findings", "status": "pending"},
+                            ]
+                        },
+                        "id": "call_1",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            AIMessage(content="planned"),
+        ]
+    )
+
+    monkeypatch.setattr(app, "build_openai_model", lambda: model)
+    monkeypatch.setattr(
+        app,
+        "SESSION_STATE",
+        {
+            "items": [],
+            "rounds_since_update": 0,
+        },
+    )
+
+    history = [{"role": "user", "content": "plan this work"}]
+    assert app.agent_loop(history) == "planned"
+    assert model._bound_tool_names == ["bash", "read_file", "write_file", "edit_file", "todo"]
+    assert app.SESSION_STATE["items"] == [
+        {"content": "Inspect repo", "status": "in_progress", "activeForm": "Inspecting"},
+        {"content": "Summarize findings", "status": "pending"},
     ]

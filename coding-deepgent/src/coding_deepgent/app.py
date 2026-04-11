@@ -13,8 +13,8 @@ from coding_deepgent.tools import bash, edit_file, read_file, todo, write_file
 SYSTEM_PROMPT = (
     "You are coding-deepgent, an independent cumulative coding agent. "
     f"Current workspace: {load_settings().workdir}. "
-    "Use the todo tool for multi-step work, preserve exactly one in-progress step, "
-    "and prefer tools over prose."
+    "Use the todo tool when explicit progress tracking helps on multi-step work, "
+    "preserve exactly one in-progress step, and prefer tools over prose."
 )
 TOOLS = [bash, read_file, write_file, edit_file, todo]
 SESSION_STATE: dict[str, Any] = default_session_state()
@@ -36,9 +36,8 @@ def agent_loop(messages: list[dict[str, Any]]) -> str:
     result = build_agent().invoke({"messages": normalized, **SESSION_STATE})
     SESSION_STATE.update(
         {
-            "plan_items": result.get("plan_items", []),
+            "items": result.get("items", []),
             "rounds_since_update": result.get("rounds_since_update", 0),
-            "updated_this_turn": result.get("updated_this_turn", False),
         }
     )
     final_text = latest_assistant_text(result)

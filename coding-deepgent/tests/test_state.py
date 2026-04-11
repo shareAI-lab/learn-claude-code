@@ -7,9 +7,8 @@ from coding_deepgent.state import default_session_state, normalize_plan_items
 
 def test_default_session_state_matches_planning_contract() -> None:
     assert default_session_state() == {
-        "plan_items": [],
+        "items": [],
         "rounds_since_update": 0,
-        "updated_this_turn": False,
     }
 
 

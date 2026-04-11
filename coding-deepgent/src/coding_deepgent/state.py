@@ -1,61 +1,100 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from langchain.agents import AgentState
-from typing_extensions import NotRequired
+from langchain.tools import InjectedToolCallId
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing_extensions import NotRequired, TypedDict
 
 
-@dataclass
-class PlanItem:
+class PlanItemState(TypedDict):
     content: str
-    status: str = "pending"
-    active_form: str = ""
+    status: Literal["pending", "in_progress", "completed"]
+    activeForm: NotRequired[str]
 
 
 class PlanningState(AgentState):
-    plan_items: NotRequired[list[dict[str, str]]]
+    items: NotRequired[list[PlanItemState]]
     rounds_since_update: NotRequired[int]
-    updated_this_turn: NotRequired[bool]
-
-
-VALID_STATUSES = {"pending", "in_progress", "completed"}
-
 
 def default_session_state() -> dict[str, Any]:
     return {
-        "plan_items": [],
+        "items": [],
         "rounds_since_update": 0,
-        "updated_this_turn": False,
     }
 
 
-def normalize_plan_items(items: list[dict[str, Any]]) -> list[dict[str, str]]:
+class TodoPlanItemInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content: str = Field(
+        ...,
+        min_length=1,
+        description="Non-empty description of this plan step.",
+    )
+    status: Literal["pending", "in_progress", "completed"] = Field(
+        ...,
+        description="Current step status. Exactly one item should be in_progress.",
+    )
+    activeForm: str | None = Field(
+        default=None,
+        description="Short gerund phrase for the current in-progress step.",
+    )
+
+    @field_validator("content")
+    @classmethod
+    def _content_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("content required")
+        return value
+
+    @field_validator("activeForm")
+    @classmethod
+    def _active_form_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+
+class TodoInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[TodoPlanItemInput] = Field(
+        ...,
+        min_length=1,
+        max_length=12,
+        description=(
+            "Complete current plan. Every item must have content and status; "
+            "use pending, in_progress, or completed."
+        ),
+    )
+    tool_call_id: Annotated[str | None, InjectedToolCallId] = None
+
+
+def normalize_plan_items(
+    items: list[TodoPlanItemInput | dict[str, Any]],
+) -> list[PlanItemState]:
     if len(items) > 12:
         raise ValueError("Keep the session plan short (max 12 items)")
 
-    normalized: list[dict[str, str]] = []
-    in_progress_count = 0
-    for index, raw_item in enumerate(items):
-        content = str(raw_item.get("content", "")).strip()
-        status = str(raw_item.get("status", "pending")).lower()
-        active_form = str(raw_item.get("activeForm", raw_item.get("active_form", ""))).strip()
+    validated = TodoInput(items=items)
 
-        if not content:
-            raise ValueError(f"Item {index}: content required")
-        if status not in VALID_STATUSES:
-            raise ValueError(f"Item {index}: invalid status '{status}'")
-        if status == "in_progress":
+    normalized: list[PlanItemState] = []
+    in_progress_count = 0
+    for item_input in validated.items:
+        if item_input.status == "in_progress":
             in_progress_count += 1
 
-        normalized.append(
-            {
-                "content": content,
-                "status": status,
-                "active_form": active_form,
-            }
-        )
+        item: PlanItemState = {
+            "content": item_input.content,
+            "status": item_input.status,
+        }
+        if item_input.activeForm:
+            item["activeForm"] = item_input.activeForm
+        normalized.append(item)
 
     if in_progress_count > 1:
         raise ValueError("Only one plan item can be in_progress")

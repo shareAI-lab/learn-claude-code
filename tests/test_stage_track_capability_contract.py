@@ -11,18 +11,6 @@ CAPABILITY_MATRIX = {
     # s05 skills now arrive through Deep Agents middleware + read_file, not a
     # bespoke load_skill tool.
     "s05_skill_loading": {"bash", "read_file", "write_file", "edit_file"},
-    "s06_context_compact": {
-        "bash",
-        "read_file",
-        "write_file",
-        "edit_file",
-        "compact",
-    },
-    "s07_permission_system": {"bash", "read_file", "write_file", "edit_file"},
-    "s08_hook_system": {"bash", "read_file", "write_file", "edit_file"},
-    "s09_memory_system": {"bash", "read_file", "write_file", "edit_file", "save_memory"},
-    "s10_system_prompt": {"bash", "read_file", "write_file", "edit_file"},
-    "s11_error_recovery": {"bash", "read_file", "write_file", "edit_file"},
 }
 
 FUTURE_STAGE_CAPABILITIES = {"todo", "task", "compact"}

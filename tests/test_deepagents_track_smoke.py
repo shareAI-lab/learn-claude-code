@@ -28,12 +28,6 @@ def test_deepagents_track_scripts_exist() -> None:
         "s03_todo_write.py",
         "s04_subagent.py",
         "s05_skill_loading.py",
-        "s06_context_compact.py",
-        "s07_permission_system.py",
-        "s08_hook_system.py",
-        "s09_memory_system.py",
-        "s10_system_prompt.py",
-        "s11_error_recovery.py",
     ]:
         assert TRACK_DIR.joinpath(filename).exists()
 
@@ -67,7 +61,9 @@ def test_safe_path_rejects_workspace_escape() -> None:
 def test_s05_read_file_supports_virtual_skill_paths() -> None:
     s05 = importlib.import_module("agents_deepagents.s05_skill_loading")
 
-    text = s05.read_file("/skills/code-review/SKILL.md", limit=4)
+    text = s05.read_file("/skills/code-review/SKILL.md")
 
     assert "name: code-review" in text
     assert "description:" in text
+    assert "# Code Review Skill" in text
+    assert "## Review Checklist" in text

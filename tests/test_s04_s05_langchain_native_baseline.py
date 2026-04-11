@@ -64,6 +64,11 @@ def _system_text(message: SystemMessage) -> str:
 
 
 def test_s04_uses_native_task_tool_with_fresh_child_context() -> None:
+    delegated_task_args = {
+        "description": "Inspect README.md and return one short summary.",
+        "subagent_type": s04.SUBAGENT_TYPE,
+    }
+
     main_model = RecordingFakeModel(
         responses=[
             AIMessage(
@@ -71,10 +76,7 @@ def test_s04_uses_native_task_tool_with_fresh_child_context() -> None:
                 tool_calls=[
                     {
                         "name": "task",
-                        "args": {
-                            "description": "Inspect README.md and return one short summary.",
-                            "subagent_type": s04.SUBAGENT_TYPE,
-                        },
+                        "args": delegated_task_args,
                         "id": "call_1",
                         "type": "tool_call",
                     }
@@ -101,8 +103,15 @@ def test_s04_uses_native_task_tool_with_fresh_child_context() -> None:
         }
     )
 
+    assert "prompt" not in delegated_task_args
+    assert set(delegated_task_args) == {"description", "subagent_type"}
     assert "task" in main_model.bound_tool_names
-    assert set(child_model.bound_tool_names) == {"bash", "read_file", "write_file", "edit_file"}
+    assert set(child_model.bound_tool_names) == {
+        "bash",
+        "read_file",
+        "write_file",
+        "edit_file",
+    }
     assert len(child_model.seen_messages) == 1
     assert [type(message).__name__ for message in child_model.seen_messages[0]] == [
         "SystemMessage",
@@ -110,7 +119,7 @@ def test_s04_uses_native_task_tool_with_fresh_child_context() -> None:
     ]
     assert (
         child_model.seen_messages[0][1].content
-        == "Inspect README.md and return one short summary."
+        == delegated_task_args["description"]
     )
 
     tool_messages = [
@@ -120,7 +129,10 @@ def test_s04_uses_native_task_tool_with_fresh_child_context() -> None:
     ]
     assert len(tool_messages) == 1
     assert tool_messages[0].name == "task"
-    assert "README summary from child." in str(tool_messages[0].content)
+    tool_content = str(tool_messages[0].content)
+    assert "README summary from child." in tool_content
+    assert "First inspect setup.py" not in tool_content
+    assert "SystemMessage" not in tool_content
 
 
 def test_s05_uses_skills_middleware_instead_of_load_skill_tool(
@@ -134,6 +146,7 @@ def test_s05_uses_skills_middleware_instead_of_load_skill_tool(
     )
 
     model = RecordingFakeModel(responses=[AIMessage(content="done")])
+    model.seen_messages = []
     backend = FilesystemBackend(root_dir=tmp_path, virtual_mode=True)
 
     s05.build_agent(
@@ -154,3 +167,30 @@ def test_s05_uses_skills_middleware_instead_of_load_skill_tool(
     system_text = _system_text(system_messages[0])
     assert "Demo skill" in system_text
     assert "/skills/demo/SKILL.md" in system_text
+    assert "Use this skill." not in system_text
+
+
+def test_s05_default_workspace_skill_path_is_advertised_then_read_on_demand() -> None:
+    model = RecordingFakeModel(responses=[AIMessage(content="done")])
+    model.seen_messages = []
+
+    s05.build_agent(model=model).invoke(
+        {"messages": [{"role": "user", "content": "Need code review guidance."}]}
+    )
+
+    system_messages = [
+        message
+        for message in model.seen_messages[0]
+        if isinstance(message, SystemMessage)
+    ]
+    assert len(system_messages) == 1
+    system_text = _system_text(system_messages[0])
+
+    assert "/skills/code-review/SKILL.md" in system_text
+    assert "Code Review Skill" not in system_text
+    assert "Review Checklist" not in system_text
+
+    full_skill_text = s05.read_file("/skills/code-review/SKILL.md")
+
+    assert "# Code Review Skill" in full_skill_text
+    assert "## Review Checklist" in full_skill_text

@@ -20,6 +20,14 @@ def test_s04_build_subagents_describes_the_child_agent_surface() -> None:
     ]
 
 
+def test_s04_documents_original_to_deep_agents_mapping_bridge() -> None:
+    s04 = importlib.import_module("agents_deepagents.s04_subagent")
+
+    assert "run_subagent(prompt)" in (s04.__doc__ or "")
+    assert "task(description, subagent_type)" in (s04.__doc__ or "")
+    assert "ToolMessage" in (s04.__doc__ or "")
+
+
 def test_s04_build_agent_uses_subagent_middleware_instead_of_legacy_helpers(
     monkeypatch,
 ) -> None:
@@ -62,10 +70,9 @@ def test_s04_build_agent_uses_subagent_middleware_instead_of_legacy_helpers(
 def test_s04_build_agent_defaults_child_model_to_parent_model(
     monkeypatch,
 ) -> None:
-    s04 = importlib.import_module('agents_deepagents.s04_subagent')
+    s04 = importlib.import_module("agents_deepagents.s04_subagent")
     main_model = object()
     captured: dict[str, object] = {}
-    main_model = object()
 
     class FakeSubAgentMiddleware:
         def __init__(self, *, backend, subagents):
@@ -115,4 +122,60 @@ def test_s04_agent_loop_appends_only_parent_summary(monkeypatch) -> None:
     assert history == [
         {"role": "user", "content": "continue"},
         {"role": "assistant", "content": "delegated findings"},
+    ]
+
+
+def test_s04_extracts_structured_task_activity_for_non_terminal_ui() -> None:
+    s04 = importlib.import_module("agents_deepagents.s04_subagent")
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    result = {
+        "messages": [
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "task",
+                        "args": {
+                            "description": "Inspect README.md and return one short summary.",
+                            "subagent_type": s04.SUBAGENT_TYPE,
+                        },
+                        "id": "call_1",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content="README summary from child.",
+                tool_call_id="call_1",
+                name="task",
+            ),
+        ]
+    }
+
+    assert s04.extract_task_activity(result) == [
+        {
+            "description": "Inspect README.md and return one short summary.",
+            "subagent_type": s04.SUBAGENT_TYPE,
+            "summary": "README summary from child.",
+        }
+    ]
+
+
+def test_s04_renders_task_activity_for_terminal_output() -> None:
+    s04 = importlib.import_module("agents_deepagents.s04_subagent")
+
+    lines = s04.render_task_activity(
+        [
+            {
+                "description": "Inspect README.md and return one short summary.",
+                "subagent_type": s04.SUBAGENT_TYPE,
+                "summary": "README summary from child.",
+            }
+        ]
+    )
+
+    assert lines == [
+        "> task (general-purpose): Inspect README.md and return one short summary.",
+        "  README summary from child.",
     ]
