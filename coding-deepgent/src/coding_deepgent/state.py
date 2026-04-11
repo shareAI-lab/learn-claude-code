@@ -18,6 +18,7 @@ class PlanningState(AgentState):
     items: NotRequired[list[PlanItemState]]
     rounds_since_update: NotRequired[int]
 
+
 def default_session_state() -> dict[str, Any]:
     return {
         "items": [],
