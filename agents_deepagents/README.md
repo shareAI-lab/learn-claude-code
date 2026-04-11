@@ -52,7 +52,7 @@ compatibility fallback if you already use the original `.env` file.
 | `agents/s02_tool_use.py` | `agents_deepagents/s02_tool_use.py` | Thin invoke wrapper plus `ToolUseMiddleware`; no custom tool state | File/tool growth without rewriting the loop |
 | `agents/s03_todo_write.py` | `agents_deepagents/s03_todo_write.py` | Tutorial-shaped planning state (`items`, `rounds_since_update`) plus middleware-driven `todo` updates and a local terminal plan renderer seam | Visible session planning state |
 | `agents/s04_subagent.py` | `agents_deepagents/s04_subagent.py` | Deep Agents `SubAgentMiddleware` maps original `run_subagent(prompt)` to `task(description, subagent_type)` with fresh child message context and summary-only return | Subagents as context isolation |
-| `agents/s05_skill_loading.py` | `agents_deepagents/s05_skill_loading.py` | Lightweight prompt catalog plus on-demand `load_skill` retrieval | Discover light, load deep |
+| `agents/s05_skill_loading.py` | `agents_deepagents/s05_skill_loading.py` | Deep Agents `SkillsMiddleware` advertises skill metadata; `read_file` loads `SKILL.md` only on demand | Discover light, load deep |
 ## Disclosure Status
 
 This README currently records no intentional nonessential drops for `s01-s05`.

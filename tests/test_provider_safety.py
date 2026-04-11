@@ -82,3 +82,21 @@ def test_private_common_build_openai_chat_model_uses_stubbed_client(
         "timeout": 7,
         "base_url": "https://example.invalid/v1",
     }
+
+
+def test_deepagents_model_resolution_does_not_reuse_anthropic_model_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    common = importlib.import_module("agents_deepagents.common")
+    private_common = importlib.import_module("agents_deepagents._common")
+
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.setenv("MODEL_ID", "claude-sonnet-4-6")
+
+    assert common.deepagents_model_name() == common.DEFAULT_OPENAI_MODEL
+    assert private_common.resolve_openai_model() == private_common.DEFAULT_OPENAI_MODEL
+
+    monkeypatch.setenv("MODEL_ID", "glm-5")
+
+    assert common.deepagents_model_name() == "glm-5"
+    assert private_common.resolve_openai_model() == "glm-5"
