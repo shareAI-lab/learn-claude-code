@@ -1,9 +1,9 @@
 """Small shared helpers for the Deep Agents teaching track.
 
-The chapter files stay runnable and readable, while this module keeps repeated
-OpenAI-compatible model configuration and safe filesystem helpers in one place.
-It intentionally does not instantiate a Deep Agents model at import time, so tests
-can import pure helpers without an API key or network access.
+The chapter files stay runnable and readable, while this module keeps
+repeated OpenAI-compatible model configuration and safe filesystem helpers in
+one place. It intentionally does not instantiate a Deep Agents model at import
+time, so tests can import pure helpers without an API key or network access.
 """
 
 from __future__ import annotations
@@ -26,10 +26,10 @@ DANGEROUS_COMMANDS = ("rm -rf /", "sudo", "shutdown", "reboot", "> /dev/")
 def resolve_openai_model() -> str:
     """Return the model name for the OpenAI-interface Deep Agents track.
 
-    `OPENAI_MODEL` is the canonical variable for this track.  `MODEL_ID` is only
-    treated as a compatibility fallback when it does not look like the existing
-    Anthropic default from `.env.example`; this avoids accidentally driving the
-    OpenAI interface with `claude-*` names.
+    `OPENAI_MODEL` is the canonical variable for this track.  `MODEL_ID` is
+    only treated as a compatibility fallback when it does not look like the
+    existing Anthropic default from `.env.example`; this avoids accidentally
+    driving the OpenAI interface with `claude-*` names.
     """
 
     openai_model = os.getenv("OPENAI_MODEL", "").strip()
@@ -108,7 +108,7 @@ def read_file(path: str, limit: int | None = None) -> str:
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
         return "\n".join(lines)[:OUTPUT_LIMIT]
-    except Exception as exc:  # teaching helpers return tool text instead of raising
+    except Exception as exc:
         return f"Error: {exc}"
 
 
@@ -152,7 +152,10 @@ def message_text(message: Any) -> str:
                 if text:
                     parts.append(str(text))
             else:
-                text = getattr(block, "text", None) or getattr(block, "content", None)
+                text = (
+                    getattr(block, "text", None)
+                    or getattr(block, "content", None)
+                )
                 if text:
                     parts.append(str(text))
         return "\n".join(parts).strip()

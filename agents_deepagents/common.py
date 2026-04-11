@@ -13,9 +13,9 @@ import subprocess
 from pathlib import Path
 from typing import Any, Iterable
 
-try:  # Keep pure helper imports usable even before optional deps are installed.
+try:
     from dotenv import load_dotenv
-except ImportError:  # pragma: no cover - exercised only in minimal environments
+except ImportError:
     load_dotenv = None
 
 if load_dotenv is not None:
@@ -30,8 +30,8 @@ DANGEROUS_COMMANDS = ("rm -rf /", "sudo", "shutdown", "reboot", "> /dev/")
 def deepagents_model_name() -> str:
     """Return the model name for the Deep Agents track.
 
-    ``OPENAI_MODEL`` is the explicit Deep Agents-track variable.  ``MODEL_ID`` is
-    accepted only as a compatibility fallback when it does not look like an
+    ``OPENAI_MODEL`` is the explicit Deep Agents-track variable.  ``MODEL_ID``
+    is accepted only as a compatibility fallback when it does not look like an
     Anthropic model from the original ``agents/`` track.
     """
 
@@ -154,7 +154,10 @@ def edit_file(path: str, old_text: str, new_text: str) -> str:
         content = file_path.read_text(encoding="utf-8")
         if old_text not in content:
             return f"Error: Text not found in {path}"
-        file_path.write_text(content.replace(old_text, new_text, 1), encoding="utf-8")
+        file_path.write_text(
+            content.replace(old_text, new_text, 1),
+            encoding="utf-8",
+        )
         return f"Edited {path}"
     except Exception as exc:
         return f"Error: {exc}"
@@ -177,7 +180,10 @@ def extract_text(content: Any) -> str:
         texts: list[str] = []
         for block in content:
             if isinstance(block, dict):
-                if block.get("type") in {"text", "output_text"} and block.get("text"):
+                if (
+                    block.get("type") in {"text", "output_text"}
+                    and block.get("text")
+                ):
                     texts.append(str(block["text"]))
                 elif block.get("content"):
                     texts.append(str(block["content"]))
@@ -199,12 +205,16 @@ def extract_text(content: Any) -> str:
 
 
 def latest_assistant_text(result: Any) -> str:
-    """Return the final assistant text from a Deep Agents agent/model result."""
+    """Return the final assistant text from an agent/model result."""
 
     if isinstance(result, dict):
         messages = result.get("messages") or []
         for message in reversed(messages):
-            role = message.get("role") if isinstance(message, dict) else getattr(message, "type", "")
+            role = (
+                message.get("role")
+                if isinstance(message, dict)
+                else getattr(message, "type", "")
+            )
             if role in {"assistant", "ai"}:
                 text = extract_text(_message_content(message))
                 if text:
@@ -217,10 +227,10 @@ def latest_assistant_text(result: Any) -> str:
 def invoke_and_append(agent: Any, messages: list[dict[str, Any]]) -> str:
     """Invoke a Deep Agents agent and append only the final answer to history.
 
-    Deep Agents owns the internal model -> tool -> tool-result loop.  For the next
-    CLI turn we keep a compact teaching history: the user's prompt plus the final
-    assistant answer, while the original ``agents/`` files remain the place to
-    inspect every raw provider block.
+    Deep Agents owns the internal model -> tool -> tool-result loop. For the
+    next CLI turn we keep a compact teaching history: the user's prompt plus
+    the final assistant answer, while the original ``agents/`` files remain
+    the place to inspect every raw provider block.
     """
 
     result = agent.invoke({"messages": messages})

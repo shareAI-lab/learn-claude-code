@@ -16,7 +16,9 @@ class FakeChatOpenAI:
 
 
 @pytest.fixture
-def fake_langchain_openai(monkeypatch: pytest.MonkeyPatch) -> type[FakeChatOpenAI]:
+def fake_langchain_openai(
+    monkeypatch: pytest.MonkeyPatch,
+) -> type[FakeChatOpenAI]:
     module = types.ModuleType("langchain_openai")
     module.ChatOpenAI = FakeChatOpenAI
     monkeypatch.setitem(sys.modules, "langchain_openai", module)
@@ -94,7 +96,10 @@ def test_deepagents_model_resolution_does_not_reuse_anthropic_model_id(
     monkeypatch.setenv("MODEL_ID", "claude-sonnet-4-6")
 
     assert common.deepagents_model_name() == common.DEFAULT_OPENAI_MODEL
-    assert private_common.resolve_openai_model() == private_common.DEFAULT_OPENAI_MODEL
+    assert (
+        private_common.resolve_openai_model()
+        == private_common.DEFAULT_OPENAI_MODEL
+    )
 
     monkeypatch.setenv("MODEL_ID", "glm-5")
 
