@@ -48,9 +48,9 @@ compatibility fallback if you already use the original `.env` file.
   `Command(update=...)` plus middleware. Its display path now uses a tiny
   renderer-first seam while preserving the terminal output and avoiding
   browser/API/event-bus scope.
-- `s06` is the current **context compression parity** example: a
-  LangChain/LangGraph-shaped teaching pipeline that keeps Claude Code /
-  `cc-haha` compression stages visible as pure, testable transforms.
+- `s06` is the current **context-compression** example: canonical history stays
+  in explicit state while a smaller model-facing projection walks through a
+  cc-haha-inspired six-stage pipeline.
 - After review, the current `s01-s06` file names still describe the dominant
   behavior of each chapter well enough to keep the chapter shell useful.
 
@@ -63,38 +63,40 @@ compatibility fallback if you already use the original `.env` file.
 | `agents/s03_todo_write.py` | `agents_deepagents/s03_todo_write.py` | Tutorial-shaped planning state (`items`, `rounds_since_update`) plus middleware-driven `write_plan` updates and direct terminal rendering helpers | Visible session planning state |
 | `agents/s04_subagent.py` | `agents_deepagents/s04_subagent.py` | Deep Agents `SubAgentMiddleware` maps original `run_subagent(prompt)` to `task(description, subagent_type)` with fresh child message context and summary-only return | Subagents as context isolation |
 | `agents/s05_skill_loading.py` | `agents_deepagents/s05_skill_loading.py` | Deep Agents `SkillsMiddleware` advertises skill metadata; `read_file` loads `SKILL.md` only on demand | Discover light, load deep |
-| `agents/s06_context_compact.py` | `agents_deepagents/s06_context_compact.py` | Single-file context-compression state pipeline with explicit stage boundaries, summaries, and overflow recovery | Visible `cc-haha`-informed compression order without hiding it behind one middleware call |
+| `agents/s06_context_compact.py` | `agents_deepagents/s06_context_compact.py` | Typed state plus six explicit compression stages: tool-result budget, snip projection, microcompact, context collapse, auto compact, and reactive overflow recovery | Honest cc-haha-inspired context compression pipeline |
+
+## s06 Evidence / Inference Map
+
+`s06_context_compact.py` exposes these same classifications in code so tests can
+verify the README disclosure stays aligned.
+
+### Source-backed stages
+
+- `apply_tool_result_budget`
+- `microcompact_messages`
+- `auto_compact_if_needed`
+- `reactive_compact_on_overflow`
+
+### Inferred teaching equivalents
+
+- `snip_projection`
+- `context_collapse`
+
+### Intentional simplifications
+
+- Character counts stand in for exact tokenizer budgets.
+- Persisted tool outputs are stored as plain text files instead of provider
+  cache edits.
+- Snip projection and context collapse are honest teaching equivalents because
+  the public cc-haha tree does not expose those internals in full.
+- Auto compact omits session-memory extraction, telemetry, and
+  prompt-cache-sharing details.
 
 ## Disclosure Status
 
-### s06 source evidence vs inference
-
-The `s06_context_compact.py` chapter is intentionally honest about which parts
-of Claude Code / `cc-haha` are visible in the public source tree and which
-parts must be taught as LangChain-native equivalents.
-
-| s06 stage | Status | Public cc-haha evidence | Tutorial disclosure |
-|---|---|---|---|
-| `apply_tool_result_budget` | Source-backed | [`src/query.ts#L365-L398`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/query.ts#L365-L398), [`src/utils/toolResultStorage.ts#L137-L225`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/utils/toolResultStorage.ts#L137-L225), [`src/utils/toolResultStorage.ts#L739-L909`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/utils/toolResultStorage.ts#L739-L909) | The tutorial keeps persisted-output previews and stable replacement decisions visible in state. |
-| `snip_projection` | Inferred equivalent | [`src/query.ts#L398-L407`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/query.ts#L398-L407) plus feature-gated `snipCompact` references noted in the spec | The public tree shows where snip runs, but not the full implementation, so the tutorial models a projection without claiming exact reproduction. |
-| `microcompact_messages` | Source-backed | [`src/query.ts#L408-L417`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/query.ts#L408-L417), [`src/services/compact/microCompact.ts#L40-L50`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/services/compact/microCompact.ts#L40-L50), [`src/services/compact/microCompact.ts#L253-L530`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/services/compact/microCompact.ts#L253-L530) | The tutorial keeps compactable-tool clearing and boundary metadata, but uses deterministic local state instead of production cache-edit plumbing. |
-| `context_collapse` | Inferred equivalent | [`src/query.ts#L428-L447`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/query.ts#L428-L447), [`src/query.ts#L1084-L1118`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/query.ts#L1084-L1118) | The tutorial preserves tool-use/result group integrity and staged summaries, but does not claim access to hidden `contextCollapse` internals. |
-| `auto_compact_if_needed` | Source-backed | [`src/query.ts#L448-L467`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/query.ts#L448-L467), [`src/services/compact/autoCompact.ts#L28-L90`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/services/compact/autoCompact.ts#L28-L90), [`src/services/compact/autoCompact.ts#L147-L350`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/services/compact/autoCompact.ts#L147-L350) | The tutorial teaches threshold-driven compaction to summary + recent context without reproducing every production branch. |
-| `reactive_compact_on_overflow` | Source-backed | [`src/query.ts#L1084-L1165`](https://github.com/NanmiCoder/cc-haha/blob/5fa3247f9fa3ddde462185218f7e73b2dccfc956/src/query.ts#L1084-L1165) | The tutorial keeps the collapse-drain-first recovery order explicit and testable. |
-
-### Intentional s06 simplifications
-
-To keep the tutorial deterministic and no-live-API, `s06` intentionally does
-not model:
-
-- real Anthropic cache edits,
-- GrowthBook / feature flags / telemetry,
-- prompt-cache-sharing fork behavior,
-- full session-memory extraction, or
-- the exact hidden `snipCompact` / `contextCollapse` internals that were not
-  visible in the fetched public tree.
-
-Those omissions are deliberate teaching boundaries, not accidental parity gaps.
+This README currently records no intentional nonessential drops for `s01-s06`.
+If a later chapter needs to omit nonessential behavior, record that fact in the
+chapter report or this README instead of implying full parity by default.
 
 ## Run
 
