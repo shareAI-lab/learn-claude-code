@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coding-deepgent"
+version = "0.1.0"
+description = "Independent cumulative LangChain Deep Agents project through s03"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "langchain>=1.0.0",
+  "langchain-openai>=1.0.0",
+  "python-dotenv>=1.0.0",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+coding-deepgent = "coding_deepgent.cli:cli"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]

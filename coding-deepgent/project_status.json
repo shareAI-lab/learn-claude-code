@@ -1,0 +1,12 @@
+{
+  "project": "coding-deepgent",
+  "current_confirmed_milestone": "s03",
+  "shape": "cumulative_project",
+  "upgrade_policy": "Advance only after explicit user confirmation that the next chapter is complete.",
+  "public_entrypoints": [
+    "coding-deepgent"
+  ],
+  "current_milestone": "s03",
+  "public_shape": "single cumulative app",
+  "upgrade_rule": "Advance only after explicit user confirmation that the next chapter is complete."
+}
