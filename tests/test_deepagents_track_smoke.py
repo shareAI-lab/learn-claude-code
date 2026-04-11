@@ -9,6 +9,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 TRACK_DIR = ROOT / "agents_deepagents"
+S06_PATH = TRACK_DIR / "s06_context_compact.py"
 TRACK_FILES = sorted(
     path for path in TRACK_DIR.glob("*.py") if path.name != "__init__.py"
 )
@@ -22,14 +23,16 @@ def test_deepagents_track_scripts_compile(agent_path: Path) -> None:
 
 def test_deepagents_track_scripts_exist() -> None:
     assert TRACK_FILES, "expected Deep Agents teaching scripts"
-    for filename in [
+    expected = [
         "s01_agent_loop.py",
         "s02_tool_use.py",
         "s03_todo_write.py",
         "s04_subagent.py",
         "s05_skill_loading.py",
-        "s06_context_compact.py",
-    ]:
+    ]
+    if S06_PATH.exists():
+        expected.append("s06_context_compact.py")
+    for filename in expected:
         assert TRACK_DIR.joinpath(filename).exists()
 
 

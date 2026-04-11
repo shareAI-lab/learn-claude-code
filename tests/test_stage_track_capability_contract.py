@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 
 
 CAPABILITY_MATRIX = {
@@ -25,6 +26,17 @@ CAPABILITY_MATRIX = {
         "compact",
     },
 }
+
+if Path(__file__).resolve().parents[1].joinpath(
+    "agents_deepagents", "s06_context_compact.py"
+).exists():
+    CAPABILITY_MATRIX["s06_context_compact"] = {
+        "bash",
+        "read_file",
+        "write_file",
+        "edit_file",
+        "compact",
+    }
 
 FUTURE_STAGE_CAPABILITIES = {"write_plan", "task", "compact"}
 MIDDLEWARE_TOOL_MATRIX = {
