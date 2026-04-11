@@ -85,6 +85,15 @@ verify the README disclosure stays aligned.
 - Auto compact omits session-memory extraction, telemetry, and
   prompt-cache-sharing details.
 
+## CC Alignment Progress Docs
+
+Each implemented `sNN` chapter should have a matching progress document under
+[`cc_alignment/`](./cc_alignment/) that lists what is aligned with CC/cc-haha,
+what is only a teaching equivalent, what is intentionally not copied, and what
+should be considered next.
+
+Current s06 details: [`cc_alignment/s06-context-compact.md`](./cc_alignment/s06-context-compact.md).
+
 ## Disclosure Status
 
 This README currently records no intentional nonessential drops for `s01-s06`.
