@@ -1,17 +1,11 @@
 from __future__ import annotations
 
-from typing import Annotated
 from langchain.messages import ToolMessage
-from langchain.tools import InjectedToolCallId, tool
+from langchain.tools import tool
 from langgraph.types import Command
 
-from coding_deepgent.renderers.planning import (
-    PLAN_REMINDER_INTERVAL,
-    reminder_text,
-    render_plan_items,
-)
+from coding_deepgent.renderers.planning import render_plan_items
 from coding_deepgent.state import (
-    PlanningState,
     TodoInput,
     TodoPlanItemInput,
     normalize_plan_items,
