@@ -4,7 +4,7 @@ import { DocRenderer } from "@/components/docs/doc-renderer";
 import { getTranslations } from "@/lib/i18n-server";
 import { BRIDGE_DOCS, getChaptersForBridgeDoc } from "@/lib/bridge-docs";
 
-const SUPPORTED_LOCALES = ["en", "zh", "ja"] as const;
+const SUPPORTED_LOCALES = ["zh"] as const;
 
 function findBridgeDoc(locale: string, slug: string) {
   return (
@@ -30,7 +30,7 @@ function findBridgeDoc(locale: string, slug: string) {
       kind?: string;
       title?: string;
     }>).find(
-      (item) => item.kind === "bridge" && item.slug === slug && item.locale === "en"
+      (item) => item.kind === "bridge" && item.slug === slug && item.locale === "zh"
     )
   );
 }
@@ -58,13 +58,11 @@ export async function generateMetadata({
   const descriptor = BRIDGE_DOCS[slug];
   const doc = findBridgeDoc(locale, slug);
   const title =
-    descriptor?.title?.[locale as "en" | "zh" | "ja"] ??
-    descriptor?.title?.en ??
+    descriptor?.title?.["zh"] ??
     doc?.title ??
     "Learn Claude Code";
   const description =
-    descriptor?.summary?.[locale as "en" | "zh" | "ja"] ??
-    descriptor?.summary?.en ??
+    descriptor?.summary?.["zh"] ??
     undefined;
 
   return {
@@ -109,9 +107,7 @@ export default async function BridgeDocPage({
             {t("bridge_docs_standalone")}
           </span>
           <h1 className="text-3xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
-            {descriptor?.title?.[locale as "en" | "zh" | "ja"] ??
-              descriptor?.title?.en ??
-              doc.title}
+            {descriptor?.title?.["zh"] ?? doc.title}
           </h1>
           {doc.locale !== locale && (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -125,26 +121,17 @@ export default async function BridgeDocPage({
         <div className="space-y-4">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">
-              {locale === "zh"
-                ? "这页适合什么时候回看"
-                : locale === "ja"
-                  ? "このページへ戻るべき場面"
-                  : "When This Page Helps"}
+              {"这页适合什么时候回看"}
             </p>
             <p className="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-              {descriptor?.summary?.[locale as "en" | "zh" | "ja"] ??
-                descriptor?.summary?.en}
+              {descriptor?.summary?.["zh"]}
             </p>
           </div>
 
           {relatedVersions.length > 0 && (
             <div>
               <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">
-                {locale === "zh"
-                  ? "最适合和这些章节一起读"
-                  : locale === "ja"
-                    ? "いっしょに読むと効く章"
-                    : "Best Read Alongside"}
+                {"最适合和这些章节一起读"}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {relatedVersions.map((version) => (
