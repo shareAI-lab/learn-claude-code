@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared helpers for the Deep Agents s01-s06 teaching track.
+"""Shared helpers for the Deep Agents s01-s05 teaching track.
 
 This module intentionally stays tiny.  The chapter files should still be read
 as the teaching surface; the shared code only avoids repeating the same safe
@@ -31,11 +31,19 @@ def deepagents_model_name() -> str:
     """Return the model name for the Deep Agents track.
 
     ``OPENAI_MODEL`` is the explicit Deep Agents-track variable.  ``MODEL_ID`` is
-    accepted only as a compatibility fallback for people reusing the original
-    Anthropic-track ``.env`` shape.
+    accepted only as a compatibility fallback when it does not look like an
+    Anthropic model from the original ``agents/`` track.
     """
 
-    return os.getenv("OPENAI_MODEL") or os.getenv("MODEL_ID") or DEFAULT_OPENAI_MODEL
+    openai_model = os.getenv("OPENAI_MODEL", "").strip()
+    if openai_model:
+        return openai_model
+
+    legacy_model = os.getenv("MODEL_ID", "").strip()
+    if legacy_model and not legacy_model.lower().startswith("claude"):
+        return legacy_model
+
+    return DEFAULT_OPENAI_MODEL
 
 
 # Backward-compatible alias while the track rename propagates through tests and

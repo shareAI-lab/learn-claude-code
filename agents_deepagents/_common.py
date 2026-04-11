@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 WORKDIR = Path.cwd()
-DEFAULT_OPENAI_MODEL = "gpt-5"
+DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
 OUTPUT_LIMIT = 50_000
 DANGEROUS_COMMANDS = ("rm -rf /", "sudo", "shutdown", "reboot", "> /dev/")
 
