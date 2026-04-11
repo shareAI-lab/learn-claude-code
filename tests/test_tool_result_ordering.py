@@ -63,16 +63,23 @@ class ToolResultOrderingTests(unittest.TestCase):
         )
         original_client = s03_todo_write.client
         original_handlers = s03_todo_write.TOOL_HANDLERS
+        original_state = s03_todo_write.TODO.state
         try:
             s03_todo_write.client = SimpleNamespace(messages=fake_api)
             s03_todo_write.TOOL_HANDLERS = {
                 **original_handlers,
                 "bash": lambda **kwargs: "ok",
             }
+            # Ensure reminder path is active for this regression assertion.
+            s03_todo_write.TODO.state = s03_todo_write.PlanningState(
+                items=[s03_todo_write.PlanItem(content="keep plan fresh")],
+                rounds_since_update=0,
+            )
             s03_todo_write.agent_loop(messages)
         finally:
             s03_todo_write.client = original_client
             s03_todo_write.TOOL_HANDLERS = original_handlers
+            s03_todo_write.TODO.state = original_state
 
         third_user_message = messages[-2]["content"]
         self.assertEqual(third_user_message[0]["type"], "tool_result")
