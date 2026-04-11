@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared helpers for the Deep Agents s01-s05 teaching track.
+"""Shared helpers for the Deep Agents s01-s06 teaching track.
 
 This module intentionally stays tiny.  The chapter files should still be read
 as the teaching surface; the shared code only avoids repeating the same safe
