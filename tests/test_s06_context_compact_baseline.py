@@ -239,14 +239,77 @@ def test_apply_tool_result_budget_persists_large_output(tmp_path: Path) -> None:
     assert stored_path.read_text().startswith("A")
 
 
-def test_apply_tool_result_budget_reuses_replacement_decisions(tmp_path: Path) -> None:
-    stage = getattr(s06, "apply_tool_result_budget")
-    state = _make_state(
-        [
-            _make_message("user", "summarize the large outputs"),
-            _make_message("tool", "x" * 1200, kind="tool_result", tool_call_id="call-small", tool_name="read_file"),
-            _make_message("tool", "y" * 64000, kind="tool_result", tool_call_id="call-big-1", tool_name="bash"),
-            _make_message("tool", "z" * 60000, kind="tool_result", tool_call_id="call-big-2", tool_name="grep"),
+def test_aggregate_budget_reuses_frozen_replacement_decisions(tmp_path: Path) -> None:
+    first_state = s06.ContextCompressionState(
+        messages=[
+            message("u1", "user", "Need two tool results"),
+            message(
+                "t-small",
+                "tool",
+                "S" * 80,
+                name="bash",
+                tool_call_id="tool-small",
+                group_id="round-1",
+            ),
+            message(
+                "t-large",
+                "tool",
+                "L" * 140,
+                name="read_file",
+                tool_call_id="tool-large",
+                group_id="round-1",
+            ),
+        ]
+    )
+    first_result = s06.apply_tool_result_budget(
+        first_state,
+        storage_dir=tmp_path,
+        per_tool_threshold=999,
+        per_message_budget=210,
+        preview_chars=50,
+    )
+
+    assert "tool-large" in first_result.replacement_decisions
+
+    second_state = s06.ContextCompressionState(
+        messages=[
+            message("u2", "user", "Replay the same round"),
+            message(
+                "t-small-2",
+                "tool",
+                "S" * 80,
+                name="bash",
+                tool_call_id="tool-small",
+                group_id="round-2",
+            ),
+            message(
+                "t-large-2",
+                "tool",
+                "L" * 140,
+                name="read_file",
+                tool_call_id="tool-large",
+                group_id="round-2",
+            ),
+        ],
+        persisted_outputs=first_result.persisted_outputs,
+        replacement_decisions=first_result.replacement_decisions,
+    )
+    second_result = s06.apply_tool_result_budget(
+        second_state,
+        storage_dir=tmp_path,
+        per_tool_threshold=999,
+        per_message_budget=500,
+        preview_chars=50,
+    )
+
+    assert second_result.model_messages[2].content.startswith("<persisted-output>")
+
+
+def test_snip_projection_preserves_canonical_history() -> None:
+    state = s06.ContextCompressionState(
+        messages=[
+            message(f"m{index}", "user" if index % 2 else "assistant", f"msg {index}")
+            for index in range(1, 9)
         ]
     )
 
