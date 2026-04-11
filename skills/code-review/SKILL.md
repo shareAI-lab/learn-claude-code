@@ -1,68 +1,68 @@
 ---
 name: code-review
-description: Perform thorough code reviews with security, performance, and maintainability analysis. Use when user asks to review code, check for bugs, or audit a codebase.
+description: 对代码进行全面审查，覆盖安全、性能、可维护性。适用于用户要求 review 代码、查 bug、审计代码库。
 ---
 
-# Code Review Skill
+# 代码审查技能
 
-You now have expertise in conducting comprehensive code reviews. Follow this structured approach:
+你现在具备完整代码审查能力。请按以下结构执行。
 
-## Review Checklist
+## 审查清单
 
-### 1. Security (Critical)
+### 1. 安全（最高优先级）
 
-Check for:
-- [ ] **Injection vulnerabilities**: SQL, command, XSS, template injection
-- [ ] **Authentication issues**: Hardcoded credentials, weak auth
-- [ ] **Authorization flaws**: Missing access controls, IDOR
-- [ ] **Data exposure**: Sensitive data in logs, error messages
-- [ ] **Cryptography**: Weak algorithms, improper key management
-- [ ] **Dependencies**: Known vulnerabilities (check with `npm audit`, `pip-audit`)
+检查：
+- [ ] **注入漏洞**：SQL、命令、XSS、模板注入
+- [ ] **认证问题**：硬编码凭据、弱认证
+- [ ] **授权缺陷**：缺失访问控制、IDOR
+- [ ] **数据泄露**：日志/报错泄漏敏感信息
+- [ ] **密码学**：弱算法、密钥管理不当
+- [ ] **依赖风险**：已知漏洞（`npm audit`、`pip-audit`）
 
 ```bash
-# Quick security scans
+# 快速安全扫描
 npm audit                    # Node.js
 pip-audit                    # Python
 cargo audit                  # Rust
 grep -r "password\|secret\|api_key" --include="*.py" --include="*.js"
 ```
 
-### 2. Correctness
+### 2. 正确性
 
-Check for:
-- [ ] **Logic errors**: Off-by-one, null handling, edge cases
-- [ ] **Race conditions**: Concurrent access without synchronization
-- [ ] **Resource leaks**: Unclosed files, connections, memory
-- [ ] **Error handling**: Swallowed exceptions, missing error paths
-- [ ] **Type safety**: Implicit conversions, any types
+检查：
+- [ ] **逻辑错误**：边界值、空值、off-by-one
+- [ ] **并发问题**：竞态条件、同步缺失
+- [ ] **资源泄露**：文件/连接/内存未释放
+- [ ] **错误处理**：异常吞掉、遗漏错误路径
+- [ ] **类型安全**：隐式转换、过多 any
 
-### 3. Performance
+### 3. 性能
 
-Check for:
-- [ ] **N+1 queries**: Database calls in loops
-- [ ] **Memory issues**: Large allocations, retained references
-- [ ] **Blocking operations**: Sync I/O in async code
-- [ ] **Inefficient algorithms**: O(n^2) when O(n) possible
-- [ ] **Missing caching**: Repeated expensive computations
+检查：
+- [ ] **N+1 查询**：循环中访问数据库
+- [ ] **内存问题**：大对象分配、引用滞留
+- [ ] **阻塞操作**：异步流程中同步 I/O
+- [ ] **低效算法**：可 O(n) 却写成 O(n^2)
+- [ ] **缺少缓存**：昂贵计算重复执行
 
-### 4. Maintainability
+### 4. 可维护性
 
-Check for:
-- [ ] **Naming**: Clear, consistent, descriptive
-- [ ] **Complexity**: Functions > 50 lines, deep nesting > 3 levels
-- [ ] **Duplication**: Copy-pasted code blocks
-- [ ] **Dead code**: Unused imports, unreachable branches
-- [ ] **Comments**: Outdated, redundant, or missing where needed
+检查：
+- [ ] **命名**：语义清晰、一致
+- [ ] **复杂度**：函数过长、嵌套过深
+- [ ] **重复代码**：复制粘贴逻辑
+- [ ] **死代码**：未使用 import、不可达分支
+- [ ] **注释质量**：过时/冗余/缺失
 
-### 5. Testing
+### 5. 测试
 
-Check for:
-- [ ] **Coverage**: Critical paths tested
-- [ ] **Edge cases**: Null, empty, boundary values
-- [ ] **Mocking**: External dependencies isolated
-- [ ] **Assertions**: Meaningful, specific checks
+检查：
+- [ ] **覆盖率**：关键路径是否覆盖
+- [ ] **边界场景**：空值、边界值、异常输入
+- [ ] **隔离性**：外部依赖是否正确 mock
+- [ ] **断言质量**：断言是否具体、有效
 
-## Review Output Format
+## 输出格式
 
 ```markdown
 ## Code Review: [file/component name]
@@ -87,7 +87,7 @@ Check for:
 [ ] Needs major revision
 ```
 
-## Common Patterns to Flag
+## 常见模式（重点标记）
 
 ### Python
 ```python
@@ -127,31 +127,30 @@ const processed = await process(data);
 await save(processed);
 ```
 
-## Review Commands
+## 常用命令
 
 ```bash
-# Show recent changes
+# 最近变更
 git diff HEAD~5 --stat
 git log --oneline -10
 
-# Find potential issues
+# 潜在风险点
 grep -rn "TODO\|FIXME\|HACK\|XXX" .
 grep -rn "password\|secret\|token" . --include="*.py"
 
-# Check complexity (Python)
+# 复杂度检查（Python）
 pip install radon && radon cc . -a
 
-# Check dependencies
-npm outdated  # Node
-pip list --outdated  # Python
+# 依赖检查
+npm outdated
+pip list --outdated
 ```
 
-## Review Workflow
+## 审查流程
 
-1. **Understand context**: Read PR description, linked issues
-2. **Run the code**: Build, test, run locally if possible
-3. **Read top-down**: Start with main entry points
-4. **Check tests**: Are changes tested? Do tests pass?
-5. **Security scan**: Run automated tools
-6. **Manual review**: Use checklist above
-7. **Write feedback**: Be specific, suggest fixes, be kind
+1. 理解上下文：先读 PR 描述与关联 issue
+2. 运行项目：构建、测试、本地验证（可行时）
+3. 自上而下阅读：先入口，再核心模块
+4. 检查测试：新增变更是否被测试覆盖
+5. 安全扫描：自动化工具 + 人工复核
+6. 输出反馈：明确问题、给可执行建议、语气专业

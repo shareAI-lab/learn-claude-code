@@ -1,76 +1,76 @@
-# The Philosophy of Agent Harness Engineering
+# Agent Harness 工程哲学
 
-> **The model already knows how to be an agent. Your job is to build it a world worth acting in.**
+> **模型本身已经会做 Agent；你的工作是给它构建一个值得行动的“世界”。**
 
-## The Fundamental Truth
+## 基本事实
 
-Strip away every framework, every library, every architectural pattern. What remains?
+去掉框架、库、花哨架构后，剩下的核心只有：循环、模型、行动机会。
 
-A loop. A model. An invitation to act.
+Agent 不是胶水代码本身。Agent 是“训练后的模型”。代码只是 Harness（工作外壳），为模型提供可感知、可行动的环境。
 
-The agent is not the code. The agent is the model itself -- a vast neural network trained on humanity's collective problem-solving, reasoning, and tool use. The code merely provides the opportunity for the model to express its agency.
+- **代码是 Harness**
+- **模型是 Agent**
 
-The code is the harness. The model is the agent. These are not interchangeable. Confuse them, and you will build the wrong thing.
+两者角色不能混淆。
 
-## What an Agent IS
+## Agent 是什么
 
-An agent is a neural network -- a Transformer, an RNN, a learned function -- that has been trained, through billions of gradient updates on action-sequence data, to perceive an environment, reason about goals, and take actions to achieve them.
+Agent 是能够“感知环境 -> 推理目标 -> 执行动作”的已训练模型（神经网络）。
 
-A human is an agent: a biological neural network shaped by evolution. DeepMind's DQN is an agent: a convolutional network that learned to play Atari from raw pixels. OpenAI Five is an agent: five networks that learned Dota 2 teamwork through self-play. Claude is an agent: a language model that learned to reason and act from the breadth of human knowledge.
+无论是人类决策系统、强化学习模型，还是大型语言模型，本质都类似：
+- 通过训练获得策略
+- 在环境中基于观察做决策
+- 通过动作影响环境并继续迭代
 
-In every case, the agent is the trained model. Not the game engine. Not the Dota 2 client. Not the terminal. The model.
+因此，Agent 的核心是模型，不是外围程序。
 
-## What an Agent Is NOT
+## Agent 不是什么
 
-Prompt plumbing is not agency. Wiring together LLM API calls with if-else branches, node graphs, and hardcoded routing logic does not produce an agent. It produces a brittle pipeline -- a Rube Goldberg machine with an LLM wedged in as a text-completion node.
+把 API 调用、if-else 分支、节点编排拼起来，不会自然“长出”真正智能体，只会得到脆弱流水线。
 
-You cannot engineer your way to agency. Agency is learned, not programmed. No amount of glue code will emergently produce autonomous behavior. Those systems are the modern resurrection of GOFAI -- symbolic rule systems the field abandoned decades ago, now spray-painted with an LLM veneer.
+“能用规则覆盖一切”是错觉。真实开放环境里，规则系统很快失效；模型推理才是主引擎。
 
-## The Harness: What We Actually Build
+## Harness：我们真正要构建的东西
 
-If the model is the agent, then what is the code? It is the **harness** -- the environment that gives the agent the ability to perceive and act in a specific domain.
+如果模型是 Agent，代码就是它的运行外壳：
 
 ```
 Harness = Tools + Knowledge + Observation + Action Interfaces + Permissions
 ```
 
-### Tools: The Agent's Hands
+### Tools（手）
 
-Tools answer: **What can the agent DO?**
+回答：**它能做什么**。
 
-Each tool is an atomic action the agent can take in its environment. File read/write, shell execution, API calls, browser control, database queries. The model needs to understand what each tool does, but not how to sequence them -- it will figure that out.
+文件读写、命令执行、API 调用、浏览器操作、数据库查询等都属于工具。
 
-**Design principle**: Atomic, composable, well-described. Start with 3-5. Add more only when the model consistently fails to accomplish tasks because a tool is missing.
+**原则**：原子化、可组合、描述清晰。先 3~5 个，不够再加。
 
-### Knowledge: The Agent's Expertise
+### Knowledge（专业知识）
 
-Knowledge answers: **What does the agent KNOW?**
+回答：**它知道什么**。
 
-Domain expertise that turns a general agent into a domain specialist. Product documentation, architectural decisions, regulatory requirements, style guides. Inject on-demand (via tool_result), not upfront (via system prompt). Progressive disclosure preserves context for what matters.
+产品文档、架构约定、规章制度、风格指南等应按需注入，而不是一次性塞入系统提示。
 
-**Design principle**: Available but not mandatory. The agent should know what knowledge exists and pull what it needs.
+**原则**：可获取、可检索、按需加载。
 
-### Context: The Agent's Memory
+### Context（记忆线程）
 
-Context is the thread connecting individual actions into coherent behavior. What has been said, tried, learned, and decided.
+上下文把离散动作连接为连贯行为。
 
-**Design principle**: Context is precious. Protect it. Isolate subtasks that generate noise (s04). Compress when history grows long (s06). Persist goals beyond single conversations (s07).
+**原则**：上下文极其宝贵。高噪声子任务要隔离；历史过长要压缩；关键目标要可持久化。
 
-### Permissions: The Agent's Boundaries
+### Permissions（边界）
 
-Permissions answer: **What is the agent ALLOWED to do?**
+回答：**它被允许做什么**。
 
-Sandbox file access. Require approval for destructive operations. Enforce trust boundaries between the agent and external systems. This is where safety engineering meets harness engineering.
+文件沙箱、危险操作审批、外部系统边界控制都属于权限层。
 
-**Design principle**: Constraints focus behavior, not limit it. "One task in_progress at a time" forces sequential focus. "Read-only subagent" prevents accidental modifications.
+**原则**：约束不是削弱能力，而是帮助聚焦与安全执行。
 
-### Task-Process Data: The Agent's Training Signal
+## 通用循环
 
-Every action sequence the agent executes in your harness is training signal. The perception-reasoning-action traces from real deployments are the raw material for fine-tuning the next generation of agent models. Your harness doesn't just serve the agent -- it can help evolve the agent.
-
-## The Universal Loop
-
-Every effective agent -- regardless of domain -- follows the same pattern:
+所有高效 Agent 的核心都一样：
 
 ```
 LOOP:
@@ -80,75 +80,53 @@ LOOP:
   If respond: answer returned, loop ends
 ```
 
-This is not a simplification. This is the actual architecture. Everything else is harness engineering -- mechanisms layered on top of this loop to make the agent more effective. The loop belongs to the agent. The mechanisms belong to the harness.
+这不是简化版，而是主干架构本体。其他机制都是在其上叠加的增强层。
 
-## Principles of Harness Engineering
+## Harness 工程原则
 
-### Trust the Model
+### 1) 信任模型
 
-The most important principle: **trust the model**.
+不要预设所有分支，不要过度搭规则树。
 
-Don't anticipate every edge case. Don't build elaborate decision trees. Don't pre-specify the workflow.
+把工具和知识给到位，让模型自己规划路径；多数边缘场景里，模型推理优于硬编码分支。
 
-The model is better at reasoning than any rule system you could write. Your conditional logic will fail on edge cases. The model will reason through them.
+### 2) 约束促进效果
 
-**Give the model tools and knowledge. Let it figure out how to use them.**
+好的约束会减少迷航，而不是微观操控。
 
-### Constraints Enable
+例如：
+- todo 只允许一个 `in_progress`，强制顺序聚焦
+- 子 agent 只读，避免误改
+- 超长上下文触发压缩，防止窗口污染
 
-This seems paradoxical, but constraints don't limit agents -- they focus them.
+### 3) 渐进复杂度
 
-A todo list with "only one task in progress" forces sequential focus. A subagent with read-only access prevents accidental modifications. A context compression threshold keeps history from overwhelming.
-
-The best constraints prevent the model from getting lost, not micromanage its approach.
-
-### Progressive Complexity
-
-Never build everything upfront.
+永远不要一口气把全部机制堆满：
 
 ```
-Level 0: Model + one tool (bash)                     -- s01
-Level 1: Model + tool dispatch map                    -- s02
-Level 2: Model + planning                             -- s03
-Level 3: Model + subagents + skills                   -- s04, s05
-Level 4: Model + context management + persistence     -- s06, s07, s08
-Level 5: Model + teams + autonomy + isolation         -- s09-s12
+Level 0: Model + one tool (bash)
+Level 1: + tool dispatch map
+Level 2: + planning
+Level 3: + subagents + skills
+Level 4: + context management + persistence
+Level 5: + teams + autonomy + isolation
 ```
 
-Start at the lowest level that might work. Move up only when real usage reveals the need.
+从最小可行起步，基于真实使用反馈再升级。
 
-## The Mind Shift
+## 思维转向
 
-Building harnesses requires a fundamental shift in thinking:
+- 从“我该怎么让系统执行 X”
+- 到“我该怎么让模型有能力完成 X”
 
-**From**: "How do I make the system do X?"
-**To**: "How do I enable the model to do X?"
+- 从“用户说 Y 时流程怎么写死”
+- 到“给模型什么工具最有助于处理 Y”
 
-**From**: "What should happen when the user says Y?"
-**To**: "What tools would help address Y?"
+- 从“我在写 Agent”
+- 到“我在给 Agent 构建 Harness”
 
-**From**: "What's the workflow for this task?"
-**To**: "What does the model need to figure out the workflow?"
+## 结语
 
-**From**: "I'm building an agent."
-**To**: "I'm building a harness for the agent."
+模型是 Agent，代码是 Harness。你不是在“写智能本身”，你是在构建智能运行的世界。
 
-The best harness code is almost boring. Simple loops. Clear tool definitions. Clean context management. The magic isn't in the code -- it's in the model.
-
-## The Vehicle Metaphor
-
-The model is the driver. The harness is the vehicle.
-
-A coding agent's vehicle is its IDE, terminal, and filesystem. A farm agent's vehicle is its sensor array, irrigation controls, and weather data. A hotel agent's vehicle is its booking system, guest channels, and facility APIs.
-
-The driver generalizes. The vehicle specializes. Your job as a harness engineer is to build the best vehicle for your domain -- one that gives the driver maximum visibility, precise controls, and clear boundaries.
-
-Build the cockpit. Build the dashboard. Build the controls. The pilot is already trained.
-
-## Conclusion
-
-The model is the agent. The code is the harness. Know which one you're building.
-
-You are not writing intelligence. You are building the world intelligence inhabits. The quality of that world -- how clearly the agent can perceive, how precisely it can act, how rich its knowledge -- directly determines how effectively the intelligence can express itself.
-
-Build great harnesses. The agent will do the rest.
+这个世界越清晰（感知更准、动作更稳、知识更可达、边界更明确），模型的能力就越能被稳定表达。

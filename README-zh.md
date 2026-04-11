@@ -1,6 +1,6 @@
 # Learn Claude Code
 
-[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
+[中文主文档](./README.md)
 
 一个面向实现者的教学仓库：从零开始，手搓一个高完成度的 coding agent harness。
 
