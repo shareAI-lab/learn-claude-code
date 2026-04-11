@@ -1,4 +1,4 @@
-# LangChain-Native Deep Agents s01-s05 Teaching Track
+# LangChain-Native Deep Agents s01-s06 Teaching Track
 
 This directory is the parallel LangChain/Deep Agents track for the first
 milestone of the course. The original `agents/*.py` files remain the
@@ -41,7 +41,10 @@ compatibility fallback if you already use the original `.env` file.
   `Command(update=...)` plus middleware. Its display path now uses a tiny
   renderer-first seam while preserving the terminal output and avoiding
   browser/API/event-bus scope.
-- After review, the current `s01-s05` file names still describe the dominant
+- `s06` is the current **context-compression** example: canonical history stays
+  in explicit state while a smaller model-facing projection walks through a
+  cc-haha-inspired six-stage pipeline.
+- After review, the current `s01-s06` file names still describe the dominant
   behavior of each chapter well enough to keep the chapter shell useful.
 
 ## Chapter Map
@@ -53,9 +56,38 @@ compatibility fallback if you already use the original `.env` file.
 | `agents/s03_todo_write.py` | `agents_deepagents/s03_todo_write.py` | Tutorial-shaped planning state (`items`, `rounds_since_update`) plus middleware-driven `write_plan` updates and direct terminal rendering helpers | Visible session planning state |
 | `agents/s04_subagent.py` | `agents_deepagents/s04_subagent.py` | Deep Agents `SubAgentMiddleware` maps original `run_subagent(prompt)` to `task(description, subagent_type)` with fresh child message context and summary-only return | Subagents as context isolation |
 | `agents/s05_skill_loading.py` | `agents_deepagents/s05_skill_loading.py` | Deep Agents `SkillsMiddleware` advertises skill metadata; `read_file` loads `SKILL.md` only on demand | Discover light, load deep |
+| `agents/s06_context_compact.py` | `agents_deepagents/s06_context_compact.py` | Typed state plus six explicit compression stages: tool-result budget, snip projection, microcompact, context collapse, auto compact, and reactive overflow recovery | Honest cc-haha-inspired context compression pipeline |
+
+## s06 Evidence / Inference Map
+
+`s06_context_compact.py` exposes these same classifications in code so tests can
+verify the README disclosure stays aligned.
+
+### Source-backed stages
+
+- `apply_tool_result_budget`
+- `microcompact_messages`
+- `auto_compact_if_needed`
+- `reactive_compact_on_overflow`
+
+### Inferred teaching equivalents
+
+- `snip_projection`
+- `context_collapse`
+
+### Intentional simplifications
+
+- Character counts stand in for exact tokenizer budgets.
+- Persisted tool outputs are stored as plain text files instead of provider
+  cache edits.
+- Snip projection and context collapse are honest teaching equivalents because
+  the public cc-haha tree does not expose those internals in full.
+- Auto compact omits session-memory extraction, telemetry, and
+  prompt-cache-sharing details.
+
 ## Disclosure Status
 
-This README currently records no intentional nonessential drops for `s01-s05`.
+This README currently records no intentional nonessential drops for `s01-s06`.
 If a later chapter needs to omit nonessential behavior, record that fact in the
 chapter report or this README instead of implying full parity by default.
 
@@ -67,6 +99,7 @@ python agents_deepagents/s02_tool_use.py
 python agents_deepagents/s03_todo_write.py
 python agents_deepagents/s04_subagent.py
 python agents_deepagents/s05_skill_loading.py
+python agents_deepagents/s06_context_compact.py
 ```
 
 Automated tests compile the files and import pure helpers only; they do not use
