@@ -33,7 +33,15 @@ def resolve_workdir() -> Path:
 
 
 def deepgent_model_name() -> str:
-    return os.getenv("OPENAI_MODEL") or os.getenv("MODEL_ID") or DEFAULT_OPENAI_MODEL
+    openai_model = os.getenv("OPENAI_MODEL", "").strip()
+    if openai_model:
+        return openai_model
+
+    legacy_model = os.getenv("MODEL_ID", "").strip()
+    if legacy_model and not legacy_model.lower().startswith("claude"):
+        return legacy_model
+
+    return DEFAULT_OPENAI_MODEL
 
 
 def load_settings() -> ProjectSettings:
