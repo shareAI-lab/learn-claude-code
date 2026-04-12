@@ -16,12 +16,22 @@ def test_normalize_todos_rejects_multiple_in_progress_todos() -> None:
     with pytest.raises(ValueError, match="Only one todo item can be in_progress"):
         normalize_todos(
             [
-                {"content": "Inspect repo", "status": "in_progress", "activeForm": "Inspecting"},
-                {"content": "Implement change", "status": "in_progress", "activeForm": "Implementing"},
+                {
+                    "content": "Inspect repo",
+                    "status": "in_progress",
+                    "activeForm": "Inspecting",
+                },
+                {
+                    "content": "Implement change",
+                    "status": "in_progress",
+                    "activeForm": "Implementing",
+                },
             ]
         )
 
 
 def test_normalize_todos_rejects_empty_content() -> None:
     with pytest.raises(ValueError, match="value required"):
-        normalize_todos([{"content": "   ", "status": "pending", "activeForm": "Waiting"}])
+        normalize_todos(
+            [{"content": "   ", "status": "pending", "activeForm": "Waiting"}]
+        )

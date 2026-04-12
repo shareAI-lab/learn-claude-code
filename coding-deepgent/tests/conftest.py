@@ -44,10 +44,10 @@ def pytest_configure(config: Any) -> None:
     ORIGINAL_SOCKET_FUNCS["connect"] = socket.socket.connect
     ORIGINAL_SOCKET_FUNCS["connect_ex"] = socket.socket.connect_ex
 
-    socket.create_connection = _block_network
-    socket.getaddrinfo = _block_network
-    socket.socket.connect = _block_socket_connect
-    socket.socket.connect_ex = _block_socket_connect
+    socket.create_connection = _block_network  # type: ignore[assignment]
+    socket.getaddrinfo = _block_network  # type: ignore[assignment]
+    socket.socket.connect = _block_socket_connect  # type: ignore[assignment, method-assign]
+    socket.socket.connect_ex = _block_socket_connect  # type: ignore[assignment, method-assign]
 
 
 def pytest_unconfigure(config: Any) -> None:
@@ -59,10 +59,10 @@ def pytest_unconfigure(config: Any) -> None:
     connect_ex = ORIGINAL_SOCKET_FUNCS.get("connect_ex")
 
     if create_connection is not None:
-        socket.create_connection = create_connection
+        socket.create_connection = create_connection  # type: ignore[assignment]
     if getaddrinfo is not None:
-        socket.getaddrinfo = getaddrinfo
+        socket.getaddrinfo = getaddrinfo  # type: ignore[assignment]
     if connect is not None:
-        socket.socket.connect = connect
+        socket.socket.connect = connect  # type: ignore[method-assign]
     if connect_ex is not None:
-        socket.socket.connect_ex = connect_ex
+        socket.socket.connect_ex = connect_ex  # type: ignore[method-assign]

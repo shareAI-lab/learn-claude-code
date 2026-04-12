@@ -9,14 +9,23 @@ description = "Staged LangChain cc product surface"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "dependency-injector>=4.48.0",
   "langchain>=1.0.0",
   "langchain-openai>=1.0.0",
+  "pydantic-settings>=2.8.0",
   "python-dotenv>=1.0.0",
   "pyyaml>=6.0",
+  "rich>=13.9.0",
+  "structlog>=24.4.0",
+  "typer>=0.16.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0.0"]
+dev = [
+  "mypy>=1.11.0",
+  "pytest>=8.0.0",
+  "ruff>=0.6.0",
+]
 
 [project.scripts]
 coding-deepgent = "coding_deepgent.cli:cli"

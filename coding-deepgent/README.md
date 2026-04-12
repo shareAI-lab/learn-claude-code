@@ -4,13 +4,27 @@ Independent cumulative LangChain cc product surface.
 
 ## Current product stage
 
-- `current_product_stage`: `stage-1-todowrite-foundation`
-- `compatibility_anchor`: `s03` planning/filesystem foundation
+- `current_product_stage`: `stage-3-professional-domain-runtime-foundation`
+- `compatibility_anchor`: `professional-domain-runtime-foundation`
 - Upgrade policy: advance by explicit product-stage plan approval, not tutorial chapter completion.
 
 ## Current architecture
 
-- LangChain remains the runtime boundary: `PlanningState`, planning middleware, tools, and `Command(update=...)` own agent behavior.
-- The public planning contract is now cc-aligned `TodoWrite(todos=[...])` with required `activeForm` on every todo item.
-- Planning display is renderer-first: `coding_deepgent.renderers.planning` owns the terminal-compatible plan/reminder rendering seam, while tool and middleware code call that seam.
-- Stage 1 intentionally does **not** add subagents, skills, context compaction, FastAPI, browser UI, plugin loading, or a generic event bus.
+- LangChain remains the runtime boundary: `RuntimeState`, `RuntimeContext`, `context=`, and LangGraph `thread_id` config own runtime invocation.
+- Dependency-injector containers compose settings, runtime seams, domain tools, middleware, session storage, and agent creation; domain packages do not import containers.
+- The public planning contract remains cc-aligned `TodoWrite(todos=[...])` with required `activeForm` on every todo item.
+- Stage 3 creates a professional runtime foundation without full cc parity; subagents, hooks, permissions, compact, memory, MCP, and durable tasks remain future domains.
+
+
+## CLI surface
+
+The stage-3 runtime-foundation CLI keeps the legacy `--prompt` path while adding grouped commands:
+
+- `coding-deepgent --prompt "..."` — run one prompt and exit
+- `coding-deepgent run "..."` — explicit one-shot command
+- `coding-deepgent config show` — render the resolved local configuration without exposing secrets
+- `coding-deepgent sessions list` — render the current session index view
+- `coding-deepgent sessions resume <session-id> --prompt "..."` — continue a recorded session when a session provider is wired
+- `coding-deepgent doctor` — verify CLI/rendering/logging dependencies locally
+
+Rich table renderers live in `coding_deepgent.renderers.text`, and local structured logging setup lives in `coding_deepgent.logging_config`.

@@ -1,3 +1,3 @@
 from coding_deepgent.cli import cli
 
-cli()
+raise SystemExit(cli())

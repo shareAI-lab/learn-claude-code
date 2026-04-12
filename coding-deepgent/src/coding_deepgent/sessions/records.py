@@ -1,0 +1,87 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+SESSION_RECORD_VERSION = 1
+MESSAGE_RECORD_TYPE = "message"
+STATE_SNAPSHOT_RECORD_TYPE = "state_snapshot"
+
+
+def iso_timestamp_now() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+@dataclass(frozen=True, slots=True)
+class SessionContext:
+    session_id: str
+    workdir: Path
+    store_dir: Path
+    transcript_path: Path
+    entrypoint: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SessionSummary:
+    session_id: str
+    workdir: Path
+    transcript_path: Path
+    created_at: str | None
+    updated_at: str | None
+    first_prompt: str | None
+    message_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class LoadedSession:
+    context: SessionContext
+    history: list[dict[str, str]]
+    state: dict[str, Any]
+    summary: SessionSummary
+
+
+class SessionLoadError(RuntimeError):
+    """Raised when a targeted session cannot be resumed from valid transcript records."""
+
+
+def make_message_record(
+    context: SessionContext,
+    *,
+    role: str,
+    content: str,
+    message_index: int | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "record_type": MESSAGE_RECORD_TYPE,
+        "version": SESSION_RECORD_VERSION,
+        "session_id": context.session_id,
+        "timestamp": iso_timestamp_now(),
+        "cwd": str(context.workdir),
+        "role": role,
+        "content": content,
+    }
+    if context.entrypoint:
+        record["entrypoint"] = context.entrypoint
+    if message_index is not None:
+        record["message_index"] = message_index
+    if metadata:
+        record["metadata"] = metadata
+    return record
+
+
+def make_state_snapshot_record(
+    context: SessionContext,
+    *,
+    state: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "record_type": STATE_SNAPSHOT_RECORD_TYPE,
+        "version": SESSION_RECORD_VERSION,
+        "session_id": context.session_id,
+        "timestamp": iso_timestamp_now(),
+        "cwd": str(context.workdir),
+        "state": state,
+    }

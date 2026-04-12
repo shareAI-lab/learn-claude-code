@@ -7,13 +7,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "coding_deepgent"
 TESTS = ROOT / "tests"
+STAGE_1 = "stage-1-todowrite-foundation"
+STAGE_3 = "stage-3-professional-domain-runtime-foundation"
+TUTORIAL_PACKAGE = "agents_" + "deepagents"
 
 
 def _python_files() -> list[Path]:
     return sorted([*SRC.rglob("*.py"), *TESTS.rglob("*.py")])
 
 
-def test_project_avoids_agents_deepagents_imports() -> None:
+def _status() -> dict[str, object]:
+    return json.loads((ROOT / "project_status.json").read_text(encoding="utf-8"))
+
+
+def test_project_avoids_tutorial_track_imports() -> None:
     offenders: list[str] = []
 
     for path in _python_files():
@@ -21,24 +28,32 @@ def test_project_avoids_agents_deepagents_imports() -> None:
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    if alias.name.startswith("agents_deepagents"):
+                    if alias.name.startswith(TUTORIAL_PACKAGE):
                         offenders.append(f"{path}:{alias.name}")
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
-                if module.startswith("agents_deepagents"):
+                if module.startswith(TUTORIAL_PACKAGE):
                     offenders.append(f"{path}:{module}")
 
     assert offenders == []
 
 
 def test_product_status_uses_stage_language_not_chapter_gate() -> None:
-    status = json.loads((ROOT / "project_status.json").read_text(encoding="utf-8"))
+    status = _status()
+    stage = str(status["current_product_stage"])
 
-    assert status["current_product_stage"] == "stage-1-todowrite-foundation"
-    assert status["compatibility_anchor"] == "s03"
+    assert stage in {STAGE_1, STAGE_3}
+    assert (
+        status["compatibility_anchor"]
+        == {
+            STAGE_1: "s03",
+            STAGE_3: "professional-domain-runtime-foundation",
+        }[stage]
+    )
     assert status["shape"] == "staged_langchain_cc_product"
-    assert "product-stage plan approval" in status["upgrade_policy"]
-    assert "chapter is complete" not in status["upgrade_policy"]
+    upgrade_policy = str(status["upgrade_policy"])
+    assert "product-stage plan approval" in upgrade_policy
+    assert "chapter is complete" not in upgrade_policy
 
 
 def test_package_does_not_expose_stage_named_modules() -> None:

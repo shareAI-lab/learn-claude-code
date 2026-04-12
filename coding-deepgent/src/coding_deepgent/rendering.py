@@ -43,7 +43,11 @@ def latest_assistant_text(result: Any) -> str:
     if isinstance(result, dict):
         messages = result.get("messages") or []
         for message in reversed(messages):
-            role = message.get("role") if isinstance(message, dict) else getattr(message, "type", "")
+            role = (
+                message.get("role")
+                if isinstance(message, dict)
+                else getattr(message, "type", "")
+            )
             if role in {"assistant", "ai"}:
                 text = extract_text(_message_content(message))
                 if text:

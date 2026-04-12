@@ -1,0 +1,260 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import uuid
+from collections.abc import Callable
+from copy import deepcopy
+from pathlib import Path
+from typing import Any
+
+from .records import (
+    LoadedSession,
+    MESSAGE_RECORD_TYPE,
+    SESSION_RECORD_VERSION,
+    STATE_SNAPSHOT_RECORD_TYPE,
+    SessionContext,
+    SessionLoadError,
+    SessionSummary,
+    make_message_record,
+    make_state_snapshot_record,
+)
+
+
+def default_state_snapshot() -> dict[str, Any]:
+    return {
+        "todos": [],
+        "rounds_since_update": 0,
+    }
+
+
+class JsonlSessionStore:
+    def __init__(self, base_dir: Path | None = None) -> None:
+        self.base_dir = (
+            base_dir or Path.home() / ".coding-deepgent" / "sessions"
+        ).expanduser()
+
+    def create_session(
+        self,
+        *,
+        workdir: Path,
+        session_id: str | None = None,
+        entrypoint: str | None = None,
+    ) -> SessionContext:
+        context = self._context_for(
+            workdir=workdir,
+            session_id=session_id or str(uuid.uuid4()),
+            entrypoint=entrypoint,
+        )
+        context.transcript_path.parent.mkdir(parents=True, exist_ok=True)
+        context.transcript_path.touch(exist_ok=True)
+        return context
+
+    def transcript_path_for(self, *, session_id: str, workdir: Path) -> Path:
+        normalized_workdir = workdir.expanduser().resolve()
+        return self.workspace_dir_for(normalized_workdir) / f"{session_id}.jsonl"
+
+    def workspace_dir_for(self, workdir: Path) -> Path:
+        normalized_workdir = workdir.expanduser().resolve()
+        digest = hashlib.sha1(str(normalized_workdir).encode("utf-8")).hexdigest()[:16]
+        return self.base_dir / digest
+
+    def append_message(
+        self,
+        context: SessionContext,
+        *,
+        role: str,
+        content: str,
+        message_index: int | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Path:
+        record = make_message_record(
+            context,
+            role=role,
+            content=content,
+            message_index=message_index,
+            metadata=metadata,
+        )
+        self._append_record(context.transcript_path, record)
+        return context.transcript_path
+
+    def append_state_snapshot(
+        self,
+        context: SessionContext,
+        *,
+        state: dict[str, Any],
+    ) -> Path:
+        serializable_state = json.loads(json.dumps(state))
+        record = make_state_snapshot_record(context, state=serializable_state)
+        self._append_record(context.transcript_path, record)
+        return context.transcript_path
+
+    def load_session(
+        self,
+        *,
+        session_id: str,
+        workdir: Path,
+        default_state_factory: Callable[[], dict[str, Any]] | None = None,
+    ) -> LoadedSession:
+        normalized_workdir = workdir.expanduser().resolve()
+        context = self._context_for(workdir=normalized_workdir, session_id=session_id)
+        history: list[dict[str, str]] = []
+        last_valid_state: dict[str, Any] | None = None
+        created_at: str | None = None
+        updated_at: str | None = None
+        first_prompt: str | None = None
+
+        for record in self._iter_valid_records(context.transcript_path):
+            if record.get("session_id") != session_id:
+                continue
+            if record.get("cwd") != str(normalized_workdir):
+                continue
+
+            timestamp = record.get("timestamp")
+            if isinstance(timestamp, str):
+                created_at = created_at or timestamp
+                updated_at = timestamp
+
+            record_type = record.get("record_type")
+            if record_type == MESSAGE_RECORD_TYPE:
+                role = record.get("role")
+                content = record.get("content")
+                if not isinstance(role, str) or not isinstance(content, str):
+                    continue
+                history.append({"role": role, "content": content})
+                if first_prompt is None and role == "user":
+                    first_prompt = content
+            elif record_type == STATE_SNAPSHOT_RECORD_TYPE:
+                state = self._coerce_state_snapshot(record.get("state"))
+                if state is not None:
+                    last_valid_state = state
+
+        if not history:
+            raise SessionLoadError(
+                f"No valid session messages found for session {session_id}"
+            )
+
+        summary = SessionSummary(
+            session_id=session_id,
+            workdir=normalized_workdir,
+            transcript_path=context.transcript_path,
+            created_at=created_at,
+            updated_at=updated_at,
+            first_prompt=first_prompt,
+            message_count=len(history),
+        )
+        state_factory = default_state_factory or default_state_snapshot
+        state = deepcopy(
+            last_valid_state if last_valid_state is not None else state_factory()
+        )
+        return LoadedSession(
+            context=context,
+            history=history,
+            state=state,
+            summary=summary,
+        )
+
+    def list_sessions(self, *, workdir: Path) -> list[SessionSummary]:
+        normalized_workdir = workdir.expanduser().resolve()
+        workspace_dir = self.workspace_dir_for(normalized_workdir)
+        if not workspace_dir.exists():
+            return []
+
+        summaries: list[SessionSummary] = []
+        for transcript_path in sorted(workspace_dir.glob("*.jsonl")):
+            session_id = transcript_path.stem
+            try:
+                loaded = self.load_session(
+                    session_id=session_id, workdir=normalized_workdir
+                )
+            except SessionLoadError:
+                continue
+            summaries.append(loaded.summary)
+
+        return sorted(
+            summaries,
+            key=lambda summary: summary.updated_at or "",
+            reverse=True,
+        )
+
+    def _append_record(self, transcript_path: Path, record: dict[str, Any]) -> None:
+        transcript_path.parent.mkdir(parents=True, exist_ok=True)
+        with transcript_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True))
+            handle.write("\n")
+
+    def _context_for(
+        self,
+        *,
+        workdir: Path,
+        session_id: str,
+        entrypoint: str | None = None,
+    ) -> SessionContext:
+        normalized_workdir = workdir.expanduser().resolve()
+        return SessionContext(
+            session_id=session_id,
+            workdir=normalized_workdir,
+            store_dir=self.base_dir,
+            transcript_path=self.transcript_path_for(
+                session_id=session_id,
+                workdir=normalized_workdir,
+            ),
+            entrypoint=entrypoint,
+        )
+
+    def _iter_valid_records(self, transcript_path: Path) -> list[dict[str, Any]]:
+        if not transcript_path.exists():
+            return []
+
+        records: list[dict[str, Any]] = []
+        with transcript_path.open(encoding="utf-8") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(record, dict):
+                    continue
+                if record.get("version") != SESSION_RECORD_VERSION:
+                    continue
+                if not isinstance(record.get("timestamp"), str):
+                    continue
+                records.append(record)
+        return records
+
+    def _coerce_state_snapshot(self, state: Any) -> dict[str, Any] | None:
+        if not isinstance(state, dict):
+            return None
+
+        todos = state.get("todos")
+        rounds_since_update = state.get("rounds_since_update")
+        if not isinstance(todos, list):
+            return None
+        if not isinstance(rounds_since_update, int):
+            return None
+
+        return {
+            "todos": deepcopy(todos),
+            "rounds_since_update": rounds_since_update,
+        }
+
+
+def make_session_store(base_dir: Path | None = None) -> JsonlSessionStore:
+    return JsonlSessionStore(base_dir=base_dir)
+
+
+def make_session_context(
+    *,
+    workdir: Path,
+    store: JsonlSessionStore | None = None,
+    session_id: str | None = None,
+    entrypoint: str | None = None,
+) -> SessionContext:
+    return (store or JsonlSessionStore()).create_session(
+        workdir=workdir,
+        session_id=session_id,
+        entrypoint=entrypoint,
+    )

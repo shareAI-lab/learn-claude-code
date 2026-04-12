@@ -1,7 +1,7 @@
 {
   "project": "coding-deepgent",
-  "current_product_stage": "stage-1-todowrite-foundation",
-  "compatibility_anchor": "s03",
+  "current_product_stage": "stage-3-professional-domain-runtime-foundation",
+  "compatibility_anchor": "professional-domain-runtime-foundation",
   "shape": "staged_langchain_cc_product",
   "public_shape": "single cumulative app",
   "upgrade_policy": "Advance by explicit product-stage plan approval, not tutorial chapter completion.",
