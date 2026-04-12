@@ -176,7 +176,7 @@ def agent_loop(messages: list):
             messages=normalize_messages(messages),
             tools=TOOLS, max_tokens=8000,
         )
-        messages.append({"role": "assistant", "content": response.content})
+        messages.append({"role": "assistant", "content": response.to_dict().get("content")})
         if response.stop_reason != "tool_use":
             return
         results = []
