@@ -35,6 +35,7 @@ def build_runtime_context(
         workdir=settings.workdir,
         entrypoint=entrypoint or settings.entrypoint,
         agent_name=agent_name or settings.agent_name,
+        skill_dir=settings.skill_dir,
         event_sink=event_sink,
     )
 

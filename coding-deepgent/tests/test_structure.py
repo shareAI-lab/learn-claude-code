@@ -10,6 +10,7 @@ STAGE_1 = "stage-1-todowrite-foundation"
 STAGE_3 = "stage-3-professional-domain-runtime-foundation"
 STAGE_4 = "stage-4-control-plane-foundation"
 STAGE_5 = "stage-5-memory-context-compact-foundation"
+STAGE_6 = "stage-6-skills-subagents-task-graph"
 TUTORIAL_PACKAGE = "agents_" + "deepagents"
 
 
@@ -42,7 +43,7 @@ def test_project_contains_responsibility_modules() -> None:
                 PACKAGE_ROOT / "middleware" / "planning.py",
             }
         )
-    elif stage in {STAGE_3, STAGE_4, STAGE_5}:
+    elif stage in {STAGE_3, STAGE_4, STAGE_5, STAGE_6}:
         expected.update(
             {
                 PACKAGE_ROOT / "app.py",
@@ -94,6 +95,17 @@ def test_project_contains_responsibility_modules() -> None:
                 PACKAGE_ROOT / "memory" / "tools.py",
                 PACKAGE_ROOT / "compact" / "__init__.py",
                 PACKAGE_ROOT / "compact" / "budget.py",
+                PACKAGE_ROOT / "skills" / "__init__.py",
+                PACKAGE_ROOT / "skills" / "schemas.py",
+                PACKAGE_ROOT / "skills" / "loader.py",
+                PACKAGE_ROOT / "skills" / "tools.py",
+                PACKAGE_ROOT / "tasks" / "__init__.py",
+                PACKAGE_ROOT / "tasks" / "schemas.py",
+                PACKAGE_ROOT / "tasks" / "store.py",
+                PACKAGE_ROOT / "tasks" / "tools.py",
+                PACKAGE_ROOT / "subagents" / "__init__.py",
+                PACKAGE_ROOT / "subagents" / "schemas.py",
+                PACKAGE_ROOT / "subagents" / "tools.py",
             }
         )
     else:
@@ -114,7 +126,7 @@ def test_project_status_declares_product_stage() -> None:
     marker = _status()
     stage = str(marker["current_product_stage"])
 
-    assert stage in {STAGE_1, STAGE_3, STAGE_4, STAGE_5}
+    assert stage in {STAGE_1, STAGE_3, STAGE_4, STAGE_5, STAGE_6}
     assert (
         marker["compatibility_anchor"]
         == {
@@ -122,6 +134,7 @@ def test_project_status_declares_product_stage() -> None:
             STAGE_3: "professional-domain-runtime-foundation",
             STAGE_4: "control-plane-foundation",
             STAGE_5: "memory-context-compact-foundation",
+            STAGE_6: "skills-subagents-task-graph",
         }[stage]
     )
     assert marker["shape"] == "staged_langchain_cc_product"

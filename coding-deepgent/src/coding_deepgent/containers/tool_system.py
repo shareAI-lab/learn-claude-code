@@ -7,6 +7,9 @@ from dependency_injector import containers, providers
 
 from coding_deepgent.memory import save_memory
 from coding_deepgent.permissions import PermissionManager
+from coding_deepgent.skills import load_skill
+from coding_deepgent.subagents import run_subagent
+from coding_deepgent.tasks import task_create, task_get, task_list, task_update
 from coding_deepgent.tool_system import (
     CapabilityRegistry,
     ToolCapability,
@@ -34,6 +37,12 @@ def _tool_domain(name: str) -> str:
         return "todo"
     if name == "save_memory":
         return "memory"
+    if name == "load_skill":
+        return "skills"
+    if name.startswith("task_"):
+        return "tasks"
+    if name == "run_subagent":
+        return "subagents"
     if name in READ_ONLY_TOOL_NAMES | DESTRUCTIVE_TOOL_NAMES:
         return "filesystem"
     return "unknown"
@@ -63,11 +72,22 @@ class ToolSystemContainer(containers.DeclarativeContainer):
     filesystem_tools: Any = providers.Dependency(default=providers.Object([]))
     todo_tools: Any = providers.Dependency(default=providers.Object([]))
     memory_tools: Any = providers.Dependency(default=providers.Object([save_memory]))
+    skill_tools: Any = providers.Dependency(default=providers.Object([load_skill]))
+    task_tools: Any = providers.Dependency(
+        default=providers.Object([task_create, task_get, task_list, task_update])
+    )
+    subagent_tools: Any = providers.Dependency(default=providers.Object([run_subagent]))
     permission_mode: Any = providers.Dependency(default=providers.Object("default"))
     event_sink: Any = providers.Dependency(default=providers.Object(None))
 
     tools: Any = providers.Callable(
-        _combine_tools, filesystem_tools, todo_tools, memory_tools
+        _combine_tools,
+        filesystem_tools,
+        todo_tools,
+        memory_tools,
+        skill_tools,
+        task_tools,
+        subagent_tools,
     )
     capability_registry: Any = providers.Callable(_capability_registry, tools)
     permission_manager: Any = providers.Factory(

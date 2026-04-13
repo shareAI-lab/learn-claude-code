@@ -4,8 +4,8 @@ Independent cumulative LangChain cc product surface.
 
 ## Current product stage
 
-- `current_product_stage`: `stage-5-memory-context-compact-foundation`
-- `compatibility_anchor`: `memory-context-compact-foundation`
+- `current_product_stage`: `stage-6-skills-subagents-task-graph`
+- `compatibility_anchor`: `skills-subagents-task-graph`
 - Upgrade policy: advance by explicit product-stage plan approval, not tutorial chapter completion.
 
 ## Current architecture
@@ -35,3 +35,7 @@ Stage 4 adds deterministic permission/safety decisions, local lifecycle hooks, a
 ## Stage 5 memory/context/compact foundation
 
 Stage 5 adds a store-backed long-term memory foundation seam, the model-visible `save_memory` tool, bounded memory context injection, and deterministic tool-result budget helpers. Message-history projection/pruning, LLM autocompact, session-memory side-agent writing, subagents, durable tasks, and MCP/plugin memory sync remain future work.
+
+## Stage 6 skills/subagents/task graph
+
+Stage 6 adds local skill loading, a store-backed durable task graph, and a minimal synchronous/stateless `run_subagent` tool. Background agents, SendMessage/mailbox, worktrees, remote/team runtime, sidechain resume, forked skill execution, MCP/plugin marketplace, and custom query loops remain future work.

@@ -11,6 +11,7 @@ STAGE_1 = "stage-1-todowrite-foundation"
 STAGE_3 = "stage-3-professional-domain-runtime-foundation"
 STAGE_4 = "stage-4-control-plane-foundation"
 STAGE_5 = "stage-5-memory-context-compact-foundation"
+STAGE_6 = "stage-6-skills-subagents-task-graph"
 TUTORIAL_PACKAGE = "agents_" + "deepagents"
 
 
@@ -44,7 +45,7 @@ def test_product_status_uses_stage_language_not_chapter_gate() -> None:
     status = _status()
     stage = str(status["current_product_stage"])
 
-    assert stage in {STAGE_1, STAGE_3, STAGE_4, STAGE_5}
+    assert stage in {STAGE_1, STAGE_3, STAGE_4, STAGE_5, STAGE_6}
     assert (
         status["compatibility_anchor"]
         == {
@@ -52,6 +53,7 @@ def test_product_status_uses_stage_language_not_chapter_gate() -> None:
             STAGE_3: "professional-domain-runtime-foundation",
             STAGE_4: "control-plane-foundation",
             STAGE_5: "memory-context-compact-foundation",
+            STAGE_6: "skills-subagents-task-graph",
         }[stage]
     )
     assert status["shape"] == "staged_langchain_cc_product"

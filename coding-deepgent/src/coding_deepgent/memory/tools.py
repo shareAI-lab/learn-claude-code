@@ -14,6 +14,7 @@ from coding_deepgent.memory.store import save_memory_record
 
 @tool(
     "save_memory",
+    args_schema=SaveMemoryInput,
     description=(
         "Save durable reusable knowledge or preferences as long-term memory. "
         "Do not save transient todos, current plans, task status, or one-off observations."
@@ -28,7 +29,10 @@ def save_memory(
     """Save reusable long-term memory through the LangGraph store seam."""
 
     validated = SaveMemoryInput(
-        content=content, namespace=cast(MemoryNamespace, namespace), source=source
+        content=content,
+        namespace=cast(MemoryNamespace, namespace),
+        source=source,
+        runtime=runtime,
     )
     store = runtime.store
     if store is None:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Literal
+
+from langchain.tools import ToolRuntime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MemoryNamespace = Literal["project", "user", "local"]
@@ -25,7 +27,7 @@ class MemoryRecord(BaseModel):
 
 
 class SaveMemoryInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     content: str = Field(
         ...,
@@ -39,6 +41,7 @@ class SaveMemoryInput(BaseModel):
     source: str = Field(
         default="agent", description="Source label for this memory entry."
     )
+    runtime: ToolRuntime
 
     @field_validator("content", "source")
     @classmethod

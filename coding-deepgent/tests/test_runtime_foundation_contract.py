@@ -17,6 +17,7 @@ PYPROJECT = ROOT / "pyproject.toml"
 STAGE_3 = "stage-3-professional-domain-runtime-foundation"
 STAGE_4 = "stage-4-control-plane-foundation"
 STAGE_5 = "stage-5-memory-context-compact-foundation"
+STAGE_6 = "stage-6-skills-subagents-task-graph"
 FUTURE_SESSION_DOMAINS = (
     "tasks",
     "subagents",
@@ -41,7 +42,7 @@ def _status() -> dict[str, object]:
 
 
 def _is_runtime_foundation_or_later() -> bool:
-    return _status()["current_product_stage"] in {STAGE_3, STAGE_4, STAGE_5}
+    return _status()["current_product_stage"] in {STAGE_3, STAGE_4, STAGE_5, STAGE_6}
 
 
 def _require_runtime_foundation_or_later() -> None:
@@ -168,6 +169,9 @@ def test_stage3_domain_packages_do_not_import_containers() -> None:
         *sorted((SRC / "prompting").rglob("*.py")),
         *sorted((SRC / "memory").rglob("*.py")),
         *sorted((SRC / "compact").rglob("*.py")),
+        *sorted((SRC / "skills").rglob("*.py")),
+        *sorted((SRC / "tasks").rglob("*.py")),
+        *sorted((SRC / "subagents").rglob("*.py")),
     ]
 
     offenders = _assert_no_import_prefix(domain_paths, ("coding_deepgent.containers",))

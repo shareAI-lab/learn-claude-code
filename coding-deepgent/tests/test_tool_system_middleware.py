@@ -23,6 +23,7 @@ def request(name: str, args: dict[str, object], sink: InMemoryEventSink | None =
             workdir=Path.cwd(),
             entrypoint="test",
             agent_name="test-agent",
+            skill_dir=Path.cwd() / "skills",
             event_sink=sink or InMemoryEventSink(),
         )
     )

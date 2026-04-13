@@ -12,4 +12,5 @@ class RuntimeContext:
     workdir: Path
     entrypoint: str
     agent_name: str
+    skill_dir: Path
     event_sink: RuntimeEventSink

@@ -19,6 +19,12 @@ EXPECTED_TOOL_NAMES = [
     "edit_file",
     "TodoWrite",
     "save_memory",
+    "load_skill",
+    "task_create",
+    "task_get",
+    "task_list",
+    "task_update",
+    "run_subagent",
 ]
 
 

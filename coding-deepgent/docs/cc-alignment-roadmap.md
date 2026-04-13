@@ -32,6 +32,13 @@ Aligning Stage 4 should improve safety, maintainability, context quality, and te
 - `/root/claude-code-haha/src/utils/queryContext.ts:fetchSystemPromptParts` -> prompt builder accepts rendered memory context as a distinct prompt section -> align -> use existing `create_agent` prompt path.
 - `/root/claude-code-haha/src/query.ts:applyToolResultBudget` -> deterministic `apply_tool_result_budget()` helper for oversized tool-result strings -> partial -> no message-history projection/pruning in Stage 5.
 
+## Stage 6 skills/tasks/subagents rows
+
+- `/root/claude-code-haha/src/tools/SkillTool/SkillTool.ts` -> local `load_skill` tool loads one `SKILL.md` by explicit name -> partial -> no plugin/MCP/remote skills.
+- `/root/claude-code-haha/src/utils/tasks.ts` and `/root/claude-code-haha/src/tools/Task*Tool/*` -> store-backed `task_create/get/list/update` with strict transitions -> partial -> no coordinator/team runtime yet.
+- `/root/claude-code-haha/src/tools/AgentTool/AgentTool.tsx` -> minimal synchronous/stateless `run_subagent` tool with exact child-tool allowlist -> partial -> no background/worktree/mailbox/resume.
+- `/root/claude-code-haha/src/tools/SendMessageTool/*` -> mailbox/send-message semantics -> defer -> requires later multi-agent runtime.
+
 ## Next candidates
 
 1. Stage 5: memory + context budget + compact seam.

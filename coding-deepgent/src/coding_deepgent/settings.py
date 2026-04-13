@@ -48,6 +48,7 @@ class Settings(BaseSettings):
 
     workdir: Path = Field(default_factory=resolve_workdir)
     session_dir: Path = Field(default=Path(".coding-deepgent/sessions"))
+    skill_dir: Path = Field(default=Path("skills"))
     model_name: str = Field(default_factory=deepgent_model_name)
     openai_api_key: SecretStr | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_base_url: str | None = Field(default=None, alias="OPENAI_BASE_URL")
@@ -83,6 +84,11 @@ class Settings(BaseSettings):
             self.session_dir = (self.workdir / self.session_dir).resolve()
         else:
             self.session_dir = self.session_dir.expanduser().resolve()
+
+        if not self.skill_dir.is_absolute():
+            self.skill_dir = (self.workdir / self.skill_dir).resolve()
+        else:
+            self.skill_dir = self.skill_dir.expanduser().resolve()
         return self
 
 
