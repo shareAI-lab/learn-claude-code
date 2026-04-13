@@ -16,10 +16,9 @@ README = ROOT / "README.md"
 PYPROJECT = ROOT / "pyproject.toml"
 STAGE_3 = "stage-3-professional-domain-runtime-foundation"
 STAGE_4 = "stage-4-control-plane-foundation"
+STAGE_5 = "stage-5-memory-context-compact-foundation"
 FUTURE_SESSION_DOMAINS = (
-    "memory",
     "tasks",
-    "compact",
     "subagents",
     "mcp",
 )
@@ -27,7 +26,6 @@ FUTURE_TOOL_SYSTEM_DOMAINS = (
     "mcp",
     "tasks",
     "subagents",
-    "compact",
 )
 FORBIDDEN_RUNTIME_DEPENDENCIES = {
     "fastapi",
@@ -43,7 +41,7 @@ def _status() -> dict[str, object]:
 
 
 def _is_runtime_foundation_or_later() -> bool:
-    return _status()["current_product_stage"] in {STAGE_3, STAGE_4}
+    return _status()["current_product_stage"] in {STAGE_3, STAGE_4, STAGE_5}
 
 
 def _require_runtime_foundation_or_later() -> None:
@@ -168,6 +166,8 @@ def test_stage3_domain_packages_do_not_import_containers() -> None:
         *sorted((SRC / "permissions").rglob("*.py")),
         *sorted((SRC / "hooks").rglob("*.py")),
         *sorted((SRC / "prompting").rglob("*.py")),
+        *sorted((SRC / "memory").rglob("*.py")),
+        *sorted((SRC / "compact").rglob("*.py")),
     ]
 
     offenders = _assert_no_import_prefix(domain_paths, ("coding_deepgent.containers",))

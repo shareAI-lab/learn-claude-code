@@ -25,6 +25,13 @@ Aligning Stage 4 should improve safety, maintainability, context quality, and te
 - `/root/claude-code-haha/src/utils/tasks.ts` and `src/tools/Task*Tool/*` -> future store-backed task domain separate from TodoWrite -> defer -> Stage 6 candidate.
 - `/root/claude-code-haha/src/components/permissions/*` -> no local UI parity target -> do-not-copy -> Rich CLI only unless explicitly requested.
 
+## Stage 5 memory/context rows
+
+- `/root/claude-code-haha/src/memdir/memoryTypes.ts` -> `MemoryRecord` / `SaveMemoryInput` as strict Pydantic schemas -> partial -> store-backed foundation only.
+- `/root/claude-code-haha/src/memdir/findRelevantMemories.ts` -> deterministic `recall_memories()` helper with bounded result count -> partial -> no embedding/vector recall yet.
+- `/root/claude-code-haha/src/utils/queryContext.ts:fetchSystemPromptParts` -> prompt builder accepts rendered memory context as a distinct prompt section -> align -> use existing `create_agent` prompt path.
+- `/root/claude-code-haha/src/query.ts:applyToolResultBudget` -> deterministic `apply_tool_result_budget()` helper for oversized tool-result strings -> partial -> no message-history projection/pruning in Stage 5.
+
 ## Next candidates
 
 1. Stage 5: memory + context budget + compact seam.

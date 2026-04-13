@@ -2,8 +2,8 @@
 
 ## Current product stage
 
-- `current_product_stage`: `stage-4-control-plane-foundation`
-- `compatibility_anchor`: `control-plane-foundation`
+- `current_product_stage`: `stage-5-memory-context-compact-foundation`
+- `compatibility_anchor`: `memory-context-compact-foundation`
 - Status: control-plane foundation implemented as one cumulative LangChain cc product surface
 - Last updated: 2026-04-12
 
@@ -30,3 +30,7 @@ The current product has a dependency-free planning renderer seam for terminal pl
 ## Stage 4 control-plane foundation
 
 Stage 4 adds deterministic permission/safety decisions, local lifecycle hooks, and structured prompt/context assembly as LangChain-native seams over the existing `create_agent` runtime. Interactive UI approval, auto classifiers, memory, durable tasks, subagents, and MCP/plugin loading remain future stages.
+
+## Stage 5 memory/context/compact foundation
+
+Stage 5 adds a store-backed long-term memory foundation seam, the model-visible `save_memory` tool, bounded memory context injection, and deterministic tool-result budget helpers. Message-history projection/pruning, LLM autocompact, session-memory side-agent writing, subagents, durable tasks, and MCP/plugin memory sync remain future work.

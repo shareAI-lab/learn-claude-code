@@ -9,6 +9,7 @@ PACKAGE_ROOT = PROJECT_ROOT / "src" / "coding_deepgent"
 STAGE_1 = "stage-1-todowrite-foundation"
 STAGE_3 = "stage-3-professional-domain-runtime-foundation"
 STAGE_4 = "stage-4-control-plane-foundation"
+STAGE_5 = "stage-5-memory-context-compact-foundation"
 TUTORIAL_PACKAGE = "agents_" + "deepagents"
 
 
@@ -41,7 +42,7 @@ def test_project_contains_responsibility_modules() -> None:
                 PACKAGE_ROOT / "middleware" / "planning.py",
             }
         )
-    elif stage in {STAGE_3, STAGE_4}:
+    elif stage in {STAGE_3, STAGE_4, STAGE_5}:
         expected.update(
             {
                 PACKAGE_ROOT / "app.py",
@@ -86,6 +87,13 @@ def test_project_contains_responsibility_modules() -> None:
                 PACKAGE_ROOT / "hooks" / "registry.py",
                 PACKAGE_ROOT / "prompting" / "__init__.py",
                 PACKAGE_ROOT / "prompting" / "builder.py",
+                PACKAGE_ROOT / "memory" / "__init__.py",
+                PACKAGE_ROOT / "memory" / "schemas.py",
+                PACKAGE_ROOT / "memory" / "store.py",
+                PACKAGE_ROOT / "memory" / "recall.py",
+                PACKAGE_ROOT / "memory" / "tools.py",
+                PACKAGE_ROOT / "compact" / "__init__.py",
+                PACKAGE_ROOT / "compact" / "budget.py",
             }
         )
     else:
@@ -106,13 +114,14 @@ def test_project_status_declares_product_stage() -> None:
     marker = _status()
     stage = str(marker["current_product_stage"])
 
-    assert stage in {STAGE_1, STAGE_3, STAGE_4}
+    assert stage in {STAGE_1, STAGE_3, STAGE_4, STAGE_5}
     assert (
         marker["compatibility_anchor"]
         == {
             STAGE_1: "s03",
             STAGE_3: "professional-domain-runtime-foundation",
             STAGE_4: "control-plane-foundation",
+            STAGE_5: "memory-context-compact-foundation",
         }[stage]
     )
     assert marker["shape"] == "staged_langchain_cc_product"

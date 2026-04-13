@@ -7,9 +7,19 @@ from langchain_core.messages import AIMessage
 from pydantic import PrivateAttr
 
 from coding_deepgent import app
+from coding_deepgent.memory import MemoryContextMiddleware
 from coding_deepgent.middleware import PlanContextMiddleware
 from coding_deepgent.runtime import RuntimeState
 from coding_deepgent.tool_system import ToolGuardMiddleware
+
+EXPECTED_TOOL_NAMES = [
+    "bash",
+    "read_file",
+    "write_file",
+    "edit_file",
+    "TodoWrite",
+    "save_memory",
+]
 
 
 class RecordingFakeModel(FakeMessagesListChatModel):
@@ -60,14 +70,15 @@ def test_build_agent_binds_todowrite_product_tools(monkeypatch) -> None:
     assert agent is not None
     assert captured["state_schema"] is RuntimeState
     middleware = cast(Sequence[object], captured["middleware"])
-    assert len(middleware) == 2
+    assert len(middleware) == 3
     assert isinstance(middleware[0], PlanContextMiddleware)
-    assert isinstance(middleware[1], ToolGuardMiddleware)
+    assert isinstance(middleware[1], MemoryContextMiddleware)
+    assert isinstance(middleware[2], ToolGuardMiddleware)
     tool_names = [
         getattr(tool, "name", getattr(tool, "__name__", ""))
         for tool in cast(Iterable[object], captured["tools"])
     ]
-    assert tool_names == ["bash", "read_file", "write_file", "edit_file", "TodoWrite"]
+    assert tool_names == EXPECTED_TOOL_NAMES
     system_prompt = str(captured["system_prompt"])
     assert "explicit progress tracking helps on multi-step work" in system_prompt
     assert "activeForm for every todo" in system_prompt
@@ -156,13 +167,7 @@ def test_free_agent_path_executes_todowrite_without_runtime_injection_error(
 
     history = [{"role": "user", "content": "plan this work"}]
     assert app.agent_loop(history) == "planned"
-    assert model._bound_tool_names == [
-        "bash",
-        "read_file",
-        "write_file",
-        "edit_file",
-        "TodoWrite",
-    ]
+    assert model._bound_tool_names == EXPECTED_TOOL_NAMES
     assert app.SESSION_STATE["todos"] == [
         {
             "content": "Inspect repo",

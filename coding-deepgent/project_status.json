@@ -1,7 +1,7 @@
 {
   "project": "coding-deepgent",
-  "current_product_stage": "stage-4-control-plane-foundation",
-  "compatibility_anchor": "control-plane-foundation",
+  "current_product_stage": "stage-5-memory-context-compact-foundation",
+  "compatibility_anchor": "memory-context-compact-foundation",
   "shape": "staged_langchain_cc_product",
   "public_shape": "single cumulative app",
   "upgrade_policy": "Advance by explicit product-stage plan approval, not tutorial chapter completion.",

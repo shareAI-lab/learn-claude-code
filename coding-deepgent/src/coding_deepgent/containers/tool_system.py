@@ -5,6 +5,7 @@ from typing import Any
 
 from dependency_injector import containers, providers
 
+from coding_deepgent.memory import save_memory
 from coding_deepgent.permissions import PermissionManager
 from coding_deepgent.tool_system import (
     CapabilityRegistry,
@@ -31,6 +32,8 @@ def _tool_name(tool: object) -> str:
 def _tool_domain(name: str) -> str:
     if name == "TodoWrite":
         return "todo"
+    if name == "save_memory":
+        return "memory"
     if name in READ_ONLY_TOOL_NAMES | DESTRUCTIVE_TOOL_NAMES:
         return "filesystem"
     return "unknown"
@@ -59,10 +62,13 @@ def _singleton_list(item: object) -> list[object]:
 class ToolSystemContainer(containers.DeclarativeContainer):
     filesystem_tools: Any = providers.Dependency(default=providers.Object([]))
     todo_tools: Any = providers.Dependency(default=providers.Object([]))
+    memory_tools: Any = providers.Dependency(default=providers.Object([save_memory]))
     permission_mode: Any = providers.Dependency(default=providers.Object("default"))
     event_sink: Any = providers.Dependency(default=providers.Object(None))
 
-    tools: Any = providers.Callable(_combine_tools, filesystem_tools, todo_tools)
+    tools: Any = providers.Callable(
+        _combine_tools, filesystem_tools, todo_tools, memory_tools
+    )
     capability_registry: Any = providers.Callable(_capability_registry, tools)
     permission_manager: Any = providers.Factory(
         PermissionManager,

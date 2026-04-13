@@ -6,6 +6,7 @@ from typing import Any
 from dependency_injector import containers, providers
 from langchain.agents import create_agent as langchain_create_agent
 
+from coding_deepgent.memory import MemoryContextMiddleware
 from coding_deepgent.prompting import build_prompt_context
 from coding_deepgent.settings import Settings, build_openai_model, load_settings
 
@@ -25,6 +26,10 @@ def build_system_prompt(settings: Settings) -> str:
         custom_system_prompt=settings.custom_system_prompt,
         append_system_prompt=settings.append_system_prompt,
     ).system_prompt
+
+
+def _singleton_list(item: object) -> list[object]:
+    return [item]
 
 
 def _combine_middleware(*groups: Sequence[object]) -> list[object]:
@@ -79,9 +84,12 @@ class AppContainer(containers.DeclarativeContainer):
     )
 
     system_prompt: Any = providers.Callable(build_system_prompt, settings)
+    memory_middleware: Any = providers.Factory(MemoryContextMiddleware)
+    memory_middleware_list: Any = providers.Callable(_singleton_list, memory_middleware)
     middleware: Any = providers.Callable(
         _combine_middleware,
         todo.middleware_list,
+        memory_middleware_list,
         tool_system.middleware_list,
     )
     agent: Any = providers.Factory(
