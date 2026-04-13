@@ -15,18 +15,15 @@ SRC = ROOT / "src" / "coding_deepgent"
 README = ROOT / "README.md"
 PYPROJECT = ROOT / "pyproject.toml"
 STAGE_3 = "stage-3-professional-domain-runtime-foundation"
+STAGE_4 = "stage-4-control-plane-foundation"
 FUTURE_SESSION_DOMAINS = (
     "memory",
     "tasks",
     "compact",
     "subagents",
     "mcp",
-    "permissions",
-    "hooks",
 )
 FUTURE_TOOL_SYSTEM_DOMAINS = (
-    "permissions",
-    "hooks",
     "mcp",
     "tasks",
     "subagents",
@@ -45,14 +42,14 @@ def _status() -> dict[str, object]:
     return json.loads((ROOT / "project_status.json").read_text(encoding="utf-8"))
 
 
-def _is_stage_3() -> bool:
-    return _status()["current_product_stage"] == STAGE_3
+def _is_runtime_foundation_or_later() -> bool:
+    return _status()["current_product_stage"] in {STAGE_3, STAGE_4}
 
 
-def _require_stage_3() -> None:
-    if not _is_stage_3():
+def _require_runtime_foundation_or_later() -> None:
+    if not _is_runtime_foundation_or_later():
         pytest.skip(
-            "stage-3 runtime foundation contract activates only after "
+            "runtime foundation contract activates only after "
             "the stage marker is selected"
         )
 
@@ -125,7 +122,7 @@ def test_runtime_foundation_dependency_contracts() -> None:
     runtime_dependencies = _dependency_names("dependencies")
     dev_dependencies = _dependency_names("dev")
 
-    if _is_stage_3():
+    if _is_runtime_foundation_or_later():
         assert {
             "dependency-injector",
             "pydantic-settings",
@@ -161,13 +158,16 @@ def test_no_forbidden_runtime_foundation_mirror_modules_or_custom_tool_base() ->
 
 
 def test_stage3_domain_packages_do_not_import_containers() -> None:
-    _require_stage_3()
+    _require_runtime_foundation_or_later()
 
     domain_paths = [
         *sorted((SRC / "todo").rglob("*.py")),
         *sorted((SRC / "filesystem").rglob("*.py")),
         *sorted((SRC / "sessions").rglob("*.py")),
         *sorted((SRC / "tool_system").rglob("*.py")),
+        *sorted((SRC / "permissions").rglob("*.py")),
+        *sorted((SRC / "hooks").rglob("*.py")),
+        *sorted((SRC / "prompting").rglob("*.py")),
     ]
 
     offenders = _assert_no_import_prefix(domain_paths, ("coding_deepgent.containers",))
@@ -175,12 +175,21 @@ def test_stage3_domain_packages_do_not_import_containers() -> None:
 
 
 def test_stage3_ui_imports_stay_out_of_domain_core_modules() -> None:
-    _require_stage_3()
+    _require_runtime_foundation_or_later()
 
     core_paths = [
         path
         for path in SRC.rglob("*.py")
-        if path.parent.name in {"todo", "filesystem", "sessions", "tool_system"}
+        if path.parent.name
+        in {
+            "todo",
+            "filesystem",
+            "sessions",
+            "tool_system",
+            "permissions",
+            "hooks",
+            "prompting",
+        }
         and path.name in {"schemas.py", "state.py", "service.py"}
     ]
 
@@ -189,7 +198,7 @@ def test_stage3_ui_imports_stay_out_of_domain_core_modules() -> None:
 
 
 def test_stage3_future_domain_boundaries() -> None:
-    _require_stage_3()
+    _require_runtime_foundation_or_later()
 
     session_offenders = _assert_no_import_prefix(
         sorted((SRC / "sessions").rglob("*.py")),
@@ -205,7 +214,7 @@ def test_stage3_future_domain_boundaries() -> None:
 
 
 def test_stage3_pydantic_settings_stays_centralized() -> None:
-    _require_stage_3()
+    _require_runtime_foundation_or_later()
 
     offenders = _assert_no_import_prefix(
         [

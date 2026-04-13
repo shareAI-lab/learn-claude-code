@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     checkpointer_backend: CheckpointerBackend = "none"
     store_backend: StoreBackend = "none"
     permission_mode: PermissionMode = "default"
+    custom_system_prompt: str | None = None
+    append_system_prompt: str | None = None
     agent_name: str = "coding-deepgent"
     entrypoint: str = "coding-deepgent"
     model_timeout_seconds: int = Field(default=60, ge=1, le=600)

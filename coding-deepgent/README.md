@@ -4,8 +4,8 @@ Independent cumulative LangChain cc product surface.
 
 ## Current product stage
 
-- `current_product_stage`: `stage-3-professional-domain-runtime-foundation`
-- `compatibility_anchor`: `professional-domain-runtime-foundation`
+- `current_product_stage`: `stage-4-control-plane-foundation`
+- `compatibility_anchor`: `control-plane-foundation`
 - Upgrade policy: advance by explicit product-stage plan approval, not tutorial chapter completion.
 
 ## Current architecture
@@ -28,3 +28,7 @@ The stage-3 runtime-foundation CLI keeps the legacy `--prompt` path while adding
 - `coding-deepgent doctor` — verify CLI/rendering/logging dependencies locally
 
 Rich table renderers live in `coding_deepgent.renderers.text`, and local structured logging setup lives in `coding_deepgent.logging_config`.
+
+## Stage 4 control-plane foundation
+
+Stage 4 adds deterministic permission/safety decisions, local lifecycle hooks, and structured prompt/context assembly as LangChain-native seams over the existing `create_agent` runtime. Interactive UI approval, auto classifiers, memory, durable tasks, subagents, and MCP/plugin loading remain future stages.

@@ -9,6 +9,7 @@ from pydantic import PrivateAttr
 from coding_deepgent import app
 from coding_deepgent.middleware import PlanContextMiddleware
 from coding_deepgent.runtime import RuntimeState
+from coding_deepgent.tool_system import ToolGuardMiddleware
 
 
 class RecordingFakeModel(FakeMessagesListChatModel):
@@ -59,8 +60,9 @@ def test_build_agent_binds_todowrite_product_tools(monkeypatch) -> None:
     assert agent is not None
     assert captured["state_schema"] is RuntimeState
     middleware = cast(Sequence[object], captured["middleware"])
-    assert len(middleware) == 1
+    assert len(middleware) == 2
     assert isinstance(middleware[0], PlanContextMiddleware)
+    assert isinstance(middleware[1], ToolGuardMiddleware)
     tool_names = [
         getattr(tool, "name", getattr(tool, "__name__", ""))
         for tool in cast(Iterable[object], captured["tools"])

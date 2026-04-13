@@ -9,6 +9,7 @@ SRC = ROOT / "src" / "coding_deepgent"
 TESTS = ROOT / "tests"
 STAGE_1 = "stage-1-todowrite-foundation"
 STAGE_3 = "stage-3-professional-domain-runtime-foundation"
+STAGE_4 = "stage-4-control-plane-foundation"
 TUTORIAL_PACKAGE = "agents_" + "deepagents"
 
 
@@ -42,12 +43,13 @@ def test_product_status_uses_stage_language_not_chapter_gate() -> None:
     status = _status()
     stage = str(status["current_product_stage"])
 
-    assert stage in {STAGE_1, STAGE_3}
+    assert stage in {STAGE_1, STAGE_3, STAGE_4}
     assert (
         status["compatibility_anchor"]
         == {
             STAGE_1: "s03",
             STAGE_3: "professional-domain-runtime-foundation",
+            STAGE_4: "control-plane-foundation",
         }[stage]
     )
     assert status["shape"] == "staged_langchain_cc_product"

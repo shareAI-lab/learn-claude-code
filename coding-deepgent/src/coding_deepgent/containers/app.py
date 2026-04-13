@@ -6,6 +6,7 @@ from typing import Any
 from dependency_injector import containers, providers
 from langchain.agents import create_agent as langchain_create_agent
 
+from coding_deepgent.prompting import build_prompt_context
 from coding_deepgent.settings import Settings, build_openai_model, load_settings
 
 from .filesystem import FilesystemContainer
@@ -16,13 +17,21 @@ from .tool_system import ToolSystemContainer
 
 
 def build_system_prompt(settings: Settings) -> str:
-    return (
-        "You are coding-deepgent, an independent cumulative LangChain cc product. "
-        f"Current workspace: {settings.workdir}. "
-        "Use the TodoWrite tool when explicit progress tracking helps on multi-step work, "
-        "preserve exactly one in-progress todo, include activeForm for every todo, "
-        "and prefer tools over prose."
-    )
+    return build_prompt_context(
+        workdir=settings.workdir,
+        agent_name=settings.agent_name,
+        session_id="default",
+        entrypoint=settings.entrypoint,
+        custom_system_prompt=settings.custom_system_prompt,
+        append_system_prompt=settings.append_system_prompt,
+    ).system_prompt
+
+
+def _combine_middleware(*groups: Sequence[object]) -> list[object]:
+    combined: list[object] = []
+    for group in groups:
+        combined.extend(group)
+    return combined
 
 
 def _create_compiled_agent(
@@ -65,10 +74,16 @@ class AppContainer(containers.DeclarativeContainer):
         ToolSystemContainer,
         filesystem_tools=filesystem.tools,
         todo_tools=todo.tools,
+        permission_mode=settings.provided.permission_mode,
+        event_sink=runtime.event_sink,
     )
 
     system_prompt: Any = providers.Callable(build_system_prompt, settings)
-    middleware: Any = providers.Callable(list, todo.middleware_list)
+    middleware: Any = providers.Callable(
+        _combine_middleware,
+        todo.middleware_list,
+        tool_system.middleware_list,
+    )
     agent: Any = providers.Factory(
         _create_compiled_agent,
         create_agent_factory=create_agent_factory,

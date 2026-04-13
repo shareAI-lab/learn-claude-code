@@ -8,8 +8,10 @@ from langchain.messages import ToolMessage
 from langchain.tools.tool_node import ToolCallRequest
 from langgraph.types import Command
 
+from coding_deepgent.runtime import RuntimeEvent
+
 from .capabilities import CapabilityRegistry
-from .policy import ToolPolicy, ToolPolicyDecision
+from .policy import ToolPolicy, ToolPolicyCode, ToolPolicyDecision
 
 
 class ToolGuardMiddleware(AgentMiddleware):
@@ -20,7 +22,7 @@ class ToolGuardMiddleware(AgentMiddleware):
         *,
         registry: CapabilityRegistry,
         policy: ToolPolicy | None = None,
-        event_sink: Callable[[dict[str, object]], None] | None = None,
+        event_sink: object | None = None,
     ) -> None:
         super().__init__()
         self.registry = registry
@@ -36,22 +38,19 @@ class ToolGuardMiddleware(AgentMiddleware):
         tool_call_id = request.tool_call.get("id")
 
         if not decision.allowed:
-            self._emit(
-                request=request,
-                phase="blocked",
-                decision=decision,
+            phase = (
+                "permission_ask"
+                if decision.code == ToolPolicyCode.PERMISSION_REQUIRED
+                else "permission_denied"
             )
+            self._emit(request=request, phase=phase, decision=decision)
             return ToolMessage(
                 content=decision.message,
                 tool_call_id=str(tool_call_id or ""),
                 status="error",
             )
 
-        self._emit(
-            request=request,
-            phase="allowed",
-            decision=decision,
-        )
+        self._emit(request=request, phase="allowed", decision=decision)
         result = handler(request)
         self._emit(
             request=request,
@@ -79,9 +78,10 @@ class ToolGuardMiddleware(AgentMiddleware):
             "tool": str(request.tool_call["name"]),
             "tool_call_id": request.tool_call.get("id"),
             "policy_code": decision.code.value,
+            "permission_behavior": decision.behavior,
             "result_type": type(result).__name__ if result is not None else None,
         }
-        _send_event(sink, event)
+        _send_event(sink, event, session_id=_session_id(request.runtime))
 
 
 def _runtime_event_sink(runtime: object) -> object | None:
@@ -95,12 +95,31 @@ def _runtime_event_sink(runtime: object) -> object | None:
     return getattr(context, "event_sink", None)
 
 
-def _send_event(sink: object, event: dict[str, object]) -> None:
+def _session_id(runtime: object) -> str:
+    context = getattr(runtime, "context", None)
+    if isinstance(context, dict):
+        return str(context.get("session_id", "unknown"))
+    return str(getattr(context, "session_id", "unknown"))
+
+
+def _send_event(sink: object, event: dict[str, object], *, session_id: str) -> None:
+    emit = getattr(sink, "emit", None)
+    if callable(emit):
+        emit(
+            RuntimeEvent(
+                kind=str(event["phase"]),
+                message=f"Tool guard {event['phase']} for {event['tool']}",
+                session_id=session_id,
+                metadata=event,
+            )
+        )
+        return
+
     if callable(sink):
         sink(event)
         return
 
-    for method_name in ("record", "emit", "append"):
+    for method_name in ("record", "append"):
         method = getattr(sink, method_name, None)
         if callable(method):
             method(event)
