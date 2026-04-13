@@ -1,6 +1,6 @@
 import { VERSION_ORDER, type VersionId } from "@/lib/constants";
 
-type SupportedLocale = "zh" | "en" | "ja";
+type SupportedLocale = "zh" | "en" | "ja" | "vi";
 type BridgeKind = "map" | "mechanism";
 
 export interface BridgeDocDescriptor {
@@ -18,11 +18,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "系统全景总览",
       en: "Architecture Overview",
       ja: "アーキテクチャ全体図",
+      vi: "Tổng quan kiến trúc",
     },
     summary: {
       zh: "先看系统全貌，再回到当前章节，能更快分清这一层到底属于哪里。",
       en: "The big-picture map. Come back here whenever you feel lost about where a chapter fits.",
       ja: "全体像を先に見てから現在の章へ戻るための俯瞰図です。",
+      vi: "Bản đồ toàn cảnh. Quay lại đây khi bạn không chắc một chương nằm ở lớp nào.",
     },
   },
   "s00a-query-control-plane": {
@@ -32,11 +34,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "查询控制平面",
       en: "Query Control Plane",
       ja: "クエリ制御プレーン",
+      vi: "Query Control Plane",
     },
     summary: {
       zh: "把一次请求如何穿过控制平面讲完整，适合权限、Prompt、MCP 这些章节前后补看。",
       en: "Why the simple loop needs a coordination layer as the system grows. Best read after Stage 1.",
       ja: "1つの要求が control plane をどう通るかを通しで補う資料です。",
+      vi: "Vì sao vòng lặp đơn giản cần một lớp điều phối khi hệ thống lớn lên. Nên đọc sau Stage 1.",
     },
   },
   "s00b-one-request-lifecycle": {
@@ -46,11 +50,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "一次请求生命周期",
       en: "One Request Lifecycle",
       ja: "1 リクエストのライフサイクル",
+      vi: "Vòng đời một request",
     },
     summary: {
       zh: "把一次请求从进入、执行到回写走完一遍，适合主线开始混时回头校正心智。",
       en: "Traces one request from entry to write-back. Best read after Stage 2 when pieces need connecting.",
       ja: "1回の要求を入口から write-back まで通して確認する補助資料です。",
+      vi: "Lần theo một request từ lúc vào đến lúc ghi kết quả lại. Hữu ích sau Stage 2 khi các mảnh cần nối với nhau.",
     },
   },
   "s00c-query-transition-model": {
@@ -60,11 +66,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "Query 续行模型",
       en: "Query Transition Model",
       ja: "クエリ遷移モデル",
+      vi: "Query Transition Model",
     },
     summary: {
       zh: "专门讲一条 query 为什么继续下一轮，适合恢复、压缩、预算、hook 开始缠在一起时回看。",
       en: "Why each continuation needs an explicit reason. Best read alongside s11 (Error Recovery).",
       ja: "エラー回復・文脈圧縮・予算制御・hook が重なり始めたときに、query がなぜ次のターンへ続くのかを補う資料です。",
+      vi: "Vì sao mỗi lần tiếp tục cần một lý do rõ ràng. Nên đọc cùng s11 (Error Recovery).",
     },
   },
   "s00d-chapter-order-rationale": {
@@ -74,11 +82,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "为什么这样安排章节顺序",
       en: "Why This Chapter Order",
       ja: "なぜこの章順なのか",
+      vi: "Vì sao sắp chương như vậy",
     },
     summary: {
       zh: "专门解释为什么课程要按现在这个顺序展开，适合读者刚进入主线或准备自己重排章节时回看。",
       en: "Explains why the curriculum is ordered this way and what breaks when the sequence is rearranged.",
       ja: "なぜこの順序で学ぶのか、順番を崩すと何が混乱するのかを整理する資料です。",
+      vi: "Giải thích vì sao curriculum đi theo thứ tự này và điều gì dễ vỡ khi đổi thứ tự.",
     },
   },
   "s00f-code-reading-order": {
@@ -88,11 +98,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "本仓库代码阅读顺序",
       en: "Code Reading Order",
       ja: "コード読解順",
+      vi: "Thứ tự đọc code",
     },
     summary: {
       zh: "专门告诉你本地 `agents/*.py` 该按什么顺序打开、每章先盯住哪类状态和函数，避免重新乱翻源码。",
       en: "Shows which local `agents/*.py` files to open first and what state or functions to inspect before the code turns into noise.",
       ja: "ローカルの `agents/*.py` をどの順で開き、各章でまずどの状態や関数を見るべきかを整理した読解ガイドです。",
+      vi: "Chỉ ra nên mở `agents/*.py` theo thứ tự nào và nên nhìn state hoặc function nào trước khi code trở thành nhiễu.",
     },
   },
   "s00e-reference-module-map": {
@@ -102,11 +114,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "参考仓库模块映射图",
       en: "Reference Module Map",
       ja: "参照モジュール対応表",
+      vi: "Bản đồ module tham chiếu",
     },
     summary: {
       zh: "把参考仓库里真正重要的模块簇，和当前课程章节一一对齐，专门用来验证章节顺序是否合理。",
       en: "Maps the reference repo's real module clusters onto the current curriculum to validate the chapter order.",
       ja: "参照リポジトリの高信号モジュール群と現在の教材章を対応付け、章順の妥当性を確認する地図です。",
+      vi: "Ánh xạ các cụm module quan trọng của repo tham chiếu vào curriculum hiện tại để kiểm tra thứ tự chương.",
     },
   },
   "s02a-tool-control-plane": {
@@ -116,11 +130,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "工具控制平面",
       en: "Tool Control Plane",
       ja: "ツール制御プレーン",
+      vi: "Tool Control Plane",
     },
     summary: {
       zh: "专门补工具调用怎样进入统一执行面，适合权限、Hook、MCP 等章节一起看。",
       en: "Why tools become a coordination layer, not just a lookup table. Best read after s02.",
       ja: "ツール呼び出しが共通の実行面に入る流れを補う資料です。",
+      vi: "Vì sao tools trở thành một lớp điều phối, không chỉ là bảng tra cứu. Nên đọc sau s02.",
     },
   },
   "s02b-tool-execution-runtime": {
@@ -130,11 +146,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "工具执行运行时",
       en: "Tool Execution Runtime",
       ja: "ツール実行ランタイム",
+      vi: "Tool Execution Runtime",
     },
     summary: {
       zh: "把工具并发、串行、进度消息、结果顺序和 context 合并这层运行时讲清楚。",
       en: "How multiple tool calls in one turn get executed safely. Best read after s02.",
       ja: "tool の並列実行と直列実行、progress 更新、結果順序、context 統合をまとめて補う資料です。",
+      vi: "Cách nhiều tool call trong một turn được thực thi an toàn. Nên đọc sau s02.",
     },
   },
   glossary: {
@@ -144,11 +162,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "术语表",
       en: "Glossary",
       ja: "用語集",
+      vi: "Thuật ngữ",
     },
     summary: {
       zh: "术语一多就先回这里，统一名词边界，避免 task、runtime task、teammate 混在一起。",
       en: "Bookmark this. Come back whenever you hit an unfamiliar term.",
       ja: "用語が増えて混ざり始めたときに戻る境界整理用の用語集です。",
+      vi: "Đánh dấu trang này. Quay lại mỗi khi gặp thuật ngữ lạ hoặc ranh giới khái niệm bị mờ.",
     },
   },
   "entity-map": {
@@ -158,11 +178,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "对象与模块关系图",
       en: "Entity Map",
       ja: "エンティティ地図",
+      vi: "Entity Map",
     },
     summary: {
       zh: "按对象和模块关系看系统，适合读到中后段时重新校准模块边界。",
       en: "Use this when concepts start to blur. It tells you which layer each thing belongs to.",
       ja: "オブジェクトとモジュール関係から全体を再確認する地図です。",
+      vi: "Dùng khi khái niệm bắt đầu lẫn nhau. Trang này cho biết mỗi thứ thuộc lớp nào.",
     },
   },
   "data-structures": {
@@ -172,11 +194,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "关键数据结构地图",
       en: "Data Structure Map",
       ja: "主要データ構造マップ",
+      vi: "Bản đồ cấu trúc dữ liệu",
     },
     summary: {
       zh: "把核心记录结构放在一起看，适合任务、运行时、多 Agent 章节反复对照。",
       en: "Every important record in one place. Use when you lose track of where state lives.",
       ja: "主要な record 構造を横断的に見直すための資料です。",
+      vi: "Tập hợp các record quan trọng ở một nơi. Dùng khi bạn quên state thật sự sống ở đâu.",
     },
   },
   "s10a-message-prompt-pipeline": {
@@ -186,11 +210,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "消息与 Prompt 装配流水线",
       en: "Message-Prompt Pipeline",
       ja: "メッセージと Prompt の組み立てパイプライン",
+      vi: "Message-Prompt Pipeline",
     },
     summary: {
       zh: "专门补消息、Prompt 片段和装配顺序，适合 s10 前后深入看。",
       en: "The full input pipeline beyond system prompt. Best read alongside s10.",
       ja: "message と prompt 片をどの順に組み立てるかを補う解説です。",
+      vi: "Toàn bộ pipeline đầu vào ngoài system prompt. Nên đọc cùng s10.",
     },
   },
   "s13a-runtime-task-model": {
@@ -200,11 +226,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "运行时任务模型",
       en: "Runtime Task Model",
       ja: "ランタイムタスクモデル",
+      vi: "Runtime Task Model",
     },
     summary: {
       zh: "把 task goal、runtime record、notification 三层边界一次讲清。",
       en: "The most common Stage 3 confusion: two meanings of 'task'. Read between s12 and s13.",
       ja: "作業目標・実行記録・通知の3層境界をまとめて補う資料です。",
+      vi: "Chỗ dễ nhầm nhất ở Stage 3: hai nghĩa của 'task'. Nên đọc giữa s12 và s13.",
     },
   },
   "s19a-mcp-capability-layers": {
@@ -214,11 +242,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "MCP 能力层地图",
       en: "MCP Capability Layers",
       ja: "MCP 能力層マップ",
+      vi: "MCP Capability Layers",
     },
     summary: {
       zh: "把本地工具、插件、MCP server 如何接回同一 capability bus 讲完整。",
       en: "MCP is more than external tools. This shows the full capability stack. Read alongside s19.",
       ja: "native tool・plugin・MCP server が 1 つの capability bus へ戻る全体像を補います。",
+      vi: "MCP không chỉ là external tools. Trang này cho thấy toàn bộ capability stack. Nên đọc cùng s19.",
     },
   },
   "team-task-lane-model": {
@@ -228,11 +258,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "队友-任务-车道模型",
       en: "Teammate-Task-Lane Model",
       ja: "チームメイト・タスク・レーンモデル",
+      vi: "Teammate-Task-Lane Model",
     },
     summary: {
       zh: "专门拆清队友、协议请求、任务、运行时槽位和 worktree 车道这五层边界。",
       en: "Five concepts that look similar but live on different layers. Keep open during s15-s18.",
       ja: "teammate・protocol request・task・runtime slot・worktree lane の 5 層境界を整理します。",
+      vi: "Năm khái niệm trông giống nhau nhưng sống ở các lớp khác nhau. Nên mở khi đọc s15-s18.",
     },
   },
   "teaching-scope": {
@@ -242,11 +274,13 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       zh: "教学范围与取舍",
       en: "Teaching Scope",
       ja: "教材の守備範囲",
+      vi: "Phạm vi giảng dạy",
     },
     summary: {
       zh: "说明这套教学仓库刻意不讲什么，帮助读者守住主线，不被低价值细节带偏。",
       en: "What this repo teaches, what it deliberately leaves out, and why.",
       ja: "この教材が意図的に省いている範囲を示し、主線を守るための資料です。",
+      vi: "Repo này dạy gì, cố ý bỏ gì, và vì sao.",
     },
   },
 };

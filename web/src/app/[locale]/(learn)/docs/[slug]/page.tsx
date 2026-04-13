@@ -4,7 +4,7 @@ import { DocRenderer } from "@/components/docs/doc-renderer";
 import { getTranslations } from "@/lib/i18n-server";
 import { BRIDGE_DOCS, getChaptersForBridgeDoc } from "@/lib/bridge-docs";
 
-const SUPPORTED_LOCALES = ["en", "zh", "ja"] as const;
+const SUPPORTED_LOCALES = ["en", "zh", "ja", "vi"] as const;
 
 function findBridgeDoc(locale: string, slug: string) {
   return (
@@ -58,12 +58,12 @@ export async function generateMetadata({
   const descriptor = BRIDGE_DOCS[slug];
   const doc = findBridgeDoc(locale, slug);
   const title =
-    descriptor?.title?.[locale as "en" | "zh" | "ja"] ??
+    descriptor?.title?.[locale as "en" | "zh" | "ja" | "vi"] ??
     descriptor?.title?.en ??
     doc?.title ??
     "Learn Claude Code";
   const description =
-    descriptor?.summary?.[locale as "en" | "zh" | "ja"] ??
+    descriptor?.summary?.[locale as "en" | "zh" | "ja" | "vi"] ??
     descriptor?.summary?.en ??
     undefined;
 
@@ -109,7 +109,7 @@ export default async function BridgeDocPage({
             {t("bridge_docs_standalone")}
           </span>
           <h1 className="text-3xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
-            {descriptor?.title?.[locale as "en" | "zh" | "ja"] ??
+            {descriptor?.title?.[locale as "en" | "zh" | "ja" | "vi"] ??
               descriptor?.title?.en ??
               doc.title}
           </h1>
@@ -129,10 +129,12 @@ export default async function BridgeDocPage({
                 ? "这页适合什么时候回看"
                 : locale === "ja"
                   ? "このページへ戻るべき場面"
-                  : "When This Page Helps"}
+                  : locale === "vi"
+                    ? "Khi nào nên quay lại trang này"
+                    : "When This Page Helps"}
             </p>
             <p className="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-              {descriptor?.summary?.[locale as "en" | "zh" | "ja"] ??
+              {descriptor?.summary?.[locale as "en" | "zh" | "ja" | "vi"] ??
                 descriptor?.summary?.en}
             </p>
           </div>
@@ -144,7 +146,9 @@ export default async function BridgeDocPage({
                   ? "最适合和这些章节一起读"
                   : locale === "ja"
                     ? "いっしょに読むと効く章"
-                    : "Best Read Alongside"}
+                    : locale === "vi"
+                      ? "Nên đọc cùng"
+                      : "Best Read Alongside"}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {relatedVersions.map((version) => (

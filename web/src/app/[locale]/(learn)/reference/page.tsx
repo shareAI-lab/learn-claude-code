@@ -8,7 +8,7 @@ import {
   MECHANISM_DOC_SLUGS,
 } from "@/lib/bridge-docs";
 
-type SupportedLocale = "zh" | "en" | "ja";
+type SupportedLocale = "zh" | "en" | "ja" | "vi";
 
 export default function ReferencePage() {
   const t = useTranslations("reference");

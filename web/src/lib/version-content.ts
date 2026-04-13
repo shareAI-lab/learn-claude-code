@@ -1,6 +1,6 @@
 import { VERSION_META, type VersionId } from "@/lib/constants";
 
-export type LearningLocale = "zh" | "en" | "ja";
+export type LearningLocale = "zh" | "en" | "ja" | "vi";
 
 type VersionContent = {
   subtitle: string;
@@ -203,6 +203,103 @@ const VERSION_CONTENT: Record<LearningLocale, Record<VersionId, VersionContent>>
       keyInsight: "External capabilities join the same routing, permission, and result-append path as native tools.",
     },
   },
+  vi: {
+    s01: {
+      subtitle: "Vòng lặp đóng nhỏ nhất",
+      coreAddition: "LoopState + phản hồi tool_result",
+      keyInsight: "Một agent trước hết là một vòng lặp: gửi messages, chạy tools, đưa results quay lại, rồi lặp tiếp.",
+    },
+    s02: {
+      subtitle: "Định tuyến ý định thành hành động",
+      coreAddition: "Tool specs + dispatch map",
+      keyInsight: "Thêm tool nghĩa là thêm một handler. Vòng lặp chính không cần đổi.",
+    },
+    s03: {
+      subtitle: "Kế hoạch trong phiên",
+      coreAddition: "PlanningState + reminder loop",
+      keyInsight: "Khi task có nhiều bước, một kế hoạch nhìn thấy được giúp agent không trôi khỏi mục tiêu.",
+    },
+    s04: {
+      subtitle: "Ngữ cảnh mới cho mỗi subtask",
+      coreAddition: "Delegation với message history tách biệt",
+      keyInsight: "Subagent chủ yếu là ranh giới ngữ cảnh, không phải một mẹo process.",
+    },
+    s05: {
+      subtitle: "Tìm nhẹ, nạp sâu",
+      coreAddition: "Skill registry + on-demand injection",
+      keyInsight: "Tìm tri thức chuyên biệt thật rẻ, nạp sâu chỉ khi cần.",
+    },
+    s06: {
+      subtitle: "Giữ active context nhỏ và ổn định",
+      coreAddition: "Persist markers + micro compact + summary compact",
+      keyInsight: "Compaction không phải xóa lịch sử, mà là chuyển chi tiết ra chỗ khác để agent tiếp tục làm việc.",
+    },
+    s07: {
+      subtitle: "Ý định phải qua cổng an toàn",
+      coreAddition: "deny / mode / allow / ask pipeline",
+      keyInsight: "Safety là một pipeline, không phải boolean: deny, kiểm tra mode, allow, rồi ask.",
+    },
+    s08: {
+      subtitle: "Mở rộng mà không viết lại loop",
+      coreAddition: "Lifecycle events + side-effect hooks",
+      keyInsight: "Loop giữ control flow; hooks chỉ quan sát, chặn hoặc ghi chú ở các thời điểm có tên.",
+    },
+    s09: {
+      subtitle: "Chỉ giữ thứ sống qua nhiều phiên",
+      coreAddition: "Typed memory records + reload path",
+      keyInsight: "Memory cho hướng đi; quan sát hiện tại cho sự thật.",
+    },
+    s10: {
+      subtitle: "Lắp đầu vào như một pipeline",
+      coreAddition: "Prompt sections + dynamic assembly",
+      keyInsight: "Mô hình thấy một input pipeline được dựng ra, không phải một chuỗi system prompt khổng lồ cố định.",
+    },
+    s11: {
+      subtitle: "Phục hồi, rồi tiếp tục",
+      coreAddition: "Continuation reasons + retry branches",
+      keyInsight: "Phần lớn lỗi không phải task đã thất bại thật, mà là tín hiệu để thử đường khác.",
+    },
+    s12: {
+      subtitle: "Đồ thị công việc bền vững",
+      coreAddition: "Task records + dependencies + unlock rules",
+      keyInsight: "Todo list giúp một phiên; durable task graph điều phối công việc sống lâu hơn phiên đó.",
+    },
+    s13: {
+      subtitle: "Các lane chạy nền",
+      coreAddition: "RuntimeTaskState + async execution slots",
+      keyInsight: "Background execution là một runtime lane, không phải vòng lặp chính thứ hai.",
+    },
+    s14: {
+      subtitle: "Để thời gian kích hoạt công việc",
+      coreAddition: "Scheduled triggers over runtime tasks",
+      keyInsight: "Scheduling không phải hệ riêng; nó chỉ đưa cùng agent loop vào từ timer.",
+    },
+    s15: {
+      subtitle: "Teammate chuyên trách tồn tại lâu dài",
+      coreAddition: "Team roster + teammate lifecycle",
+      keyInsight: "Teammates sống lâu hơn một prompt, có identity và phối hợp qua kênh bền vững.",
+    },
+    s16: {
+      subtitle: "Luật request-response chung",
+      coreAddition: "Protocol envelopes + request correlation",
+      keyInsight: "Protocol request là message có cấu trúc với ID; response phải tham chiếu cùng ID đó.",
+    },
+    s17: {
+      subtitle: "Tự nhận việc, tự resume",
+      coreAddition: "Idle polling + role-aware self-claim + resume context",
+      keyInsight: "Autonomy là cơ chế có ranh giới: idle, scan, claim, resume, không phải phép màu.",
+    },
+    s18: {
+      subtitle: "Thư mục riêng, lane riêng",
+      coreAddition: "Task-worktree state + explicit enter / closeout lifecycle",
+      keyInsight: "Task trả lời làm gì; worktree trả lời làm ở đâu. Hãy giữ chúng tách biệt.",
+    },
+    s19: {
+      subtitle: "External Capability Bus",
+      coreAddition: "Scoped servers + capability routing",
+      keyInsight: "External capabilities đi vào cùng routing, permission và result-append path như native tools.",
+    },
+  },
   ja: {
     s01: {
       subtitle: "最小の閉ループ",
@@ -303,7 +400,7 @@ const VERSION_CONTENT: Record<LearningLocale, Record<VersionId, VersionContent>>
 };
 
 export function normalizeLearningLocale(locale: string): LearningLocale {
-  if (locale === "zh" || locale === "ja") return locale;
+  if (locale === "zh" || locale === "ja" || locale === "vi") return locale;
   return "en";
 }
 

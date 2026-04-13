@@ -1,6 +1,6 @@
 # Learn Claude Code
 
-[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
+[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md) | [Tiếng Việt](./README-vi.md)
 
 一个面向实现者的教学仓库：从零开始，手搓一个高完成度的 coding agent harness。
 
@@ -322,6 +322,7 @@ learn-claude-code/
 ├── docs/zh/             # 中文主线文档
 ├── docs/en/             # 英文文档，当前为部分同步
 ├── docs/ja/             # 日文文档，当前为部分同步
+├── docs/vi/             # 越南语文档，当前为部分同步
 ├── skills/              # s05 使用的技能文件
 ├── web/                 # Web 教学平台
 └── requirements.txt
@@ -334,6 +335,7 @@ learn-claude-code/
 - `zh`：主线版本
 - `en`：部分同步
 - `ja`：部分同步
+- `vi`：已加入入口与完整文档树
 
 如果你要系统学习，请优先看中文。
 

@@ -20,10 +20,12 @@ locale_text() {
     zh:deep_dive) echo '深入探索' ;;
     en:deep_dive) echo 'Deep Dive' ;;
     ja:deep_dive) echo '深掘り' ;;
+    vi:deep_dive) echo 'Đọc sâu' ;;
 
     zh:bridge_control_plane) echo '工具控制平面' ;;
     en:bridge_control_plane) echo 'Tool Control Plane' ;;
     ja:bridge_control_plane) echo 'ツール制御プレーン' ;;
+    vi:bridge_control_plane) echo 'Tool Control Plane' ;;
 
     *) echo "Unknown locale text key: ${LOCALE}:${key}" >&2; return 1 ;;
   esac

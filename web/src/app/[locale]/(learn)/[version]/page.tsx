@@ -83,7 +83,7 @@ export default async function VersionPage({
       return {
         ...descriptor,
         title:
-          descriptor.title[locale as "zh" | "en" | "ja"] ?? descriptor.title.en,
+          descriptor.title[locale as "zh" | "en" | "ja" | "vi"] ?? descriptor.title.en,
         fallbackLocale: doc.locale !== locale ? doc.locale : null,
       };
     })
@@ -94,7 +94,7 @@ export default async function VersionPage({
         slug: string;
         kind: "map" | "mechanism";
         title: string;
-        summary: Record<"zh" | "en" | "ja", string>;
+        summary: Record<"zh" | "en" | "ja" | "vi", string>;
         fallbackLocale: string | null;
       } => Boolean(item)
     );

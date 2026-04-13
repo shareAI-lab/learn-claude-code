@@ -1,4 +1,4 @@
-[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
+[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md) | [Tiếng Việt](./README-vi.md)
 
 # Learn Claude Code
 
@@ -233,6 +233,7 @@ learn-claude-code/
 ├── docs/zh/             # Chinese mainline docs
 ├── docs/en/             # English docs
 ├── docs/ja/             # Japanese docs
+├── docs/vi/             # Vietnamese docs
 ├── skills/              # skill files used in s05
 ├── web/                 # web teaching platform
 └── requirements.txt
@@ -245,6 +246,7 @@ Chinese is still the canonical teaching line and the fastest-moving version.
 - `zh`: most reviewed and most complete
 - `en`: main chapters plus the major bridge docs are available
 - `ja`: main chapters plus the major bridge docs are available
+- `vi`: localized entry points plus a complete docs tree are available
 
 If you want the fullest and most frequently refined explanation path, use the Chinese docs first.
 

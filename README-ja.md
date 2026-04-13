@@ -1,4 +1,4 @@
-[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
+[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md) | [Tiếng Việt](./README-vi.md)
 
 # Learn Claude Code
 
@@ -229,6 +229,7 @@ learn-claude-code/
 ├── docs/zh/             # 中国語の主線文書
 ├── docs/en/             # 英語文書
 ├── docs/ja/             # 日本語文書
+├── docs/vi/             # ベトナム語文書
 ├── skills/              # s05 で使う skill ファイル
 ├── web/                 # Web 教学プラットフォーム
 └── requirements.txt
@@ -241,6 +242,7 @@ learn-claude-code/
 - `zh`: 最も完全で、最もレビューされている
 - `en`: 主線章と主要な橋渡し文書が利用できる
 - `ja`: 主線章と主要な橋渡し文書が利用できる
+- `vi`: 入口と完全な docs ツリーが利用できる
 
 最も深く、最も更新の速い説明を追うなら、まず中国語版を優先してください。
 

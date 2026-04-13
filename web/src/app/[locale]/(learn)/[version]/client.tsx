@@ -23,7 +23,7 @@ interface BridgeDoc {
   slug: string;
   kind: "map" | "mechanism";
   title: string;
-  summary: Record<"zh" | "en" | "ja", string>;
+  summary: Record<"zh" | "en" | "ja" | "vi", string>;
   fallbackLocale: string | null;
 }
 
@@ -162,7 +162,7 @@ export function VersionDetailClient({
                           {doc.title}
                         </h4>
                         <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                          {doc.summary[locale as "zh" | "en" | "ja"] ?? doc.summary.en}
+                          {doc.summary[locale as "zh" | "en" | "ja" | "vi"] ?? doc.summary.en}
                         </p>
                       </Link>
                     ))}
