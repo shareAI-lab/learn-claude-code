@@ -1,4 +1,4 @@
-from .schemas import RunSubagentInput, SubagentType
+from .schemas import RunSubagentInput, SubagentType, VerifierSubagentResult
 from .tools import (
     DEFAULT_CHILD_TOOLS,
     FORBIDDEN_CHILD_TOOLS,
@@ -15,6 +15,7 @@ __all__ = [
     "RunSubagentInput",
     "SubagentResult",
     "SubagentType",
+    "VerifierSubagentResult",
     "VERIFIER_EXTRA_TOOLS",
     "child_tool_allowlist",
     "run_subagent",

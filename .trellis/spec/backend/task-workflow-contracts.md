@@ -47,6 +47,14 @@ def create_plan(
 ) -> PlanArtifact: ...
 
 def get_plan(store: TaskStore, plan_id: str) -> PlanArtifact: ...
+
+def run_subagent(
+    task: str,
+    runtime: ToolRuntime,
+    agent_type: Literal["general", "verifier"] = "general",
+    plan_id: str | None = None,
+    max_turns: int = 1,
+) -> str: ...
 ```
 
 ### 3. Contracts
@@ -72,6 +80,16 @@ def get_plan(store: TaskStore, plan_id: str) -> PlanArtifact: ...
 - `plan_save` and `plan_get` are main-surface tools, but they do not enter TodoWrite state.
 - `plan_get` is allowed for verifier subagents.
 - `plan_save` is forbidden for verifier subagents.
+- `run_subagent` with `agent_type="verifier"` requires `plan_id`.
+- Verifier subagent execution requires a configured task store.
+- Verifier subagent execution must resolve the durable plan artifact before child execution begins.
+- Verifier subagent output must expose the durable plan boundary as structured JSON including:
+  - `plan_id`
+  - `plan_title`
+  - `verification`
+  - `task_ids`
+  - `tool_allowlist`
+  - `content`
 
 ### 4. Validation & Error Matrix
 
@@ -90,6 +108,10 @@ def get_plan(store: TaskStore, plan_id: str) -> PlanArtifact: ...
 | save plan with unknown task id | `ValueError("Unknown task dependencies...")` |
 | get missing plan | `KeyError("Unknown plan...")` |
 | verifier child tool allowlist | includes `plan_get`, excludes `plan_save` |
+| verifier subagent without `plan_id` | Pydantic validation error |
+| verifier subagent without runtime store | `RuntimeError("Verifier subagent requires task store")` |
+| verifier subagent with missing plan | `KeyError("Unknown plan...")` |
+| verifier subagent output | structured JSON parseable as verifier result |
 
 ### 5. Good / Base / Bad Cases
 
@@ -153,6 +175,11 @@ Expected:
 - `tests/test_tasks.py::test_plan_tools_save_and_get_artifacts`
 - `tests/test_tool_system_registry.py::test_main_projection_preserves_current_product_tool_surface`
 - `tests/test_subagents.py::test_subagent_allowlists_are_exact_and_exclude_mutating_tools`
+- `tests/test_subagents.py::test_verifier_subagent_requires_plan_id`
+- `tests/test_subagents.py::test_verifier_subagent_requires_task_store`
+- `tests/test_subagents.py::test_verifier_subagent_rejects_unknown_plan`
+- `tests/test_subagents.py::test_run_subagent_task_verifier_uses_durable_plan_payload`
+- `tests/test_subagents.py::test_run_subagent_tool_returns_structured_verifier_result`
 
 ### 7. Wrong vs Correct
 

@@ -13,6 +13,43 @@ Primary example:
 $stage-iterate Stage 12 Context and Recovery Hardening
 ```
 
+## Cost Modes
+
+This skill has two execution modes:
+
+* `lean` (default)
+* `deep`
+
+If the user does not explicitly request a long-running, high-context, or all-in-one pass, default to `lean`.
+
+Use `deep` only when the user explicitly opts in with wording like:
+
+* `deep mode`
+* `long-run`
+* `do the whole chain`
+* `one-shot`
+* `full validation`
+* `read everything again`
+
+### `lean` mode rules
+
+Use these by default:
+
+* Work one sub-stage at a time.
+* Do not automatically re-read large source/doc sets already captured in recent PRDs unless a real ambiguity appears.
+* Prefer focused tests over broad regression.
+* Do not automatically run full `pytest`, full `mypy`, or broad docs/git/PR updates.
+* If the checkpoint decision is `continue`, automatically move to the next sub-stage, but keep the validation and context budget lean.
+
+### `deep` mode rules
+
+Use these only on explicit opt-in:
+
+* Auto-continue after `APPROVE`.
+* Broader re-orientation is allowed.
+* Combined/full validation is allowed when justified.
+* Git/PR/doc updates may be folded into the same run if requested.
+
 ## Core Rule
 
 Do not move from one sub-stage to the next automatically just because tests pass.
@@ -25,6 +62,14 @@ After every sub-stage, run a checkpoint gate and choose exactly one outcome:
 * `stop`: ask the user because scope, alignment, tests, or architecture are no longer safe.
 
 If the checkpoint result is `continue`, immediately begin the next planned sub-stage without waiting for additional user approval.
+
+In `lean` mode, `continue` still means continue.
+
+The difference from `deep` is:
+
+* narrower context reuse
+* narrower validation scope
+* no automatic broad docs/git/PR work
 
 Only interrupt the long-running workflow when:
 
@@ -41,6 +86,8 @@ Use an explicit sub-stage state machine:
 * `terminal`
 
 When resuming the same stage workflow later, continue from the current active state instead of replaying the whole orientation process from scratch.
+
+If recent PRDs or stage ledgers already contain the required source mapping, expected effect, and boundaries, do not re-run a large source-reading pass by default in `lean` mode.
 
 ## Workflow
 
@@ -63,6 +110,12 @@ If no matching task exists, create one:
 python3 ./.trellis/scripts/task.py create "<stage title>" --slug <slug>
 ```
 
+In `lean` mode, prefer:
+
+* read the latest relevant checkpoint and PRD first
+* reuse prior source mapping if it is still sufficient
+* only expand source reading when the current sub-stage introduces a genuinely new feature band
+
 ### 2. Confirm Scope From Existing Plans
 
 Read the stage plan and any target design docs relevant to the request.
@@ -80,6 +133,8 @@ If the stage references cc-haha behavior, use `$cc-haha-alignment` before implem
 If it touches LangChain/LangGraph code, use `$langchain-architecture-guard` before implementation.
 
 If it changes backend product code, use `$before-backend-dev` before implementation.
+
+In `lean` mode, "use" these skills by reusing their already-recorded conclusions when available, instead of always repeating the full discovery pass.
 
 ### 3. Prepare A Sub-Stage PRD
 
@@ -106,6 +161,22 @@ python3 ./.trellis/scripts/task.py start "$TASK_DIR"
 ```
 
 Then implement and test the sub-stage.
+
+### 4.1 Validation Budget
+
+Default validation by mode:
+
+* `lean`
+  - focused tests only
+  - targeted lint/typecheck only on changed files
+  - full-suite validation only when:
+    - the user asks
+    - the sub-stage changes cross-cutting contracts
+    - focused validation exposes ambiguity that broader tests must resolve
+* `deep`
+  - focused tests plus broader regression as appropriate
+
+When the user says they want to defer heavy validation until later, honor that unless the current change would be unsafe without minimal verification.
 
 ### 4.5 Optional Subagent Parallelization
 
@@ -176,6 +247,12 @@ Always append the checkpoint to a stage ledger in the active task notes or linke
 ### 6. Improve This Skill When It Fails
 
 If this skill did not prevent drift, ambiguity, over-scoping, missing tests, or missing alignment, update it.
+
+Also update it when:
+
+* a long-running run consumed unnecessary context by re-reading already-settled planning/source material
+* it defaulted to broader validation than the user needed
+* it auto-continued when the user actually wanted a cheaper one-sub-stage cadence
 
 Use this lightweight improvement loop:
 

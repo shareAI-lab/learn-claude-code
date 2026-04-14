@@ -4,6 +4,11 @@ Use this protocol when a user asks Codex to work through a multi-stage roadmap o
 
 ## Stage Checklist
 
+Mode choice:
+
+- [ ] Decide whether this run is `lean` or `deep`.
+- [ ] If the user did not explicitly opt into long-running autopilot, default to `lean`.
+
 Before implementation:
 
 - [ ] A Trellis task exists.
@@ -20,6 +25,7 @@ During implementation:
 
 - [ ] Keep each sub-stage small.
 - [ ] Do not implement future sub-stages opportunistically.
+- [ ] In `lean` mode, do not re-read large settled source/doc context without a real ambiguity.
 - [ ] Do not add wrappers or framework layers without a real boundary.
 - [ ] Preserve existing user changes in dirty worktrees.
 - [ ] Keep delegated work off the immediate critical path unless the main agent is blocked.
@@ -29,6 +35,7 @@ After implementation:
 
 - [ ] Run focused tests.
 - [ ] Run lint/typecheck where appropriate.
+- [ ] In `lean` mode, avoid full-suite validation unless there is a concrete reason.
 - [ ] Update planning docs/status if architecture-visible behavior changed.
 - [ ] Run the checkpoint gate before moving on.
 
@@ -112,6 +119,16 @@ Instead:
 3. immediately start the next sub-stage
 
 Only stop the staged run when the checkpoint result is `adjust`, `split`, or `stop`, or when a real blocker appears.
+
+`lean` mode note:
+
+If the run is `lean`, a `continue` checkpoint still starts the next sub-stage automatically.
+
+The restriction is not on progression, but on cost:
+
+1. reuse existing planning/source context whenever safe
+2. prefer focused validation
+3. avoid broad docs/git/PR work unless explicitly requested or clearly required
 
 ## Stop Conditions
 

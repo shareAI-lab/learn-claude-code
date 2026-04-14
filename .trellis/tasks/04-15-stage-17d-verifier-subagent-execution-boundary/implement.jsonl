@@ -1,0 +1,3 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/task-workflow-contracts.md", "reason": "Stage 17B-17D workflow contracts, plan boundary, verifier allowlist rules"}
