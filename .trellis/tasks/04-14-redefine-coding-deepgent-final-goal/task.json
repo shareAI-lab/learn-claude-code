@@ -41,7 +41,11 @@
     "04-14-stage-13b-manual-compact-entry-point",
     "04-14-stage-13c-compact-summary-generation-seam",
     "04-14-stage-14a-explicit-generated-summary-cli-wiring",
-    "04-14-stage-15a-non-destructive-compact-transcript-records"
+    "04-14-stage-15a-non-destructive-compact-transcript-records",
+    "04-14-stage-15b-compact-record-recovery-display",
+    "04-14-stage-15c-compacted-continuation-selection",
+    "04-14-stage-16-compact-transcript-pruning-semantics",
+    "04-14-stage-16a-load-time-compacted-history-view"
   ],
   "parent": null,
   "relatedFiles": [],

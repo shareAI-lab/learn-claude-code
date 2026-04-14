@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/sessions/records.py", "reason": "LoadedSession compacted_history view"}
+{"file": "coding-deepgent/src/coding_deepgent/sessions/store_jsonl.py", "reason": "derive virtual compacted history at load time"}
+{"file": "coding-deepgent/src/coding_deepgent/cli_service.py", "reason": "use compacted_history view for selected continuation"}

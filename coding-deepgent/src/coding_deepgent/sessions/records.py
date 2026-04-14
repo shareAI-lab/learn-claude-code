@@ -63,6 +63,7 @@ class SessionCompact:
 class LoadedSession:
     context: SessionContext
     history: list[dict[str, str]]
+    compacted_history: list[dict[str, Any]]
     state: dict[str, Any]
     evidence: list[SessionEvidence]
     compacts: list[SessionCompact]

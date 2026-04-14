@@ -8,6 +8,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from coding_deepgent.compact import compact_messages_with_summary
 from coding_deepgent.runtime import default_runtime_state
 
 from .records import (
@@ -210,9 +211,11 @@ class JsonlSessionStore:
         state = deepcopy(
             last_valid_state if last_valid_state is not None else state_factory()
         )
+        compacted_history = self._build_compacted_history(history, compacts)
         return LoadedSession(
             context=context,
             history=history,
+            compacted_history=compacted_history,
             state=state,
             evidence=evidence,
             compacts=compacts,
@@ -365,3 +368,24 @@ class JsonlSessionStore:
             kept_message_count=kept_message_count,
             metadata=deepcopy(metadata) if isinstance(metadata, dict) else None,
         )
+
+    def _build_compacted_history(
+        self,
+        history: list[dict[str, str]],
+        compacts: list[SessionCompact],
+    ) -> list[dict[str, Any]]:
+        raw_history = [dict(message) for message in history]
+        if not compacts:
+            return raw_history
+
+        latest = compacts[-1]
+        keep_from = latest.original_message_count - latest.kept_message_count
+        keep_from = min(len(raw_history), max(0, keep_from))
+        preserved_tail = [dict(message) for message in raw_history[keep_from:]]
+        if not preserved_tail:
+            return raw_history
+        return compact_messages_with_summary(
+            preserved_tail,
+            summary=latest.summary,
+            keep_last=len(preserved_tail),
+        ).messages

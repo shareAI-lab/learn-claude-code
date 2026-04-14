@@ -173,7 +173,7 @@ def sessions_resume(
                 keep_last=compact_keep_last,
             )
         else:
-            history = cli_service.continuation_history(loaded)
+            history = cli_service.selected_continuation_history(loaded)
     except (RuntimeError, ValueError) as exc:
         raise ClickException(str(exc)) from exc
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .ports import SessionStore
-from .records import LoadedSession, SessionEvidence
+from .records import LoadedSession, SessionCompact, SessionEvidence
 
 RESUME_CONTEXT_MESSAGE_PREFIX = (
     "Resumed session context. Use this brief as continuation context, not as a new user request."
@@ -21,6 +21,7 @@ class RecoveryBrief:
     message_count: int
     active_todos: tuple[str, ...]
     recent_evidence: tuple[SessionEvidence, ...]
+    recent_compacts: tuple[SessionCompact, ...]
 
 
 def apply_resume_state(
@@ -52,6 +53,7 @@ def build_recovery_brief(
     loaded_session: LoadedSession,
     *,
     evidence_limit: int = 5,
+    compact_limit: int = 3,
 ) -> RecoveryBrief:
     active_todos = tuple(
         str(item.get("content", "")).strip()
@@ -66,6 +68,7 @@ def build_recovery_brief(
         message_count=loaded_session.summary.message_count,
         active_todos=active_todos,
         recent_evidence=tuple(loaded_session.evidence[-evidence_limit:]),
+        recent_compacts=tuple(loaded_session.compacts[-compact_limit:]),
     )
 
 
@@ -86,6 +89,13 @@ def render_recovery_brief(brief: RecoveryBrief) -> str:
         for item in brief.recent_evidence
     )
     if not brief.recent_evidence:
+        lines.append("- none")
+    lines.append("Recent compacts:")
+    lines.extend(
+        f"- [{item.trigger}] {item.summary}"
+        for item in brief.recent_compacts
+    )
+    if not brief.recent_compacts:
         lines.append("- none")
     return "\n".join(lines)
 

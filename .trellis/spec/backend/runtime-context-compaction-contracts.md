@@ -65,6 +65,14 @@ def append_compact(
     kept_message_count: int,
     metadata: dict[str, Any] | None = None,
 ) -> Path: ...
+
+class LoadedSession:
+    history: list[dict[str, str]]
+    compacted_history: list[dict[str, Any]]
+    state: dict[str, Any]
+    evidence: list[SessionEvidence]
+    compacts: list[SessionCompact]
+    summary: SessionSummary
 ```
 
 ### 3. Contracts
@@ -111,6 +119,9 @@ def append_compact(
 - Compact records must increment `SessionSummary.compact_count`.
 - Compact records must not appear in `LoadedSession.history`.
 - Compact records must not replace or delete any message/state/evidence record.
+- `LoadedSession.history` is the raw/full user-assistant transcript view.
+- `LoadedSession.compacted_history` is the load-time virtual compacted view.
+- If no valid compact-derived view exists, `compacted_history` must fall back to `history`.
 - Required compact record fields:
 
 ```json
@@ -130,6 +141,23 @@ def append_compact(
 
 - When continuation history contains synthetic compact artifacts, `run_prompt_with_recording()` must append one compact record before recording the continuation prompt.
 - The next persisted message index after compacted continuation must use `original_message_count` from the compact metadata, not the count of preserved synthetic history messages.
+
+#### Load-Time Compacted History View
+
+- `JsonlSessionStore.load_session()` must derive `LoadedSession.compacted_history` from the latest compact record when possible.
+- The compacted view must be:
+  1. compact boundary message
+  2. compact summary message
+  3. preserved tail messages
+- Tail start is derived as:
+
+```python
+keep_from = original_message_count - kept_message_count
+```
+
+- Tail derivation is clamped to `[0, len(raw_history)]`.
+- If the derived tail is empty or invalid, `compacted_history` must fall back to the raw history.
+- Compact-aware resume selectors should use `compacted_history` rather than re-derive compact semantics ad hoc.
 
 #### Memory Quality
 
@@ -156,6 +184,8 @@ def append_compact(
 | resume context history is recorded to transcript | synthetic resume context is not persisted as a message record |
 | compacted history is recorded to transcript | synthetic compact artifacts are not persisted as message records; one compact record is appended |
 | compacted history preserves only recent tail | next real message index starts at compact `original_message_count` |
+| compact record exists and derived tail is valid | `LoadedSession.compacted_history` contains boundary + summary + preserved tail |
+| compact record exists but derived tail is invalid or empty | `LoadedSession.compacted_history` falls back to raw history |
 | duplicate memory save | returns "Memory not saved" and store remains unchanged |
 
 ### 5. Good / Base / Bad Cases
@@ -209,11 +239,14 @@ Required focused tests:
 - `tests/test_cli.py::test_sessions_resume_rejects_compact_instructions_without_generation`
 - `tests/test_cli.py::test_run_once_records_new_and_resumed_session_transcript`
 - `tests/test_cli.py::test_run_once_records_compact_metadata_without_message_index_skew`
+- `tests/test_cli.py::test_selected_continuation_history_uses_loaded_compacted_history`
+- `tests/test_cli.py::test_sessions_resume_defaults_to_latest_compacted_continuation_when_available`
 - `tests/test_compact_artifacts.py`
 - `tests/test_compact_summarizer.py`
 - `tests/test_message_projection.py`
 - `tests/test_sessions.py::test_compact_record_roundtrip_does_not_enter_history`
 - `tests/test_sessions.py::test_load_session_ignores_invalid_compact_records`
+- `tests/test_sessions.py::test_load_session_compacted_history_falls_back_to_raw_history_on_invalid_tail_range`
 - `tests/test_memory.py::test_memory_quality_policy_rejects_transient_and_duplicate_entries`
 - `tests/test_memory_integration.py::test_save_memory_tool_rejects_transient_memory_via_create_agent_runtime`
 
@@ -224,6 +257,7 @@ Required assertion points:
 - `<analysis>` is absent from compact artifact summary text
 - compact summary artifact is not merged by `project_messages()`
 - compact transcript records are separated from `LoadedSession.history`
+- compacted history view is derived at load time and kept separate from raw history
 - persisted transcript `message_index` values remain contiguous for real persisted messages only
 - compacted continuation uses compact `original_message_count` as the next real message index baseline
 - rejected compact CLI combinations do not call `run_prompt`

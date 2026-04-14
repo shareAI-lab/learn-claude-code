@@ -201,7 +201,9 @@ def test_sessions_resume_uses_recovery_brief_continuation_history(
                     "Active todos:\n"
                     "- Continue work\n"
                     "Recent evidence:\n"
-                    "- [passed] verification: pytest passed"
+                    "- [passed] verification: pytest passed\n"
+                    "Recent compacts:\n"
+                    "- none"
                 ),
             },
             {"role": "assistant", "content": "existing"},
@@ -219,6 +221,102 @@ def test_sessions_resume_uses_recovery_brief_continuation_history(
         "session_id": "session-1",
     }
     assert "resumed" in result.stdout
+
+
+def test_sessions_resume_defaults_to_latest_compacted_continuation_when_available(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    context = store.create_session(workdir=workdir, session_id="session-1")
+    store.append_message(context, role="user", content="first", message_index=0)
+    store.append_message(context, role="assistant", content="done", message_index=1)
+    store.append_compact(
+        context,
+        trigger="manual",
+        summary="Earlier work was summarized.",
+        original_message_count=2,
+        summarized_message_count=1,
+        kept_message_count=1,
+    )
+    store.append_message(context, role="user", content="after compact", message_index=2)
+    store.append_message(
+        context, role="assistant", content="after compact answer", message_index=3
+    )
+    store.append_state_snapshot(
+        context,
+        state={"todos": [], "rounds_since_update": 0},
+    )
+    loaded = store.load_session(session_id="session-1", workdir=workdir)
+
+    def fake_run_prompt(
+        prompt: str,
+        history=None,
+        session_state=None,
+        session_id=None,
+    ) -> str:
+        captured["prompt"] = prompt
+        captured["history"] = history
+        captured["session_state"] = session_state
+        captured["session_id"] = session_id
+        return "resumed"
+
+    runtime = cli_service.CliRuntime(
+        settings_loader=load_settings,
+        list_sessions=lambda: [],
+        load_session=lambda session_id: loaded,
+        run_prompt=fake_run_prompt,
+        doctor_checks=lambda: [],
+    )
+    monkeypatch.setattr(cli, "build_cli_runtime", lambda: runtime)
+
+    result = runner.invoke(
+        cli.app, ["sessions", "resume", "session-1", "--prompt", "continue"]
+    )
+
+    assert result.exit_code == 0
+    history = captured["history"]
+    assert isinstance(history, list)
+    assert history[0]["role"] == "system"
+    assert "Resumed session context" in str(history[0]["content"])
+    assert history[1]["role"] == "system"
+    assert COMPACT_BOUNDARY_PREFIX in str(history[1]["content"])
+    assert history[2]["role"] == "user"
+    assert COMPACT_SUMMARY_PREFIX in str(history[2]["content"])
+    assert "Earlier work was summarized." in str(history[2]["content"])
+    assert history[3] == {"role": "assistant", "content": "done"}
+    assert history[4] == {"role": "user", "content": "after compact"}
+    assert history[5] == {"role": "assistant", "content": "after compact answer"}
+    assert captured["session_id"] == "session-1"
+    assert "resumed" in result.stdout
+
+
+def test_selected_continuation_history_uses_loaded_compacted_history(
+    tmp_path: Path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    context = store.create_session(workdir=workdir, session_id="session-1")
+    store.append_message(context, role="user", content="first", message_index=0)
+    store.append_message(context, role="assistant", content="done", message_index=1)
+    store.append_compact(
+        context,
+        trigger="manual",
+        summary="Earlier work was summarized.",
+        original_message_count=2,
+        summarized_message_count=1,
+        kept_message_count=1,
+    )
+    store.append_message(context, role="user", content="after compact", message_index=2)
+    loaded = store.load_session(session_id="session-1", workdir=workdir)
+
+    history = cli_service.selected_continuation_history(loaded)
+
+    assert history[0]["role"] == "system"
+    assert history[1:] == loaded.compacted_history
 
 
 def test_sessions_resume_can_use_manual_compact_summary(
@@ -471,6 +569,14 @@ def test_sessions_resume_without_prompt_shows_recovery_brief(
         summary="pytest passed",
         status="passed",
     )
+    store.append_compact(
+        context,
+        trigger="manual",
+        summary="Earlier work was summarized.",
+        original_message_count=2,
+        summarized_message_count=1,
+        kept_message_count=1,
+    )
     loaded = store.load_session(session_id="session-brief", workdir=workdir)
 
     runtime = cli_service.CliRuntime(
@@ -488,6 +594,7 @@ def test_sessions_resume_without_prompt_shows_recovery_brief(
     assert "Session: session-brief" in result.stdout
     assert "Inspect repo" in result.stdout
     assert "[passed] verification: pytest passed" in result.stdout
+    assert "[manual] Earlier work was summarized." in result.stdout
 
 
 def test_run_once_records_new_and_resumed_session_transcript(

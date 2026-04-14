@@ -58,6 +58,7 @@ def test_jsonl_session_roundtrip_preserves_history_state_and_summary(tmp_path) -
         {"role": "user", "content": "plan this"},
         {"role": "assistant", "content": "planned"},
     ]
+    assert loaded.compacted_history == loaded.history
     assert loaded.state == {
         "todos": [
             {"content": "Ship it", "status": "in_progress", "activeForm": "Shipping"}
@@ -236,9 +237,9 @@ def test_compact_record_roundtrip_does_not_enter_history(tmp_path) -> None:
         context,
         trigger="manual",
         summary="Older work was summarized.",
-        original_message_count=6,
-        summarized_message_count=4,
-        kept_message_count=2,
+        original_message_count=2,
+        summarized_message_count=1,
+        kept_message_count=1,
         metadata={"source": "test"},
     )
     store.append_message(context, role="assistant", content="continued", message_index=1)
@@ -254,14 +255,21 @@ def test_compact_record_roundtrip_does_not_enter_history(tmp_path) -> None:
         {"role": "user", "content": "start"},
         {"role": "assistant", "content": "continued"},
     ]
+    assert loaded.compacted_history[0]["role"] == "system"
+    assert loaded.compacted_history[1]["role"] == "user"
+    assert loaded.compacted_history[2] == {"role": "assistant", "content": "continued"}
     assert loaded.summary.message_count == 2
     assert loaded.summary.compact_count == 1
     assert loaded.compacts[0].trigger == "manual"
     assert loaded.compacts[0].summary == "Older work was summarized."
-    assert loaded.compacts[0].original_message_count == 6
-    assert loaded.compacts[0].summarized_message_count == 4
-    assert loaded.compacts[0].kept_message_count == 2
+    assert loaded.compacts[0].original_message_count == 2
+    assert loaded.compacts[0].summarized_message_count == 1
+    assert loaded.compacts[0].kept_message_count == 1
     assert loaded.compacts[0].metadata == {"source": "test"}
+    brief = build_recovery_brief(loaded)
+    rendered = render_recovery_brief(brief)
+    assert brief.recent_compacts[0].summary == "Older work was summarized."
+    assert "[manual] Older work was summarized." in rendered
 
 
 def test_load_session_ignores_invalid_compact_records(tmp_path) -> None:
@@ -311,6 +319,63 @@ def test_load_session_ignores_invalid_compact_records(tmp_path) -> None:
 
     assert loaded.compacts == []
     assert loaded.summary.compact_count == 0
+
+
+def test_recovery_brief_limits_recent_compacts_in_original_order(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="resume")
+    for index in range(5):
+        store.append_compact(
+            context,
+            trigger="manual",
+            summary=f"compact-{index}",
+            original_message_count=index + 1,
+            summarized_message_count=index,
+            kept_message_count=1,
+        )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+    brief = build_recovery_brief(loaded, compact_limit=2)
+    rendered = render_recovery_brief(brief)
+
+    assert [item.summary for item in brief.recent_compacts] == [
+        "compact-3",
+        "compact-4",
+    ]
+    assert "[manual] compact-3" in rendered
+    assert "[manual] compact-4" in rendered
+
+
+def test_load_session_compacted_history_falls_back_to_raw_history_on_invalid_tail_range(
+    tmp_path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="first")
+    store.append_message(context, role="assistant", content="second")
+    store.append_compact(
+        context,
+        trigger="manual",
+        summary="summary",
+        original_message_count=99,
+        summarized_message_count=98,
+        kept_message_count=1,
+    )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+
+    assert loaded.history == [
+        {"role": "user", "content": "first"},
+        {"role": "assistant", "content": "second"},
+    ]
+    assert loaded.compacted_history == loaded.history
 
 
 def test_recovery_brief_limits_recent_evidence_in_original_order(tmp_path) -> None:

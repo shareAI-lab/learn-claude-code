@@ -133,6 +133,13 @@ def continuation_history(loaded: LoadedSession) -> list[dict[str, Any]]:
     ]
 
 
+def selected_continuation_history(loaded: LoadedSession) -> list[dict[str, Any]]:
+    return [
+        build_resume_context_message(loaded),
+        *[dict(message) for message in loaded.compacted_history],
+    ]
+
+
 def compacted_continuation_history(
     loaded: LoadedSession,
     *,

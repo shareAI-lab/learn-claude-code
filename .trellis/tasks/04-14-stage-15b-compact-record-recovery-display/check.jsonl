@@ -1,0 +1,4 @@
+{"file": ".agents/skills/finish-work/SKILL.md", "reason": "Finish work checklist"}
+{"file": ".agents/skills/check-backend/SKILL.md", "reason": "Backend check spec"}
+{"file": "coding-deepgent/tests/test_sessions.py", "reason": "recovery brief compact tests"}
+{"file": "coding-deepgent/tests/test_cli.py", "reason": "resume display compact tests"}
