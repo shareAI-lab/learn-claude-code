@@ -8,7 +8,7 @@ from langchain.tools import ToolRuntime, tool
 from coding_deepgent.subagents.schemas import RunSubagentInput, SubagentType
 
 DEFAULT_CHILD_TOOLS = ("read_file", "glob", "grep")
-VERIFIER_EXTRA_TOOLS = ("task_get", "task_list")
+VERIFIER_EXTRA_TOOLS = ("task_get", "task_list", "plan_get")
 FORBIDDEN_CHILD_TOOLS = (
     "bash",
     "write_file",
@@ -17,6 +17,7 @@ FORBIDDEN_CHILD_TOOLS = (
     "save_memory",
     "task_create",
     "task_update",
+    "plan_save",
     "load_skill",
     "run_subagent",
 )

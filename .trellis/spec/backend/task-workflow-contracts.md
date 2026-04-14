@@ -70,6 +70,8 @@ def get_plan(store: TaskStore, plan_id: str) -> PlanArtifact: ...
 - `PlanArtifact.task_ids` must reference existing durable tasks.
 - Plan artifacts use a separate store namespace from task records.
 - `plan_save` and `plan_get` are main-surface tools, but they do not enter TodoWrite state.
+- `plan_get` is allowed for verifier subagents.
+- `plan_save` is forbidden for verifier subagents.
 
 ### 4. Validation & Error Matrix
 
@@ -87,6 +89,7 @@ def get_plan(store: TaskStore, plan_id: str) -> PlanArtifact: ...
 | save plan with missing verification | Pydantic validation error |
 | save plan with unknown task id | `ValueError("Unknown task dependencies...")` |
 | get missing plan | `KeyError("Unknown plan...")` |
+| verifier child tool allowlist | includes `plan_get`, excludes `plan_save` |
 
 ### 5. Good / Base / Bad Cases
 
@@ -149,6 +152,7 @@ Expected:
 - `tests/test_tasks.py::test_plan_artifact_roundtrip_requires_verification_and_known_tasks`
 - `tests/test_tasks.py::test_plan_tools_save_and_get_artifacts`
 - `tests/test_tool_system_registry.py::test_main_projection_preserves_current_product_tool_surface`
+- `tests/test_subagents.py::test_subagent_allowlists_are_exact_and_exclude_mutating_tools`
 
 ### 7. Wrong vs Correct
 

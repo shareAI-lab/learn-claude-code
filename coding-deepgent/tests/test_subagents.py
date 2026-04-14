@@ -22,6 +22,7 @@ def test_subagent_allowlists_are_exact_and_exclude_mutating_tools() -> None:
         *DEFAULT_CHILD_TOOLS,
         "task_get",
         "task_list",
+        "plan_get",
     )
     assert set(FORBIDDEN_CHILD_TOOLS).isdisjoint(child_tool_allowlist("verifier"))
 
@@ -42,7 +43,11 @@ def test_run_subagent_task_uses_fake_factory_synchronously() -> None:
 
     assert result.content == "done:inspect"
     assert calls == [
-        ("verifier", ("read_file", "glob", "grep", "task_get", "task_list"), "inspect")
+        (
+            "verifier",
+            ("read_file", "glob", "grep", "task_get", "task_list", "plan_get"),
+            "inspect",
+        )
     ]
 
 

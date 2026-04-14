@@ -90,6 +90,7 @@ Implemented:
   - `plan_get`
 - Registered plan tools in `ToolSystemContainer`.
 - Added plan capabilities to `tool_system.capabilities`.
+- Added `plan_get` to verifier subagent allowlist and kept `plan_save` forbidden.
 - Updated task workflow executable spec.
 
 Verification:
@@ -122,7 +123,7 @@ Boundary findings:
 - New issue handled:
   - storing plans under the task namespace caused `list_tasks()` to read plan artifacts as tasks because LangGraph store search is prefix-like. Plan artifacts now use a separate `coding_deepgent_plans` root namespace.
 - Residual risk:
-  - plan artifacts are saved/retrieved but not yet consumed by verifier execution.
+- plan artifacts are saved/retrieved but not yet consumed by verifier execution.
 
 Decision:
 - continue
