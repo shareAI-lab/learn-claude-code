@@ -20,6 +20,7 @@ This directory contains guidelines for backend development. Fill in each file wi
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
 | [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
 | [Runtime Context And Compaction Contracts](./runtime-context-compaction-contracts.md) | Executable contracts for session resume, compact artifacts, generated manual compact, and memory quality | Active |
+| [Task Workflow Contracts](./task-workflow-contracts.md) | Executable contracts for durable task graph readiness, transitions, and verification boundary | Active |
 
 ---
 

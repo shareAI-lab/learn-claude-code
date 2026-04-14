@@ -13,7 +13,9 @@ from .store import (
     is_task_ready,
     list_tasks,
     task_namespace,
+    task_graph_needs_verification,
     update_task,
+    validate_task_graph,
 )
 from .tools import task_create, task_get, task_list, task_update
 
@@ -33,6 +35,8 @@ __all__ = [
     "task_get",
     "task_list",
     "task_namespace",
+    "task_graph_needs_verification",
     "task_update",
     "update_task",
+    "validate_task_graph",
 ]

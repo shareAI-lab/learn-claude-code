@@ -68,12 +68,14 @@ def create_task(
     owner: str | None = None,
     metadata: dict[str, str] | None = None,
 ) -> TaskRecord:
+    active_depends_on = depends_on or []
+    _validate_dependencies_exist(store, active_depends_on)
     existing_count = len(list_tasks(store, include_terminal=True))
     record = TaskRecord(
         id=task_id_for(title, existing_count),
         title=title,
         description=description,
-        depends_on=depends_on or [],
+        depends_on=active_depends_on,
         owner=owner,
         metadata=metadata or {},
     )
@@ -85,19 +87,32 @@ def update_task(
     *,
     task_id: str,
     status: TaskStatus | None = None,
+    depends_on: list[str] | None = None,
     owner: str | None = None,
     metadata: dict[str, str] | None = None,
 ) -> TaskRecord:
     record = get_task(store, task_id)
     updates: dict[str, object] = {}
+    merged_metadata = record.metadata
+    if metadata is not None:
+        merged_metadata = {**record.metadata, **metadata}
+    active_depends_on = depends_on if depends_on is not None else record.depends_on
+
     if status is not None:
         if status not in ALLOWED_TRANSITIONS[record.status]:
             raise ValueError(f"Invalid task transition: {record.status} -> {status}")
+        if status == "blocked" and not active_depends_on and not merged_metadata.get(
+            "blocked_reason"
+        ):
+            raise ValueError("blocked tasks require a dependency or blocked_reason")
         updates["status"] = status
+    if depends_on is not None:
+        _validate_task_dependencies(store, task_id=task_id, depends_on=depends_on)
+        updates["depends_on"] = depends_on
     if owner is not None:
         updates["owner"] = owner
     if metadata is not None:
-        updates["metadata"] = {**record.metadata, **metadata}
+        updates["metadata"] = merged_metadata
     return save_task(store, record.model_copy(update=updates))
 
 
@@ -108,3 +123,85 @@ def is_task_ready(store: TaskStore, record: TaskRecord) -> bool:
         get_task(store, dependency).status == "completed"
         for dependency in record.depends_on
     )
+
+
+def task_graph_needs_verification(store: TaskStore) -> bool:
+    records = list_tasks(store, include_terminal=True)
+    actionable = [
+        record for record in records if record.status != "cancelled"
+    ]
+    if len(actionable) < 3:
+        return False
+    if any(record.status != "completed" for record in actionable):
+        return False
+    return not any(_is_verification_task(record) for record in actionable)
+
+
+def validate_task_graph(store: TaskStore) -> None:
+    records = list_tasks(store, include_terminal=True)
+    ids = {record.id for record in records}
+    for record in records:
+        if record.id in record.depends_on:
+            raise ValueError(f"Task {record.id} cannot depend on itself")
+        missing = [task_id for task_id in record.depends_on if task_id not in ids]
+        if missing:
+            raise ValueError(f"Task {record.id} has unknown dependencies: {missing}")
+    _detect_dependency_cycle(records)
+
+
+def _validate_dependencies_exist(store: TaskStore, depends_on: list[str]) -> None:
+    known = {record.id for record in list_tasks(store, include_terminal=True)}
+    missing = [task_id for task_id in depends_on if task_id not in known]
+    if missing:
+        raise ValueError(f"Unknown task dependencies: {missing}")
+
+
+def _validate_task_dependencies(
+    store: TaskStore,
+    *,
+    task_id: str,
+    depends_on: list[str],
+) -> None:
+    if task_id in depends_on:
+        raise ValueError(f"Task {task_id} cannot depend on itself")
+    _validate_dependencies_exist(store, depends_on)
+    records = list_tasks(store, include_terminal=True)
+    updated_records = [
+        record.model_copy(update={"depends_on": depends_on})
+        if record.id == task_id
+        else record
+        for record in records
+    ]
+    _detect_dependency_cycle(updated_records)
+
+
+def _detect_dependency_cycle(records: list[TaskRecord]) -> None:
+    graph = {record.id: set(record.depends_on) for record in records}
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(task_id: str) -> None:
+        if task_id in visited:
+            return
+        if task_id in visiting:
+            raise ValueError(f"Task dependency cycle detected at {task_id}")
+        visiting.add(task_id)
+        for dependency in graph.get(task_id, set()):
+            visit(dependency)
+        visiting.remove(task_id)
+        visited.add(task_id)
+
+    for task_id in graph:
+        visit(task_id)
+
+
+def _is_verification_task(record: TaskRecord) -> bool:
+    text = " ".join(
+        [
+            record.title,
+            record.description,
+            record.metadata.get("type", ""),
+            record.metadata.get("role", ""),
+        ]
+    ).casefold()
+    return "verif" in text

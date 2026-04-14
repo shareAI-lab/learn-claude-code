@@ -48,7 +48,9 @@
     "04-14-stage-16a-load-time-compacted-history-view",
     "04-14-stage-16b-virtual-pruning-compact-selection-hardening",
     "04-14-stage-16b-latest-valid-compact-view-selection",
-    "04-14-stage-16c-virtual-pruning-view-metadata"
+    "04-14-stage-16c-virtual-pruning-view-metadata",
+    "04-14-stage-17a-task-graph-readiness-and-transition-invariants",
+    "04-14-stage-17b-plan-verify-workflow-boundary"
   ],
   "parent": null,
   "relatedFiles": [],

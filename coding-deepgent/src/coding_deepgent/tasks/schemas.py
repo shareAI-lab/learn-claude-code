@@ -70,12 +70,18 @@ class TaskUpdateInput(BaseModel):
 
     task_id: str = Field(..., min_length=1)
     status: TaskStatus | None = None
+    depends_on: list[str] | None = None
     owner: str | None = None
     metadata: dict[str, str] | None = None
     runtime: ToolRuntime
 
     @model_validator(mode="after")
     def _has_update(self) -> "TaskUpdateInput":
-        if self.status is None and self.owner is None and self.metadata is None:
+        if (
+            self.status is None
+            and self.depends_on is None
+            and self.owner is None
+            and self.metadata is None
+        ):
             raise ValueError("at least one update field is required")
         return self

@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/tasks/tools.py", "reason": "task_update verification nudge output"}
+{"file": "coding-deepgent/src/coding_deepgent/tasks/store.py", "reason": "verification boundary helper"}

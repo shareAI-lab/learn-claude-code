@@ -10,7 +10,14 @@ from coding_deepgent.tasks.schemas import (
     TaskStatus,
     TaskUpdateInput,
 )
-from coding_deepgent.tasks.store import create_task, get_task, list_tasks, update_task
+from coding_deepgent.tasks.store import (
+    create_task,
+    get_task,
+    is_task_ready,
+    list_tasks,
+    task_graph_needs_verification,
+    update_task,
+)
 
 
 def _store(runtime: ToolRuntime):
@@ -21,6 +28,13 @@ def _store(runtime: ToolRuntime):
 
 def _render(record: TaskRecord) -> str:
     return record.model_dump_json()
+
+
+def _render_list_record(runtime: ToolRuntime, record: TaskRecord) -> str:
+    ready = str(is_task_ready(_store(runtime), record)).lower()
+    return _render(
+        record.model_copy(update={"metadata": {**record.metadata, "ready": ready}})
+    )
 
 
 @tool(
@@ -64,7 +78,7 @@ def task_list(runtime: ToolRuntime, include_terminal: bool = False) -> str:
     """List durable tasks."""
     return (
         "\n".join(
-            _render(record)
+            _render_list_record(runtime, record)
             for record in list_tasks(_store(runtime), include_terminal=include_terminal)
         )
         or "No tasks."
@@ -80,16 +94,29 @@ def task_update(
     task_id: str,
     runtime: ToolRuntime,
     status: TaskStatus | None = None,
+    depends_on: list[str] | None = None,
     owner: str | None = None,
     metadata: dict[str, str] | None = None,
 ) -> str:
     """Update one durable task."""
-    return _render(
-        update_task(
-            _store(runtime),
-            task_id=task_id,
-            status=status,
-            owner=owner,
-            metadata=metadata,
-        )
+    store = _store(runtime)
+    updated = update_task(
+        store,
+        task_id=task_id,
+        status=status,
+        depends_on=depends_on,
+        owner=owner,
+        metadata=metadata,
     )
+    if status == "completed" and task_graph_needs_verification(store):
+        return _render(
+            updated.model_copy(
+                update={
+                    "metadata": {
+                        **updated.metadata,
+                        "verification_nudge": "true",
+                    }
+                }
+            )
+        )
+    return _render(updated)

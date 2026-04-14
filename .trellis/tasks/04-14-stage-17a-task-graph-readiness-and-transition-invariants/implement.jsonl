@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/tasks/store.py", "reason": "task graph validation"}
+{"file": "coding-deepgent/src/coding_deepgent/tasks/tools.py", "reason": "task list ready output and blocked update behavior"}
