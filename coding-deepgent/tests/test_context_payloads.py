@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from coding_deepgent.context_payloads import (
     DEFAULT_MAX_CHARS,
     TRUNCATION_MARKER,
@@ -50,11 +52,12 @@ def test_render_context_payloads_bounds_output_with_truncation_marker() -> None:
     rendered = render_context_payloads(
         [ContextPayload(kind="memory", text=text, source="memory.project")]
     )
+    rendered_text = cast(str, rendered[0]["text"])
 
     assert len(rendered) == 1
-    assert len(rendered[0]["text"]) == DEFAULT_MAX_CHARS
-    assert rendered[0]["text"].endswith(TRUNCATION_MARKER)
-    assert "x" * 100 not in rendered[0]["text"][-100:]
+    assert len(rendered_text) == DEFAULT_MAX_CHARS
+    assert rendered_text.endswith(TRUNCATION_MARKER)
+    assert "x" * 100 not in rendered_text[-100:]
 
 
 def test_merge_system_message_content_preserves_existing_blocks() -> None:

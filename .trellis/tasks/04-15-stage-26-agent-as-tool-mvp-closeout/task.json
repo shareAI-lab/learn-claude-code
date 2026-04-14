@@ -1,0 +1,44 @@
+{
+  "id": "stage-26-agent-as-tool-mvp-closeout",
+  "name": "stage-26-agent-as-tool-mvp-closeout",
+  "title": "Stage 26: Agent As Tool MVP Closeout",
+  "description": "Close H11 and minimal H12 with agent-as-tool and runtime context threading contracts.",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "coding-deepgent H11/H12 agent-as-tool MVP closeout",
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-15",
+  "completedAt": "2026-04-15",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
+  "relatedFiles": [],
+  "notes": "Stage 26 approved: H11 closed as bounded run_subagent/verifier tool surface; H12 closed as minimal context/thread propagation with rich fork/cache parity deferred.",
+  "meta": {}
+}

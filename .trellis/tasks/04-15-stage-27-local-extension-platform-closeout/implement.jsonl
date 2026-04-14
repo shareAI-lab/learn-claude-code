@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/skills/", "type": "directory", "reason": "Stage 27 H15 skills closeout"}
+{"file": "coding-deepgent/src/coding_deepgent/mcp/", "type": "directory", "reason": "Stage 27 H16 MCP closeout"}
+{"file": "coding-deepgent/src/coding_deepgent/plugins/", "type": "directory", "reason": "Stage 27 H17 plugin closeout"}
+{"file": "coding-deepgent/src/coding_deepgent/hooks/", "type": "directory", "reason": "Stage 27 H18 hooks closeout"}

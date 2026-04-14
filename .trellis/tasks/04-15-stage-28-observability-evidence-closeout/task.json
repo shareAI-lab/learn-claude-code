@@ -1,0 +1,44 @@
+{
+  "id": "stage-28-observability-evidence-closeout",
+  "name": "stage-28-observability-evidence-closeout",
+  "title": "Stage 28: Observability Evidence Closeout",
+  "description": "Close H19 and minimal H20 with runtime evidence bridge and local budget boundary.",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "coding-deepgent H19/H20 observability evidence MVP closeout",
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-15",
+  "completedAt": "2026-04-15",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
+  "relatedFiles": [],
+  "notes": "Stage 28 approved: H19 implemented with whitelisted runtime event evidence; H20 implemented-minimal as local budget/projection counters.",
+  "meta": {}
+}

@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from coding_deepgent.containers import AppContainer
 from coding_deepgent.plugins import (
+    LoadedPluginManifest,
     PluginManifest,
     PluginRegistry,
     ValidatedPluginDeclaration,
@@ -146,6 +147,27 @@ def test_plugin_registry_validation_fails_for_unknown_tool_or_skill(
         registry.validate(known_tools={"TodoWrite"}, known_skills=set())
 
 
+def test_plugin_registry_rejects_duplicate_plugin_names(tmp_path: Path) -> None:
+    first_path = write_plugin(tmp_path / "plugins-a", "demo", valid_manifest("demo"))
+    second_path = write_plugin(tmp_path / "plugins-b", "demo", valid_manifest("demo"))
+
+    with pytest.raises(ValueError, match="Plugin names must be unique"):
+        PluginRegistry(
+            [
+                LoadedPluginManifest(
+                    manifest=parse_plugin_manifest(first_path).manifest,
+                    root=first_path.parent,
+                    path=first_path,
+                ),
+                LoadedPluginManifest(
+                    manifest=parse_plugin_manifest(second_path).manifest,
+                    root=second_path.parent,
+                    path=second_path,
+                ),
+            ]
+        )
+
+
 def test_plugin_registry_resource_validation_requires_explicit_known_resources(
     tmp_path: Path,
 ) -> None:
@@ -161,6 +183,13 @@ def test_plugin_registry_resource_validation_requires_explicit_known_resources(
             known_skills={"demo:review"},
             known_resources=set(),
         )
+
+    validated = registry.validate(
+        known_tools={"read_file"},
+        known_skills={"demo:review"},
+        known_resources={"demo_notes"},
+    )
+    assert validated[0].resources == ("demo_notes",)
 
 
 def test_settings_resolves_plugin_dir_under_workdir(tmp_path: Path) -> None:

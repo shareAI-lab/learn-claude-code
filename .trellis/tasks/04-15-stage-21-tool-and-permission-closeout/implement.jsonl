@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/tool_system/", "type": "directory", "reason": "Stage 21 H01 tool runtime closeout"}
+{"file": "coding-deepgent/src/coding_deepgent/permissions/", "type": "directory", "reason": "Stage 21 H02 permission closeout"}

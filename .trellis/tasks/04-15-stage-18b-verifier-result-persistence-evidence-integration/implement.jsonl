@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/subagents/tools.py", "reason": "Stage 18B verifier result parsing and bounded evidence persistence"}
+{"file": "coding-deepgent/src/coding_deepgent/sessions/", "type": "directory", "reason": "Existing session evidence ledger and recovery brief path"}

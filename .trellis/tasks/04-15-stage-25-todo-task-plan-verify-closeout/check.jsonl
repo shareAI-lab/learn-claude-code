@@ -1,0 +1,5 @@
+{"file": ".agents/skills/finish-work/SKILL.md", "reason": "Finish work checklist"}
+{"file": ".agents/skills/check-backend/SKILL.md", "reason": "Backend check spec"}
+{"file": "coding-deepgent/tests/test_tasks.py", "reason": "Stage 25 task graph and plan contract checks"}
+{"file": "coding-deepgent/tests/test_subagents.py", "reason": "Stage 25 verifier contract checks"}
+{"file": "coding-deepgent/tests/test_todo_domain.py", "reason": "Stage 25 TodoWrite contract checks"}

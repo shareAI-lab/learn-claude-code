@@ -1,0 +1,44 @@
+{
+  "id": "stage-19-evidence-observability-agent-lifecycle-hardening",
+  "name": "stage-19-evidence-observability-agent-lifecycle-hardening",
+  "title": "Stage 19: Evidence Observability and Agent Lifecycle Hardening",
+  "description": "Make verifier evidence resume-visible with provenance and add bounded verifier lineage metadata.",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "coding-deepgent H19 evidence observability and H11 verifier lineage metadata",
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-15",
+  "completedAt": "2026-04-15",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
+  "relatedFiles": [],
+  "notes": "Stage 19A/19B approved: recovery brief renders verifier provenance and verifier evidence metadata carries parent/child lineage.",
+  "meta": {}
+}

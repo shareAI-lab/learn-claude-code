@@ -143,18 +143,21 @@ def build_builtin_capabilities(
     task_tools: Sequence[BaseTool],
     subagent_tools: Sequence[BaseTool],
 ) -> tuple[ToolCapability, ...]:
-    tool_by_name = {
-        getattr(tool, "name", type(tool).__name__): tool
-        for tool in [
-            *filesystem_tools,
-            *discovery_tools,
-            *todo_tools,
-            *memory_tools,
-            *skill_tools,
-            *task_tools,
-            *subagent_tools,
-        ]
-    }
+    ordered_tools = [
+        *filesystem_tools,
+        *discovery_tools,
+        *todo_tools,
+        *memory_tools,
+        *skill_tools,
+        *task_tools,
+        *subagent_tools,
+    ]
+    tool_by_name: dict[str, BaseTool] = {}
+    for tool in ordered_tools:
+        name = getattr(tool, "name", type(tool).__name__)
+        if name in tool_by_name:
+            raise ValueError(f"Duplicate builtin tool name: {name}")
+        tool_by_name[name] = tool
     capabilities: list[ToolCapability] = [
         ToolCapability(
             name="bash",

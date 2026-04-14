@@ -60,9 +60,12 @@ Redefine the long-term final goal of `coding-deepgent` after partial plan loss, 
 * The highlight pass should happen in dependency order so later systems do not redefine earlier boundaries.
 * Every future upgrade proposal must include a concrete benefit statement before implementation begins.
 * Every upgrade discussion must explain:
+  - what concrete function is being added or changed
   - what concrete gain it brings
   - which category the gain belongs to: user-visible, agent-runtime, safety, reliability, context-efficiency, maintainability, testability, or product parity
   - why the gain is worth the added complexity now
+* Cross-session memory is a required product property, not a nice-to-have.
+* Planned upgrades must say whether they improve cross-session memory directly, indirectly, or not at all.
 
 ## Acceptance Criteria (evolving)
 
@@ -74,6 +77,8 @@ Redefine the long-term final goal of `coding-deepgent` after partial plan loss, 
 * [ ] The final goal names the core systems that must eventually reach cc-haha essence alignment.
 * [ ] Each core system gets a written “essence definition” before implementation planning resumes.
 * [ ] Each planned upgrade includes an explicit expected-benefit section and a why-now judgment.
+* [ ] Each planned upgrade includes an explicit function summary before implementation begins.
+* [ ] The final goal explicitly treats cross-session memory as a required end-state capability.
 * [ ] A source-backed cc core highlights roadmap exists and is used as the planning backlog.
 
 ## Definition of Done (team quality bar)

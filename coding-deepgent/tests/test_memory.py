@@ -90,3 +90,40 @@ def test_memory_quality_policy_rejects_transient_and_duplicate_entries() -> None
     assert transient.category == "transient_state"
     assert durable.allowed is True
     assert durable.category == "accepted"
+
+
+def test_memory_namespaces_are_isolated_for_recall_and_duplicates() -> None:
+    store = InMemoryStore()
+    project = MemoryRecord(
+        content="Prefer LangChain stores for memory", namespace="project"
+    )
+    user = MemoryRecord(
+        content="Prefer concise answers by default", namespace="user"
+    )
+    save_memory_record(store, project)
+    save_memory_record(store, user)
+
+    project_records = list_memory_records(store, "project")
+    user_records = list_memory_records(store, "user")
+    project_recall = recall_memories(store, namespace="project", query="LangChain")
+    user_recall = recall_memories(store, namespace="user", query="concise")
+
+    duplicate_in_same_namespace = evaluate_memory_quality(
+        MemoryRecord(
+            content=" prefer   langchain stores for MEMORY ", namespace="project"
+        ),
+        existing_records=project_records,
+    )
+    same_content_other_namespace = evaluate_memory_quality(
+        MemoryRecord(
+            content=" prefer   langchain stores for MEMORY ", namespace="user"
+        ),
+        existing_records=user_records,
+    )
+
+    assert [record.namespace for record in project_records] == ["project"]
+    assert [record.namespace for record in user_records] == ["user"]
+    assert [record.namespace for record in project_recall] == ["project"]
+    assert [record.namespace for record in user_recall] == ["user"]
+    assert duplicate_in_same_namespace.allowed is False
+    assert same_content_other_namespace.allowed is True

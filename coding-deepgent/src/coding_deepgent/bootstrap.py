@@ -6,6 +6,7 @@ from typing import Any
 from dependency_injector import providers
 
 from coding_deepgent.containers import AppContainer
+from coding_deepgent.sessions.records import SessionContext
 
 
 def build_container(
@@ -31,5 +32,13 @@ def build_agent(*, container: AppContainer) -> Any:
     return container.agent()
 
 
-def build_runtime_invocation(*, container: AppContainer, session_id: str | None = None):
-    return container.runtime.invocation(session_id=session_id)
+def build_runtime_invocation(
+    *,
+    container: AppContainer,
+    session_id: str | None = None,
+    session_context: SessionContext | None = None,
+):
+    return container.runtime.invocation(
+        session_id=session_id,
+        session_context=session_context,
+    )

@@ -1,0 +1,44 @@
+{
+  "id": "stage-23-context-pressure-and-session-continuity-closeout",
+  "name": "stage-23-context-pressure-and-session-continuity-closeout",
+  "title": "Stage 23: Context Pressure And Session Continuity Closeout",
+  "description": "Close H05/H06 with projection and session continuity contract hardening.",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "coding-deepgent H05/H06 context pressure and session continuity MVP closeout",
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-15",
+  "completedAt": "2026-04-15",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
+  "relatedFiles": [],
+  "notes": "Stage 23 approved: H05/H06 closed with projection regression and combined resume/compact/evidence continuity coverage.",
+  "meta": {}
+}

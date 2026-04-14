@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/prompting/", "type": "directory", "reason": "Stage 22 H03 prompt closeout"}
+{"file": "coding-deepgent/src/coding_deepgent/runtime/", "type": "directory", "reason": "Stage 22 H04 dynamic context closeout"}

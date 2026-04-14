@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/todo/", "type": "directory", "reason": "Stage 25 H08 TodoWrite closeout"}
+{"file": "coding-deepgent/src/coding_deepgent/tasks/", "type": "directory", "reason": "Stage 25 H09/H10 durable task and plan/verify closeout"}
+{"file": "coding-deepgent/src/coding_deepgent/subagents/", "type": "directory", "reason": "Stage 25 verifier workflow closeout"}

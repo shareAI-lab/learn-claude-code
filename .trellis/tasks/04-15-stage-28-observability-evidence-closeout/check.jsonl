@@ -1,0 +1,5 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": "coding-deepgent/tests/test_sessions.py", "reason": "Stage 28 evidence ledger tests"}
+{"file": "coding-deepgent/tests/test_tool_system_middleware.py", "reason": "Stage 28 runtime/tool event tests"}
+{"file": "coding-deepgent/tests/test_compact_budget.py", "reason": "Stage 28 local context metrics/counters tests"}

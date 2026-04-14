@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/sessions/resume.py", "reason": "19A recovery brief evidence provenance rendering"}
+{"file": "coding-deepgent/src/coding_deepgent/subagents/tools.py", "reason": "19B verifier evidence lineage metadata"}

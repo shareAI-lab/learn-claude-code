@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from coding_deepgent.compact import TRUNCATION_MARKER, project_messages
 
 
@@ -17,7 +19,7 @@ def test_project_messages_merges_only_plain_same_role_text_messages() -> None:
 
 
 def test_project_messages_preserves_structured_content_and_does_not_merge_it() -> None:
-    messages = [
+    messages: list[dict[str, Any]] = [
         {"role": "user", "content": "plain"},
         {
             "role": "user",

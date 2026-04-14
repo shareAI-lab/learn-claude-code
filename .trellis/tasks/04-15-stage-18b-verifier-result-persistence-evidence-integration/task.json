@@ -1,0 +1,44 @@
+{
+  "id": "stage-18b-verifier-result-persistence-evidence-integration",
+  "name": "stage-18b-verifier-result-persistence-evidence-integration",
+  "title": "Stage 18B: Verifier Result Persistence and Evidence Integration",
+  "description": "Persist verifier verdicts into the existing session evidence ledger.",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "coding-deepgent verifier workflow evidence persistence",
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-15",
+  "completedAt": "2026-04-15",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
+  "relatedFiles": [],
+  "notes": "Stage 18B checkpoint approved: verifier PASS/FAIL/PARTIAL results persist as session verification evidence when recording context is available.",
+  "meta": {}
+}

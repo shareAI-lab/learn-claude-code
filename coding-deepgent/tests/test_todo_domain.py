@@ -14,6 +14,7 @@ from coding_deepgent.todo import (
     TerminalPlanRenderer,
     render_plan_items,
 )
+from coding_deepgent.todo.service import normalize_todos
 
 ROOT = Path(__file__).resolve().parents[1]
 TODO_ROOT = ROOT / "src" / "coding_deepgent" / "todo"
@@ -69,6 +70,24 @@ def test_todo_domain_renderer_output_stays_stable() -> None:
         "\n"
         "(1/3 completed)"
     )
+
+
+def test_todo_domain_rejects_overlong_short_term_plan() -> None:
+    todos = [
+        {
+            "content": f"Task {index}",
+            "status": "pending",
+            "activeForm": f"Working {index}",
+        }
+        for index in range(13)
+    ]
+
+    try:
+        normalize_todos(todos)
+    except ValueError as exc:
+        assert "max 12 todos" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("normalize_todos should reject more than 12 todos")
 
 
 def test_todo_domain_does_not_import_cross_domain_packages() -> None:

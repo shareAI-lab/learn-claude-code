@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from inspect import Parameter, signature
 from typing import Any
 
 from coding_deepgent.compact import (
@@ -38,6 +39,18 @@ def _recorded_message_count(history: Sequence[dict[str, Any]]) -> int:
         for message in history
         if not is_resume_context_message(message)
         and not is_compact_artifact_message(message)
+    )
+
+
+def _supports_keyword_argument(callback: Callable[..., Any], keyword: str) -> bool:
+    try:
+        parameters = signature(callback).parameters.values()
+    except (TypeError, ValueError):
+        return True
+
+    return any(
+        parameter.kind == Parameter.VAR_KEYWORD or parameter.name == keyword
+        for parameter in parameters
     )
 
 
@@ -83,11 +96,15 @@ def run_prompt_with_recording(
         )
 
     transcript.append({"role": "user", "content": prompt})
-    result = run_agent(
-        transcript,
-        session_state=active_state,
-        session_id=active_session_id,
-    )
+    run_agent_kwargs: dict[str, Any] = {
+        "session_state": active_state,
+        "session_id": active_session_id,
+    }
+    if context is not None and _supports_keyword_argument(
+        run_agent, "session_context"
+    ):
+        run_agent_kwargs["session_context"] = context
+    result = run_agent(transcript, **run_agent_kwargs)
 
     if context is not None:
         store.append_message(

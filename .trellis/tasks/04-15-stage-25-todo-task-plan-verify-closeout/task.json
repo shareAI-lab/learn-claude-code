@@ -1,0 +1,44 @@
+{
+  "id": "stage-25-todo-task-plan-verify-closeout",
+  "name": "stage-25-todo-task-plan-verify-closeout",
+  "title": "Stage 25: Todo Task Plan Verify Closeout",
+  "description": "Close H08/H09/H10 with TodoWrite, durable task graph, and plan/verify contract hardening.",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "coding-deepgent H08/H09/H10 todo task plan verify MVP closeout",
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-15",
+  "completedAt": "2026-04-15",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
+  "relatedFiles": [],
+  "notes": "Stage 25 approved: H08/H09/H10 closed with terminal task visibility, verification recognition, and TodoWrite bounded-list regressions.",
+  "meta": {}
+}

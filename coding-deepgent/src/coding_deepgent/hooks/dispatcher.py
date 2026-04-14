@@ -6,6 +6,7 @@ from coding_deepgent.hooks.events import HookEventName, HookPayload
 from coding_deepgent.hooks.registry import HookDispatchOutcome, LocalHookRegistry
 from coding_deepgent.runtime.events import RuntimeEvent
 from coding_deepgent.runtime.invocation import RuntimeInvocation
+from coding_deepgent.sessions.evidence_events import append_runtime_event_evidence
 
 
 def emit_hook_runtime_event(
@@ -16,19 +17,19 @@ def emit_hook_runtime_event(
     blocked: bool = False,
     reason: str | None = None,
 ) -> None:
-    invocation.context.event_sink.emit(
-        RuntimeEvent(
-            kind=phase,
-            message=f"Hook {phase} for {event}",
-            session_id=invocation.context.session_id,
-            metadata={
-                "source": "hooks",
-                "hook_event": event,
-                "blocked": blocked,
-                "reason": reason,
-            },
-        )
+    runtime_event = RuntimeEvent(
+        kind=phase,
+        message=f"Hook {phase} for {event}",
+        session_id=invocation.context.session_id,
+        metadata={
+            "source": "hooks",
+            "hook_event": event,
+            "blocked": blocked,
+            "reason": reason,
+        },
     )
+    invocation.context.event_sink.emit(runtime_event)
+    append_runtime_event_evidence(context=invocation.context, event=runtime_event)
 
 
 def dispatch_runtime_hook(
@@ -65,26 +66,26 @@ def dispatch_context_hook(
     if registry is None or sink is None or not registry.has_hooks(event):
         return None
     payload = HookPayload(event=event, data=data)
-    sink.emit(
-        RuntimeEvent(
-            kind="hook_start",
-            message=f"Hook hook_start for {event}",
-            session_id=session_id,
-            metadata={"source": "hooks", "hook_event": event, "blocked": False},
-        )
+    start_event = RuntimeEvent(
+        kind="hook_start",
+        message=f"Hook hook_start for {event}",
+        session_id=session_id,
+        metadata={"source": "hooks", "hook_event": event, "blocked": False},
     )
+    sink.emit(start_event)
+    append_runtime_event_evidence(context=context, event=start_event)
     outcome = registry.dispatch(payload)
-    sink.emit(
-        RuntimeEvent(
-            kind="hook_blocked" if outcome.blocked else "hook_complete",
-            message=f"Hook {'hook_blocked' if outcome.blocked else 'hook_complete'} for {event}",
-            session_id=session_id,
-            metadata={
-                "source": "hooks",
-                "hook_event": event,
-                "blocked": outcome.blocked,
-                "reason": outcome.reason,
-            },
-        )
+    terminal_event = RuntimeEvent(
+        kind="hook_blocked" if outcome.blocked else "hook_complete",
+        message=f"Hook {'hook_blocked' if outcome.blocked else 'hook_complete'} for {event}",
+        session_id=session_id,
+        metadata={
+            "source": "hooks",
+            "hook_event": event,
+            "blocked": outcome.blocked,
+            "reason": outcome.reason,
+        },
     )
+    sink.emit(terminal_event)
+    append_runtime_event_evidence(context=context, event=terminal_event)
     return outcome

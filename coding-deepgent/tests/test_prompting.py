@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from coding_deepgent.agent_service import build_system_prompt
 from coding_deepgent.prompting import build_prompt_context
+from coding_deepgent.settings import Settings
 
 
 def test_prompt_context_splits_system_user_and_system_context() -> None:
@@ -35,3 +37,15 @@ def test_prompt_context_supports_settings_backed_custom_and_append_prompt() -> N
 
     assert context.default_system_prompt == ("Custom base",)
     assert context.system_prompt == "Custom base\n\nAppendix"
+
+
+def test_build_system_prompt_respects_settings_backed_layering() -> None:
+    settings = Settings(
+        workdir=Path("/tmp/project"),
+        custom_system_prompt="Custom base",
+        append_system_prompt="Appendix",
+        agent_name="coding-deepgent",
+        entrypoint="coding-deepgent",
+    )
+
+    assert build_system_prompt(settings) == "Custom base\n\nAppendix"

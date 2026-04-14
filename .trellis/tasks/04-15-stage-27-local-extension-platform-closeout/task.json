@@ -1,0 +1,44 @@
+{
+  "id": "stage-27-local-extension-platform-closeout",
+  "name": "stage-27-local-extension-platform-closeout",
+  "title": "Stage 27: Local Extension Platform Closeout",
+  "description": "Close H15-H18 with local skills, MCP, plugin, and hook contract hardening.",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "coding-deepgent H15-H18 local extension platform MVP closeout",
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-15",
+  "completedAt": "2026-04-15",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
+  "relatedFiles": [],
+  "notes": "Stage 27 approved: H15/H16/H18 implemented, H17 implemented for local manifest/source validation with install/enable lifecycle deferred.",
+  "meta": {}
+}

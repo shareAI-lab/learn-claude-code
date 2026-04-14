@@ -319,6 +319,47 @@ def test_selected_continuation_history_uses_loaded_compacted_history(
     assert history[1:] == loaded.compacted_history
 
 
+def test_selected_continuation_history_preserves_resume_compact_and_evidence_without_duplication(
+    tmp_path: Path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    context = store.create_session(workdir=workdir, session_id="session-1")
+    store.append_message(context, role="user", content="existing", message_index=0)
+    store.append_evidence(
+        context,
+        kind="verification",
+        summary="pytest passed",
+        status="passed",
+        metadata={"plan_id": "plan-1", "verdict": "PASS"},
+    )
+    store.append_compact(
+        context,
+        trigger="manual",
+        summary="Earlier work was summarized.",
+        original_message_count=2,
+        summarized_message_count=1,
+        kept_message_count=1,
+    )
+    store.append_message(context, role="assistant", content="after compact", message_index=1)
+
+    loaded = store.load_session(session_id="session-1", workdir=workdir)
+    history = cli_service.selected_continuation_history(loaded)
+
+    assert history[0]["role"] == "system"
+    assert str(history[0]["content"]).count("Resumed session context.") == 1
+    assert "plan=plan-1" in str(history[0]["content"])
+    assert "verdict=PASS" in str(history[0]["content"])
+    assert history[1]["role"] == "system"
+    assert history[2]["role"] == "user"
+    assert "Earlier work was summarized." in str(history[2]["content"])
+    assert history[3] == {"role": "assistant", "content": "after compact"}
+    assert len(
+        [message for message in history if "Resumed session context." in str(message.get("content", ""))]
+    ) == 1
+
+
 def test_sessions_resume_can_use_manual_compact_summary(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -446,11 +487,18 @@ def test_sessions_resume_rejects_manual_and_generated_compact_together(
     loaded = _loaded_session(tmp_path)
     called: list[str] = []
 
+    def run_prompt(
+        prompt: str, history=None, session_state=None, session_id=None
+    ) -> str:
+        del history, session_state, session_id
+        called.append(prompt)
+        return "unused"
+
     runtime = cli_service.CliRuntime(
         settings_loader=load_settings,
         list_sessions=lambda: [],
         load_session=lambda session_id: loaded,
-        run_prompt=lambda prompt, history=None, session_state=None, session_id=None: called.append(prompt) or "unused",
+        run_prompt=run_prompt,
         doctor_checks=lambda: [],
     )
     monkeypatch.setattr(cli, "build_cli_runtime", lambda: runtime)
@@ -516,11 +564,18 @@ def test_sessions_resume_rejects_compact_instructions_without_generation(
     loaded = _loaded_session(tmp_path)
     called: list[str] = []
 
+    def run_prompt(
+        prompt: str, history=None, session_state=None, session_id=None
+    ) -> str:
+        del history, session_state, session_id
+        called.append(prompt)
+        return "unused"
+
     runtime = cli_service.CliRuntime(
         settings_loader=load_settings,
         list_sessions=lambda: [],
         load_session=lambda session_id: loaded,
-        run_prompt=lambda prompt, history=None, session_state=None, session_id=None: called.append(prompt) or "unused",
+        run_prompt=run_prompt,
         doctor_checks=lambda: [],
     )
     monkeypatch.setattr(cli, "build_cli_runtime", lambda: runtime)
@@ -669,6 +724,40 @@ def test_run_once_records_new_and_resumed_session_transcript(
     ]
     assert resumed.summary.evidence_count == 2
     assert [record["message_index"] for record in message_records] == [0, 1, 2, 3]
+
+
+def test_run_once_passes_recording_session_context_to_agent(
+    monkeypatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        workdir=tmp_path,
+        session_dir=tmp_path / ".coding-deepgent" / "sessions",
+        model_name="gpt-test",
+    )
+    seen_contexts: list[object] = []
+
+    def fake_agent_loop(
+        messages: list[dict[str, object]],
+        *,
+        session_state=None,
+        session_id=None,
+        session_context=None,
+        container=None,
+    ) -> str:
+        del session_state, session_id, container
+        seen_contexts.append(session_context)
+        messages.append({"role": "assistant", "content": "done"})
+        return "done"
+
+    monkeypatch.setattr(cli_service, "load_settings", lambda: settings)
+    monkeypatch.setattr(cli, "agent_loop", fake_agent_loop)
+
+    assert cli.run_once("first") == "done"
+
+    assert len(seen_contexts) == 1
+    assert seen_contexts[0] is not None
+    assert getattr(seen_contexts[0], "session_id")
+    assert getattr(seen_contexts[0], "transcript_path").exists()
 
 
 def test_run_once_records_compact_metadata_without_message_index_skew(

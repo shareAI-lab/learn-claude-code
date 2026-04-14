@@ -75,6 +75,9 @@ class LoadedSession:
     compacts: list[SessionCompact]
     summary: SessionSummary
 
+class RuntimeContext:
+    session_context: SessionContext | None = None
+
 class CompactedHistorySource:
     mode: Literal["raw", "compact"]
     reason: str
@@ -90,6 +93,15 @@ class CompactedHistorySource:
   2. all `loaded.history` messages in original order
 - The resume context message content starts with `RESUME_CONTEXT_MESSAGE_PREFIX`.
 - `sessions.service.run_prompt_with_recording()` must not count synthetic resume context messages when assigning persisted `message_index` values.
+- When `run_prompt_with_recording()` creates or resumes a recorded session and
+  the agent callable accepts `session_context`, it must pass the active
+  `SessionContext` into runtime invocation context so tools can append bounded
+  evidence records to the same session ledger.
+- `render_recovery_brief()` must render concise provenance for verification
+  evidence when available, using stable short fields such as `plan=<plan_id>`
+  and `verdict=<verdict>`.
+- `render_recovery_brief()` must not dump arbitrary evidence metadata for
+  runtime or verification evidence.
 
 #### Manual Compact Continuation History
 
@@ -208,6 +220,8 @@ keep_from = original_message_count - kept_message_count
 | selected compacted view comes from compact record at index N | `compacted_history_source == compact/latest_valid_compact/N` |
 | selected compacted view falls back to raw history | `compacted_history_source == raw/<reason>/None` |
 | duplicate memory save | returns "Memory not saved" and store remains unchanged |
+| verification evidence with `plan_id` and `verdict` metadata | recovery brief includes concise `(plan=...; verdict=...)` provenance |
+| non-verification evidence with metadata | recovery brief does not render arbitrary metadata |
 
 ### 5. Good / Base / Bad Cases
 
@@ -270,6 +284,7 @@ Required focused tests:
 - `tests/test_sessions.py::test_load_session_compacted_history_falls_back_to_raw_history_on_invalid_tail_range`
 - `tests/test_sessions.py::test_load_session_compacted_history_uses_newest_valid_compact_record`
 - `tests/test_sessions.py::test_load_session_compacted_history_uses_latest_valid_compact_record`
+- `tests/test_sessions.py::test_recovery_brief_renders_verification_provenance_only`
 - `tests/test_memory.py::test_memory_quality_policy_rejects_transient_and_duplicate_entries`
 - `tests/test_memory_integration.py::test_save_memory_tool_rejects_transient_memory_via_create_agent_runtime`
 

@@ -14,6 +14,8 @@ from coding_deepgent.permissions import (
     ToolPermissionSubject,
     expand_rule_specs,
 )
+from coding_deepgent.filesystem.policy import pattern_policy
+from coding_deepgent.tool_system import ToolPolicy, ToolPolicyCode, build_default_registry
 from coding_deepgent.settings import Settings
 
 READ = ToolPermissionSubject(
@@ -265,3 +267,36 @@ def test_untrusted_extension_destructive_actions_require_approval_even_in_accept
         ).behavior
         == "allow"
     )
+
+
+def test_tool_policy_maps_permission_codes_to_tool_policy_codes() -> None:
+    registry = build_default_registry()
+    policy = ToolPolicy(
+        registry=registry,
+        permission_manager=PermissionManager(mode="plan", workdir=Path.cwd()),
+    )
+
+    read_decision = policy.evaluate(
+        {"name": "read_file", "args": {"path": "README.md"}}
+    )
+    write_decision = policy.evaluate(
+        {"name": "write_file", "args": {"path": "README.md", "content": "x"}}
+    )
+    unknown_decision = policy.evaluate({"name": "no_such_tool", "args": {}})
+
+    assert read_decision.code == ToolPolicyCode.ALLOWED
+    assert write_decision.code == ToolPolicyCode.PERMISSION_DENIED
+    assert unknown_decision.code == ToolPolicyCode.UNKNOWN_TOOL
+
+
+def test_pattern_policy_rejects_absolute_and_parent_escaping_patterns() -> None:
+    absolute = pattern_policy("/tmp/**/*.py")
+    parent = pattern_policy("../outside/**/*.py")
+    nested_parent = pattern_policy("src/**/../secret.txt")
+    allowed = pattern_policy("src/**/*.py")
+
+    assert absolute.allowed is False
+    assert absolute.reason == "workspace_escape"
+    assert parent.allowed is False
+    assert nested_parent.allowed is False
+    assert allowed.allowed is True

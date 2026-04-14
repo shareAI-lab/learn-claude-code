@@ -157,6 +157,33 @@ def test_mcp_config_schema_and_loader_are_strict(tmp_path: Path) -> None:
         MCPServerConfig.model_validate({"transport": "stdio", "extra": True})
 
 
+def test_mcp_server_transport_alias_and_http_sse_contracts() -> None:
+    http = MCPServerConfig.model_validate(
+        {"type": "http", "url": "https://example.invalid/mcp"}
+    )
+    sse = MCPServerConfig.model_validate(
+        {"transport": "sse", "url": "https://example.invalid/events"}
+    )
+
+    assert http.transport == "http"
+    assert sse.transport == "sse"
+
+    with pytest.raises(ValueError, match="transport and type must match"):
+        MCPServerConfig.model_validate(
+            {"transport": "stdio", "type": "http", "command": "server"}
+        )
+    with pytest.raises(ValueError, match="http MCP server requires url"):
+        MCPServerConfig.model_validate({"transport": "http"})
+    with pytest.raises(ValueError, match="http MCP server must not define command"):
+        MCPServerConfig.model_validate(
+            {
+                "transport": "http",
+                "url": "https://example.invalid/mcp",
+                "command": "server",
+            }
+        )
+
+
 def test_mcp_runtime_load_fails_soft_without_adapter(
     monkeypatch, tmp_path: Path
 ) -> None:

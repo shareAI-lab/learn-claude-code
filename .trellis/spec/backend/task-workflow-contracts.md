@@ -55,6 +55,12 @@ def run_subagent(
     plan_id: str | None = None,
     max_turns: int = 1,
 ) -> str: ...
+
+def record_verifier_evidence(
+    *,
+    result: SubagentResult,
+    runtime: ToolRuntime,
+) -> bool: ...
 ```
 
 ### 3. Contracts
@@ -90,6 +96,22 @@ def run_subagent(
   - `task_ids`
   - `tool_allowlist`
   - `content`
+- Verifier subagent content that includes `VERDICT: PASS|FAIL|PARTIAL` must append
+  one existing session evidence record when `runtime.context.session_context` is
+  available.
+- Verifier evidence must use:
+  - `kind="verification"`
+  - status mapped as `PASS -> passed`, `FAIL -> failed`, `PARTIAL -> partial`
+  - `subject=<plan_id>`
+  - metadata containing at least `plan_id` and `verdict`
+  - bounded lineage metadata when runtime context is available:
+    `parent_session_id`, `parent_thread_id`, `child_thread_id`, and
+    `verifier_agent_name`
+- Verifier evidence persistence is bounded to the synchronous `run_subagent`
+  verifier tool call.
+- Verifier evidence persistence must not mutate durable tasks or plan artifacts.
+- Verifier calls without `runtime.context.session_context` skip evidence
+  persistence explicitly and still preserve the verifier JSON result contract.
 
 ### 4. Validation & Error Matrix
 
@@ -112,6 +134,11 @@ def run_subagent(
 | verifier subagent without runtime store | `RuntimeError("Verifier subagent requires task store")` |
 | verifier subagent with missing plan | `KeyError("Unknown plan...")` |
 | verifier subagent output | structured JSON parseable as verifier result |
+| verifier output with `VERDICT: PASS` and session context | one `verification` evidence record with `status == "passed"` |
+| verifier output with `VERDICT: FAIL` and session context | one `verification` evidence record with `status == "failed"` |
+| verifier output with `VERDICT: PARTIAL` and session context | one `verification` evidence record with `status == "partial"` |
+| persisted verifier evidence has runtime context | metadata includes parent and child verifier lineage fields |
+| verifier output without session context | verifier JSON result is returned and no evidence persistence is attempted |
 
 ### 5. Good / Base / Bad Cases
 
@@ -180,6 +207,9 @@ Expected:
 - `tests/test_subagents.py::test_verifier_subagent_rejects_unknown_plan`
 - `tests/test_subagents.py::test_run_subagent_task_verifier_uses_durable_plan_payload`
 - `tests/test_subagents.py::test_run_subagent_tool_returns_structured_verifier_result`
+- `tests/test_subagents.py::test_verifier_verdict_helpers_map_status_and_summary`
+- `tests/test_subagents.py::test_run_subagent_tool_persists_verifier_evidence_roundtrip`
+- `tests/test_subagents.py::test_run_subagent_tool_skips_verifier_evidence_without_recording_context`
 
 ### 7. Wrong vs Correct
 

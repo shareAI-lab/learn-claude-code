@@ -229,6 +229,42 @@ def test_session_evidence_roundtrip_and_recovery_brief(tmp_path) -> None:
     assert "[passed] verification: targeted tests passed" in rendered
 
 
+def test_recovery_brief_renders_verification_provenance_only(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="resume")
+    store.append_evidence(
+        context,
+        kind="runtime",
+        summary="Prompt completed.",
+        status="completed",
+        metadata={"internal": "hidden"},
+    )
+    store.append_evidence(
+        context,
+        kind="verification",
+        summary="Checked targeted tests.",
+        status="failed",
+        subject="plan-1",
+        metadata={"plan_id": "plan-1", "verdict": "FAIL", "ignored": "value"},
+    )
+
+    rendered = render_recovery_brief(
+        build_recovery_brief(store.load_session(session_id=context.session_id, workdir=workdir))
+    )
+
+    assert "- [completed] runtime: Prompt completed." in rendered
+    assert "internal=hidden" not in rendered
+    assert (
+        "- [failed] verification: Checked targeted tests. (plan=plan-1; verdict=FAIL)"
+        in rendered
+    )
+    assert "ignored=value" not in rendered
+
+
 def test_compact_record_roundtrip_does_not_enter_history(tmp_path) -> None:
     store = JsonlSessionStore(tmp_path / "sessions-store")
     workdir = tmp_path / "repo"

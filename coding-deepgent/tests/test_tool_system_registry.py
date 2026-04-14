@@ -2,10 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from dependency_injector import providers
+from langchain.tools import tool
 
 from coding_deepgent.containers import AppContainer
 from coding_deepgent.settings import Settings
+from coding_deepgent.tool_system import (
+    ToolCapability,
+    build_builtin_capabilities,
+    build_capability_registry,
+)
 
 
 EXPECTED_MAIN_TOOL_NAMES = [
@@ -60,3 +67,81 @@ def test_main_projection_preserves_current_product_tool_surface(
     ]
 
     assert tool_names == EXPECTED_MAIN_TOOL_NAMES
+
+
+@tool("duplicate_tool", description="First duplicate tool.")
+def duplicate_tool_first() -> str:
+    return "first"
+
+
+@tool("duplicate_tool", description="Second duplicate tool.")
+def duplicate_tool_second() -> str:
+    return "second"
+
+
+def test_build_builtin_capabilities_rejects_duplicate_tool_names() -> None:
+    with pytest.raises(ValueError, match="Duplicate builtin tool name: duplicate_tool"):
+        build_builtin_capabilities(
+            filesystem_tools=(duplicate_tool_first, duplicate_tool_second),
+            todo_tools=(),
+            memory_tools=(),
+            skill_tools=(),
+            task_tools=(),
+            subagent_tools=(),
+        )
+
+
+def test_capability_registry_enabled_and_extension_projections_are_explicit() -> None:
+    base_registry = _container(Path.cwd()).capability_registry()
+    extension_capability = ToolCapability(
+        name="mcp__docs__lookup",
+        tool=base_registry.require("read_file").tool,
+        domain="mcp",
+        read_only=True,
+        destructive=False,
+        concurrency_safe=True,
+        source="mcp:docs",
+        trusted=False,
+        exposure="extension",
+        tags=("read", "server:docs"),
+    )
+    disabled_capability = ToolCapability(
+        name="disabled_demo",
+        tool=base_registry.require("read_file").tool,
+        domain="demo",
+        read_only=True,
+        destructive=False,
+        concurrency_safe=True,
+        enabled=False,
+        exposure="main",
+    )
+    registry = build_capability_registry(
+        builtin_capabilities=tuple(base_registry.metadata().values()),
+        extension_capabilities=(extension_capability, disabled_capability),
+    )
+
+    assert "mcp__docs__lookup" in registry.main_names()
+    assert "mcp__docs__lookup" in registry.declarable_names()
+    assert "disabled_demo" not in registry.main_names()
+    assert "disabled_demo" not in registry.declarable_names()
+
+
+def test_app_container_threads_permission_settings_into_tool_system(tmp_path: Path) -> None:
+    trusted_root = (tmp_path / "shared").resolve()
+    trusted_root.mkdir(parents=True)
+    settings = Settings(
+        workdir=tmp_path,
+        permission_mode="plan",
+        trusted_workdirs=(trusted_root,),
+    )
+    container = AppContainer(
+        settings=providers.Object(settings),
+        model=providers.Object(object()),
+        create_agent_factory=providers.Object(lambda **kwargs: object()),
+    )
+
+    permission_manager = container.tool_system.permission_manager()
+
+    assert permission_manager.mode == "plan"
+    assert permission_manager.workdir == tmp_path.resolve()
+    assert permission_manager.trusted_workdirs == (trusted_root,)

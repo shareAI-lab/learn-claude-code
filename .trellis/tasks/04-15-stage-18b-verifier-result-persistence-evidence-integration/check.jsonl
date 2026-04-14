@@ -1,0 +1,4 @@
+{"file": ".agents/skills/finish-work/SKILL.md", "reason": "Finish work checklist"}
+{"file": ".agents/skills/check-backend/SKILL.md", "reason": "Backend check spec"}
+{"file": "coding-deepgent/tests/test_sessions.py", "reason": "Session evidence roundtrip and recovery brief expectations"}
+{"file": "coding-deepgent/tests/test_subagents.py", "reason": "Focused verifier behavior and evidence persistence tests"}

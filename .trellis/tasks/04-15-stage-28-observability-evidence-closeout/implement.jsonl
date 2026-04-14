@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/runtime/", "type": "directory", "reason": "Stage 28 runtime event closeout"}
+{"file": "coding-deepgent/src/coding_deepgent/sessions/", "type": "directory", "reason": "Stage 28 session evidence closeout"}
+{"file": "coding-deepgent/src/coding_deepgent/compact/", "type": "directory", "reason": "Stage 28 minimal H20 decision"}

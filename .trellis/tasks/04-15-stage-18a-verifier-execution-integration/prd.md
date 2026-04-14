@@ -48,13 +48,13 @@ The workflow system is upgraded from verifier plan-boundary plumbing to actual s
 
 ## Acceptance Criteria
 
-* [ ] verifier execution uses a real child-agent invocation when no test-only child factory is injected.
-* [ ] verifier child receives only the read-only allowlisted tools.
-* [ ] verifier child uses a verifier-specific system prompt instead of the generic placeholder behavior.
-* [ ] verifier execution stays synchronous and does not introduce coordinator/background runtime.
-* [ ] `run_subagent` still returns parseable `VerifierSubagentResult` JSON for verifier calls.
-* [ ] general subagent behavior remains unchanged.
-* [ ] Focused tests, targeted lint, and targeted mypy pass.
+* [x] verifier execution uses a real child-agent invocation when no test-only child factory is injected.
+* [x] verifier child receives only the read-only allowlisted tools.
+* [x] verifier child uses a verifier-specific system prompt instead of the generic placeholder behavior.
+* [x] verifier execution stays synchronous and does not introduce coordinator/background runtime.
+* [x] `run_subagent` still returns parseable `VerifierSubagentResult` JSON for verifier calls.
+* [x] general subagent behavior remains unchanged.
+* [x] Focused tests, targeted lint, and targeted mypy pass.
 
 ## cc-haha Alignment
 
@@ -113,7 +113,7 @@ State:
 - checkpoint
 
 Verdict:
-- ITERATE
+- APPROVE
 
 Implemented:
 - Replaced the verifier placeholder acceptance path with a real synchronous child-agent invocation on the existing `run_subagent` verifier branch.
@@ -131,9 +131,11 @@ Implemented:
 
 Verification:
 - `pytest -q coding-deepgent/tests/test_subagents.py`
-- `pytest -q coding-deepgent/tests/test_tool_system_registry.py coding-deepgent/tests/test_app.py`
-- `ruff check coding-deepgent/src/coding_deepgent/subagents/tools.py coding-deepgent/tests/test_subagents.py`
-- `mypy coding-deepgent/src/coding_deepgent/subagents/tools.py coding-deepgent/tests/test_subagents.py`
+- `pytest -q coding-deepgent/tests/test_tasks.py`
+- `pytest -q coding-deepgent/tests/test_tool_system_registry.py`
+- `pytest -q coding-deepgent/tests/test_app.py`
+- `ruff check coding-deepgent/src/coding_deepgent/subagents/tools.py coding-deepgent/src/coding_deepgent/subagents/schemas.py coding-deepgent/tests/test_subagents.py`
+- `mypy coding-deepgent/src/coding_deepgent/subagents/tools.py coding-deepgent/src/coding_deepgent/subagents/schemas.py coding-deepgent/tests/test_subagents.py`
 
 cc-haha alignment:
 - Source files inspected:
@@ -161,7 +163,7 @@ Boundary findings:
 - Verifier execution currently builds a fresh model for each verifier call; sharing parent-model/runtime optimization is a later concern and not needed for the current bounded stage.
 
 Decision:
-- adjust
+- continue
 
 Reason:
-- Stage 18A is implemented and verified, but there is no explicit next verifier/runtime sub-stage defined in the current Trellis task set. Auto-continuing would create new scope without a written PRD or checkpoint target.
+- Stage 18A is implemented on the branch, the focused verifier/task/app/tool-surface checks passed on the current checkout, and Stage 18B is now defined as the next narrow verifier/runtime step.

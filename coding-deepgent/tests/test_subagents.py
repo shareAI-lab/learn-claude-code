@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from coding_deepgent.hooks import LocalHookRegistry
 from coding_deepgent.runtime import InMemoryEventSink, RuntimeContext
+from coding_deepgent.sessions import JsonlSessionStore, build_recovery_brief, render_recovery_brief
 from coding_deepgent.subagents import tools as subagent_tools
 from coding_deepgent.subagents import (
     DEFAULT_CHILD_TOOLS,
@@ -39,6 +40,35 @@ def runtime_with_context_and_store(store: InMemoryStore) -> SimpleNamespace:
             skill_dir=Path.cwd() / "skills",
             event_sink=InMemoryEventSink(),
             hook_registry=LocalHookRegistry(),
+        ),
+        config={"configurable": {"thread_id": "session-1"}},
+    )
+
+
+def runtime_with_recorded_session(
+    store: InMemoryStore,
+    *,
+    session_store: JsonlSessionStore,
+    workdir: Path,
+) -> SimpleNamespace:
+    session_context = session_store.create_session(
+        workdir=workdir,
+        session_id="session-1",
+        entrypoint="test",
+    )
+    session_store.append_message(session_context, role="user", content="start")
+    return SimpleNamespace(
+        store=store,
+        context=RuntimeContext(
+            session_id="session-1",
+            workdir=workdir,
+            trusted_workdirs=(),
+            entrypoint="test",
+            agent_name="coding-deepgent",
+            skill_dir=workdir / "skills",
+            event_sink=InMemoryEventSink(),
+            hook_registry=LocalHookRegistry(),
+            session_context=session_context,
         ),
         config={"configurable": {"thread_id": "session-1"}},
     )
@@ -331,3 +361,135 @@ def test_run_subagent_tool_returns_structured_verifier_result(monkeypatch) -> No
         "plan_get",
     ]
     assert result.content == "VERDICT: PASS"
+
+
+def test_verifier_verdict_helpers_map_status_and_summary() -> None:
+    assert subagent_tools.verifier_verdict("Checked output\nVERDICT: PASS") == "PASS"
+    assert subagent_tools.verifier_verdict("VERDICT: fail") == "FAIL"
+    assert subagent_tools.verifier_verdict("VERDICT: PARTIAL") == "PARTIAL"
+    assert subagent_tools.verifier_verdict("looks ok") is None
+    assert (
+        subagent_tools.verifier_evidence_summary(
+            "Checked targeted tests.\nVERDICT: PASS", verdict="PASS"
+        )
+        == "Checked targeted tests."
+    )
+    assert (
+        subagent_tools.verifier_evidence_summary("VERDICT: PASS", verdict="PASS")
+        == "Verifier verdict: PASS"
+    )
+
+
+def test_run_subagent_tool_persists_verifier_evidence_roundtrip(
+    monkeypatch, tmp_path: Path
+) -> None:
+    task_store = InMemoryStore()
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+    session_store = JsonlSessionStore(tmp_path / "sessions")
+    runtime = runtime_with_recorded_session(
+        task_store,
+        session_store=session_store,
+        workdir=workdir,
+    )
+    task = create_task(task_store, title="Implement feature")
+    plan = create_plan(
+        task_store,
+        title="Verification plan",
+        content="Run the targeted tests and inspect durable task state.",
+        verification="Run pytest coding-deepgent/tests/test_subagents.py",
+        task_ids=[task.id],
+    )
+
+    monkeypatch.setattr(
+        subagent_tools,
+        "create_agent",
+        lambda **_kwargs: SimpleNamespace(
+            invoke=lambda payload, **kwargs: {
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "Checked targeted tests.\nVERDICT: FAIL",
+                    }
+                ]
+            }
+        ),
+    )
+    monkeypatch.setattr(subagent_tools, "build_openai_model", lambda: object())
+
+    output = cast(Any, run_subagent).func(
+        "Verify the implementation",
+        runtime,
+        agent_type="verifier",
+        plan_id=plan.id,
+    )
+    result = VerifierSubagentResult.model_validate_json(output)
+    loaded = session_store.load_session(session_id="session-1", workdir=workdir)
+    rendered = render_recovery_brief(build_recovery_brief(loaded))
+
+    assert result.content == "Checked targeted tests.\nVERDICT: FAIL"
+    assert loaded.summary.evidence_count == 1
+    assert loaded.evidence[0].kind == "verification"
+    assert loaded.evidence[0].status == "failed"
+    assert loaded.evidence[0].summary == "Checked targeted tests."
+    assert loaded.evidence[0].subject == plan.id
+    assert loaded.evidence[0].metadata == {
+        "plan_id": plan.id,
+        "plan_title": "Verification plan",
+        "verdict": "FAIL",
+        "parent_session_id": "session-1",
+        "parent_thread_id": "session-1",
+        "child_thread_id": f"session-1:verifier:{plan.id}",
+        "verifier_agent_name": "coding-deepgent-verifier",
+        "task_ids": [task.id],
+        "tool_allowlist": [
+            "read_file",
+            "glob",
+            "grep",
+            "task_get",
+            "task_list",
+            "plan_get",
+        ],
+    }
+    assert "[failed] verification: Checked targeted tests." in rendered
+
+
+def test_run_subagent_tool_skips_verifier_evidence_without_recording_context(
+    monkeypatch,
+) -> None:
+    store = InMemoryStore()
+    runtime = runtime_with_context_and_store(store)
+    task = create_task(store, title="Implement feature")
+    plan = create_plan(
+        store,
+        title="Verification plan",
+        content="Run the targeted tests and inspect durable task state.",
+        verification="Run pytest coding-deepgent/tests/test_subagents.py",
+        task_ids=[task.id],
+    )
+
+    monkeypatch.setattr(
+        subagent_tools,
+        "create_agent",
+        lambda **_kwargs: SimpleNamespace(
+            invoke=lambda payload, **kwargs: {
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "Checked targeted tests.\nVERDICT: PASS",
+                    }
+                ]
+            }
+        ),
+    )
+    monkeypatch.setattr(subagent_tools, "build_openai_model", lambda: object())
+
+    output = cast(Any, run_subagent).func(
+        "Verify the implementation",
+        runtime,
+        agent_type="verifier",
+        plan_id=plan.id,
+    )
+    result = VerifierSubagentResult.model_validate_json(output)
+
+    assert result.content == "Checked targeted tests.\nVERDICT: PASS"

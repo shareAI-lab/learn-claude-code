@@ -1,0 +1,44 @@
+{
+  "id": "stage-29-deferred-boundary-adr-mvp-release-checklist",
+  "name": "stage-29-deferred-boundary-adr-mvp-release-checklist",
+  "title": "Stage 29: Deferred Boundary ADR And MVP Release Checklist",
+  "description": "Close Approach A MVP with deferred-boundary ADR and release checklist.",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "coding-deepgent MVP release boundary and H01-H22 final dashboard",
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-15",
+  "completedAt": "2026-04-15",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
+  "relatedFiles": [],
+  "notes": "Stage 29 approved: H01-H22 have explicit statuses, H13/H14/H21/H22 are deferred, and Stage 30-36 reserve is not currently required.",
+  "meta": {}
+}

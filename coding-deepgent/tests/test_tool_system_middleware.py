@@ -11,6 +11,7 @@ from coding_deepgent.hooks import HookPayload, HookResult, LocalHookRegistry
 from coding_deepgent.memory import save_memory
 from coding_deepgent.permissions import PermissionManager
 from coding_deepgent.runtime import InMemoryEventSink, RuntimeContext
+from coding_deepgent.sessions import JsonlSessionStore, build_recovery_brief, render_recovery_brief
 from coding_deepgent.skills import load_skill
 from coding_deepgent.subagents import run_subagent
 from coding_deepgent.tasks import (
@@ -66,6 +67,37 @@ def request(name: str, args: dict[str, object], sink: InMemoryEventSink | None =
             skill_dir=Path.cwd() / "skills",
             event_sink=sink or InMemoryEventSink(),
             hook_registry=hook_registry,
+        )
+    )
+    return SimpleNamespace(
+        tool_call={"name": name, "args": args, "id": "call-1"}, runtime=runtime
+    )
+
+
+def request_with_session_context(
+    name: str,
+    args: dict[str, object],
+    *,
+    session_store: JsonlSessionStore,
+    workdir: Path,
+    sink: InMemoryEventSink | None = None,
+):
+    session_context = session_store.create_session(
+        workdir=workdir, session_id="session-1"
+    )
+    session_store.append_message(session_context, role="user", content="start")
+    hook_registry = LocalHookRegistry()
+    runtime = SimpleNamespace(
+        context=RuntimeContext(
+            session_id="session-1",
+            workdir=workdir,
+            trusted_workdirs=(),
+            entrypoint="test",
+            agent_name="test-agent",
+            skill_dir=workdir / "skills",
+            event_sink=sink or InMemoryEventSink(),
+            hook_registry=hook_registry,
+            session_context=session_context,
         )
     )
     return SimpleNamespace(
@@ -148,6 +180,50 @@ def test_tool_guard_emits_permission_denied_for_unknown_and_dont_ask() -> None:
     assert result.status == "error"
     assert "dontAsk mode" in str(result.content)
     assert sink.snapshot()[0].kind == "permission_denied"
+
+
+def test_tool_guard_permission_denied_appends_session_evidence(tmp_path: Path) -> None:
+    registry = canonical_registry()
+    sink = InMemoryEventSink()
+    session_store = JsonlSessionStore(tmp_path / "sessions")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+    req = request_with_session_context(
+        "write_file",
+        {"path": "README.md", "content": "x"},
+        session_store=session_store,
+        workdir=workdir,
+        sink=sink,
+    )
+    middleware = ToolGuardMiddleware(
+        registry=registry,
+        policy=ToolPolicy(
+            registry=registry,
+            permission_manager=PermissionManager(mode="dontAsk", workdir=workdir),
+        ),
+        event_sink=sink,
+    )
+
+    result = middleware.wrap_tool_call(
+        req,
+        lambda _request: ToolMessage(content="should not run", tool_call_id="call-1"),
+    )
+    loaded = session_store.load_session(session_id="session-1", workdir=workdir)
+    rendered = render_recovery_brief(build_recovery_brief(loaded))
+
+    assert isinstance(result, ToolMessage)
+    assert result.status == "error"
+    assert loaded.summary.evidence_count == 1
+    assert loaded.evidence[0].kind == "runtime_event"
+    assert loaded.evidence[0].status == "denied"
+    assert loaded.evidence[0].metadata == {
+        "event_kind": "permission_denied",
+        "source": "tool_guard",
+        "tool": "write_file",
+        "policy_code": "permission_denied",
+        "permission_behavior": "deny",
+    }
+    assert "[denied] runtime_event: Tool write_file denied by permission_denied." in rendered
 
 
 def test_tool_guard_blocks_untrusted_extension_destructive_tools() -> None:

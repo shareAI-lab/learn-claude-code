@@ -11,6 +11,7 @@ from langgraph.types import Command
 from coding_deepgent.hooks.dispatcher import dispatch_context_hook
 from coding_deepgent.hooks.events import HookEventName
 from coding_deepgent.runtime import RuntimeEvent
+from coding_deepgent.sessions.evidence_events import append_runtime_event_evidence
 
 from .capabilities import CapabilityRegistry
 from .policy import ToolPolicy, ToolPolicyCode, ToolPolicyDecision
@@ -116,7 +117,12 @@ class ToolGuardMiddleware(AgentMiddleware):
             "permission_behavior": decision.behavior,
             "result_type": type(result).__name__ if result is not None else None,
         }
-        _send_event(sink, event, session_id=_session_id(request.runtime))
+        runtime_event = _send_event(sink, event, session_id=_session_id(request.runtime))
+        if runtime_event is not None:
+            append_runtime_event_evidence(
+                context=getattr(request.runtime, "context", None),
+                event=runtime_event,
+            )
 
     def _dispatch_hook(
         self,
@@ -151,25 +157,27 @@ def _session_id(runtime: object) -> str:
     return str(getattr(context, "session_id", "unknown"))
 
 
-def _send_event(sink: object, event: dict[str, object], *, session_id: str) -> None:
+def _send_event(
+    sink: object, event: dict[str, object], *, session_id: str
+) -> RuntimeEvent | None:
     emit = getattr(sink, "emit", None)
     if callable(emit):
-        emit(
-            RuntimeEvent(
-                kind=str(event["phase"]),
-                message=f"Tool guard {event['phase']} for {event['tool']}",
-                session_id=session_id,
-                metadata=event,
-            )
+        runtime_event = RuntimeEvent(
+            kind=str(event["phase"]),
+            message=f"Tool guard {event['phase']} for {event['tool']}",
+            session_id=session_id,
+            metadata=event,
         )
-        return
+        emit(runtime_event)
+        return runtime_event
 
     if callable(sink):
         sink(event)
-        return
+        return None
 
     for method_name in ("record", "append"):
         method = getattr(sink, method_name, None)
         if callable(method):
             method(event)
-            return
+            return None
+    return None

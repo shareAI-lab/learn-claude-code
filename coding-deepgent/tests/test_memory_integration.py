@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import Sequence, cast
+from typing import Any, Sequence, cast
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import ModelRequest
@@ -21,6 +21,7 @@ from coding_deepgent.memory import (
 from coding_deepgent.context_payloads import ContextPayload, merge_system_message_content
 from coding_deepgent.containers import AppContainer
 from coding_deepgent.settings import Settings
+from coding_deepgent.todo.middleware import PlanContextMiddleware
 
 
 class RecordingFakeModel(FakeMessagesListChatModel):
@@ -147,6 +148,41 @@ def test_memory_context_payload_renderer_path_is_shared() -> None:
     ]
 
 
+def test_memory_context_middleware_respects_namespace_scope() -> None:
+    store = InMemoryStore()
+    save_memory_record(
+        store, MemoryRecord(content="Project memory", namespace="project")
+    )
+    save_memory_record(store, MemoryRecord(content="User memory", namespace="user"))
+    runtime = SimpleNamespace(store=store)
+    captured: dict[str, object] = {}
+
+    def handler(request: ModelRequest):
+        captured["system_message"] = request.system_message
+        return SimpleNamespace(result="ok")
+
+    middleware = MemoryContextMiddleware(namespace="user")
+    request = ModelRequest(
+        model=RecordingFakeModel(responses=[]),
+        messages=[HumanMessage(content="user memory question")],
+        system_message=SystemMessage(content="Base"),
+        tool_choice=None,
+        tools=[],
+        response_format=None,
+        state={"messages": []},
+        runtime=runtime,  # type: ignore[arg-type]
+        model_settings={},
+    )
+
+    middleware.wrap_model_call(request, handler)
+
+    system_message = captured["system_message"]
+    assert isinstance(system_message, SystemMessage)
+    text = str(system_message.content)
+    assert "User memory" in text
+    assert "Project memory" not in text
+
+
 def test_app_container_wires_memory_middleware_and_store() -> None:
     captured: dict[str, object] = {}
 
@@ -170,3 +206,66 @@ def test_app_container_wires_memory_middleware_and_store() -> None:
         "ToolGuardMiddleware",
     ]
     assert captured["store"] is not None
+
+
+def test_resume_todo_and_memory_context_compose_without_duplication() -> None:
+    store = InMemoryStore()
+    save_memory_record(
+        store, MemoryRecord(content="Continue the work by preferring LangChain stores for memory")
+    )
+    runtime = SimpleNamespace(store=store)
+    captured: dict[str, object] = {}
+
+    def final_handler(request: ModelRequest):
+        captured["messages"] = request.messages
+        captured["system_message"] = request.system_message
+        return SimpleNamespace(result="ok")
+
+    request = ModelRequest(
+        model=RecordingFakeModel(responses=[]),
+        messages=[
+            SystemMessage(content="Resumed session context. Use this brief as continuation context."),
+            HumanMessage(content="continue the work"),
+        ],
+        system_message=SystemMessage(content="Base"),
+        tool_choice=None,
+        tools=[],
+        response_format=None,
+        state=cast(
+            Any,
+            {
+                "messages": [],
+                "todos": [
+                    {
+                        "content": "Close Stage 22",
+                        "status": "in_progress",
+                        "activeForm": "Closing Stage 22",
+                    }
+                ],
+                "rounds_since_update": 1,
+            },
+        ),
+        runtime=runtime,  # type: ignore[arg-type]
+        model_settings={},
+    )
+
+    memory_middleware = MemoryContextMiddleware()
+    planning_middleware = PlanContextMiddleware()
+
+    planning_middleware.wrap_model_call(
+        request,
+        lambda planned_request: memory_middleware.wrap_model_call(
+            planned_request, final_handler
+        ),
+    )
+
+    system_message = captured["system_message"]
+    assert isinstance(system_message, SystemMessage)
+    text = str(system_message.content)
+    assert "Base" in text
+    assert "Current session todos:" in text
+    assert "Relevant long-term memory" in text
+    assert text.index("Current session todos:") < text.index("Relevant long-term memory")
+    assert text.count("Resumed session context.") == 0
+    messages = cast(Sequence[object], captured["messages"])
+    assert any("Resumed session context." in str(getattr(message, "content", "")) for message in messages)

@@ -1,0 +1,44 @@
+{
+  "id": "stage-22-prompt-and-dynamic-context-closeout",
+  "name": "stage-22-prompt-and-dynamic-context-closeout",
+  "title": "Stage 22: Prompt And Dynamic Context Closeout",
+  "description": "Close H03/H04 with prompt layering and dynamic context contract hardening.",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "coding-deepgent H03/H04 prompt and dynamic context MVP closeout",
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-15",
+  "completedAt": "2026-04-15",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
+  "relatedFiles": [],
+  "notes": "Stage 22 approved: H03/H04 closed with prompt layering tests, composition test, and explicit H04 MVP boundary.",
+  "meta": {}
+}

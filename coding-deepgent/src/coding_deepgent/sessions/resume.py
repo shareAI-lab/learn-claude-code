@@ -84,10 +84,7 @@ def render_recovery_brief(brief: RecoveryBrief) -> str:
         lines.append("- none")
 
     lines.append("Recent evidence:")
-    lines.extend(
-        f"- [{item.status}] {item.kind}: {item.summary}"
-        for item in brief.recent_evidence
-    )
+    lines.extend(_render_evidence(item) for item in brief.recent_evidence)
     if not brief.recent_evidence:
         lines.append("- none")
     lines.append("Recent compacts:")
@@ -98,6 +95,29 @@ def render_recovery_brief(brief: RecoveryBrief) -> str:
     if not brief.recent_compacts:
         lines.append("- none")
     return "\n".join(lines)
+
+
+def _render_evidence(item: SessionEvidence) -> str:
+    return f"- [{item.status}] {item.kind}: {item.summary}{_evidence_provenance(item)}"
+
+
+def _evidence_provenance(item: SessionEvidence) -> str:
+    if item.kind != "verification":
+        return ""
+
+    metadata = item.metadata or {}
+    parts: list[str] = []
+    plan_id = metadata.get("plan_id")
+    verdict = metadata.get("verdict")
+    if isinstance(plan_id, str) and plan_id.strip():
+        parts.append(f"plan={plan_id.strip()}")
+    elif item.subject:
+        parts.append(f"subject={item.subject}")
+    if isinstance(verdict, str) and verdict.strip():
+        parts.append(f"verdict={verdict.strip()}")
+    if not parts:
+        return ""
+    return f" ({'; '.join(parts)})"
 
 
 def build_resume_context_message(loaded_session: LoadedSession) -> dict[str, str]:

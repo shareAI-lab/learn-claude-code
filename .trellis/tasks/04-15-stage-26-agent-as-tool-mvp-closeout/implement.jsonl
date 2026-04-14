@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/subagents/", "type": "directory", "reason": "Stage 26 H11/H12 subagent closeout"}
+{"file": "coding-deepgent/src/coding_deepgent/runtime/", "type": "directory", "reason": "Stage 26 runtime context/fork boundary"}

@@ -25,3 +25,25 @@ def test_normalize_messages_merges_visible_history() -> None:
         {"role": "user", "content": "first\n\nsecond"},
         {"role": "assistant", "content": "third\n\nfourth"},
     ]
+
+
+def test_normalize_messages_keeps_projection_contract_under_mixed_inputs() -> None:
+    messages: list[dict[str, object]] = [
+        {"role": "user", "content": "first"},
+        {"role": "user", "content": "second"},
+        {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "structured"}],
+        },
+        {"role": "assistant", "content": "plain", "id": "m1"},
+        {"role": "assistant", "content": "x" * 120},
+    ]
+
+    normalized = normalize_messages(messages)
+
+    assert normalized[:2] == [
+        {"role": "user", "content": "first\n\nsecond"},
+        {"role": "assistant", "content": [{"type": "text", "text": "structured"}]},
+    ]
+    assert normalized[2] == {"role": "assistant", "content": "plain", "id": "m1"}
+    assert normalized[3] == {"role": "assistant", "content": "x" * 120}

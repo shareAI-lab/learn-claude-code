@@ -132,6 +132,42 @@ def test_task_graph_with_verification_task_does_not_need_nudge() -> None:
     assert task_graph_needs_verification(store) is False
 
 
+def test_task_graph_recognizes_metadata_verification_and_ignores_cancelled() -> None:
+    store = InMemoryStore()
+    first = create_task(store, title="Implement feature")
+    second = create_task(store, title="Update docs")
+    cancelled = create_task(store, title="Cancelled side quest")
+    verify = create_task(store, title="Independent review", metadata={"role": "verification"})
+
+    for task in (first, second, verify):
+        update_task(store, task_id=task.id, status="in_progress")
+        update_task(store, task_id=task.id, status="completed")
+    update_task(store, task_id=cancelled.id, status="cancelled")
+
+    assert task_graph_needs_verification(store) is False
+
+
+def test_task_list_defaults_hide_terminal_and_include_terminal_restores_them() -> None:
+    store = InMemoryStore()
+    runtime = runtime_with_store(store)
+    active = create_task(store, title="Active task")
+    completed = create_task(store, title="Completed task")
+    cancelled = create_task(store, title="Cancelled task")
+    update_task(store, task_id=completed.id, status="in_progress")
+    update_task(store, task_id=completed.id, status="completed")
+    update_task(store, task_id=cancelled.id, status="cancelled")
+
+    default_output = cast(Any, task_list).func(runtime)
+    full_output = cast(Any, task_list).func(runtime, include_terminal=True)
+
+    assert active.id in default_output
+    assert completed.id not in default_output
+    assert cancelled.id not in default_output
+    assert active.id in full_output
+    assert completed.id in full_output
+    assert cancelled.id in full_output
+
+
 def test_task_tools_are_strict_and_do_not_mutate_todo_state() -> None:
     store = InMemoryStore()
     runtime = runtime_with_store(store)

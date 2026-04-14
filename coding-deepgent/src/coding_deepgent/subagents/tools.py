@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from typing import Any, cast
@@ -11,6 +12,8 @@ from langchain_core.tools import BaseTool
 from coding_deepgent.filesystem import glob_search, grep_search, read_file
 from coding_deepgent.rendering import latest_assistant_text
 from coding_deepgent.runtime import RuntimeContext, RuntimeInvocation
+from coding_deepgent.sessions.records import SessionContext
+from coding_deepgent.sessions.store_jsonl import JsonlSessionStore
 from coding_deepgent.settings import build_openai_model
 from coding_deepgent.subagents.schemas import (
     RunSubagentInput,
@@ -42,6 +45,15 @@ CHILD_TOOL_OBJECTS: dict[str, BaseTool] = {
     "task_get": task_get,
     "task_list": task_list,
     "plan_get": plan_get,
+}
+VERDICT_PATTERN = re.compile(
+    r"^\s*VERDICT:\s*(PASS|FAIL|PARTIAL)\s*$",
+    flags=re.IGNORECASE | re.MULTILINE,
+)
+VERDICT_STATUS = {
+    "PASS": "passed",
+    "FAIL": "failed",
+    "PARTIAL": "partial",
 }
 
 
@@ -141,7 +153,10 @@ def _verifier_system_prompt(*, tool_allowlist: Sequence[str], context: RuntimeCo
             ),
             f"Workspace: {context.workdir}",
             f"Allowed tools: {allowed_tools}",
-            "End with a concise verdict and the strongest evidence you found.",
+            (
+                "End with a final line exactly `VERDICT: PASS`, `VERDICT: FAIL`, "
+                "or `VERDICT: PARTIAL`."
+            ),
         ]
     )
 
@@ -220,6 +235,86 @@ def _execute_verifier_subagent(
     return content
 
 
+def verifier_verdict(content: str) -> str | None:
+    match = VERDICT_PATTERN.search(content)
+    if match is None:
+        return None
+    return match.group(1).upper()
+
+
+def verifier_evidence_summary(content: str, *, verdict: str) -> str:
+    lines = [
+        line.strip()
+        for line in content.splitlines()
+        if line.strip() and not VERDICT_PATTERN.match(line)
+    ]
+    summary = lines[0] if lines else f"Verifier verdict: {verdict}"
+    if len(summary) <= 240:
+        return summary
+    return f"{summary[:237].rstrip()}..."
+
+
+def record_verifier_evidence(
+    *,
+    result: SubagentResult,
+    runtime: ToolRuntime,
+) -> bool:
+    if result.agent_type != "verifier":
+        return False
+    verdict = verifier_verdict(result.content)
+    if verdict is None:
+        return False
+    context = getattr(runtime, "context", None)
+    session_context = getattr(context, "session_context", None)
+    if not isinstance(session_context, SessionContext):
+        return False
+    parent_thread_id = _runtime_thread_id(runtime)
+    child_thread_id = (
+        f"{parent_thread_id}:verifier:{result.plan_id}"
+        if result.plan_id
+        else f"{parent_thread_id}:verifier"
+    )
+    verifier_agent_name = _runtime_agent_name(runtime)
+
+    JsonlSessionStore(session_context.store_dir).append_evidence(
+        session_context,
+        kind="verification",
+        summary=verifier_evidence_summary(result.content, verdict=verdict),
+        status=VERDICT_STATUS[verdict],
+        subject=result.plan_id,
+        metadata={
+            "plan_id": result.plan_id or "",
+            "plan_title": result.plan_title or "",
+            "verdict": verdict,
+            "parent_session_id": session_context.session_id,
+            "parent_thread_id": parent_thread_id,
+            "child_thread_id": child_thread_id,
+            "verifier_agent_name": verifier_agent_name,
+            "task_ids": list(result.task_ids),
+            "tool_allowlist": list(result.tool_allowlist),
+        },
+    )
+    return True
+
+
+def _runtime_thread_id(runtime: ToolRuntime) -> str:
+    context = getattr(runtime, "context", None)
+    fallback = str(getattr(context, "session_id", "unknown"))
+    config = getattr(runtime, "config", None)
+    if not isinstance(config, dict):
+        return fallback
+    configurable = config.get("configurable")
+    if not isinstance(configurable, dict):
+        return fallback
+    return str(configurable.get("thread_id", fallback))
+
+
+def _runtime_agent_name(runtime: ToolRuntime) -> str:
+    context = getattr(runtime, "context", None)
+    parent_agent_name = str(getattr(context, "agent_name", "coding-deepgent"))
+    return f"{parent_agent_name}-verifier"
+
+
 def run_subagent_task(
     *,
     task: str,
@@ -291,6 +386,7 @@ def run_subagent(
         plan_id=plan_id,
     )
     if agent_type == "verifier":
+        record_verifier_evidence(result=result, runtime=runtime)
         return VerifierSubagentResult(
             plan_id=result.plan_id or "",
             plan_title=result.plan_title or "",

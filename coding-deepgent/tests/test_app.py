@@ -3,11 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Iterable, Sequence, cast
 
+from dependency_injector import providers
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
 from pydantic import PrivateAttr
 
 from coding_deepgent import app
+from coding_deepgent.containers import AppContainer
 from coding_deepgent.hooks import HookPayload, HookResult, LocalHookRegistry
 from coding_deepgent.memory import MemoryContextMiddleware
 from coding_deepgent.middleware import PlanContextMiddleware
@@ -17,6 +19,8 @@ from coding_deepgent.runtime import (
     RuntimeInvocation,
     RuntimeState,
 )
+from coding_deepgent.sessions import SessionContext
+from coding_deepgent.settings import Settings
 from coding_deepgent.tool_system import ToolGuardMiddleware
 
 EXPECTED_TOOL_NAMES = [
@@ -131,6 +135,75 @@ def test_agent_loop_roundtrips_todo_state(monkeypatch) -> None:
     assert session_state["todos"] == [
         {"content": "Ship it", "status": "in_progress", "activeForm": "Shipping"}
     ]
+
+
+def test_build_runtime_invocation_carries_session_context(tmp_path: Path) -> None:
+    session_context = SessionContext(
+        session_id="session-1",
+        workdir=tmp_path,
+        store_dir=tmp_path / "sessions",
+        transcript_path=tmp_path / "sessions" / "session-1.jsonl",
+        entrypoint="test",
+    )
+    container = AppContainer(
+        settings=providers.Object(Settings(workdir=tmp_path)),
+        model=providers.Object(object()),
+        create_agent_factory=providers.Object(lambda **kwargs: object()),
+    )
+
+    invocation = app.build_runtime_invocation(
+        container=container,
+        session_id="session-1",
+        session_context=session_context,
+    )
+
+    assert invocation.context.session_context is session_context
+    assert invocation.thread_id == "session-1"
+
+
+def test_agent_loop_threads_session_context_to_runtime_invocation(monkeypatch) -> None:
+    session_context = SessionContext(
+        session_id="session-1",
+        workdir=Path.cwd(),
+        store_dir=Path.cwd() / "sessions",
+        transcript_path=Path.cwd() / "sessions" / "session-1.jsonl",
+        entrypoint="test",
+    )
+    captured: dict[str, object] = {}
+    invocation = RuntimeInvocation(
+        context=RuntimeContext(
+            session_id="session-1",
+            workdir=Path.cwd(),
+            trusted_workdirs=(),
+            entrypoint="test",
+            agent_name="test-agent",
+            skill_dir=Path.cwd() / "skills",
+            event_sink=InMemoryEventSink(),
+            hook_registry=LocalHookRegistry(),
+            session_context=session_context,
+        ),
+        config={"configurable": {"thread_id": "session-1"}},
+    )
+
+    def build_runtime_invocation(**kwargs):
+        captured.update(kwargs)
+        return invocation
+
+    monkeypatch.setattr(app, "build_runtime_invocation", build_runtime_invocation)
+    monkeypatch.setattr(app, "build_agent", lambda **_: FakeAgent())
+
+    history = [{"role": "user", "content": "hello"}]
+    assert (
+        app.agent_loop(
+            history,
+            session_state={"todos": [], "rounds_since_update": 0},
+            session_id="session-1",
+            session_context=session_context,
+        )
+        == "planned"
+    )
+
+    assert captured["session_context"] is session_context
 
 
 def test_free_agent_path_executes_todowrite_without_runtime_injection_error(

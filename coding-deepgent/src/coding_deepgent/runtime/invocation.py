@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from coding_deepgent.hooks.registry import LocalHookRegistry
 from coding_deepgent.runtime.context import RuntimeContext
 from coding_deepgent.runtime.events import RuntimeEventSink
 from coding_deepgent.settings import Settings
+
+if TYPE_CHECKING:
+    from coding_deepgent.sessions.records import SessionContext
 
 DEFAULT_SESSION_ID = "default"
 
@@ -30,6 +34,7 @@ def build_runtime_context(
     session_id: str | None = None,
     entrypoint: str | None = None,
     agent_name: str | None = None,
+    session_context: SessionContext | None = None,
 ) -> RuntimeContext:
     resolved_session_id = resolve_session_id(session_id)
     return RuntimeContext(
@@ -41,6 +46,7 @@ def build_runtime_context(
         skill_dir=settings.skill_dir,
         event_sink=event_sink,
         hook_registry=hook_registry,
+        session_context=session_context,
     )
 
 
@@ -62,6 +68,7 @@ def build_runtime_invocation(
     session_id: str | None = None,
     entrypoint: str | None = None,
     agent_name: str | None = None,
+    session_context: SessionContext | None = None,
 ) -> RuntimeInvocation:
     resolved_session_id = resolve_session_id(session_id)
     return RuntimeInvocation(
@@ -72,6 +79,7 @@ def build_runtime_invocation(
             session_id=resolved_session_id,
             entrypoint=entrypoint,
             agent_name=agent_name,
+            session_context=session_context,
         ),
         config=build_runnable_config(session_id=resolved_session_id),
     )
