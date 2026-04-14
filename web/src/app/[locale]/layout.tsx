@@ -3,11 +3,12 @@ import { I18nProvider } from "@/lib/i18n";
 import { Header } from "@/components/layout/header";
 import en from "@/i18n/messages/en.json";
 import zh from "@/i18n/messages/zh.json";
+import zhTW from "@/i18n/messages/zh-tw.json";
 import ja from "@/i18n/messages/ja.json";
 import "../globals.css";
 
-const locales = ["en", "zh", "ja"];
-const metaMessages: Record<string, typeof en> = { en, zh, ja };
+const locales = ["en", "zh", "zh-tw", "ja"];
+const metaMessages: Record<string, typeof en> = { en, zh, "zh-tw": zhTW, ja };
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));

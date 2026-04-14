@@ -26,7 +26,7 @@ export interface VersionDiff {
 export interface DocContent {
   version: string | null;
   slug: string;
-  locale: "en" | "zh" | "ja";
+  locale: "en" | "zh" | "zh-tw" | "ja";
   title: string;
   kind: "chapter" | "bridge";
   filename: string;
