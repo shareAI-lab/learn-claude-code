@@ -54,7 +54,6 @@
     "04-15-stage-17c-explicit-plan-artifact-boundary",
     "04-15-stage-17d-verifier-subagent-execution-boundary",
     "04-15-stage-18a-verifier-execution-integration",
-    "04-15-stage-18b-verifier-result-persistence-evidence-integration",
     "04-15-stage-19-evidence-observability-agent-lifecycle-hardening",
     "04-15-coding-deepgent-highlight-completion-map",
     "04-15-stage-21-tool-and-permission-closeout",
