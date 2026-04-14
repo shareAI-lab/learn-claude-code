@@ -35,6 +35,18 @@ def update_task(
 def is_task_ready(store: TaskStore, record: TaskRecord) -> bool: ...
 def validate_task_graph(store: TaskStore) -> None: ...
 def task_graph_needs_verification(store: TaskStore) -> bool: ...
+
+def create_plan(
+    store: TaskStore,
+    *,
+    title: str,
+    content: str,
+    verification: str,
+    task_ids: list[str] | None = None,
+    metadata: dict[str, str] | None = None,
+) -> PlanArtifact: ...
+
+def get_plan(store: TaskStore, plan_id: str) -> PlanArtifact: ...
 ```
 
 ### 3. Contracts
@@ -53,6 +65,11 @@ def task_graph_needs_verification(store: TaskStore) -> bool: ...
 - `task_list` must expose ready state in rendered JSON metadata as `"ready": "true"` or `"false"`.
 - Completing a 3+ non-cancelled task graph without a verification task must expose a `verification_nudge` in the returned `task_update` JSON metadata.
 - Verification nudge is output metadata only; it must not mutate the stored task record.
+- `PlanArtifact` is the durable plan boundary for implementation workflow.
+- `PlanArtifact.verification` is required and must be non-empty.
+- `PlanArtifact.task_ids` must reference existing durable tasks.
+- Plan artifacts use a separate store namespace from task records.
+- `plan_save` and `plan_get` are main-surface tools, but they do not enter TodoWrite state.
 
 ### 4. Validation & Error Matrix
 
@@ -67,6 +84,9 @@ def task_graph_needs_verification(store: TaskStore) -> bool: ...
 | 3 completed non-verification tasks | `task_graph_needs_verification(...) is True` |
 | graph includes verification task | `task_graph_needs_verification(...) is False` |
 | `task_update` closes 3rd non-verification task | output metadata includes `verification_nudge=true` |
+| save plan with missing verification | Pydantic validation error |
+| save plan with unknown task id | `ValueError("Unknown task dependencies...")` |
+| get missing plan | `KeyError("Unknown plan...")` |
 
 ### 5. Good / Base / Bad Cases
 
@@ -100,6 +120,24 @@ update_task(store, task_id=task.id, depends_on=[task.id])
 
 Expected: reject self-dependency.
 
+#### Plan Artifact
+
+```python
+task = create_task(store, title="Implement feature")
+plan = create_plan(
+    store,
+    title="Feature plan",
+    content="Use the existing task store and tests.",
+    verification="Run pytest tests/test_tasks.py",
+    task_ids=[task.id],
+)
+```
+
+Expected:
+- plan has stable id
+- verification criteria are non-empty
+- referenced task IDs exist
+
 ### 6. Tests Required
 
 - `tests/test_tasks.py::test_task_store_transitions_dependencies_and_ready_rule`
@@ -108,6 +146,8 @@ Expected: reject self-dependency.
 - `tests/test_tasks.py::test_task_graph_needs_verification_after_closing_three_tasks`
 - `tests/test_tasks.py::test_task_graph_with_verification_task_does_not_need_nudge`
 - `tests/test_tasks.py::test_task_update_tool_marks_verification_nudge_in_output_metadata`
+- `tests/test_tasks.py::test_plan_artifact_roundtrip_requires_verification_and_known_tasks`
+- `tests/test_tasks.py::test_plan_tools_save_and_get_artifacts`
 - `tests/test_tool_system_registry.py::test_main_projection_preserves_current_product_tool_surface`
 
 ### 7. Wrong vs Correct

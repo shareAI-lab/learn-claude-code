@@ -8,11 +8,17 @@ from langgraph.store.memory import InMemoryStore
 from pydantic import ValidationError
 
 from coding_deepgent.tasks import (
+    PlanArtifact,
+    PlanSaveInput,
     TaskCreateInput,
     TaskRecord,
+    create_plan,
     create_task,
+    get_plan,
     get_task,
     is_task_ready,
+    plan_get,
+    plan_save,
     task_create,
     task_get,
     task_list,
@@ -177,3 +183,57 @@ def test_task_update_tool_marks_verification_nudge_in_output_metadata() -> None:
         == "true"
     )
     assert get_task(store, tasks[2].id).metadata == {}
+
+
+def test_plan_artifact_roundtrip_requires_verification_and_known_tasks() -> None:
+    store = InMemoryStore()
+    task = create_task(store, title="Implement feature")
+
+    plan = create_plan(
+        store,
+        title="Implement feature plan",
+        content="Change tasks module.",
+        verification="Run pytest tests/test_tasks.py",
+        task_ids=[task.id],
+    )
+
+    assert get_plan(store, plan.id).verification == "Run pytest tests/test_tasks.py"
+    with pytest.raises(ValidationError):
+        PlanSaveInput.model_validate(
+            {
+                "title": "Plan",
+                "content": "No verification",
+                "verification": "",
+                "runtime": runtime_with_store(store),
+            }
+        )
+    with pytest.raises(ValueError, match="Unknown task dependencies"):
+        create_plan(
+            store,
+            title="Bad plan",
+            content="x",
+            verification="pytest",
+            task_ids=["task-missing"],
+        )
+
+
+def test_plan_tools_save_and_get_artifacts() -> None:
+    store = InMemoryStore()
+    runtime = runtime_with_store(store)
+    task = create_task(store, title="Implement feature")
+
+    saved = cast(Any, plan_save).func(
+        "Plan feature",
+        "Use existing task store.",
+        "Run pytest tests/test_tasks.py",
+        runtime,
+        task_ids=[task.id],
+    )
+    plan_id = PlanArtifact.model_validate_json(saved).id
+
+    assert (
+        PlanArtifact.model_validate_json(
+            cast(Any, plan_get).func(plan_id, runtime)
+        ).verification
+        == "Run pytest tests/test_tasks.py"
+    )

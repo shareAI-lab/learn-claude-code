@@ -350,6 +350,41 @@ def build_builtin_capabilities(
                 ),
             ]
         )
+    if "plan_save" in tool_by_name:
+        capabilities.extend(
+            [
+                ToolCapability(
+                    name="plan_save",
+                    tool=tool_by_name["plan_save"],
+                    domain="tasks",
+                    family="plan",
+                    mutation="durable_store",
+                    execution="plain_tool",
+                    read_only=False,
+                    destructive=False,
+                    concurrency_safe=False,
+                    source="builtin",
+                    trusted=True,
+                    exposure="main",
+                    tags=("plan", "workflow"),
+                ),
+                ToolCapability(
+                    name="plan_get",
+                    tool=tool_by_name["plan_get"],
+                    domain="tasks",
+                    family="plan",
+                    mutation="read",
+                    execution="plain_tool",
+                    read_only=True,
+                    destructive=False,
+                    concurrency_safe=True,
+                    source="builtin",
+                    trusted=True,
+                    exposure="main",
+                    tags=("plan", "read", "workflow"),
+                ),
+            ]
+        )
     if "run_subagent" in tool_by_name:
         capabilities.append(
             ToolCapability(

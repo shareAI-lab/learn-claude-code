@@ -11,7 +11,14 @@ from coding_deepgent.permissions import PermissionManager
 from coding_deepgent.permissions.rules import PermissionRuleSpec, expand_rule_specs
 from coding_deepgent.skills import load_skill
 from coding_deepgent.subagents import run_subagent
-from coding_deepgent.tasks import task_create, task_get, task_list, task_update
+from coding_deepgent.tasks import (
+    plan_get,
+    plan_save,
+    task_create,
+    task_get,
+    task_list,
+    task_update,
+)
 from coding_deepgent.tool_system import (
     ToolCapability,
     ToolGuardMiddleware,
@@ -54,7 +61,9 @@ class ToolSystemContainer(containers.DeclarativeContainer):
     memory_tools: Any = providers.Dependency(default=providers.Object([save_memory]))
     skill_tools: Any = providers.Dependency(default=providers.Object([load_skill]))
     task_tools: Any = providers.Dependency(
-        default=providers.Object([task_create, task_get, task_list, task_update])
+        default=providers.Object(
+            [task_create, task_get, task_list, task_update, plan_save, plan_get]
+        )
     )
     subagent_tools: Any = providers.Dependency(default=providers.Object([run_subagent]))
     extension_capabilities: Any = providers.Dependency(default=providers.Object([]))

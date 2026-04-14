@@ -1,4 +1,7 @@
 from .schemas import (
+    PlanArtifact,
+    PlanGetInput,
+    PlanSaveInput,
     TaskCreateInput,
     TaskGetInput,
     TaskListInput,
@@ -8,18 +11,26 @@ from .schemas import (
 )
 from .store import (
     TASK_ROOT_NAMESPACE,
+    PLAN_ROOT_NAMESPACE,
+    create_plan,
     create_task,
+    get_plan,
     get_task,
     is_task_ready,
     list_tasks,
+    plan_namespace,
     task_namespace,
     task_graph_needs_verification,
     update_task,
     validate_task_graph,
 )
-from .tools import task_create, task_get, task_list, task_update
+from .tools import plan_get, plan_save, task_create, task_get, task_list, task_update
 
 __all__ = [
+    "PlanArtifact",
+    "PlanGetInput",
+    "PlanSaveInput",
+    "PLAN_ROOT_NAMESPACE",
     "TASK_ROOT_NAMESPACE",
     "TaskCreateInput",
     "TaskGetInput",
@@ -27,10 +38,15 @@ __all__ = [
     "TaskRecord",
     "TaskStatus",
     "TaskUpdateInput",
+    "create_plan",
     "create_task",
+    "get_plan",
     "get_task",
     "is_task_ready",
     "list_tasks",
+    "plan_get",
+    "plan_namespace",
+    "plan_save",
     "task_create",
     "task_get",
     "task_list",

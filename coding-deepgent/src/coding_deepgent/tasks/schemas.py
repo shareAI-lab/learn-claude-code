@@ -85,3 +85,37 @@ class TaskUpdateInput(BaseModel):
         ):
             raise ValueError("at least one update field is required")
         return self
+
+
+class PlanArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    title: str = Field(..., min_length=1)
+    content: str = Field(..., min_length=1)
+    verification: str = Field(..., min_length=1)
+    task_ids: list[str] = Field(default_factory=list)
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("id", "title", "content", "verification", mode="before")
+    @classmethod
+    def _strip_plan_text(cls, value: str) -> str:
+        return str(value).strip()
+
+
+class PlanSaveInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    title: str = Field(..., min_length=1)
+    content: str = Field(..., min_length=1)
+    verification: str = Field(..., min_length=1)
+    task_ids: list[str] = Field(default_factory=list)
+    metadata: dict[str, str] = Field(default_factory=dict)
+    runtime: ToolRuntime
+
+
+class PlanGetInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    plan_id: str = Field(..., min_length=1)
+    runtime: ToolRuntime

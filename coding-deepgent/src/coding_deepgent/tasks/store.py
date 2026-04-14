@@ -5,12 +5,14 @@ from typing import Iterable, Protocol
 
 from coding_deepgent.tasks.schemas import (
     ALLOWED_TRANSITIONS,
+    PlanArtifact,
     TERMINAL_TASK_STATUSES,
     TaskRecord,
     TaskStatus,
 )
 
 TASK_ROOT_NAMESPACE = "coding_deepgent_tasks"
+PLAN_ROOT_NAMESPACE = "coding_deepgent_plans"
 
 
 class TaskStore(Protocol):
@@ -25,9 +27,18 @@ def task_namespace() -> tuple[str, ...]:
     return (TASK_ROOT_NAMESPACE,)
 
 
+def plan_namespace() -> tuple[str, ...]:
+    return (PLAN_ROOT_NAMESPACE,)
+
+
 def task_id_for(title: str, existing_count: int = 0) -> str:
     digest = sha256(f"{title}\0{existing_count}".encode("utf-8")).hexdigest()
     return f"task-{digest[:10]}"
+
+
+def plan_id_for(title: str, existing_count: int = 0) -> str:
+    digest = sha256(f"plan\0{title}\0{existing_count}".encode("utf-8")).hexdigest()
+    return f"plan-{digest[:10]}"
 
 
 def _item_value(item: object) -> dict[str, object]:
@@ -57,6 +68,43 @@ def get_task(store: TaskStore, task_id: str) -> TaskRecord:
 def save_task(store: TaskStore, record: TaskRecord) -> TaskRecord:
     store.put(task_namespace(), record.id, record.model_dump())
     return record
+
+
+def save_plan(store: TaskStore, record: PlanArtifact) -> PlanArtifact:
+    store.put(plan_namespace(), record.id, record.model_dump())
+    return record
+
+
+def get_plan(store: TaskStore, plan_id: str) -> PlanArtifact:
+    item = store.get(plan_namespace(), plan_id)
+    if item is None:
+        raise KeyError(f"Unknown plan: {plan_id}")
+    return PlanArtifact.model_validate(_item_value(item))
+
+
+def create_plan(
+    store: TaskStore,
+    *,
+    title: str,
+    content: str,
+    verification: str,
+    task_ids: list[str] | None = None,
+    metadata: dict[str, str] | None = None,
+) -> PlanArtifact:
+    active_task_ids = task_ids or []
+    _validate_dependencies_exist(store, active_task_ids)
+    existing_count = sum(1 for _ in store.search(plan_namespace()))
+    return save_plan(
+        store,
+        PlanArtifact(
+            id=plan_id_for(title, existing_count),
+            title=title,
+            content=content,
+            verification=verification,
+            task_ids=active_task_ids,
+            metadata=metadata or {},
+        ),
+    )
 
 
 def create_task(

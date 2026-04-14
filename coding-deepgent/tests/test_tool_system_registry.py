@@ -20,6 +20,8 @@ EXPECTED_MAIN_TOOL_NAMES = [
     "task_get",
     "task_list",
     "task_update",
+    "plan_save",
+    "plan_get",
     "run_subagent",
 ]
 
@@ -53,6 +55,8 @@ def test_main_projection_preserves_current_product_tool_surface(
 ) -> None:
     registry = _container(tmp_path).capability_registry()
 
-    tool_names = [getattr(tool, "name", type(tool).__name__) for tool in registry.main_tools()]
+    tool_names = [
+        getattr(tool, "name", type(tool).__name__) for tool in registry.main_tools()
+    ]
 
     assert tool_names == EXPECTED_MAIN_TOOL_NAMES

@@ -31,6 +31,8 @@ EXPECTED_TOOL_NAMES = [
     "task_get",
     "task_list",
     "task_update",
+    "plan_save",
+    "plan_get",
     "run_subagent",
 ]
 

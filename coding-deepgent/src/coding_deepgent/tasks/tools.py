@@ -3,6 +3,8 @@ from __future__ import annotations
 from langchain.tools import ToolRuntime, tool
 
 from coding_deepgent.tasks.schemas import (
+    PlanGetInput,
+    PlanSaveInput,
     TaskCreateInput,
     TaskGetInput,
     TaskListInput,
@@ -11,7 +13,9 @@ from coding_deepgent.tasks.schemas import (
     TaskUpdateInput,
 )
 from coding_deepgent.tasks.store import (
+    create_plan,
     create_task,
+    get_plan,
     get_task,
     is_task_ready,
     list_tasks,
@@ -27,6 +31,10 @@ def _store(runtime: ToolRuntime):
 
 
 def _render(record: TaskRecord) -> str:
+    return record.model_dump_json()
+
+
+def _render_plan(record) -> str:
     return record.model_dump_json()
 
 
@@ -120,3 +128,35 @@ def task_update(
             )
         )
     return _render(updated)
+
+
+@tool(
+    "plan_save",
+    args_schema=PlanSaveInput,
+    description="Save an explicit durable implementation plan artifact with verification criteria.",
+)
+def plan_save(
+    title: str,
+    content: str,
+    verification: str,
+    runtime: ToolRuntime,
+    task_ids: list[str] | None = None,
+    metadata: dict[str, str] | None = None,
+) -> str:
+    """Save one durable plan artifact."""
+    return _render_plan(
+        create_plan(
+            _store(runtime),
+            title=title,
+            content=content,
+            verification=verification,
+            task_ids=task_ids,
+            metadata=metadata,
+        )
+    )
+
+
+@tool("plan_get", args_schema=PlanGetInput, description="Get one durable plan artifact.")
+def plan_get(plan_id: str, runtime: ToolRuntime) -> str:
+    """Get a durable plan artifact by id."""
+    return _render_plan(get_plan(_store(runtime), plan_id))

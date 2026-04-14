@@ -13,7 +13,14 @@ from coding_deepgent.permissions import PermissionManager
 from coding_deepgent.runtime import InMemoryEventSink, RuntimeContext
 from coding_deepgent.skills import load_skill
 from coding_deepgent.subagents import run_subagent
-from coding_deepgent.tasks import task_create, task_get, task_list, task_update
+from coding_deepgent.tasks import (
+    plan_get,
+    plan_save,
+    task_create,
+    task_get,
+    task_list,
+    task_update,
+)
 from coding_deepgent.tool_system import (
     ToolCapability,
     ToolGuardMiddleware,
@@ -33,7 +40,14 @@ def canonical_registry():
             todo_tools=(todo_write,),
             memory_tools=(save_memory,),
             skill_tools=(load_skill,),
-            task_tools=(task_create, task_get, task_list, task_update),
+            task_tools=(
+                task_create,
+                task_get,
+                task_list,
+                task_update,
+                plan_save,
+                plan_get,
+            ),
             subagent_tools=(run_subagent,),
         ),
         extension_capabilities=(),
