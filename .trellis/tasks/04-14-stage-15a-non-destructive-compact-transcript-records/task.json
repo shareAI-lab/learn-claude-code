@@ -1,7 +1,7 @@
 {
-  "id": "redefine-coding-deepgent-final-goal",
-  "name": "redefine-coding-deepgent-final-goal",
-  "title": "brainstorm: redefine coding-deepgent final goal",
+  "id": "stage-15a-non-destructive-compact-transcript-records",
+  "name": "stage-15a-non-destructive-compact-transcript-records",
+  "title": "Stage 15A: Non-Destructive Compact Transcript Records",
   "description": "",
   "status": "planning",
   "dev_type": null,
@@ -12,7 +12,7 @@
   "createdAt": "2026-04-14",
   "completedAt": null,
   "branch": null,
-  "base_branch": "main",
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
   "worktree_path": null,
   "current_phase": 0,
   "next_action": [
@@ -36,14 +36,8 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "04-14-stage-13a-manual-compact-boundary-and-summary-artifact",
-    "04-14-stage-13b-manual-compact-entry-point",
-    "04-14-stage-13c-compact-summary-generation-seam",
-    "04-14-stage-14a-explicit-generated-summary-cli-wiring",
-    "04-14-stage-15a-non-destructive-compact-transcript-records"
-  ],
-  "parent": null,
+  "children": [],
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
   "relatedFiles": [],
   "notes": "",
   "meta": {}

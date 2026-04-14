@@ -54,6 +54,17 @@ def generate_compact_summary(
     *,
     custom_instructions: str | None = None,
 ) -> str: ...
+
+def append_compact(
+    context: SessionContext,
+    *,
+    trigger: str,
+    summary: str,
+    original_message_count: int,
+    summarized_message_count: int,
+    kept_message_count: int,
+    metadata: dict[str, Any] | None = None,
+) -> Path: ...
 ```
 
 ### 3. Contracts
@@ -93,6 +104,33 @@ def generate_compact_summary(
 - It must not add LangChain `SummarizationMiddleware`.
 - It must not delete, prune, rewrite, or compact persisted session JSONL transcript records.
 
+#### Compact Transcript Records
+
+- Compact events are persisted as append-only JSONL records with `record_type == "compact"`.
+- Compact records must be loaded into `LoadedSession.compacts`.
+- Compact records must increment `SessionSummary.compact_count`.
+- Compact records must not appear in `LoadedSession.history`.
+- Compact records must not replace or delete any message/state/evidence record.
+- Required compact record fields:
+
+```json
+{
+  "record_type": "compact",
+  "version": 1,
+  "session_id": "...",
+  "timestamp": "...",
+  "cwd": "...",
+  "trigger": "manual",
+  "summary": "...",
+  "original_message_count": 2,
+  "summarized_message_count": 1,
+  "kept_message_count": 1
+}
+```
+
+- When continuation history contains synthetic compact artifacts, `run_prompt_with_recording()` must append one compact record before recording the continuation prompt.
+- The next persisted message index after compacted continuation must use `original_message_count` from the compact metadata, not the count of preserved synthetic history messages.
+
 #### Memory Quality
 
 - `save_memory` writes only through `runtime.store`.
@@ -116,6 +154,8 @@ def generate_compact_summary(
 | summarizer returns only `<analysis>` or blank text | `ValueError("compact summarizer returned an empty summary")` |
 | compact tail starts with `tool_result` | include matching previous `tool_use` message when present |
 | resume context history is recorded to transcript | synthetic resume context is not persisted as a message record |
+| compacted history is recorded to transcript | synthetic compact artifacts are not persisted as message records; one compact record is appended |
+| compacted history preserves only recent tail | next real message index starts at compact `original_message_count` |
 | duplicate memory save | returns "Memory not saved" and store remains unchanged |
 
 ### 5. Good / Base / Bad Cases
@@ -168,9 +208,12 @@ Required focused tests:
 - `tests/test_cli.py::test_sessions_resume_rejects_compact_options_without_prompt`
 - `tests/test_cli.py::test_sessions_resume_rejects_compact_instructions_without_generation`
 - `tests/test_cli.py::test_run_once_records_new_and_resumed_session_transcript`
+- `tests/test_cli.py::test_run_once_records_compact_metadata_without_message_index_skew`
 - `tests/test_compact_artifacts.py`
 - `tests/test_compact_summarizer.py`
 - `tests/test_message_projection.py`
+- `tests/test_sessions.py::test_compact_record_roundtrip_does_not_enter_history`
+- `tests/test_sessions.py::test_load_session_ignores_invalid_compact_records`
 - `tests/test_memory.py::test_memory_quality_policy_rejects_transient_and_duplicate_entries`
 - `tests/test_memory_integration.py::test_save_memory_tool_rejects_transient_memory_via_create_agent_runtime`
 
@@ -180,7 +223,9 @@ Required assertion points:
 - fake summarizer receives original loaded history plus compact prompt message
 - `<analysis>` is absent from compact artifact summary text
 - compact summary artifact is not merged by `project_messages()`
+- compact transcript records are separated from `LoadedSession.history`
 - persisted transcript `message_index` values remain contiguous for real persisted messages only
+- compacted continuation uses compact `original_message_count` as the next real message index baseline
 - rejected compact CLI combinations do not call `run_prompt`
 - rejected memory writes do not mutate LangGraph store
 

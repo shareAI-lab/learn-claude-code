@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/sessions/records.py", "reason": "compact transcript record schema"}
+{"file": "coding-deepgent/src/coding_deepgent/sessions/service.py", "reason": "record compact metadata during CLI continuation"}
+{"file": "coding-deepgent/src/coding_deepgent/sessions/store_jsonl.py", "reason": "compact transcript append/load behavior"}
+{"file": "coding-deepgent/src/coding_deepgent/compact/artifacts.py", "reason": "compact artifact metadata source"}

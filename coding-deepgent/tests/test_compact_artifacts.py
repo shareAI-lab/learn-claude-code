@@ -6,6 +6,7 @@ import pytest
 
 from coding_deepgent.compact import (
     COMPACT_BOUNDARY_PREFIX,
+    COMPACT_METADATA_KEY,
     COMPACT_SUMMARY_PREFIX,
     compact_messages_with_summary,
     format_compact_summary,
@@ -43,6 +44,17 @@ def test_compact_messages_builds_boundary_summary_and_preserved_tail() -> None:
     assert artifact.kept_message_count == 2
     assert _text(artifact.messages[0]).startswith(COMPACT_BOUNDARY_PREFIX)
     assert _text(artifact.messages[1]).startswith(COMPACT_SUMMARY_PREFIX)
+    assert artifact.messages[0]["metadata"][COMPACT_METADATA_KEY] == {
+        "kind": "boundary",
+        "trigger": "manual",
+        "original_message_count": 4,
+        "summarized_message_count": 2,
+        "kept_message_count": 2,
+    }
+    assert artifact.messages[1]["metadata"][COMPACT_METADATA_KEY] == {
+        "kind": "summary",
+        "summary": "Earlier work established the compact boundary.",
+    }
     assert artifact.messages[2:] == messages[-2:]
 
 

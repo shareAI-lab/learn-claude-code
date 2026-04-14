@@ -5,6 +5,7 @@ import json
 import pytest
 
 from coding_deepgent.sessions import (
+    COMPACT_RECORD_TYPE,
     EVIDENCE_RECORD_TYPE,
     JsonlSessionStore,
     SessionLoadError,
@@ -222,6 +223,94 @@ def test_session_evidence_roundtrip_and_recovery_brief(tmp_path) -> None:
     assert brief.active_todos == ("Implement recovery",)
     assert "Already done" not in rendered
     assert "[passed] verification: targeted tests passed" in rendered
+
+
+def test_compact_record_roundtrip_does_not_enter_history(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir, entrypoint="cli")
+    store.append_message(context, role="user", content="start", message_index=0)
+    store.append_compact(
+        context,
+        trigger="manual",
+        summary="Older work was summarized.",
+        original_message_count=6,
+        summarized_message_count=4,
+        kept_message_count=2,
+        metadata={"source": "test"},
+    )
+    store.append_message(context, role="assistant", content="continued", message_index=1)
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+    raw_records = [
+        json.loads(line)
+        for line in context.transcript_path.read_text(encoding="utf-8").splitlines()
+    ]
+
+    assert raw_records[1]["record_type"] == COMPACT_RECORD_TYPE
+    assert loaded.history == [
+        {"role": "user", "content": "start"},
+        {"role": "assistant", "content": "continued"},
+    ]
+    assert loaded.summary.message_count == 2
+    assert loaded.summary.compact_count == 1
+    assert loaded.compacts[0].trigger == "manual"
+    assert loaded.compacts[0].summary == "Older work was summarized."
+    assert loaded.compacts[0].original_message_count == 6
+    assert loaded.compacts[0].summarized_message_count == 4
+    assert loaded.compacts[0].kept_message_count == 2
+    assert loaded.compacts[0].metadata == {"source": "test"}
+
+
+def test_load_session_ignores_invalid_compact_records(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="resume me")
+    with context.transcript_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "record_type": "compact",
+                    "version": 1,
+                    "session_id": context.session_id,
+                    "timestamp": "2026-04-13T00:00:00Z",
+                    "cwd": str(workdir.resolve()),
+                    "trigger": "",
+                    "summary": "bad",
+                    "original_message_count": 1,
+                    "summarized_message_count": 1,
+                    "kept_message_count": 0,
+                }
+            )
+            + "\n"
+        )
+        handle.write(
+            json.dumps(
+                {
+                    "record_type": "compact",
+                    "version": 1,
+                    "session_id": "other",
+                    "timestamp": "2026-04-13T00:00:01Z",
+                    "cwd": str(workdir.resolve()),
+                    "trigger": "manual",
+                    "summary": "foreign",
+                    "original_message_count": 1,
+                    "summarized_message_count": 1,
+                    "kept_message_count": 0,
+                }
+            )
+            + "\n"
+        )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+
+    assert loaded.compacts == []
+    assert loaded.summary.compact_count == 0
 
 
 def test_recovery_brief_limits_recent_evidence_in_original_order(tmp_path) -> None:

@@ -33,6 +33,18 @@ class SessionStore(Protocol):
         state: dict[str, Any],
     ) -> Path: ...
 
+    def append_compact(
+        self,
+        context: SessionContext,
+        *,
+        trigger: str,
+        summary: str,
+        original_message_count: int,
+        summarized_message_count: int,
+        kept_message_count: int,
+        metadata: dict[str, Any] | None = None,
+    ) -> Path: ...
+
     def load_session(
         self,
         *,

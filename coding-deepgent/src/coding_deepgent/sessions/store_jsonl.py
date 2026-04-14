@@ -11,15 +11,18 @@ from typing import Any
 from coding_deepgent.runtime import default_runtime_state
 
 from .records import (
+    COMPACT_RECORD_TYPE,
     EVIDENCE_RECORD_TYPE,
     LoadedSession,
     MESSAGE_RECORD_TYPE,
     SESSION_RECORD_VERSION,
     STATE_SNAPSHOT_RECORD_TYPE,
     SessionContext,
+    SessionCompact,
     SessionEvidence,
     SessionLoadError,
     SessionSummary,
+    make_compact_record,
     make_evidence_record,
     make_message_record,
     make_state_snapshot_record,
@@ -111,6 +114,32 @@ class JsonlSessionStore:
         self._append_record(context.transcript_path, record)
         return context.transcript_path
 
+    def append_compact(
+        self,
+        context: SessionContext,
+        *,
+        trigger: str,
+        summary: str,
+        original_message_count: int,
+        summarized_message_count: int,
+        kept_message_count: int,
+        metadata: dict[str, Any] | None = None,
+    ) -> Path:
+        serializable_metadata = (
+            json.loads(json.dumps(metadata)) if metadata is not None else None
+        )
+        record = make_compact_record(
+            context,
+            trigger=trigger,
+            summary=summary,
+            original_message_count=original_message_count,
+            summarized_message_count=summarized_message_count,
+            kept_message_count=kept_message_count,
+            metadata=serializable_metadata,
+        )
+        self._append_record(context.transcript_path, record)
+        return context.transcript_path
+
     def load_session(
         self,
         *,
@@ -126,6 +155,7 @@ class JsonlSessionStore:
         updated_at: str | None = None
         first_prompt: str | None = None
         evidence: list[SessionEvidence] = []
+        compacts: list[SessionCompact] = []
 
         for record in self._iter_valid_records(context.transcript_path):
             if record.get("session_id") != session_id:
@@ -152,9 +182,13 @@ class JsonlSessionStore:
                 if state is not None:
                     last_valid_state = state
             elif record_type == EVIDENCE_RECORD_TYPE:
-                item = self._coerce_evidence(record)
-                if item is not None:
-                    evidence.append(item)
+                evidence_item = self._coerce_evidence(record)
+                if evidence_item is not None:
+                    evidence.append(evidence_item)
+            elif record_type == COMPACT_RECORD_TYPE:
+                compact_item = self._coerce_compact(record)
+                if compact_item is not None:
+                    compacts.append(compact_item)
 
         if not history:
             raise SessionLoadError(
@@ -170,6 +204,7 @@ class JsonlSessionStore:
             first_prompt=first_prompt,
             message_count=len(history),
             evidence_count=len(evidence),
+            compact_count=len(compacts),
         )
         state_factory = default_state_factory or default_runtime_state
         state = deepcopy(
@@ -180,6 +215,7 @@ class JsonlSessionStore:
             history=history,
             state=state,
             evidence=evidence,
+            compacts=compacts,
             summary=summary,
         )
 
@@ -295,5 +331,37 @@ class JsonlSessionStore:
             status=status.strip(),
             created_at=created_at,
             subject=subject.strip() if isinstance(subject, str) and subject else None,
+            metadata=deepcopy(metadata) if isinstance(metadata, dict) else None,
+        )
+
+    def _coerce_compact(self, record: dict[str, Any]) -> SessionCompact | None:
+        trigger = record.get("trigger")
+        summary = record.get("summary")
+        created_at = record.get("timestamp")
+        original_message_count = record.get("original_message_count")
+        summarized_message_count = record.get("summarized_message_count")
+        kept_message_count = record.get("kept_message_count")
+        metadata = record.get("metadata")
+        if not isinstance(trigger, str) or not trigger.strip():
+            return None
+        if not isinstance(summary, str) or not summary.strip():
+            return None
+        if not isinstance(created_at, str) or not created_at.strip():
+            return None
+        if not isinstance(original_message_count, int) or original_message_count < 0:
+            return None
+        if not isinstance(summarized_message_count, int) or summarized_message_count < 0:
+            return None
+        if not isinstance(kept_message_count, int) or kept_message_count < 0:
+            return None
+        if metadata is not None and not isinstance(metadata, dict):
+            return None
+        return SessionCompact(
+            trigger=trigger.strip(),
+            summary=summary.strip(),
+            created_at=created_at,
+            original_message_count=original_message_count,
+            summarized_message_count=summarized_message_count,
+            kept_message_count=kept_message_count,
             metadata=deepcopy(metadata) if isinstance(metadata, dict) else None,
         )

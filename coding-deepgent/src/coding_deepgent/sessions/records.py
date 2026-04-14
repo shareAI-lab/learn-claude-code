@@ -9,6 +9,7 @@ SESSION_RECORD_VERSION = 1
 MESSAGE_RECORD_TYPE = "message"
 STATE_SNAPSHOT_RECORD_TYPE = "state_snapshot"
 EVIDENCE_RECORD_TYPE = "evidence"
+COMPACT_RECORD_TYPE = "compact"
 
 
 def iso_timestamp_now() -> str:
@@ -34,6 +35,7 @@ class SessionSummary:
     first_prompt: str | None
     message_count: int
     evidence_count: int = 0
+    compact_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,11 +49,23 @@ class SessionEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class SessionCompact:
+    trigger: str
+    summary: str
+    created_at: str
+    original_message_count: int
+    summarized_message_count: int
+    kept_message_count: int
+    metadata: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class LoadedSession:
     context: SessionContext
     history: list[dict[str, str]]
     state: dict[str, Any]
     evidence: list[SessionEvidence]
+    compacts: list[SessionCompact]
     summary: SessionSummary
 
 
@@ -121,6 +135,35 @@ def make_evidence_record(
     }
     if subject:
         record["subject"] = subject.strip()
+    if metadata:
+        record["metadata"] = metadata
+    return record
+
+
+def make_compact_record(
+    context: SessionContext,
+    *,
+    trigger: str,
+    summary: str,
+    original_message_count: int,
+    summarized_message_count: int,
+    kept_message_count: int,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "record_type": COMPACT_RECORD_TYPE,
+        "version": SESSION_RECORD_VERSION,
+        "session_id": context.session_id,
+        "timestamp": iso_timestamp_now(),
+        "cwd": str(context.workdir),
+        "trigger": trigger.strip(),
+        "summary": summary.strip(),
+        "original_message_count": original_message_count,
+        "summarized_message_count": summarized_message_count,
+        "kept_message_count": kept_message_count,
+    }
+    if context.entrypoint:
+        record["entrypoint"] = context.entrypoint
     if metadata:
         record["metadata"] = metadata
     return record

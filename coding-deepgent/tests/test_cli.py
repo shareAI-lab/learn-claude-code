@@ -564,6 +564,74 @@ def test_run_once_records_new_and_resumed_session_transcript(
     assert [record["message_index"] for record in message_records] == [0, 1, 2, 3]
 
 
+def test_run_once_records_compact_metadata_without_message_index_skew(
+    monkeypatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        workdir=tmp_path,
+        session_dir=tmp_path / ".coding-deepgent" / "sessions",
+        model_name="gpt-test",
+    )
+
+    def fake_agent_loop(
+        messages: list[dict[str, object]],
+        *,
+        session_state=None,
+        session_id=None,
+        container=None,
+    ) -> str:
+        del session_state, session_id, container
+        messages.append({"role": "assistant", "content": "done"})
+        return "done"
+
+    monkeypatch.setattr(cli_service, "load_settings", lambda: settings)
+    monkeypatch.setattr(cli, "agent_loop", fake_agent_loop)
+
+    first = cli.run_once("first")
+    assert first == "done"
+    store = JsonlSessionStore(settings.session_dir)
+    [summary] = store.list_sessions(workdir=tmp_path)
+    loaded = store.load_session(session_id=summary.session_id, workdir=tmp_path)
+
+    second = cli.run_once(
+        "second",
+        history=cli_service.compacted_continuation_history(
+            loaded,
+            summary="<summary>Earlier work was summarized.</summary>",
+            keep_last=1,
+        ),
+        session_state=loaded.state,
+        session_id=loaded.summary.session_id,
+    )
+    assert second == "done"
+
+    resumed = store.load_session(session_id=summary.session_id, workdir=tmp_path)
+    raw_records = [
+        json.loads(line)
+        for line in (
+            store.transcript_path_for(session_id=summary.session_id, workdir=tmp_path)
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+    ]
+    message_records = [
+        record for record in raw_records if record.get("record_type") == "message"
+    ]
+
+    assert resumed.history == [
+        {"role": "user", "content": "first"},
+        {"role": "assistant", "content": "done"},
+        {"role": "user", "content": "second"},
+        {"role": "assistant", "content": "done"},
+    ]
+    assert resumed.summary.compact_count == 1
+    assert resumed.compacts[0].summary == "Earlier work was summarized."
+    assert resumed.compacts[0].original_message_count == 2
+    assert resumed.compacts[0].summarized_message_count == 1
+    assert resumed.compacts[0].kept_message_count == 1
+    assert [record["message_index"] for record in message_records] == [0, 1, 2, 3]
+
+
 def test_doctor_reports_dependencies_without_secrets(monkeypatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "sk-super-secret")
 

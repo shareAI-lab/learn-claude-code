@@ -3,6 +3,10 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from coding_deepgent.compact import (
+    compact_record_from_messages,
+    is_compact_artifact_message,
+)
 from coding_deepgent.runtime import default_runtime_state
 from coding_deepgent.settings import Settings
 from coding_deepgent.sessions.records import LoadedSession, SessionSummary
@@ -26,7 +30,15 @@ def load_recorded_session(settings: Settings, session_id: str) -> LoadedSession:
 
 
 def _recorded_message_count(history: Sequence[dict[str, Any]]) -> int:
-    return sum(1 for message in history if not is_resume_context_message(message))
+    compact_record = compact_record_from_messages(list(history))
+    if compact_record is not None:
+        return int(compact_record["original_message_count"])
+    return sum(
+        1
+        for message in history
+        if not is_resume_context_message(message)
+        and not is_compact_artifact_message(message)
+    )
 
 
 def run_prompt_with_recording(
@@ -60,6 +72,9 @@ def run_prompt_with_recording(
         active_session_id = context.session_id
 
     if context is not None:
+        compact_record = compact_record_from_messages(transcript)
+        if compact_record is not None:
+            store.append_compact(context, **compact_record)
         store.append_message(
             context,
             role="user",

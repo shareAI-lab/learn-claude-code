@@ -9,6 +9,7 @@ COMPACT_BOUNDARY_PREFIX = "coding-deepgent compact boundary"
 COMPACT_SUMMARY_PREFIX = (
     "This session is being continued from a compacted conversation."
 )
+COMPACT_METADATA_KEY = "coding_deepgent_compact"
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +75,15 @@ def build_compact_boundary_message(
 ) -> dict[str, Any]:
     return {
         "role": "system",
+        "metadata": {
+            COMPACT_METADATA_KEY: {
+                "kind": "boundary",
+                "trigger": trigger,
+                "original_message_count": original_message_count,
+                "summarized_message_count": summarized_message_count,
+                "kept_message_count": kept_message_count,
+            }
+        },
         "content": [
             {
                 "type": "text",
@@ -91,6 +101,12 @@ def build_compact_boundary_message(
 def build_compact_summary_message(summary: str) -> dict[str, Any]:
     return {
         "role": "user",
+        "metadata": {
+            COMPACT_METADATA_KEY: {
+                "kind": "summary",
+                "summary": summary,
+            }
+        },
         "content": [
             {
                 "type": "text",
@@ -109,10 +125,47 @@ def format_compact_summary(summary: str) -> str:
 
 
 def is_compact_artifact_message(message: dict[str, Any]) -> bool:
+    if compact_metadata(message) is not None:
+        return True
     text = _message_text(message)
     return text.startswith(COMPACT_BOUNDARY_PREFIX) or text.startswith(
         COMPACT_SUMMARY_PREFIX
     )
+
+
+def compact_metadata(message: dict[str, Any]) -> dict[str, Any] | None:
+    metadata = message.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+    compact = metadata.get(COMPACT_METADATA_KEY)
+    return compact if isinstance(compact, dict) else None
+
+
+def compact_record_from_messages(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
+    boundary: dict[str, Any] | None = None
+    summary: dict[str, Any] | None = None
+    for message in messages:
+        metadata = compact_metadata(message)
+        if metadata is None:
+            continue
+        if metadata.get("kind") == "boundary":
+            boundary = metadata
+            summary = None
+        elif metadata.get("kind") == "summary" and boundary is not None:
+            summary = metadata
+
+    if boundary is None or summary is None:
+        return None
+    summary_text = summary.get("summary")
+    if not isinstance(summary_text, str) or not summary_text.strip():
+        return None
+    return {
+        "trigger": str(boundary.get("trigger", "manual")),
+        "summary": summary_text.strip(),
+        "original_message_count": _int_field(boundary, "original_message_count"),
+        "summarized_message_count": _int_field(boundary, "summarized_message_count"),
+        "kept_message_count": _int_field(boundary, "kept_message_count"),
+    }
 
 
 def _adjust_keep_start_for_tool_pairs(
@@ -137,6 +190,11 @@ def _adjust_keep_start_for_tool_pairs(
         if not missing_tool_uses:
             break
     return adjusted
+
+
+def _int_field(metadata: dict[str, Any], key: str) -> int:
+    value = metadata.get(key)
+    return value if isinstance(value, int) else 0
 
 
 def _tool_result_ids(messages: list[dict[str, Any]]) -> set[str]:
