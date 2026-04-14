@@ -21,9 +21,26 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const messages = metaMessages[locale] || metaMessages.en;
+  const title = messages.meta?.title || "Learn Claude Code";
+  const description = messages.meta?.description || "Build an AI coding agent from scratch, one concept at a time";
+  const ogImage = `/og/og-${locale}.jpg`;
   return {
-    title: messages.meta?.title || "Learn Claude Code",
-    description: messages.meta?.description || "Build an AI coding agent from scratch, one concept at a time",
+    metadataBase: new URL("https://claude-learn.ranran.tw"),
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      locale,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
   };
 }
 
@@ -44,6 +61,10 @@ export default async function RootLayout({
             var theme = localStorage.getItem('theme');
             if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
               document.documentElement.classList.add('dark');
+            }
+            var font = localStorage.getItem('font-size');
+            if (font === 'sm' || font === 'lg') {
+              document.documentElement.setAttribute('data-font', font);
             }
           })();
         `}} />
