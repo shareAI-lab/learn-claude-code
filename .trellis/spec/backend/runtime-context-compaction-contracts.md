@@ -69,10 +69,16 @@ def append_compact(
 class LoadedSession:
     history: list[dict[str, str]]
     compacted_history: list[dict[str, Any]]
+    compacted_history_source: CompactedHistorySource
     state: dict[str, Any]
     evidence: list[SessionEvidence]
     compacts: list[SessionCompact]
     summary: SessionSummary
+
+class CompactedHistorySource:
+    mode: Literal["raw", "compact"]
+    reason: str
+    compact_index: int | None = None
 ```
 
 ### 3. Contracts
@@ -121,6 +127,7 @@ class LoadedSession:
 - Compact records must not replace or delete any message/state/evidence record.
 - `LoadedSession.history` is the raw/full user-assistant transcript view.
 - `LoadedSession.compacted_history` is the load-time virtual compacted view.
+- `LoadedSession.compacted_history_source` explains whether the compacted view came from raw fallback or a compact record.
 - If no valid compact-derived view exists, `compacted_history` must fall back to `history`.
 - Required compact record fields:
 
@@ -144,7 +151,7 @@ class LoadedSession:
 
 #### Load-Time Compacted History View
 
-- `JsonlSessionStore.load_session()` must derive `LoadedSession.compacted_history` from the latest compact record when possible.
+- `JsonlSessionStore.load_session()` must derive `LoadedSession.compacted_history` from the newest compact record that yields a valid compact-derived view.
 - The compacted view must be:
   1. compact boundary message
   2. compact summary message
@@ -156,7 +163,17 @@ keep_from = original_message_count - kept_message_count
 ```
 
 - Tail derivation is clamped to `[0, len(raw_history)]`.
-- If the derived tail is empty or invalid, `compacted_history` must fall back to the raw history.
+- Compact records must be scanned from newest to oldest.
+- If the latest compact record's derived tail is empty or invalid, the loader must try the next earlier compact record.
+- If no compact record yields a valid compact-derived view, `compacted_history` must fall back to the raw history.
+- `compacted_history_source.mode` must be:
+  - `"compact"` when a compact record produces the selected view
+  - `"raw"` when no compact view is selected
+- `compacted_history_source.reason` must distinguish at least:
+  - `"no_compacts"`
+  - `"latest_valid_compact"`
+  - `"no_valid_compact"`
+- `compacted_history_source.compact_index` is the zero-based index into `LoadedSession.compacts` when `mode == "compact"`.
 - Compact-aware resume selectors should use `compacted_history` rather than re-derive compact semantics ad hoc.
 
 #### Memory Quality
@@ -184,8 +201,12 @@ keep_from = original_message_count - kept_message_count
 | resume context history is recorded to transcript | synthetic resume context is not persisted as a message record |
 | compacted history is recorded to transcript | synthetic compact artifacts are not persisted as message records; one compact record is appended |
 | compacted history preserves only recent tail | next real message index starts at compact `original_message_count` |
+| multiple valid compact records exist | `LoadedSession.compacted_history` uses the newest valid compact record |
+| latest compact record is invalid but an earlier compact record is valid | `LoadedSession.compacted_history` uses the earlier valid compact record |
 | compact record exists and derived tail is valid | `LoadedSession.compacted_history` contains boundary + summary + preserved tail |
-| compact record exists but derived tail is invalid or empty | `LoadedSession.compacted_history` falls back to raw history |
+| no compact record yields a valid derived tail | `LoadedSession.compacted_history` falls back to raw history |
+| selected compacted view comes from compact record at index N | `compacted_history_source == compact/latest_valid_compact/N` |
+| selected compacted view falls back to raw history | `compacted_history_source == raw/<reason>/None` |
 | duplicate memory save | returns "Memory not saved" and store remains unchanged |
 
 ### 5. Good / Base / Bad Cases
@@ -247,6 +268,8 @@ Required focused tests:
 - `tests/test_sessions.py::test_compact_record_roundtrip_does_not_enter_history`
 - `tests/test_sessions.py::test_load_session_ignores_invalid_compact_records`
 - `tests/test_sessions.py::test_load_session_compacted_history_falls_back_to_raw_history_on_invalid_tail_range`
+- `tests/test_sessions.py::test_load_session_compacted_history_uses_newest_valid_compact_record`
+- `tests/test_sessions.py::test_load_session_compacted_history_uses_latest_valid_compact_record`
 - `tests/test_memory.py::test_memory_quality_policy_rejects_transient_and_duplicate_entries`
 - `tests/test_memory_integration.py::test_save_memory_tool_rejects_transient_memory_via_create_agent_runtime`
 

@@ -45,7 +45,10 @@
     "04-14-stage-15b-compact-record-recovery-display",
     "04-14-stage-15c-compacted-continuation-selection",
     "04-14-stage-16-compact-transcript-pruning-semantics",
-    "04-14-stage-16a-load-time-compacted-history-view"
+    "04-14-stage-16a-load-time-compacted-history-view",
+    "04-14-stage-16b-virtual-pruning-compact-selection-hardening",
+    "04-14-stage-16b-latest-valid-compact-view-selection",
+    "04-14-stage-16c-virtual-pruning-view-metadata"
   ],
   "parent": null,
   "relatedFiles": [],

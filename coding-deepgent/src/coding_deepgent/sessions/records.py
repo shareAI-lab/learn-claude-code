@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 SESSION_RECORD_VERSION = 1
 MESSAGE_RECORD_TYPE = "message"
@@ -60,10 +60,18 @@ class SessionCompact:
 
 
 @dataclass(frozen=True, slots=True)
+class CompactedHistorySource:
+    mode: Literal["raw", "compact"]
+    reason: str
+    compact_index: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class LoadedSession:
     context: SessionContext
     history: list[dict[str, str]]
     compacted_history: list[dict[str, Any]]
+    compacted_history_source: CompactedHistorySource
     state: dict[str, Any]
     evidence: list[SessionEvidence]
     compacts: list[SessionCompact]

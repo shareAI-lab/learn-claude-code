@@ -59,6 +59,9 @@ def test_jsonl_session_roundtrip_preserves_history_state_and_summary(tmp_path) -
         {"role": "assistant", "content": "planned"},
     ]
     assert loaded.compacted_history == loaded.history
+    assert loaded.compacted_history_source.mode == "raw"
+    assert loaded.compacted_history_source.reason == "no_compacts"
+    assert loaded.compacted_history_source.compact_index is None
     assert loaded.state == {
         "todos": [
             {"content": "Ship it", "status": "in_progress", "activeForm": "Shipping"}
@@ -258,6 +261,9 @@ def test_compact_record_roundtrip_does_not_enter_history(tmp_path) -> None:
     assert loaded.compacted_history[0]["role"] == "system"
     assert loaded.compacted_history[1]["role"] == "user"
     assert loaded.compacted_history[2] == {"role": "assistant", "content": "continued"}
+    assert loaded.compacted_history_source.mode == "compact"
+    assert loaded.compacted_history_source.reason == "latest_valid_compact"
+    assert loaded.compacted_history_source.compact_index == 0
     assert loaded.summary.message_count == 2
     assert loaded.summary.compact_count == 1
     assert loaded.compacts[0].trigger == "manual"
@@ -376,6 +382,88 @@ def test_load_session_compacted_history_falls_back_to_raw_history_on_invalid_tai
         {"role": "assistant", "content": "second"},
     ]
     assert loaded.compacted_history == loaded.history
+    assert loaded.compacted_history_source.mode == "raw"
+    assert loaded.compacted_history_source.reason == "no_valid_compact"
+    assert loaded.compacted_history_source.compact_index is None
+
+
+def test_load_session_compacted_history_uses_latest_valid_compact_record(
+    tmp_path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="first", message_index=0)
+    store.append_message(context, role="assistant", content="second", message_index=1)
+    store.append_compact(
+        context,
+        trigger="manual",
+        summary="valid compact",
+        original_message_count=2,
+        summarized_message_count=1,
+        kept_message_count=1,
+    )
+    store.append_compact(
+        context,
+        trigger="manual",
+        summary="invalid compact",
+        original_message_count=99,
+        summarized_message_count=98,
+        kept_message_count=1,
+    )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+
+    assert loaded.compacted_history[0]["role"] == "system"
+    assert "valid compact" in str(loaded.compacted_history[1]["content"])
+    assert "invalid compact" not in str(loaded.compacted_history[1]["content"])
+    assert loaded.compacted_history_source.mode == "compact"
+    assert loaded.compacted_history_source.reason == "latest_valid_compact"
+    assert loaded.compacted_history_source.compact_index == 0
+
+
+def test_load_session_compacted_history_uses_newest_valid_compact_record(
+    tmp_path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="first", message_index=0)
+    store.append_message(context, role="assistant", content="second", message_index=1)
+    store.append_message(context, role="user", content="third", message_index=2)
+    store.append_compact(
+        context,
+        trigger="manual",
+        summary="older compact",
+        original_message_count=3,
+        summarized_message_count=1,
+        kept_message_count=2,
+    )
+    store.append_compact(
+        context,
+        trigger="manual",
+        summary="newer compact",
+        original_message_count=3,
+        summarized_message_count=2,
+        kept_message_count=1,
+    )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+
+    assert loaded.history == [
+        {"role": "user", "content": "first"},
+        {"role": "assistant", "content": "second"},
+        {"role": "user", "content": "third"},
+    ]
+    assert "newer compact" in str(loaded.compacted_history[1]["content"])
+    assert "older compact" not in str(loaded.compacted_history[1]["content"])
+    assert loaded.compacted_history[-1] == {"role": "user", "content": "third"}
+    assert loaded.compacted_history_source.mode == "compact"
+    assert loaded.compacted_history_source.compact_index == 1
 
 
 def test_recovery_brief_limits_recent_evidence_in_original_order(tmp_path) -> None:

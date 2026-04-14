@@ -2,6 +2,7 @@ from .langgraph import thread_config_for_session, thread_id_for_session
 from .ports import SessionStore
 from .records import (
     COMPACT_RECORD_TYPE,
+    CompactedHistorySource,
     EVIDENCE_RECORD_TYPE,
     LoadedSession,
     SessionCompact,
@@ -32,6 +33,7 @@ from .store_jsonl import (
 __all__ = [
     "LoadedSession",
     "COMPACT_RECORD_TYPE",
+    "CompactedHistorySource",
     "EVIDENCE_RECORD_TYPE",
     "RecoveryBrief",
     "SessionContext",

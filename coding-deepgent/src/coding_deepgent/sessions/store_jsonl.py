@@ -18,6 +18,7 @@ from .records import (
     MESSAGE_RECORD_TYPE,
     SESSION_RECORD_VERSION,
     STATE_SNAPSHOT_RECORD_TYPE,
+    CompactedHistorySource,
     SessionContext,
     SessionCompact,
     SessionEvidence,
@@ -211,11 +212,14 @@ class JsonlSessionStore:
         state = deepcopy(
             last_valid_state if last_valid_state is not None else state_factory()
         )
-        compacted_history = self._build_compacted_history(history, compacts)
+        compacted_history, compacted_history_source = self._build_compacted_history(
+            history, compacts
+        )
         return LoadedSession(
             context=context,
             history=history,
             compacted_history=compacted_history,
+            compacted_history_source=compacted_history_source,
             state=state,
             evidence=evidence,
             compacts=compacts,
@@ -373,19 +377,38 @@ class JsonlSessionStore:
         self,
         history: list[dict[str, str]],
         compacts: list[SessionCompact],
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], CompactedHistorySource]:
         raw_history = [dict(message) for message in history]
         if not compacts:
-            return raw_history
+            return raw_history, CompactedHistorySource(
+                mode="raw", reason="no_compacts"
+            )
 
-        latest = compacts[-1]
-        keep_from = latest.original_message_count - latest.kept_message_count
+        for index in range(len(compacts) - 1, -1, -1):
+            compact = compacts[index]
+            compacted = self._build_history_for_compact(raw_history, compact)
+            if compacted is not None:
+                return compacted, CompactedHistorySource(
+                    mode="compact",
+                    reason="latest_valid_compact",
+                    compact_index=index,
+                )
+        return raw_history, CompactedHistorySource(
+            mode="raw", reason="no_valid_compact"
+        )
+
+    def _build_history_for_compact(
+        self,
+        raw_history: list[dict[str, Any]],
+        compact: SessionCompact,
+    ) -> list[dict[str, Any]] | None:
+        keep_from = compact.original_message_count - compact.kept_message_count
         keep_from = min(len(raw_history), max(0, keep_from))
         preserved_tail = [dict(message) for message in raw_history[keep_from:]]
         if not preserved_tail:
-            return raw_history
+            return None
         return compact_messages_with_summary(
             preserved_tail,
-            summary=latest.summary,
+            summary=compact.summary,
             keep_last=len(preserved_tail),
         ).messages
