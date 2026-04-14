@@ -55,7 +55,6 @@
     "04-15-stage-17d-verifier-subagent-execution-boundary",
     "04-15-stage-26-agent-as-tool-mvp-closeout",
     "04-15-stage-27-local-extension-platform-closeout",
-    "04-15-stage-28-observability-evidence-closeout",
     "04-15-stage-29-deferred-boundary-adr-mvp-release-checklist"
   ],
   "parent": null,
