@@ -1,0 +1,5 @@
+{"file": ".agents/skills/finish-work/SKILL.md", "reason": "Finish work checklist"}
+{"file": ".agents/skills/check-backend/SKILL.md", "reason": "Backend check spec"}
+{"file": ".omx/plans/coding-deepgent-h01-h10-target-design.md", "reason": "Check implementation against H06 target"}
+{"file": "coding-deepgent/tests/test_sessions.py", "reason": "Check recovery brief ordering/limits and resume overwrite semantics"}
+{"file": "coding-deepgent/tests/test_cli.py", "reason": "Check resume-with-prompt uses recovery brief context"}

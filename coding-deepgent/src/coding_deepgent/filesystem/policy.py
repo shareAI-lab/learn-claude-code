@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-
-from coding_deepgent.config import load_settings
+from typing import Iterable
 
 OUTPUT_LIMIT = 50_000
 DANGEROUS_COMMANDS = ("rm -rf /", "sudo", "shutdown", "reboot", "> /dev/")
@@ -32,7 +31,20 @@ class PatternPolicyDecision:
 
 
 def workspace_root(*, workdir: Path | None = None) -> Path:
-    return (workdir or load_settings().workdir).resolve()
+    if workdir is None:
+        raise ValueError("Filesystem policy requires an explicit workdir")
+    return workdir.expanduser().resolve()
+
+
+def trusted_roots(
+    *,
+    workdir: Path,
+    additional_workdirs: Iterable[Path] | None = None,
+) -> tuple[Path, ...]:
+    root = workspace_root(workdir=workdir)
+    extras_source = () if additional_workdirs is None else additional_workdirs
+    extras = tuple(path.expanduser().resolve() for path in extras_source)
+    return (root, *extras)
 
 
 def command_policy(command: str) -> CommandPolicyDecision:
@@ -45,17 +57,33 @@ def command_policy(command: str) -> CommandPolicyDecision:
     return CommandPolicyDecision(allowed=True, reason="allowed", message="")
 
 
-def safe_path(path_str: str, *, workdir: Path | None = None) -> Path:
+def safe_path(
+    path_str: str,
+    *,
+    workdir: Path,
+    additional_workdirs: Iterable[Path] | None = None,
+) -> Path:
     root = workspace_root(workdir=workdir)
-    path = (root / path_str).resolve()
-    if not path.is_relative_to(root):
+    raw_path = Path(path_str).expanduser()
+    path = raw_path.resolve() if raw_path.is_absolute() else (root / raw_path).resolve()
+    roots = trusted_roots(workdir=workdir, additional_workdirs=additional_workdirs)
+    if not any(path.is_relative_to(base) for base in roots):
         raise ValueError(f"Path escapes workspace: {path_str}")
     return path
 
 
-def path_policy(path_str: str, *, workdir: Path | None = None) -> PathPolicyDecision:
+def path_policy(
+    path_str: str,
+    *,
+    workdir: Path,
+    additional_workdirs: Iterable[Path] | None = None,
+) -> PathPolicyDecision:
     try:
-        path = safe_path(path_str, workdir=workdir)
+        path = safe_path(
+            path_str,
+            workdir=workdir,
+            additional_workdirs=additional_workdirs,
+        )
     except ValueError as exc:
         return PathPolicyDecision(
             allowed=False,

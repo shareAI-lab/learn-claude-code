@@ -9,6 +9,7 @@ from pydantic import BaseModel, ValidationError
 from coding_deepgent.memory import (
     MemoryRecord,
     SaveMemoryInput,
+    evaluate_memory_quality,
     list_memory_records,
     recall_memories,
     save_memory,
@@ -51,4 +52,41 @@ def test_memory_store_save_list_and_recall_are_deterministic() -> None:
     assert [
         record.content for record in recall_memories(store, query="LangChain", limit=2)
     ] == [first.content]
+    assert [record.content for record in recall_memories(store, limit=1)] == [
+        first.content
+    ]
     assert recall_memories(None) == []
+
+
+def test_memory_quality_policy_rejects_transient_and_duplicate_entries() -> None:
+    existing = [
+        MemoryRecord(
+            content="Prefer LangChain stores for cross-session memory",
+            namespace="project",
+        )
+    ]
+
+    duplicate = evaluate_memory_quality(
+        MemoryRecord(
+            content=" prefer   langchain stores for cross-session MEMORY ",
+            namespace="project",
+        ),
+        existing_records=existing,
+    )
+    transient = evaluate_memory_quality(
+        MemoryRecord(content="Currently working on Stage 12D", namespace="project")
+    )
+    durable = evaluate_memory_quality(
+        MemoryRecord(
+            content="Use LangChain stores for cross-session memory",
+            namespace="project",
+        ),
+        existing_records=existing,
+    )
+
+    assert duplicate.allowed is False
+    assert duplicate.category == "duplicate"
+    assert transient.allowed is False
+    assert transient.category == "transient_state"
+    assert durable.allowed is True
+    assert durable.category == "accepted"

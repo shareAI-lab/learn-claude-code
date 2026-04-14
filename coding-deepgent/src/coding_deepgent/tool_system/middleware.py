@@ -8,6 +8,8 @@ from langchain.messages import ToolMessage
 from langchain.tools.tool_node import ToolCallRequest
 from langgraph.types import Command
 
+from coding_deepgent.hooks.dispatcher import dispatch_context_hook
+from coding_deepgent.hooks.events import HookEventName
 from coding_deepgent.runtime import RuntimeEvent
 
 from .capabilities import CapabilityRegistry
@@ -44,8 +46,32 @@ class ToolGuardMiddleware(AgentMiddleware):
                 else "permission_denied"
             )
             self._emit(request=request, phase=phase, decision=decision)
+            self._dispatch_hook(
+                request=request,
+                event="PermissionDenied",
+                data={
+                    "tool": str(request.tool_call["name"]),
+                    "policy_code": decision.code.value,
+                    "message": decision.message,
+                },
+            )
             return ToolMessage(
                 content=decision.message,
+                tool_call_id=str(tool_call_id or ""),
+                status="error",
+            )
+
+        hook_outcome = self._dispatch_hook(
+            request=request,
+            event="PreToolUse",
+            data={
+                "tool": str(request.tool_call["name"]),
+                "args": dict(request.tool_call.get("args", {})),
+            },
+        )
+        if hook_outcome is not None and hook_outcome.blocked:
+            return ToolMessage(
+                content=hook_outcome.reason or "PreToolUse hook blocked execution.",
                 tool_call_id=str(tool_call_id or ""),
                 status="error",
             )
@@ -57,6 +83,15 @@ class ToolGuardMiddleware(AgentMiddleware):
             phase="completed",
             decision=decision,
             result=result,
+        )
+        self._dispatch_hook(
+            request=request,
+            event="PostToolUse",
+            data={
+                "tool": str(request.tool_call["name"]),
+                "args": dict(request.tool_call.get("args", {})),
+                "result_type": type(result).__name__,
+            },
         )
         return result
 
@@ -82,6 +117,20 @@ class ToolGuardMiddleware(AgentMiddleware):
             "result_type": type(result).__name__ if result is not None else None,
         }
         _send_event(sink, event, session_id=_session_id(request.runtime))
+
+    def _dispatch_hook(
+        self,
+        *,
+        request: ToolCallRequest,
+        event: HookEventName,
+        data: dict[str, object],
+    ):
+        return dispatch_context_hook(
+            context=getattr(request.runtime, "context", None),
+            session_id=_session_id(request.runtime),
+            event=event,
+            data=data,
+        )
 
 
 def _runtime_event_sink(runtime: object) -> object | None:

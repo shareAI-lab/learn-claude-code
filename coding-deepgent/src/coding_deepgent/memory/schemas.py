@@ -32,7 +32,7 @@ class SaveMemoryInput(BaseModel):
     content: str = Field(
         ...,
         min_length=1,
-        description="Durable reusable knowledge or preference to store as long-term memory. Do not store current todos, transient plans, or task status.",
+        description="Durable reusable knowledge or preference to store as long-term memory. Do not store current todos, transient plans, task status, recovery notes, or facts that are already present in the current conversation.",
     )
     namespace: MemoryNamespace = Field(
         default="project",

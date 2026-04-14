@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from coding_deepgent.state import default_session_state, normalize_todos
+from coding_deepgent.todo.service import normalize_todos
+from coding_deepgent.todo.state import default_session_state
 
 
 def test_default_session_state_matches_todowrite_contract() -> None:

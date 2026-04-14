@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/memory/recall.py", "reason": "bounded deterministic recall behavior"}
+{"file": "coding-deepgent/src/coding_deepgent/memory/store.py", "reason": "LangGraph store namespace/key seam"}
+{"file": "coding-deepgent/src/coding_deepgent/memory/tools.py", "reason": "save_memory hot-path quality gate"}
+{"file": "coding-deepgent/src/coding_deepgent/memory/schemas.py", "reason": "memory schema and model-visible field descriptions"}

@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from typing import Mapping, Sequence, cast
 
 from coding_deepgent.filesystem.policy import command_policy, path_policy
@@ -43,6 +44,8 @@ class ToolPermissionSubject:
     destructive: bool
     enabled: bool = True
     domain: str = "unknown"
+    source: str = "builtin"
+    trusted: bool = True
 
 
 READ_ONLY_BASH_COMMANDS = frozenset(
@@ -68,9 +71,15 @@ class PermissionManager:
         *,
         mode: PermissionMode = "default",
         rules: Sequence[PermissionRule] = (),
+        workdir: Path | None = None,
+        trusted_workdirs: Sequence[Path] = (),
     ) -> None:
         self.mode = mode
         self.rules = tuple(rules)
+        self.workdir = workdir.expanduser().resolve() if workdir is not None else None
+        self.trusted_workdirs = tuple(
+            path.expanduser().resolve() for path in trusted_workdirs
+        )
 
     def evaluate(
         self,
@@ -98,7 +107,7 @@ class PermissionManager:
         if hard_safety_decision is not None:
             return hard_safety_decision
 
-        rule_decision = self._rule_decision(tool_name, args)
+        rule_decision = self._rule_decision(tool_name, args, subject=subject)
         if rule_decision is not None:
             return self._apply_dont_ask(rule_decision)
 
@@ -119,7 +128,17 @@ class PermissionManager:
 
         path_arg = args.get("path")
         if isinstance(path_arg, str):
-            path_decision = path_policy(path_arg)
+            if self.workdir is None:
+                return PermissionDecision(
+                    behavior="deny",
+                    code=PermissionCode.WORKSPACE_ESCAPE,
+                    message="Error: Path permissions require a configured workdir",
+                )
+            path_decision = path_policy(
+                path_arg,
+                workdir=self.workdir,
+                additional_workdirs=self.trusted_workdirs,
+            )
             if not path_decision.allowed:
                 return PermissionDecision(
                     behavior="deny",
@@ -129,7 +148,11 @@ class PermissionManager:
         return None
 
     def _rule_decision(
-        self, tool_name: str, args: Mapping[str, object]
+        self,
+        tool_name: str,
+        args: Mapping[str, object],
+        *,
+        subject: ToolPermissionSubject,
     ) -> PermissionDecision | None:
         for behavior, code in (
             ("deny", PermissionCode.RULE_DENIED),
@@ -141,7 +164,13 @@ class PermissionManager:
                     candidate
                     for candidate in self.rules
                     if candidate.behavior == behavior
-                    and candidate.matches(tool_name, args)
+                    and candidate.matches(
+                        tool_name,
+                        args,
+                        domain=subject.domain,
+                        capability_source=subject.source,
+                        trusted=subject.trusted,
+                    )
                 ),
                 None,
             )
@@ -160,15 +189,25 @@ class PermissionManager:
         tool_name: str,
         args: Mapping[str, object],
     ) -> PermissionDecision:
+        read_only = subject.read_only or (
+            tool_name == "bash" and is_read_only_bash(str(args.get("command", "")))
+        )
+        if not subject.trusted and subject.destructive and not read_only:
+            return PermissionDecision(
+                "ask",
+                PermissionCode.PERMISSION_REQUIRED,
+                f"Approval required before running untrusted extension `{tool_name}`",
+                metadata={
+                    "tool_name": tool_name,
+                    "tool_source": subject.source,
+                    "trusted": False,
+                },
+            )
         if self.mode == "bypassPermissions":
             return PermissionDecision("allow", PermissionCode.ALLOWED)
 
         if self.mode == "acceptEdits":
             return PermissionDecision("allow", PermissionCode.ALLOWED)
-
-        read_only = subject.read_only or (
-            tool_name == "bash" and is_read_only_bash(str(args.get("command", "")))
-        )
         if self.mode == "plan":
             if read_only or not subject.destructive:
                 return PermissionDecision("allow", PermissionCode.ALLOWED)

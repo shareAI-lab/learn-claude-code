@@ -8,24 +8,22 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from coding_deepgent.runtime import default_runtime_state
+
 from .records import (
+    EVIDENCE_RECORD_TYPE,
     LoadedSession,
     MESSAGE_RECORD_TYPE,
     SESSION_RECORD_VERSION,
     STATE_SNAPSHOT_RECORD_TYPE,
     SessionContext,
+    SessionEvidence,
     SessionLoadError,
     SessionSummary,
+    make_evidence_record,
     make_message_record,
     make_state_snapshot_record,
 )
-
-
-def default_state_snapshot() -> dict[str, Any]:
-    return {
-        "todos": [],
-        "rounds_since_update": 0,
-    }
 
 
 class JsonlSessionStore:
@@ -89,6 +87,30 @@ class JsonlSessionStore:
         self._append_record(context.transcript_path, record)
         return context.transcript_path
 
+    def append_evidence(
+        self,
+        context: SessionContext,
+        *,
+        kind: str,
+        summary: str,
+        status: str = "recorded",
+        subject: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Path:
+        serializable_metadata = (
+            json.loads(json.dumps(metadata)) if metadata is not None else None
+        )
+        record = make_evidence_record(
+            context,
+            kind=kind,
+            summary=summary,
+            status=status,
+            subject=subject,
+            metadata=serializable_metadata,
+        )
+        self._append_record(context.transcript_path, record)
+        return context.transcript_path
+
     def load_session(
         self,
         *,
@@ -103,6 +125,7 @@ class JsonlSessionStore:
         created_at: str | None = None
         updated_at: str | None = None
         first_prompt: str | None = None
+        evidence: list[SessionEvidence] = []
 
         for record in self._iter_valid_records(context.transcript_path):
             if record.get("session_id") != session_id:
@@ -128,6 +151,10 @@ class JsonlSessionStore:
                 state = self._coerce_state_snapshot(record.get("state"))
                 if state is not None:
                     last_valid_state = state
+            elif record_type == EVIDENCE_RECORD_TYPE:
+                item = self._coerce_evidence(record)
+                if item is not None:
+                    evidence.append(item)
 
         if not history:
             raise SessionLoadError(
@@ -142,8 +169,9 @@ class JsonlSessionStore:
             updated_at=updated_at,
             first_prompt=first_prompt,
             message_count=len(history),
+            evidence_count=len(evidence),
         )
-        state_factory = default_state_factory or default_state_snapshot
+        state_factory = default_state_factory or default_runtime_state
         state = deepcopy(
             last_valid_state if last_valid_state is not None else state_factory()
         )
@@ -151,6 +179,7 @@ class JsonlSessionStore:
             context=context,
             history=history,
             state=state,
+            evidence=evidence,
             summary=summary,
         )
 
@@ -241,20 +270,30 @@ class JsonlSessionStore:
             "rounds_since_update": rounds_since_update,
         }
 
-
-def make_session_store(base_dir: Path | None = None) -> JsonlSessionStore:
-    return JsonlSessionStore(base_dir=base_dir)
-
-
-def make_session_context(
-    *,
-    workdir: Path,
-    store: JsonlSessionStore | None = None,
-    session_id: str | None = None,
-    entrypoint: str | None = None,
-) -> SessionContext:
-    return (store or JsonlSessionStore()).create_session(
-        workdir=workdir,
-        session_id=session_id,
-        entrypoint=entrypoint,
-    )
+    def _coerce_evidence(self, record: dict[str, Any]) -> SessionEvidence | None:
+        kind = record.get("kind")
+        summary = record.get("summary")
+        status = record.get("status")
+        created_at = record.get("timestamp")
+        subject = record.get("subject")
+        metadata = record.get("metadata")
+        if not isinstance(kind, str) or not kind.strip():
+            return None
+        if not isinstance(summary, str) or not summary.strip():
+            return None
+        if not isinstance(status, str) or not status.strip():
+            return None
+        if not isinstance(created_at, str) or not created_at.strip():
+            return None
+        if subject is not None and not isinstance(subject, str):
+            return None
+        if metadata is not None and not isinstance(metadata, dict):
+            return None
+        return SessionEvidence(
+            kind=kind.strip(),
+            summary=summary.strip(),
+            status=status.strip(),
+            created_at=created_at,
+            subject=subject.strip() if isinstance(subject, str) and subject else None,
+            metadata=deepcopy(metadata) if isinstance(metadata, dict) else None,
+        )

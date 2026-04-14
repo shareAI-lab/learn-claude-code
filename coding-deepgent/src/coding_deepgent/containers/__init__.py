@@ -1,4 +1,4 @@
-from .app import AppContainer, build_system_prompt
+from .app import AppContainer
 from .filesystem import FilesystemContainer
 from .runtime import RuntimeContainer
 from .sessions import SessionsContainer
@@ -12,5 +12,4 @@ __all__ = [
     "SessionsContainer",
     "TodoContainer",
     "ToolSystemContainer",
-    "build_system_prompt",
 ]

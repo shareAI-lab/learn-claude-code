@@ -18,6 +18,7 @@ from coding_deepgent.memory import (
     save_memory,
     save_memory_record,
 )
+from coding_deepgent.context_payloads import ContextPayload, merge_system_message_content
 from coding_deepgent.containers import AppContainer
 from coding_deepgent.settings import Settings
 
@@ -61,6 +62,36 @@ def test_save_memory_tool_writes_to_langgraph_store_via_create_agent_runtime() -
     assert [item.value["content"] for item in records] == ["Remember LangChain stores"]
 
 
+def test_save_memory_tool_rejects_transient_memory_via_create_agent_runtime() -> None:
+    store = InMemoryStore()
+    model = RecordingFakeModel(
+        responses=[
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "save_memory",
+                        "args": {"content": "Currently working on Stage 12D"},
+                        "id": "mem1",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            AIMessage(content="done"),
+        ]
+    )
+
+    agent = create_agent(model=model, tools=[save_memory], store=store)
+    result = agent.invoke({"messages": [{"role": "user", "content": "save"}]})
+
+    assert any(
+        "Memory not saved: memory looks like transient task/session state."
+        in str(message.content)
+        for message in result["messages"]
+    )
+    assert store.search(memory_namespace("project")) == []
+
+
 def test_memory_context_middleware_injects_store_backed_memory() -> None:
     store = InMemoryStore()
     save_memory_record(
@@ -92,6 +123,28 @@ def test_memory_context_middleware_injects_store_backed_memory() -> None:
     assert isinstance(system_message, SystemMessage)
     assert "Relevant long-term memory" in str(system_message.content)
     assert "Prefer LangChain stores for memory" in str(system_message.content)
+
+
+def test_memory_context_payload_renderer_path_is_shared() -> None:
+    blocks = merge_system_message_content(
+        [{"type": "text", "text": "Base"}],
+        [
+            ContextPayload(
+                kind="memory",
+                text="Relevant long-term memory:\n- [project] Prefer LangChain stores for memory",
+                source="memory.project",
+                priority=200,
+            )
+        ],
+    )
+
+    assert blocks == [
+        {"type": "text", "text": "Base"},
+        {
+            "type": "text",
+            "text": "Relevant long-term memory:\n- [project] Prefer LangChain stores for memory",
+        },
+    ]
 
 
 def test_app_container_wires_memory_middleware_and_store() -> None:

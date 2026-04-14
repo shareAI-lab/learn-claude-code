@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/cli_service.py", "reason": "manual compact continuation history service seam"}
+{"file": "coding-deepgent/src/coding_deepgent/compact/artifacts.py", "reason": "13A artifact source of truth"}
+{"file": "coding-deepgent/src/coding_deepgent/cli.py", "reason": "sessions resume compact CLI options"}

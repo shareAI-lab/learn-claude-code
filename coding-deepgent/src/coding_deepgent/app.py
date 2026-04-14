@@ -1,33 +1,30 @@
 from __future__ import annotations
 
-from collections.abc import Callable, MutableMapping
-from inspect import Parameter, signature
+from collections.abc import MutableMapping
 from typing import Any
 
-from dependency_injector import providers
 from langchain.agents import create_agent
 
-from coding_deepgent.config import build_openai_model, load_settings
+from coding_deepgent import agent_loop_service
+from coding_deepgent import bootstrap
 from coding_deepgent.containers import AppContainer
+from coding_deepgent.settings import build_openai_model, load_settings
 from coding_deepgent.runtime import RuntimeInvocation, default_runtime_state
-from coding_deepgent.rendering import latest_assistant_text, normalize_messages
-
-SESSION_STATE: dict[str, Any] = default_runtime_state()
 
 
 def build_container() -> AppContainer:
-    container = AppContainer(
-        settings=providers.Singleton(load_settings),
-        model=providers.Factory(build_openai_model),
-        create_agent_factory=providers.Object(create_agent),
+    container = bootstrap.build_container(
+        settings_loader=load_settings,
+        model_factory=build_openai_model,
+        create_agent_factory=create_agent,
     )
-    container.check_dependencies()
+    bootstrap.validate_container_startup(container=container)
     return container
 
 
 def build_agent(*, container: AppContainer | None = None):
     active_container = container or build_container()
-    return active_container.agent()
+    return bootstrap.build_agent(container=active_container)
 
 
 def build_runtime_invocation(
@@ -36,56 +33,8 @@ def build_runtime_invocation(
     session_id: str | None = None,
 ) -> RuntimeInvocation:
     active_container = container or build_container()
-    return active_container.runtime.invocation(session_id=session_id)
-
-
-def _supports_keyword_argument(callback: Callable[..., Any], keyword: str) -> bool:
-    try:
-        parameters = signature(callback).parameters.values()
-    except (TypeError, ValueError):
-        return True
-
-    return any(
-        parameter.kind == Parameter.VAR_KEYWORD or parameter.name == keyword
-        for parameter in parameters
-    )
-
-
-def _resolve_compiled_agent(active_container: AppContainer):
-    if _supports_keyword_argument(build_agent, "container"):
-        return build_agent(container=active_container)
-    return build_agent()
-
-
-def _invoke_agent(
-    compiled_agent: Any,
-    payload: dict[str, Any],
-    invocation: RuntimeInvocation,
-) -> dict[str, Any]:
-    invoke = compiled_agent.invoke
-    if _supports_keyword_argument(invoke, "context") or _supports_keyword_argument(
-        invoke, "config"
-    ):
-        return invoke(payload, context=invocation.context, config=invocation.config)
-    return invoke(payload)
-
-
-def _session_payload(session_state: MutableMapping[str, Any]) -> dict[str, Any]:
-    return {
-        "todos": session_state.get("todos", []),
-        "rounds_since_update": session_state.get("rounds_since_update", 0),
-    }
-
-
-def _update_session_state(
-    session_state: MutableMapping[str, Any],
-    result: dict[str, Any],
-) -> None:
-    session_state.update(
-        {
-            "todos": result.get("todos", []),
-            "rounds_since_update": result.get("rounds_since_update", 0),
-        }
+    return bootstrap.build_runtime_invocation(
+        container=active_container, session_id=session_id
     )
 
 
@@ -96,19 +45,15 @@ def agent_loop(
     session_state: MutableMapping[str, Any] | None = None,
     session_id: str | None = None,
 ) -> str:
-    active_container = container or build_container()
-    active_session_state = session_state if session_state is not None else SESSION_STATE
-    normalized = normalize_messages(messages)
-    invocation = build_runtime_invocation(
-        container=active_container, session_id=session_id
+    active_session_state = (
+        session_state if session_state is not None else default_runtime_state()
     )
-    result = _invoke_agent(
-        _resolve_compiled_agent(active_container),
-        {"messages": normalized, **_session_payload(active_session_state)},
-        invocation,
+    return agent_loop_service.run_agent_loop(
+        messages=messages,
+        session_state=active_session_state,
+        session_id=session_id,
+        container=container,
+        build_container=build_container,
+        build_agent=build_agent,
+        build_runtime_invocation=build_runtime_invocation,
     )
-    _update_session_state(active_session_state, result)
-    final_text = latest_assistant_text(result)
-    if final_text:
-        messages.append({"role": "assistant", "content": final_text})
-    return final_text

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from coding_deepgent.compact import project_messages
+
 
 def _message_content(message: Any) -> Any:
     if isinstance(message, dict):
@@ -58,22 +60,4 @@ def latest_assistant_text(result: Any) -> str:
 
 
 def normalize_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    cleaned: list[dict[str, Any]] = []
-    for message in messages:
-        cleaned.append(
-            {
-                "role": message.get("role", "user"),
-                "content": message.get("content", ""),
-            }
-        )
-
-    if not cleaned:
-        return cleaned
-
-    merged = [cleaned[0]]
-    for message in cleaned[1:]:
-        if message["role"] == merged[-1]["role"]:
-            merged[-1]["content"] = f"{merged[-1]['content']}\n\n{message['content']}"
-        else:
-            merged.append(message)
-    return merged
+    return project_messages(messages)

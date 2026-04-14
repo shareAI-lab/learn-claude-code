@@ -11,7 +11,7 @@ from coding_deepgent.skills.schemas import LoadSkillInput
 @tool(
     "load_skill",
     args_schema=LoadSkillInput,
-    description="Load a local coding-deepgent skill by name. Does not load plugin, MCP, remote, or marketplace skills.",
+    description="Load a local coding-deepgent skill by name. Does not load extension, MCP, remote, or distributed skills.",
 )
 def load_skill(name: str, runtime: ToolRuntime) -> str:
     """Load one local skill body after explicit model request."""

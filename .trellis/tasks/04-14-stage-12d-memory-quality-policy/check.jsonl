@@ -1,0 +1,4 @@
+{"file": ".agents/skills/finish-work/SKILL.md", "reason": "Finish work checklist"}
+{"file": ".agents/skills/check-backend/SKILL.md", "reason": "Backend check spec"}
+{"file": "coding-deepgent/tests/test_memory_integration.py", "reason": "save_memory integration behavior through create_agent runtime"}
+{"file": "coding-deepgent/tests/test_memory.py", "reason": "memory policy unit and bounded recall tests"}

@@ -1,0 +1,9 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".omx/plans/coding-deepgent-h01-h10-target-design.md", "reason": "Stage 12A target design and highlight gaps"}
+{"file": ".trellis/tasks/04-14-stage-12a-context-payload-foundation/prd.md", "reason": "Accepted 12A scope and alignment matrix"}
+{"file": "coding-deepgent/src/coding_deepgent/todo/middleware.py", "reason": "Current todo dynamic context injection path"}
+{"file": "coding-deepgent/src/coding_deepgent/memory/middleware.py", "reason": "Current memory dynamic context injection path"}
+{"file": "coding-deepgent/src/coding_deepgent/prompting/builder.py", "reason": "Current prompt context boundary"}
+{"file": "coding-deepgent/tests/test_planning.py", "reason": "Existing todo middleware behavior tests"}
+{"file": "coding-deepgent/tests/test_memory_integration.py", "reason": "Existing memory middleware behavior tests"}

@@ -66,6 +66,8 @@ class ToolPolicy:
                 destructive=capability.destructive,
                 enabled=capability.enabled,
                 domain=capability.domain,
+                source=capability.source,
+                trusted=capability.trusted,
             )
             if capability is not None
             else None

@@ -7,6 +7,10 @@ from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResp
 from langchain.messages import AIMessage, SystemMessage, ToolMessage
 from langchain.tools.tool_node import ToolCallRequest
 
+from coding_deepgent.context_payloads import (
+    ContextPayload,
+    merge_system_message_content,
+)
 from coding_deepgent.todo.renderers import reminder_text, render_plan_items
 from coding_deepgent.todo.state import PlanningState, TodoItemState
 
@@ -42,20 +46,29 @@ class PlanContextMiddleware(AgentMiddleware[PlanningState]):
     ) -> ModelResponse:
         todos = cast(list[TodoItemState], request.state.get("todos", []))
         rounds_since_update = cast(int, request.state.get("rounds_since_update", 0))
-        extra_blocks: list[dict[str, str]] = []
+        payloads: list[ContextPayload] = []
 
         if todos:
-            extra_blocks.append(
-                {
-                    "type": "text",
-                    "text": "Current session todos:\n" + render_plan_items(todos),
-                }
+            payloads.append(
+                ContextPayload(
+                    kind="todo",
+                    source="todo.current",
+                    priority=100,
+                    text="Current session todos:\n" + render_plan_items(todos),
+                )
             )
             reminder = reminder_text(todos, rounds_since_update)
             if reminder:
-                extra_blocks.append({"type": "text", "text": reminder})
+                payloads.append(
+                    ContextPayload(
+                        kind="todo_reminder",
+                        source="todo.reminder",
+                        priority=110,
+                        text=reminder,
+                    )
+                )
 
-        if not extra_blocks:
+        if not payloads:
             return handler(request)
 
         current_blocks = (
@@ -66,7 +79,9 @@ class PlanContextMiddleware(AgentMiddleware[PlanningState]):
         return handler(
             request.override(
                 system_message=SystemMessage(
-                    content=[*current_blocks, *extra_blocks]  # type: ignore[list-item]
+                    content=merge_system_message_content(
+                        current_blocks, payloads
+                    )  # type: ignore[list-item]
                 )
             )
         )

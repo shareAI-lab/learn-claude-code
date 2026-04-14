@@ -4,8 +4,9 @@ Independent cumulative LangChain cc product surface.
 
 ## Current product stage
 
-- `current_product_stage`: `stage-6-skills-subagents-task-graph`
-- `compatibility_anchor`: `skills-subagents-task-graph`
+- `current_product_stage`: `stage-11-mcp-plugin-real-loading`
+- `compatibility_anchor`: `mcp-plugin-real-loading`
+- `architecture_reshape_status`: `s1-skeleton-complete`
 - Upgrade policy: advance by explicit product-stage plan approval, not tutorial chapter completion.
 
 ## Current architecture
@@ -13,7 +14,17 @@ Independent cumulative LangChain cc product surface.
 - LangChain remains the runtime boundary: `RuntimeState`, `RuntimeContext`, `context=`, and LangGraph `thread_id` config own runtime invocation.
 - Dependency-injector containers compose settings, runtime seams, domain tools, middleware, session storage, and agent creation; domain packages do not import containers.
 - The public planning contract remains cc-aligned `TodoWrite(todos=[...])` with required `activeForm` on every todo item.
-- Stage 3 creates a professional runtime foundation without full cc parity; subagents, hooks, permissions, compact, memory, MCP, and durable tasks remain future domains.
+- The current product has explicit domains for runtime, permissions, hooks, prompt/context, memory, compact helpers, local skills, durable tasks, bounded subagents, local MCP tool registration, and local plugin manifests without replacing LangChain's agent runtime.
+
+## Architecture reshape status
+
+Project-wide S1 skeleton reshape is complete:
+
+- bootstrap / agent-loop / CLI orchestration moved into dedicated services
+- startup validation is explicit
+- filesystem execution is runtime-owned instead of settings-driven by default
+- session defaults now have one owner (`runtime.default_runtime_state`)
+- low-value facades and global mutable public state were removed rather than kept for compatibility
 
 ## CLI surface
 
@@ -38,4 +49,28 @@ Stage 5 adds a store-backed long-term memory foundation seam, the model-visible 
 
 ## Stage 6 skills/subagents/task graph
 
-Stage 6 adds local skill loading, a store-backed durable task graph, and a minimal synchronous/stateless `run_subagent` tool. Background agents, SendMessage/mailbox, worktrees, remote/team runtime, sidechain resume, forked skill execution, MCP/plugin marketplace, and custom query loops remain future work.
+Stage 6 adds local skill loading, a store-backed durable task graph, and a minimal synchronous/stateless `run_subagent` tool. Background agents, SendMessage/mailbox, worktrees, remote/team runtime, sidechain resume, forked skill execution, extension distribution, and custom query loops remain future work.
+
+## Stage 7 MCP/plugin extension foundation
+
+Stage 7 adds a local MCP adapter seam that converts already-discovered MCP tools into agent-bindable `ToolCapability` entries while keeping MCP resources in a separate read-surface registry. It also adds a strict local `plugin.json` manifest loader/registry for metadata-only declarations of local tools, skills, and resources. Stage 7 intentionally does not add a connection manager, installer/update flow, remote trust workflow, background daemon, or runtime replacement.
+
+
+## Stage 8 recovery/evidence/runtime-continuation foundation
+
+Stage 8 adds a minimal recovery facility before deeper cc-core upgrades: session JSONL transcripts can carry factual evidence records, loaded sessions expose evidence alongside history/state, `sessions resume` can render a recovery brief, and the default CLI runtime uses the real local session store for list/resume. Full checkpoint browsing, task-level evidence stores, mailbox/background resume, and additional persistence dependencies remain future work.
+
+
+## Stage 9 permission/trust-boundary hardening
+
+Stage 9 extends the middleware-based permission runtime with typed settings-backed rules, explicitly trusted extra workspace directories, and capability trust metadata that distinguishes builtin tools from extension-provided tools. This stage intentionally defers interactive approval UX, remote trust, and marketplace/install flows.
+
+
+## Stage 10 hooks/lifecycle expansion
+
+Stage 10 upgrades hooks from a passive registry to a real local lifecycle seam. The runtime context now carries a hook registry, `app.agent_loop()` dispatches `SessionStart` / `UserPromptSubmit`, and `ToolGuardMiddleware` dispatches `PreToolUse`, `PostToolUse`, and `PermissionDenied`. Async hooks, plugin hooks, remote hooks, and model-visible hook context remain deferred.
+
+
+## Stage 11 MCP/plugin real loading
+
+Stage 11 upgrades the Stage 7 foundation into real loading: a root `.mcp.json` file can be parsed strictly, official `langchain-mcp-adapters` loading is used when available, MCP tool capabilities flow into the agent tool list, and local plugin declarations are validated against known local capabilities and skills. Dependency installation, marketplace/install/update flows, remote trust/auth UX, and runtime replacement remain deferred.

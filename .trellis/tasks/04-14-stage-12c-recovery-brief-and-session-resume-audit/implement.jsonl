@@ -1,0 +1,8 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/tests/test_sessions.py", "reason": "Existing session store and recovery tests"}
+{"file": ".omx/plans/coding-deepgent-h01-h10-target-design.md", "reason": "Stage 12C target design and H06 constraints"}
+{"file": "coding-deepgent/src/coding_deepgent/cli.py", "reason": "Current CLI resume path"}
+{"file": "coding-deepgent/src/coding_deepgent/sessions/resume.py", "reason": "Current recovery brief and resume primitives"}
+{"file": "coding-deepgent/tests/test_cli.py", "reason": "Existing CLI resume and recovery brief tests"}
+{"file": ".trellis/tasks/04-14-stage-12c-recovery-brief-and-session-resume-audit/prd.md", "reason": "Accepted 12C scope and alignment matrix"}

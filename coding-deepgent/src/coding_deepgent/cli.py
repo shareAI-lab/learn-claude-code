@@ -1,25 +1,22 @@
 from __future__ import annotations
 
-import importlib.util
-import os
 import sys
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any
 
 import typer
 from click.exceptions import ClickException
 from typer.main import get_command
 
+from coding_deepgent import cli_service
 from coding_deepgent.app import agent_loop
-from coding_deepgent.config import ProjectSettings, load_settings
-from coding_deepgent.logging_config import configure_logging, safe_environment_snapshot
+from coding_deepgent.logging_config import configure_logging
 from coding_deepgent.renderers.text import (
     render_config_table,
     render_doctor_table,
     render_session_table,
 )
 from coding_deepgent.rendering import extract_text
+from coding_deepgent.settings import build_openai_model
 
 app = typer.Typer(
     add_completion=False,
@@ -32,109 +29,41 @@ app.add_typer(config_app, name="config")
 app.add_typer(sessions_app, name="sessions")
 
 
-@dataclass(frozen=True)
-class SessionSummary:
-    session_id: str
-    updated_at: str
-    message_count: int
-    workdir: str
+def build_cli_runtime() -> cli_service.CliRuntime:
+    return cli_service.build_cli_runtime(agent_loop)
 
 
-@dataclass(frozen=True)
-class DoctorCheck:
-    name: str
-    status: str
-    detail: str
-
-
-@dataclass(frozen=True)
-class CliRuntime:
-    settings_loader: Callable[[], ProjectSettings]
-    list_sessions: Callable[[], Sequence[SessionSummary]]
-    load_session: Callable[[str], list[dict[str, Any]]]
-    run_prompt: Callable[[str, list[dict[str, Any]] | None], str]
-    doctor_checks: Callable[[], Sequence[DoctorCheck]]
-
-
-def default_session_dir() -> Path:
-    configured = os.getenv("CODING_DEEPGENT_SESSION_DIR")
-    if configured:
-        return Path(configured).expanduser().resolve()
-    return load_settings().workdir / ".coding-deepgent" / "sessions"
-
-
-def _dependency_status(module_name: str) -> str:
-    return "installed" if importlib.util.find_spec(module_name) else "missing"
-
-
-def _doctor_checks() -> Sequence[DoctorCheck]:
-    settings = load_settings()
-    safe_env = safe_environment_snapshot(os.environ)
-    return [
-        DoctorCheck(
-            "openai_api_key",
-            safe_env["OPENAI_API_KEY"],
-            "Required only for live run commands.",
-        ),
-        DoctorCheck("model_name", "resolved", settings.model_name),
-        DoctorCheck("workdir", "ready", str(settings.workdir)),
-        DoctorCheck("session_dir", "ready", str(default_session_dir())),
-        DoctorCheck("typer", _dependency_status("typer"), "CLI command surface."),
-        DoctorCheck(
-            "rich", _dependency_status("rich"), "Terminal rendering dependency."
-        ),
-        DoctorCheck(
-            "structlog",
-            _dependency_status("structlog"),
-            "Structured local logging dependency.",
-        ),
-    ]
-
-
-def _empty_sessions() -> Sequence[SessionSummary]:
-    return []
-
-
-def _missing_session(session_id: str) -> list[dict[str, Any]]:
-    raise KeyError(f"Unknown session: {session_id}")
-
-
-def build_cli_runtime() -> CliRuntime:
-    return CliRuntime(
-        settings_loader=load_settings,
-        list_sessions=_empty_sessions,
-        load_session=_missing_session,
-        run_prompt=run_once,
-        doctor_checks=_doctor_checks,
+def run_once(
+    prompt: str,
+    history: list[dict[str, object]] | None = None,
+    session_state: dict[str, object] | None = None,
+    session_id: str | None = None,
+) -> str:
+    return cli_service.run_once(
+        prompt=prompt,
+        run_agent=agent_loop,
+        history=history,
+        session_state=session_state,
+        session_id=session_id,
+        settings=build_cli_runtime().settings_loader(),
     )
-
-
-def run_once(prompt: str, history: list[dict[str, Any]] | None = None) -> str:
-    transcript = history if history is not None else []
-    transcript.append({"role": "user", "content": prompt})
-    return agent_loop(transcript)
 
 
 def _emit_text(text: str) -> None:
     typer.echo(text or "(no response)")
 
 
-def _config_rows(settings: ProjectSettings) -> list[tuple[str, str]]:
-    safe_env = safe_environment_snapshot(os.environ)
-    return [
-        ("workdir", str(settings.workdir)),
-        ("model_name", settings.model_name),
-        ("openai_base_url", safe_env["OPENAI_BASE_URL"]),
-        ("openai_api_key", safe_env["OPENAI_API_KEY"]),
-        ("session_dir", str(default_session_dir())),
-    ]
-
-
-def _run_prompt(prompt: str, *, history: list[dict[str, Any]] | None = None) -> None:
+def _run_prompt(
+    prompt: str,
+    *,
+    history: list[dict[str, Any]] | None = None,
+    session_state: dict[str, object] | None = None,
+    session_id: str | None = None,
+) -> None:
     runtime = build_cli_runtime()
     try:
-        result = runtime.run_prompt(prompt, history)
-    except RuntimeError as exc:  # pragma: no cover - defensive CLI guard
+        result = runtime.run_prompt(prompt, history, session_state, session_id)
+    except RuntimeError as exc:  # pragma: no cover
         raise ClickException(str(exc)) from exc
     _emit_text(extract_text(result))
 
@@ -160,7 +89,7 @@ def run_command(
 @config_app.command("show")
 def config_show() -> None:
     runtime = build_cli_runtime()
-    typer.echo(render_config_table(_config_rows(runtime.settings_loader())))
+    typer.echo(render_config_table(cli_service.config_rows(runtime.settings_loader())))
 
 
 @sessions_app.command("list")
@@ -184,20 +113,76 @@ def sessions_resume(
     prompt: str | None = typer.Option(
         None, "--prompt", help="Optional prompt to continue the session."
     ),
+    compact_summary: str | None = typer.Option(
+        None,
+        "--compact-summary",
+        help="Optional manual compact summary to use for continuation history.",
+    ),
+    generate_compact_summary: bool = typer.Option(
+        False,
+        "--generate-compact-summary",
+        help="Generate a manual compact summary for continuation history.",
+    ),
+    compact_instructions: str | None = typer.Option(
+        None,
+        "--compact-instructions",
+        help="Optional additional instructions for generated compact summary.",
+    ),
+    compact_keep_last: int = typer.Option(
+        4,
+        "--compact-keep-last",
+        min=0,
+        help="Number of recent messages to preserve after manual compaction.",
+    ),
 ) -> None:
     runtime = build_cli_runtime()
     try:
-        history = runtime.load_session(session_id)
+        loaded = runtime.load_session(session_id)
     except KeyError as exc:
         raise ClickException(str(exc)) from exc
 
     if prompt is None:
-        typer.echo(
-            f"Loaded session {session_id} with {len(history)} messages. Re-run with --prompt to continue."
-        )
+        if (
+            compact_summary is not None
+            or generate_compact_summary
+            or compact_instructions is not None
+        ):
+            raise ClickException("compact options require --prompt.")
+        typer.echo(cli_service.recovery_brief_text(loaded))
+        typer.echo("Re-run with --prompt to continue.")
         raise typer.Exit()
+    if compact_summary is not None and generate_compact_summary:
+        raise ClickException(
+            "--compact-summary and --generate-compact-summary are mutually exclusive."
+        )
+    if compact_instructions is not None and not generate_compact_summary:
+        raise ClickException("--compact-instructions requires --generate-compact-summary.")
 
-    _run_prompt(prompt, history=history)
+    try:
+        if generate_compact_summary:
+            history = cli_service.generated_compacted_continuation_history(
+                loaded,
+                summarizer=build_openai_model(runtime.settings_loader()),
+                keep_last=compact_keep_last,
+                custom_instructions=compact_instructions,
+            )
+        elif compact_summary is not None:
+            history = cli_service.compacted_continuation_history(
+                loaded,
+                summary=compact_summary,
+                keep_last=compact_keep_last,
+            )
+        else:
+            history = cli_service.continuation_history(loaded)
+    except (RuntimeError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+
+    _run_prompt(
+        prompt,
+        history=history,
+        session_state=loaded.state,
+        session_id=loaded.summary.session_id,
+    )
 
 
 @app.command("doctor")

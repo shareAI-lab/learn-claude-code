@@ -8,6 +8,7 @@ from typing import Any
 SESSION_RECORD_VERSION = 1
 MESSAGE_RECORD_TYPE = "message"
 STATE_SNAPSHOT_RECORD_TYPE = "state_snapshot"
+EVIDENCE_RECORD_TYPE = "evidence"
 
 
 def iso_timestamp_now() -> str:
@@ -32,6 +33,17 @@ class SessionSummary:
     updated_at: str | None
     first_prompt: str | None
     message_count: int
+    evidence_count: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SessionEvidence:
+    kind: str
+    summary: str
+    status: str
+    created_at: str
+    subject: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +51,7 @@ class LoadedSession:
     context: SessionContext
     history: list[dict[str, str]]
     state: dict[str, Any]
+    evidence: list[SessionEvidence]
     summary: SessionSummary
 
 
@@ -85,3 +98,29 @@ def make_state_snapshot_record(
         "cwd": str(context.workdir),
         "state": state,
     }
+
+
+def make_evidence_record(
+    context: SessionContext,
+    *,
+    kind: str,
+    summary: str,
+    status: str = "recorded",
+    subject: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "record_type": EVIDENCE_RECORD_TYPE,
+        "version": SESSION_RECORD_VERSION,
+        "session_id": context.session_id,
+        "timestamp": iso_timestamp_now(),
+        "cwd": str(context.workdir),
+        "kind": kind.strip(),
+        "summary": summary.strip(),
+        "status": status.strip(),
+    }
+    if subject:
+        record["subject"] = subject.strip()
+    if metadata:
+        record["metadata"] = metadata
+    return record

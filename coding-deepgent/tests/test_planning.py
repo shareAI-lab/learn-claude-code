@@ -8,11 +8,12 @@ from pydantic import BaseModel, ValidationError
 import pytest
 from langgraph.types import Command
 
+from coding_deepgent.context_payloads import ContextPayload, merge_system_message_content
 from coding_deepgent.middleware.planning import PlanContextMiddleware
 from coding_deepgent.todo.state import PlanningState, TodoItemState
-from coding_deepgent.tools.planning import (
+from coding_deepgent.todo.renderers import reminder_text
+from coding_deepgent.todo.tools import (
     _todo_write_command,
-    reminder_text,
     todo_write,
 )
 
@@ -204,3 +205,32 @@ def test_reminder_text_triggers_only_for_stale_plans() -> None:
         reminder_text(todos, 3)
         == "<reminder>Refresh your current plan before continuing.</reminder>"
     )
+
+
+def test_todo_context_payload_renderer_path_is_shared() -> None:
+    blocks = merge_system_message_content(
+        [{"type": "text", "text": "Base"}],
+        [
+            ContextPayload(
+                kind="todo",
+                text="Current session todos:\n[ ] Keep going",
+                source="todo.current",
+                priority=100,
+            ),
+            ContextPayload(
+                kind="todo_reminder",
+                text="<reminder>Refresh your current plan before continuing.</reminder>",
+                source="todo.reminder",
+                priority=110,
+            ),
+        ],
+    )
+
+    assert blocks == [
+        {"type": "text", "text": "Base"},
+        {"type": "text", "text": "Current session todos:\n[ ] Keep going"},
+        {
+            "type": "text",
+            "text": "<reminder>Refresh your current plan before continuing.</reminder>",
+        },
+    ]

@@ -9,7 +9,8 @@ from coding_deepgent.memory.schemas import (
     MemoryRecord,
     SaveMemoryInput,
 )
-from coding_deepgent.memory.store import save_memory_record
+from coding_deepgent.memory.policy import evaluate_memory_quality
+from coding_deepgent.memory.store import list_memory_records, save_memory_record
 
 
 @tool(
@@ -17,7 +18,8 @@ from coding_deepgent.memory.store import save_memory_record
     args_schema=SaveMemoryInput,
     description=(
         "Save durable reusable knowledge or preferences as long-term memory. "
-        "Do not save transient todos, current plans, task status, or one-off observations."
+        "Do not save transient todos, current plans, task status, recovery notes, "
+        "duplicates, or one-off observations."
     ),
 )
 def save_memory(
@@ -42,5 +44,12 @@ def save_memory(
         namespace=validated.namespace,
         source=validated.source,
     )
+    quality = evaluate_memory_quality(
+        record,
+        existing_records=list_memory_records(store, validated.namespace),
+    )
+    if not quality.allowed:
+        return f"Memory not saved: {quality.reason}."
+
     key = save_memory_record(store, record)
     return f"Saved memory {key} in {validated.namespace}."

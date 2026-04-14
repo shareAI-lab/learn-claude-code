@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "coding-deepgent/src/coding_deepgent/compact/artifacts.py", "reason": "summary formatter source of truth"}
+{"file": "coding-deepgent/src/coding_deepgent/compact/__init__.py", "reason": "compact public exports"}
+{"file": "coding-deepgent/src/coding_deepgent/compact/summarizer.py", "reason": "compact summary generation seam"}

@@ -1,32 +1,51 @@
 from .langgraph import thread_config_for_session, thread_id_for_session
 from .ports import SessionStore
 from .records import (
+    EVIDENCE_RECORD_TYPE,
     LoadedSession,
     SessionContext,
+    SessionEvidence,
     SessionLoadError,
     SessionSummary,
     iso_timestamp_now,
 )
-from .resume import apply_resume_state, resume_session
+from .resume import (
+    RecoveryBrief,
+    apply_resume_state,
+    build_recovery_brief,
+    build_resume_context_message,
+    render_recovery_brief,
+    resume_session,
+)
+from .service import (
+    list_recorded_sessions,
+    load_recorded_session,
+    recorded_session_store,
+    run_prompt_with_recording,
+)
 from .store_jsonl import (
     JsonlSessionStore,
-    default_state_snapshot,
-    make_session_context,
-    make_session_store,
 )
 
 __all__ = [
     "LoadedSession",
+    "EVIDENCE_RECORD_TYPE",
+    "RecoveryBrief",
     "SessionContext",
+    "SessionEvidence",
     "SessionLoadError",
     "SessionStore",
     "SessionSummary",
     "JsonlSessionStore",
     "apply_resume_state",
-    "default_state_snapshot",
+    "build_recovery_brief",
+    "build_resume_context_message",
     "iso_timestamp_now",
-    "make_session_context",
-    "make_session_store",
+    "list_recorded_sessions",
+    "load_recorded_session",
+    "recorded_session_store",
+    "render_recovery_brief",
+    "run_prompt_with_recording",
     "resume_session",
     "thread_config_for_session",
     "thread_id_for_session",

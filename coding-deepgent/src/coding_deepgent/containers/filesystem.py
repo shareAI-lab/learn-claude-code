@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dependency_injector import containers, providers
 
-from coding_deepgent.tools import bash, edit_file, read_file, write_file
+from coding_deepgent.filesystem import bash, edit_file, read_file, write_file
 
 
 def _tool_list(*tools: object) -> list[object]:

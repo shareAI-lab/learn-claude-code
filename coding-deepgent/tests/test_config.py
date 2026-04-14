@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from coding_deepgent import config
+from coding_deepgent import settings as config
 
 
 def test_model_name_ignores_anthropic_model_id(monkeypatch) -> None:

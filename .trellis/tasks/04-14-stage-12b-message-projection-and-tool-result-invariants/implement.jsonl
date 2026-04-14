@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".omx/plans/coding-deepgent-h01-h10-target-design.md", "reason": "Stage 12B target design and H05 constraints"}
+{"file": ".trellis/tasks/04-14-stage-12b-message-projection-and-tool-result-invariants/prd.md", "reason": "Accepted 12B scope"}
+{"file": "coding-deepgent/src/coding_deepgent/compact/budget.py", "reason": "Existing deterministic tool-result budget helper"}

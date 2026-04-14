@@ -1,0 +1,7 @@
+{"file": ".agents/skills/finish-work/SKILL.md", "reason": "Finish work checklist"}
+{"file": ".agents/skills/check-backend/SKILL.md", "reason": "Backend check spec"}
+{"file": ".omx/plans/coding-deepgent-h01-h10-target-design.md", "reason": "Check implementation against H04/H05 target"}
+{"file": "coding-deepgent/tests/test_planning.py", "reason": "Check bounded and deterministic todo payload rendering"}
+{"file": "coding-deepgent/tests/test_memory_integration.py", "reason": "Check bounded and deterministic memory payload rendering"}
+{"file": "coding-deepgent/src/coding_deepgent/todo/middleware.py", "reason": "Verify todo middleware uses shared payload rendering"}
+{"file": "coding-deepgent/src/coding_deepgent/memory/middleware.py", "reason": "Verify memory middleware uses shared payload rendering"}

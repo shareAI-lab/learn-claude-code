@@ -1,4 +1,5 @@
 from .middleware import MemoryContextMiddleware
+from .policy import MemoryQualityDecision, evaluate_memory_quality
 from .recall import recall_memories, render_memories
 from .schemas import MemoryNamespace, MemoryRecord, SaveMemoryInput
 from .store import (
@@ -12,9 +13,11 @@ from .tools import save_memory
 __all__ = [
     "MEMORY_ROOT_NAMESPACE",
     "MemoryContextMiddleware",
+    "MemoryQualityDecision",
     "MemoryNamespace",
     "MemoryRecord",
     "SaveMemoryInput",
+    "evaluate_memory_quality",
     "list_memory_records",
     "memory_namespace",
     "recall_memories",

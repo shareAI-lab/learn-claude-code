@@ -5,20 +5,20 @@ from typing import Any
 
 from dependency_injector import containers, providers
 
+from coding_deepgent.filesystem import glob_search, grep_search
 from coding_deepgent.memory import save_memory
 from coding_deepgent.permissions import PermissionManager
+from coding_deepgent.permissions.rules import PermissionRuleSpec, expand_rule_specs
 from coding_deepgent.skills import load_skill
 from coding_deepgent.subagents import run_subagent
 from coding_deepgent.tasks import task_create, task_get, task_list, task_update
 from coding_deepgent.tool_system import (
-    CapabilityRegistry,
     ToolCapability,
     ToolGuardMiddleware,
     ToolPolicy,
+    build_builtin_capabilities,
+    build_capability_registry,
 )
-
-READ_ONLY_TOOL_NAMES = frozenset({"read_file", "glob", "grep"})
-DESTRUCTIVE_TOOL_NAMES = frozenset({"bash", "write_file", "edit_file"})
 
 
 def _combine_tools(*groups: Sequence[object]) -> list[object]:
@@ -28,44 +28,24 @@ def _combine_tools(*groups: Sequence[object]) -> list[object]:
     return combined
 
 
-def _tool_name(tool: object) -> str:
-    return str(getattr(tool, "name", getattr(tool, "__name__", type(tool).__name__)))
-
-
-def _tool_domain(name: str) -> str:
-    if name == "TodoWrite":
-        return "todo"
-    if name == "save_memory":
-        return "memory"
-    if name == "load_skill":
-        return "skills"
-    if name.startswith("task_"):
-        return "tasks"
-    if name == "run_subagent":
-        return "subagents"
-    if name in READ_ONLY_TOOL_NAMES | DESTRUCTIVE_TOOL_NAMES:
-        return "filesystem"
-    return "unknown"
-
-
-def _tool_capability(tool: object) -> ToolCapability:
-    name = _tool_name(tool)
-    return ToolCapability(
-        name=name,
-        tool=tool,  # type: ignore[arg-type]
-        domain=_tool_domain(name),
-        read_only=name in READ_ONLY_TOOL_NAMES,
-        destructive=name in DESTRUCTIVE_TOOL_NAMES,
-        concurrency_safe=name in READ_ONLY_TOOL_NAMES,
-    )
-
-
-def _capability_registry(tools: Sequence[object]) -> CapabilityRegistry:
-    return CapabilityRegistry(_tool_capability(tool) for tool in tools)
+def _tools_from_capabilities(capabilities: Sequence[ToolCapability]) -> list[object]:
+    return [capability.tool for capability in capabilities]
 
 
 def _singleton_list(item: object) -> list[object]:
     return [item]
+
+
+def _permission_rules(
+    allow_rules: Sequence[PermissionRuleSpec],
+    ask_rules: Sequence[PermissionRuleSpec],
+    deny_rules: Sequence[PermissionRuleSpec],
+):
+    return expand_rule_specs(
+        allow_rules=allow_rules,
+        ask_rules=ask_rules,
+        deny_rules=deny_rules,
+    )
 
 
 class ToolSystemContainer(containers.DeclarativeContainer):
@@ -77,10 +57,26 @@ class ToolSystemContainer(containers.DeclarativeContainer):
         default=providers.Object([task_create, task_get, task_list, task_update])
     )
     subagent_tools: Any = providers.Dependency(default=providers.Object([run_subagent]))
+    extension_capabilities: Any = providers.Dependency(default=providers.Object([]))
     permission_mode: Any = providers.Dependency(default=providers.Object("default"))
+    permission_allow_rules: Any = providers.Dependency(default=providers.Object(()))
+    permission_ask_rules: Any = providers.Dependency(default=providers.Object(()))
+    permission_deny_rules: Any = providers.Dependency(default=providers.Object(()))
+    workdir: Any = providers.Dependency(default=providers.Object(None))
+    trusted_workdirs: Any = providers.Dependency(default=providers.Object(()))
     event_sink: Any = providers.Dependency(default=providers.Object(None))
+    extension_tools: Any = providers.Callable(
+        _tools_from_capabilities,
+        extension_capabilities,
+    )
+    permission_rules: Any = providers.Callable(
+        _permission_rules,
+        permission_allow_rules,
+        permission_ask_rules,
+        permission_deny_rules,
+    )
 
-    tools: Any = providers.Callable(
+    base_tools: Any = providers.Callable(
         _combine_tools,
         filesystem_tools,
         todo_tools,
@@ -89,10 +85,31 @@ class ToolSystemContainer(containers.DeclarativeContainer):
         task_tools,
         subagent_tools,
     )
-    capability_registry: Any = providers.Callable(_capability_registry, tools)
+    builtin_capabilities: Any = providers.Callable(
+        build_builtin_capabilities,
+        filesystem_tools=filesystem_tools,
+        discovery_tools=providers.Object((glob_search, grep_search)),
+        todo_tools=todo_tools,
+        memory_tools=memory_tools,
+        skill_tools=skill_tools,
+        task_tools=task_tools,
+        subagent_tools=subagent_tools,
+    )
+    capability_registry: Any = providers.Callable(
+        build_capability_registry,
+        builtin_capabilities=builtin_capabilities,
+        extension_capabilities=extension_capabilities,
+    )
+    tools: Any = providers.Callable(
+        lambda registry: registry.main_tools(),
+        capability_registry,
+    )
     permission_manager: Any = providers.Factory(
         PermissionManager,
         mode=permission_mode,
+        rules=permission_rules,
+        workdir=workdir,
+        trusted_workdirs=trusted_workdirs,
     )
     policy: Any = providers.Factory(
         ToolPolicy,

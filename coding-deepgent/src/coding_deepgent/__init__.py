@@ -1,5 +1,5 @@
 """coding-deepgent public package surface."""
 
-from .app import SESSION_STATE, agent_loop, build_agent
+from .app import agent_loop, build_agent
 
-__all__ = ["SESSION_STATE", "agent_loop", "build_agent"]
+__all__ = ["agent_loop", "build_agent"]

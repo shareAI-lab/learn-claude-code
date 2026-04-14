@@ -12,14 +12,8 @@ from coding_deepgent.renderers.planning import (
 from coding_deepgent.todo import (
     PlanContextMiddleware,
     TerminalPlanRenderer,
-    _todo_write_command,
     render_plan_items,
-    todo_write,
 )
-from coding_deepgent.tools.planning import (
-    _todo_write_command as compatibility_todo_write_command,
-)
-from coding_deepgent.tools.planning import todo_write as compatibility_todo_write
 
 ROOT = Path(__file__).resolve().parents[1]
 TODO_ROOT = ROOT / "src" / "coding_deepgent" / "todo"
@@ -42,9 +36,7 @@ def test_todo_domain_package_exists_with_expected_modules() -> None:
     assert not missing, f"missing expected todo domain files: {missing}"
 
 
-def test_todo_domain_public_contract_matches_compatibility_facades() -> None:
-    assert todo_write is compatibility_todo_write
-    assert _todo_write_command is compatibility_todo_write_command
+def test_todo_domain_public_contract_matches_current_owning_modules() -> None:
     assert CompatibilityMiddleware is PlanContextMiddleware
     assert compatibility_render_plan_items is render_plan_items
 

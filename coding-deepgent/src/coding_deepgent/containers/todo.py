@@ -3,7 +3,7 @@ from __future__ import annotations
 from dependency_injector import containers, providers
 
 from coding_deepgent.middleware import PlanContextMiddleware
-from coding_deepgent.tools import todo_write
+from coding_deepgent.todo.tools import todo_write
 
 
 def _singleton_list(item: object) -> list[object]:

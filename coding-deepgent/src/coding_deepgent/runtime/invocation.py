@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from coding_deepgent.hooks.registry import LocalHookRegistry
 from coding_deepgent.runtime.context import RuntimeContext
 from coding_deepgent.runtime.events import RuntimeEventSink
 from coding_deepgent.settings import Settings
@@ -24,6 +25,7 @@ def build_runnable_config(
 def build_runtime_context(
     settings: Settings,
     event_sink: RuntimeEventSink,
+    hook_registry: LocalHookRegistry,
     *,
     session_id: str | None = None,
     entrypoint: str | None = None,
@@ -33,10 +35,12 @@ def build_runtime_context(
     return RuntimeContext(
         session_id=resolved_session_id,
         workdir=settings.workdir,
+        trusted_workdirs=settings.trusted_workdirs,
         entrypoint=entrypoint or settings.entrypoint,
         agent_name=agent_name or settings.agent_name,
         skill_dir=settings.skill_dir,
         event_sink=event_sink,
+        hook_registry=hook_registry,
     )
 
 
@@ -53,6 +57,7 @@ class RuntimeInvocation:
 def build_runtime_invocation(
     settings: Settings,
     event_sink: RuntimeEventSink,
+    hook_registry: LocalHookRegistry,
     *,
     session_id: str | None = None,
     entrypoint: str | None = None,
@@ -63,6 +68,7 @@ def build_runtime_invocation(
         context=build_runtime_context(
             settings,
             event_sink,
+            hook_registry,
             session_id=resolved_session_id,
             entrypoint=entrypoint,
             agent_name=agent_name,

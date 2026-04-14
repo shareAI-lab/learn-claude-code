@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain.messages import SystemMessage
 
+from coding_deepgent.context_payloads import (
+    ContextPayload,
+    merge_system_message_content,
+)
 from coding_deepgent.memory.recall import recall_memories, render_memories
 from coding_deepgent.memory.schemas import MemoryNamespace
 
@@ -36,10 +40,20 @@ class MemoryContextMiddleware(AgentMiddleware):
         current_blocks = (
             request.system_message.content_blocks if request.system_message else []
         )
+        payloads = [
+            ContextPayload(
+                kind="memory",
+                source=f"memory.{self.namespace}",
+                priority=200,
+                text=rendered,
+            )
+        ]
         return handler(
             request.override(
                 system_message=SystemMessage(
-                    content=[*current_blocks, {"type": "text", "text": rendered}]  # type: ignore[list-item]
+                    content=merge_system_message_content(
+                        current_blocks, payloads
+                    )  # type: ignore[list-item]
                 )
             )
         )

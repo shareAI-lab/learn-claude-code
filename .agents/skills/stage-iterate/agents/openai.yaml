@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stage Iterate"
+  short_description: "Run staged implementation with alignment gates and checkpoints."
+  default_prompt: "Execute this stage iteratively with Trellis, cc-haha alignment, LangChain guard, tests, and a checkpoint before continuing."

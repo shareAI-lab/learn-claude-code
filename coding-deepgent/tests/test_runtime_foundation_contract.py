@@ -18,13 +18,16 @@ STAGE_3 = "stage-3-professional-domain-runtime-foundation"
 STAGE_4 = "stage-4-control-plane-foundation"
 STAGE_5 = "stage-5-memory-context-compact-foundation"
 STAGE_6 = "stage-6-skills-subagents-task-graph"
+STAGE_7 = "stage-7-mcp-plugin-extension-foundation"
+STAGE_8 = "stage-8-recovery-evidence-runtime-continuation"
+STAGE_9 = "stage-9-permission-trust-boundary-hardening"
+STAGE_10 = "stage-10-hooks-lifecycle-expansion"
+STAGE_11 = "stage-11-mcp-plugin-real-loading"
 FUTURE_SESSION_DOMAINS = (
     "tasks",
     "subagents",
-    "mcp",
 )
 FUTURE_TOOL_SYSTEM_DOMAINS = (
-    "mcp",
     "tasks",
     "subagents",
 )
@@ -42,7 +45,17 @@ def _status() -> dict[str, object]:
 
 
 def _is_runtime_foundation_or_later() -> bool:
-    return _status()["current_product_stage"] in {STAGE_3, STAGE_4, STAGE_5, STAGE_6}
+    return _status()["current_product_stage"] in {
+        STAGE_3,
+        STAGE_4,
+        STAGE_5,
+        STAGE_6,
+        STAGE_7,
+        STAGE_8,
+        STAGE_9,
+        STAGE_10,
+        STAGE_11,
+    }
 
 
 def _require_runtime_foundation_or_later() -> None:
@@ -172,6 +185,8 @@ def test_stage3_domain_packages_do_not_import_containers() -> None:
         *sorted((SRC / "skills").rglob("*.py")),
         *sorted((SRC / "tasks").rglob("*.py")),
         *sorted((SRC / "subagents").rglob("*.py")),
+        *sorted((SRC / "mcp").rglob("*.py")),
+        *sorted((SRC / "plugins").rglob("*.py")),
     ]
 
     offenders = _assert_no_import_prefix(domain_paths, ("coding_deepgent.containers",))

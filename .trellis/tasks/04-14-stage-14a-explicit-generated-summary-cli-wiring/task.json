@@ -1,0 +1,44 @@
+{
+  "id": "stage-14a-explicit-generated-summary-cli-wiring",
+  "name": "stage-14a-explicit-generated-summary-cli-wiring",
+  "title": "Stage 14A: Explicit Generated Summary CLI Wiring",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-14",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

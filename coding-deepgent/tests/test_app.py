@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Iterable, Sequence, cast
 
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
@@ -7,9 +8,15 @@ from langchain_core.messages import AIMessage
 from pydantic import PrivateAttr
 
 from coding_deepgent import app
+from coding_deepgent.hooks import HookPayload, HookResult, LocalHookRegistry
 from coding_deepgent.memory import MemoryContextMiddleware
 from coding_deepgent.middleware import PlanContextMiddleware
-from coding_deepgent.runtime import RuntimeState
+from coding_deepgent.runtime import (
+    InMemoryEventSink,
+    RuntimeContext,
+    RuntimeInvocation,
+    RuntimeState,
+)
 from coding_deepgent.tool_system import ToolGuardMiddleware
 
 EXPECTED_TOOL_NAMES = [
@@ -94,27 +101,23 @@ def test_build_agent_binds_todowrite_product_tools(monkeypatch) -> None:
 def test_agent_loop_roundtrips_todo_state(monkeypatch) -> None:
     fake = FakeAgent()
     monkeypatch.setattr(app, "build_agent", lambda: fake)
-    monkeypatch.setattr(
-        app,
-        "SESSION_STATE",
-        {
-            "todos": [
-                {
-                    "content": "Inspect",
-                    "status": "completed",
-                    "activeForm": "Inspecting",
-                }
-            ],
-            "rounds_since_update": 2,
-        },
-    )
+    session_state = {
+        "todos": [
+            {
+                "content": "Inspect",
+                "status": "completed",
+                "activeForm": "Inspecting",
+            }
+        ],
+        "rounds_since_update": 2,
+    }
 
     history = [
         {"role": "user", "content": "hello"},
         {"role": "user", "content": "continue"},
     ]
 
-    assert app.agent_loop(history) == "planned"
+    assert app.agent_loop(history, session_state=session_state) == "planned"
     assert fake.payloads[0]["messages"] == [
         {"role": "user", "content": "hello\n\ncontinue"}
     ]
@@ -123,7 +126,7 @@ def test_agent_loop_roundtrips_todo_state(monkeypatch) -> None:
         {"content": "Inspect", "status": "completed", "activeForm": "Inspecting"}
     ]
     assert history[-1] == {"role": "assistant", "content": "planned"}
-    assert app.SESSION_STATE["todos"] == [
+    assert session_state["todos"] == [
         {"content": "Ship it", "status": "in_progress", "activeForm": "Shipping"}
     ]
 
@@ -162,19 +165,15 @@ def test_free_agent_path_executes_todowrite_without_runtime_injection_error(
     )
 
     monkeypatch.setattr(app, "build_openai_model", lambda: model)
-    monkeypatch.setattr(
-        app,
-        "SESSION_STATE",
-        {
-            "todos": [],
-            "rounds_since_update": 0,
-        },
-    )
+    session_state = {
+        "todos": [],
+        "rounds_since_update": 0,
+    }
 
     history = [{"role": "user", "content": "plan this work"}]
-    assert app.agent_loop(history) == "planned"
+    assert app.agent_loop(history, session_state=session_state) == "planned"
     assert model._bound_tool_names == EXPECTED_TOOL_NAMES
-    assert app.SESSION_STATE["todos"] == [
+    assert session_state["todos"] == [
         {
             "content": "Inspect repo",
             "status": "in_progress",
@@ -186,3 +185,152 @@ def test_free_agent_path_executes_todowrite_without_runtime_injection_error(
             "activeForm": "Summarizing",
         },
     ]
+
+
+def test_agent_loop_user_prompt_submit_hook_can_block_before_agent(monkeypatch) -> None:
+    registry = LocalHookRegistry()
+
+    def block_user_prompt(_payload: HookPayload) -> HookResult:
+        return HookResult.model_validate(
+            {"continue": False, "decision": "block", "reason": "hook blocked"}
+        )
+
+    registry.register("UserPromptSubmit", block_user_prompt)
+    sink = InMemoryEventSink()
+    invocation = RuntimeInvocation(
+        context=RuntimeContext(
+            session_id="session-1",
+            workdir=Path.cwd(),
+            trusted_workdirs=(),
+            entrypoint="test",
+            agent_name="test-agent",
+            skill_dir=Path.cwd() / "skills",
+            event_sink=sink,
+            hook_registry=registry,
+        ),
+        config={"configurable": {"thread_id": "session-1"}},
+    )
+    called: list[str] = []
+
+    monkeypatch.setattr(app, "build_runtime_invocation", lambda **_: invocation)
+
+    def build_blocked_agent(**_kwargs):
+        called.append("agent")
+        return FakeAgent()
+
+    monkeypatch.setattr(app, "build_agent", build_blocked_agent)
+
+    history = [{"role": "user", "content": "hello"}]
+    assert (
+        app.agent_loop(
+            history,
+            session_state={"todos": [], "rounds_since_update": 0},
+            session_id="session-1",
+        )
+        == "hook blocked"
+    )
+    assert called == []
+    assert history[-1] == {"role": "assistant", "content": "hook blocked"}
+    assert [event.kind for event in sink.snapshot()] == [
+        "hook_start",
+        "hook_blocked",
+    ]
+
+
+def test_agent_loop_session_start_hook_runs_on_new_session_only(monkeypatch) -> None:
+    registry = LocalHookRegistry()
+    seen: list[str] = []
+
+    def on_session_start(payload: HookPayload) -> HookResult:
+        seen.append(str(payload.data["session_id"]))
+        return HookResult()
+
+    registry.register("SessionStart", on_session_start)
+    sink = InMemoryEventSink()
+    invocation = RuntimeInvocation(
+        context=RuntimeContext(
+            session_id="session-1",
+            workdir=Path.cwd(),
+            trusted_workdirs=(),
+            entrypoint="test",
+            agent_name="test-agent",
+            skill_dir=Path.cwd() / "skills",
+            event_sink=sink,
+            hook_registry=registry,
+        ),
+        config={"configurable": {"thread_id": "session-1"}},
+    )
+
+    monkeypatch.setattr(app, "build_runtime_invocation", lambda **_: invocation)
+    monkeypatch.setattr(app, "build_agent", lambda **_: FakeAgent())
+
+    fresh_history = [{"role": "user", "content": "hello"}]
+    assert (
+        app.agent_loop(
+            fresh_history,
+            session_state={"todos": [], "rounds_since_update": 0},
+            session_id="session-1",
+        )
+        == "planned"
+    )
+    assert seen == ["session-1"]
+
+    seen.clear()
+    resumed_history = [
+        {
+            "role": "system",
+            "content": (
+                "Resumed session context. Use this brief as continuation context, "
+                "not as a new user request.\n\nSession: session-1"
+            ),
+        },
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "planned"},
+        {"role": "user", "content": "continue"},
+    ]
+    assert (
+        app.agent_loop(
+            resumed_history,
+            session_state={"todos": [], "rounds_since_update": 1},
+            session_id="session-1",
+        )
+        == "planned"
+    )
+    assert seen == []
+
+
+def test_agent_loop_session_start_hook_is_observation_only(monkeypatch) -> None:
+    registry = LocalHookRegistry()
+    registry.register(
+        "SessionStart",
+        lambda _payload: HookResult.model_validate(
+            {"continue": False, "decision": "block", "reason": "ignored"}
+        ),
+    )
+    sink = InMemoryEventSink()
+    invocation = RuntimeInvocation(
+        context=RuntimeContext(
+            session_id="session-1",
+            workdir=Path.cwd(),
+            trusted_workdirs=(),
+            entrypoint="test",
+            agent_name="test-agent",
+            skill_dir=Path.cwd() / "skills",
+            event_sink=sink,
+            hook_registry=registry,
+        ),
+        config={"configurable": {"thread_id": "session-1"}},
+    )
+
+    monkeypatch.setattr(app, "build_runtime_invocation", lambda **_: invocation)
+    monkeypatch.setattr(app, "build_agent", lambda **_: FakeAgent())
+
+    history = [{"role": "user", "content": "hello"}]
+    assert (
+        app.agent_loop(
+            history,
+            session_state={"todos": [], "rounds_since_update": 0},
+            session_id="session-1",
+        )
+        == "planned"
+    )
