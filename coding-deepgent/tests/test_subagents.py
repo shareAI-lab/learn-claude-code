@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, cast
 from types import SimpleNamespace
 
@@ -7,6 +8,9 @@ import pytest
 from langgraph.store.memory import InMemoryStore
 from pydantic import ValidationError
 
+from coding_deepgent.hooks import LocalHookRegistry
+from coding_deepgent.runtime import InMemoryEventSink, RuntimeContext
+from coding_deepgent.subagents import tools as subagent_tools
 from coding_deepgent.subagents import (
     DEFAULT_CHILD_TOOLS,
     FORBIDDEN_CHILD_TOOLS,
@@ -21,6 +25,23 @@ from coding_deepgent.tasks import create_plan, create_task
 
 def runtime_with_store(store: InMemoryStore) -> SimpleNamespace:
     return SimpleNamespace(store=store)
+
+
+def runtime_with_context_and_store(store: InMemoryStore) -> SimpleNamespace:
+    return SimpleNamespace(
+        store=store,
+        context=RuntimeContext(
+            session_id="session-1",
+            workdir=Path.cwd(),
+            trusted_workdirs=(),
+            entrypoint="test",
+            agent_name="coding-deepgent",
+            skill_dir=Path.cwd() / "skills",
+            event_sink=InMemoryEventSink(),
+            hook_registry=LocalHookRegistry(),
+        ),
+        config={"configurable": {"thread_id": "session-1"}},
+    )
 
 
 def test_subagent_allowlists_are_exact_and_exclude_mutating_tools() -> None:
@@ -136,6 +157,80 @@ def test_verifier_subagent_rejects_unknown_plan() -> None:
         )
 
 
+def test_run_subagent_task_verifier_executes_real_child_agent(monkeypatch) -> None:
+    store = InMemoryStore()
+    runtime = runtime_with_context_and_store(store)
+    task = create_task(store, title="Implement feature")
+    plan = create_plan(
+        store,
+        title="Verification plan",
+        content="Run the targeted tests and inspect durable task state.",
+        verification="Run pytest tests/test_subagents.py",
+        task_ids=[task.id],
+    )
+    captured: dict[str, Any] = {}
+
+    class FakeChildAgent:
+        def invoke(self, payload: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+            captured["payload"] = payload
+            captured["invoke_kwargs"] = kwargs
+            return {"messages": [{"role": "assistant", "content": "VERDICT: PASS"}]}
+
+    def fake_create_agent(**kwargs: Any) -> FakeChildAgent:
+        captured["agent_kwargs"] = kwargs
+        return FakeChildAgent()
+
+    monkeypatch.setattr(subagent_tools, "create_agent", fake_create_agent)
+    monkeypatch.setattr(subagent_tools, "build_openai_model", lambda: object())
+
+    result = run_subagent_task(
+        task="Verify the implementation",
+        runtime=cast(Any, runtime),
+        agent_type="verifier",
+        plan_id=plan.id,
+    )
+
+    assert result.content == "VERDICT: PASS"
+    assert [tool.name for tool in captured["agent_kwargs"]["tools"]] == [
+        "read_file",
+        "glob",
+        "grep",
+        "task_get",
+        "task_list",
+        "plan_get",
+    ]
+    assert "strictly read-only" in captured["agent_kwargs"]["system_prompt"]
+    assert captured["agent_kwargs"]["store"] is store
+    assert captured["agent_kwargs"]["name"] == "coding-deepgent-verifier"
+    assert len(captured["agent_kwargs"]["middleware"]) == 1
+    assert captured["payload"] == {
+        "messages": [
+            {
+                "role": "user",
+                "content": "\n".join(
+                    [
+                        "Verifier task:",
+                        "Verify the implementation",
+                        "",
+                        f"Plan ID: {plan.id}",
+                        "Plan title: Verification plan",
+                        "Verification criteria: Run pytest tests/test_subagents.py",
+                        f"Referenced task IDs: {task.id}",
+                        "",
+                        "Plan content:",
+                        "Run the targeted tests and inspect durable task state.",
+                    ]
+                ),
+            }
+        ]
+    }
+    assert captured["invoke_kwargs"]["context"].entrypoint == "run_subagent:verifier"
+    assert (
+        captured["invoke_kwargs"]["config"]["configurable"]["thread_id"]
+        == f"session-1:verifier:{plan.id}"
+    )
+
+
 def test_run_subagent_task_verifier_uses_durable_plan_payload() -> None:
     store = InMemoryStore()
     runtime = runtime_with_store(store)
@@ -191,9 +286,9 @@ def test_run_subagent_task_verifier_uses_durable_plan_payload() -> None:
     ]
 
 
-def test_run_subagent_tool_returns_structured_verifier_result() -> None:
+def test_run_subagent_tool_returns_structured_verifier_result(monkeypatch) -> None:
     store = InMemoryStore()
-    runtime = runtime_with_store(store)
+    runtime = runtime_with_context_and_store(store)
     task = create_task(store, title="Implement feature")
     plan = create_plan(
         store,
@@ -202,6 +297,17 @@ def test_run_subagent_tool_returns_structured_verifier_result() -> None:
         verification="Run pytest tests/test_subagents.py",
         task_ids=[task.id],
     )
+
+    monkeypatch.setattr(
+        subagent_tools,
+        "create_agent",
+        lambda **_kwargs: SimpleNamespace(
+            invoke=lambda payload, **kwargs: {
+                "messages": [{"role": "assistant", "content": "VERDICT: PASS"}]
+            }
+        ),
+    )
+    monkeypatch.setattr(subagent_tools, "build_openai_model", lambda: object())
 
     output = cast(Any, run_subagent).func(
         "Verify the implementation",
@@ -224,4 +330,4 @@ def test_run_subagent_tool_returns_structured_verifier_result() -> None:
         "task_list",
         "plan_get",
     ]
-    assert "Verifier subagent accepted task synchronously" in result.content
+    assert result.content == "VERDICT: PASS"

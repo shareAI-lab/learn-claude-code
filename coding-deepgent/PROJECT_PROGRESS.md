@@ -41,7 +41,7 @@ Advance by explicit product-stage plan approval, not tutorial chapter completion
 
 ## Abstraction checkpoint
 
-Before implementing the next stage, re-evaluate whether the current domain packages and containers still preserve the boundary rules in `.omx/plans/prd-coding-deepgent-runtime-foundation.md`.
+Before implementing the next stage, re-evaluate whether the current domain packages and containers still preserve the boundary rules in `.trellis/plans/prd-coding-deepgent-runtime-foundation.md`.
 
 ## Renderer boundary note
 
