@@ -28,7 +28,7 @@ function renderMarkdown(md: string): string {
   return String(result);
 }
 
-function postProcessHtml(html: string): string {
+function postProcessHtml(html: string, locale: string): string {
   // Add language labels to highlighted code blocks
   html = html.replace(
     /<pre><code class="hljs language-(\w+)">/g,
@@ -60,6 +60,16 @@ function postProcessHtml(html: string): string {
   // stretching the whole doc page.
   html = html.replace(/<table>/g, '<div class="table-scroll"><table>');
   html = html.replace(/<\/table>/g, "</table></div>");
+
+  // Transform relative .md links to proper /docs/{slug} routes
+  // e.g. ./s00a-query-control-plane.md -> /{locale}/docs/s00a-query-control-plane
+  html = html.replace(
+    /href="\.\/([^"]+\.md)"/g,
+    (_, filename) => {
+      const slug = filename.replace(/\.md$/, "");
+      return `href="/${locale}/docs/${slug}"`;
+    }
+  );
 
   return html;
 }
@@ -93,8 +103,8 @@ export function DocRenderer({ version, slug }: DocRendererProps) {
 
   const html = useMemo(() => {
     const raw = renderMarkdown(doc.content);
-    return postProcessHtml(raw);
-  }, [doc.content]);
+    return postProcessHtml(raw, locale);
+  }, [doc.content, locale]);
 
   return (
     <div className="py-4">
