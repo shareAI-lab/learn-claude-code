@@ -1,11 +1,11 @@
 {
-  "id": "coding-deepgent-highlight-completion-map",
-  "name": "coding-deepgent-highlight-completion-map",
-  "title": "brainstorm: coding-deepgent highlight completion map",
-  "description": "Stage 20 canonical H01-H22 MVP dashboard and finish-line map.",
+  "id": "stage-18a-verifier-execution-integration",
+  "name": "stage-18a-verifier-execution-integration",
+  "title": "Stage 18A: Verifier Execution Integration",
+  "description": "",
   "status": "completed",
-  "dev_type": "backend",
-  "scope": "coding-deepgent MVP completion map and canonical highlight dashboard",
+  "dev_type": null,
+  "scope": null,
   "priority": "P2",
   "creator": "kun",
   "assignee": "kun",
@@ -14,7 +14,7 @@
   "branch": null,
   "base_branch": "codex/stage-12-14-context-compact-foundation",
   "worktree_path": null,
-  "current_phase": 3,
+  "current_phase": 0,
   "next_action": [
     {
       "phase": 1,
@@ -39,6 +39,6 @@
   "children": [],
   "parent": "04-14-redefine-coding-deepgent-final-goal",
   "relatedFiles": [],
-  "notes": "Stage 20 approved: canonical H01-H22 dashboard, MVP boundary, milestone groups, and stop rule are established.",
+  "notes": "",
   "meta": {}
 }
