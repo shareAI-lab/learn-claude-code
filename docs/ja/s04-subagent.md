@@ -1,94 +1,320 @@
 # s04: Subagents
 
-`s01 > s02 > s03 > [ s04 ] s05 > s06 | s07 > s08 > s09 > s10 > s11 > s12`
+`s00 > s01 > s02 > s03 > [ s04 ] > s05 > s06 > s07 > s08 > s09 > s10 > s11 > s12 > s13 > s14 > s15 > s16 > s17 > s18 > s19`
 
-> *"大きなタスクを分割し、各サブタスクにクリーンなコンテキストを"* -- サブエージェントは独立した messages[] を使い、メイン会話を汚さない。
->
-> **Harness 層**: コンテキスト隔離 -- モデルの思考の明晰さを守る。
+> *大きな仕事を全部 1 つの context に詰め込む必要はありません。*  
+> subagent の価値は「model を 1 個増やすこと」ではなく、「clean な別 context を 1 つ持てること」にあります。
 
-## 問題
+## この章が解く問題
 
-エージェントが作業するにつれ、messages配列は膨張し続ける。すべてのファイル読み取り、すべてのbash出力がコンテキストに永久に残る。「このプロジェクトはどのテストフレームワークを使っているか」という質問は5つのファイルを読む必要があるかもしれないが、親に必要なのは「pytest」という答えだけだ。
+agent がいろいろな調査や実装を進めると、親の `messages` はどんどん長くなります。
 
-## 解決策
+たとえば user の質問が単に
 
+> 「この project は何の test framework を使っているの？」
+
+だけでも、親 agent は答えるために、
+
+- `pyproject.toml` を読む
+- `requirements.txt` を読む
+- `pytest` を検索する
+- 実際に test command を走らせる
+
+かもしれません。
+
+でも本当に親に必要な最終答えは、
+
+> 「主に `pytest` を使っています」
+
+の一文だけかもしれません。
+
+もしこの途中作業を全部親 context に積み続けると、あとで別の質問に答えるときに、
+
+- さっきの局所調査の noise
+- 大量の file read
+- 一時的な bash 出力
+
+が main context を汚染します。
+
+subagent が解くのはこの問題です。
+
+**局所 task を別 context に閉じ込め、親には必要な summary だけを持ち帰る**
+
+のがこの章の主線です。
+
+## 先に言葉をそろえる
+
+### 親 agent とは何か
+
+いま user と直接やり取りし、main `messages` を持っている actor が親 agent です。
+
+### 子 agent とは何か
+
+親が一時的に派生させ、特定の subtask だけを処理させる actor が子 agent、つまり subagent です。
+
+### context isolation とは何か
+
+これは単に、
+
+- 親は親の `messages`
+- 子は子の `messages`
+
+を持ち、
+
+> 子の途中経過が自動で親 history に混ざらないこと
+
+を指します。
+
+## 最小心智モデル
+
+この章は次の図でほぼ言い切れます。
+
+```text
+Parent agent
+  |
+  | 1. 局所 task を外へ出すと決める
+  v
+Subagent
+  |
+  | 2. 自分の context で file read / search / tool execution
+  v
+Summary
+  |
+  | 3. 必要な結果だけを親へ返す
+  v
+Parent agent continues
 ```
-Parent agent                     Subagent
-+------------------+             +------------------+
-| messages=[...]   |             | messages=[]      | <-- fresh
-|                  |  dispatch   |                  |
-| tool: task       | ----------> | while tool_use:  |
-|   prompt="..."   |             |   call tools     |
-|                  |  summary    |   append results |
-|   result = "..." | <---------- | return last text |
-+------------------+             +------------------+
 
-Parent context stays clean. Subagent context is discarded.
-```
+ここで一番大事なのは次の 1 文です。
 
-## 仕組み
+**subagent の価値は別 model instance ではなく、別 state boundary にある**
 
-1. 親に`task`ツールを追加する。子は`task`を除くすべての基本ツールを取得する(再帰的な生成は不可)。
+ということです。
+
+## 最小実装を段階で追う
+
+### 第 1 段階: 親に `task` tool を持たせる
+
+親 agent は model が明示的に言える入口を持つ必要があります。
+
+> この局所仕事は clean context に外注したい
+
+その最小 schema は非常に簡単で構いません。
 
 ```python
-PARENT_TOOLS = CHILD_TOOLS + [
-    {"name": "task",
-     "description": "Spawn a subagent with fresh context.",
-     "input_schema": {
-         "type": "object",
-         "properties": {"prompt": {"type": "string"}},
-         "required": ["prompt"],
-     }},
-]
+{
+    "name": "task",
+    "description": "Run a subtask in a clean context and return a summary.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "prompt": {"type": "string"}
+        },
+        "required": ["prompt"]
+    }
+}
 ```
 
-2. サブエージェントは`messages=[]`で開始し、自身のループを実行する。最終テキストだけが親に返る。
+### 第 2 段階: subagent は自分専用の `messages` で始める
+
+subagent の本体はここです。
 
 ```python
 def run_subagent(prompt: str) -> str:
     sub_messages = [{"role": "user", "content": prompt}]
-    for _ in range(30):  # safety limit
-        response = client.messages.create(
-            model=MODEL, system=SUBAGENT_SYSTEM,
-            messages=sub_messages,
-            tools=CHILD_TOOLS, max_tokens=8000,
-        )
-        sub_messages.append({"role": "assistant",
-                             "content": response.content})
-        if response.stop_reason != "tool_use":
-            break
-        results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                handler = TOOL_HANDLERS.get(block.name)
-                output = handler(**block.input)
-                results.append({"type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": str(output)[:50000]})
-        sub_messages.append({"role": "user", "content": results})
-    return "".join(
-        b.text for b in response.content if hasattr(b, "text")
-    ) or "(no summary)"
+    ...
 ```
 
-子のメッセージ履歴全体(30回以上のツール呼び出し)は破棄される。親は1段落の要約を通常の`tool_result`として受け取る。
+親の `messages` をそのまま共有しないことが、最小の isolation です。
 
-## s03からの変更点
+### 第 3 段階: 子に渡す tool は絞る
 
-| Component      | Before (s03)     | After (s04)               |
-|----------------|------------------|---------------------------|
-| Tools          | 5                | 5 (base) + task (parent)  |
-| Context        | Single shared    | Parent + child isolation  |
-| Subagent       | None             | `run_subagent()` function |
-| Return value   | N/A              | Summary text only         |
+subagent は親と完全に同じ tool set を持つ必要はありません。
 
-## 試してみる
+むしろ最初は絞った方がよいです。
 
-```sh
-cd learn-claude-code
-python agents/s04_subagent.py
+たとえば、
+
+- `read_file`
+- 検索系 tool
+- read-only 寄りの `bash`
+
+だけを持たせ、
+
+- さらに `task` 自体は子に渡さない
+
+ようにすれば、無限再帰を避けやすくなります。
+
+### 第 4 段階: 子は最後に summary だけ返す
+
+一番大事なのはここです。
+
+subagent は内部 history を親に全部戻しません。
+
+戻すのは必要な summary だけです。
+
+```python
+return {
+    "type": "tool_result",
+    "tool_use_id": block.id,
+    "content": summary_text,
+}
 ```
 
-1. `Use a subtask to find what testing framework this project uses`
-2. `Delegate: read all .py files and summarize what each one does`
-3. `Use a task to create a new module, then verify it from here`
+これにより親 context は、
+
+- 必要な答え
+- もしくは短い結論
+
+だけを保持し、局所ノイズから守られます。
+
+## この章の核になるデータ構造
+
+この章で 1 つだけ覚えるなら、次の骨格です。
+
+```python
+class SubagentContext:
+    messages: list
+    tools: list
+    handlers: dict
+    max_turns: int
+```
+
+意味は次の通りです。
+
+- `messages`: 子自身の context
+- `tools`: 子が使える道具
+- `handlers`: その tool が実際にどの code を呼ぶか
+- `max_turns`: 子が無限に走り続けないための上限
+
+つまり subagent は「関数呼び出し」ではなく、
+
+**自分の state と tool boundary を持つ小さな agent**
+
+です。
+
+## なぜ本当に useful なのか
+
+### 1. 親 context を軽く保てる
+
+局所 task の途中経過が main conversation に積み上がりません。
+
+### 2. subtask の prompt を鋭くできる
+
+子に渡す prompt は次のように非常に集中できます。
+
+- 「この directory の test framework を 1 文で答えて」
+- 「この file の bug を探して原因だけ返して」
+- 「3 file を読んで module 関係を summary して」
+
+### 3. 後の multi-agent chapter の準備になる
+
+subagent は long-lived teammate より前に学ぶべき最小の delegation model です。
+
+まず「1 回限りの clean delegation」を理解してから、
+
+- persistent teammate
+- structured protocol
+- autonomous claim
+
+へ進むと心智がずっと滑らかになります。
+
+## 0-to-1 の実装順序
+
+### Version 1: blank-context subagent
+
+最初はこれで十分です。
+
+- `task` tool
+- `run_subagent(prompt)`
+- 子専用 `messages`
+- 最後に summary を返す
+
+### Version 2: tool set を制限する
+
+親より小さく安全な tool set を渡します。
+
+### Version 3: safety bound を足す
+
+最低限、
+
+- 最大 turn 数
+- tool failure 時の終了条件
+
+は入れてください。
+
+### Version 4: fork を検討する
+
+この順番を守ることが大事です。
+
+最初から fork を入れる必要はありません。
+
+## fork とは何か、なぜ「次の段階」なのか
+
+最小 subagent は blank context から始めます。
+
+でも subtask によっては、親が直前まで話していた内容を知らないと困ることがあります。
+
+たとえば、
+
+> 「さっき決めた方針に沿って、この module へ test を追加して」
+
+のような場面です。
+
+そのとき使うのが `fork` です。
+
+```python
+sub_messages = list(parent_messages)
+sub_messages.append({"role": "user", "content": prompt})
+```
+
+fork の本質は、
+
+**空白から始めるのではなく、親の既存 context を引き継いで子を始めること**
+
+です。
+
+ただし teaching order としては、blank-context subagent を理解してからの方が安全です。
+
+先に fork を入れると、初心者は
+
+- 何が isolation で
+- 何が inherited context なのか
+
+を混ぜやすくなります。
+
+## 初学者が混ぜやすいポイント
+
+### 1. subagent を「並列アピール機能」だと思う
+
+subagent の第一目的は concurrency 自慢ではなく、context hygiene です。
+
+### 2. 子の history を全部親へ戻してしまう
+
+それでは isolation の価値がほとんど消えます。
+
+### 3. 最初から役割を増やしすぎる
+
+explorer、reviewer、planner、tester などを一気に作る前に、
+
+**clean context の一回限り worker**
+
+を正しく作る方が先です。
+
+### 4. 子に `task` を持たせて無限に spawn させる
+
+境界がないと recursion で system が荒れます。
+
+### 5. `max_turns` のような safety bound を持たない
+
+局所 task だからこそ、終わらない子を放置しない設計が必要です。
+
+## この章を読み終えたら何が言えるべきか
+
+1. subagent の価値は clean context を作ることにある
+2. 子は親と別の `messages` を持つべきである
+3. 親へ戻すのは内部 history 全量ではなく summary でよい
+
+## 一文で覚える
+
+**Subagent とは、局所 task を clean context へ切り出し、親には必要な結論だけを持ち帰るための最小 delegation mechanism です。**

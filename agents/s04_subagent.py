@@ -20,10 +20,31 @@ context, sharing the filesystem, then returns only a summary to the parent.
     Parent context stays clean.
     Subagent context is discarded.
 
-Key insight: "Process isolation gives context isolation for free."
+Key insight: "Fresh messages=[] gives context isolation. The parent stays clean."
+
+Note: Real Claude Code also uses in-process isolation (not OS-level process
+forking). The child runs in the same process with a fresh message array and
+isolated tool context -- same pattern as this teaching implementation.
+
+    Comparison with real Claude Code:
+    +-------------------+------------------+----------------------------------+
+    | Aspect            | This demo        | Real Claude Code                 |
+    +-------------------+------------------+----------------------------------+
+    | Backend           | in-process only  | 5 backends: in-process, tmux,    |
+    |                   |                  | iTerm2, fork, remote             |
+    | Context isolation | fresh messages=[]| createSubagentContext() isolates  |
+    |                   |                  | ~20 fields (tools, permissions,  |
+    |                   |                  | cwd, env, hooks, etc.)           |
+    | Tool filtering    | manually curated | resolveAgentTools() filters from |
+    |                   |                  | parent pool; allowedTools         |
+    |                   |                  | replaces all allow rules         |
+    | Agent definition  | hardcoded system | .claude/agents/*.md with YAML    |
+    |                   | prompt           | frontmatter (AgentTemplate)      |
+    +-------------------+------------------+----------------------------------+
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -41,6 +62,37 @@ MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use the task tool to delegate exploration or subtasks."
 SUBAGENT_SYSTEM = f"You are a coding subagent at {WORKDIR}. Complete the given task, then summarize your findings."
+
+
+class AgentTemplate:
+    """
+    Parse agent definition from markdown frontmatter.
+
+    Real Claude Code loads agent definitions from .claude/agents/*.md.
+    Frontmatter fields: name, tools, disallowedTools, skills, hooks,
+    model, effort, permissionMode, maxTurns, memory, isolation, color,
+    background, initialPrompt, mcpServers.
+    3 sources: built-in, custom (.claude/agents/), plugin-provided.
+    """
+    def __init__(self, path):
+        self.path = Path(path)
+        self.name = self.path.stem
+        self.config = {}
+        self.system_prompt = ""
+        self._parse()
+
+    def _parse(self):
+        text = self.path.read_text()
+        match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)", text, re.DOTALL)
+        if not match:
+            self.system_prompt = text
+            return
+        for line in match.group(1).splitlines():
+            if ":" in line:
+                k, _, v = line.partition(":")
+                self.config[k.strip()] = v.strip()
+        self.system_prompt = match.group(2).strip()
+        self.name = self.config.get("name", self.name)
 
 
 # -- Tool implementations shared by parent and child --

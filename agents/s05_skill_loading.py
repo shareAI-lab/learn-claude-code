@@ -1,44 +1,21 @@
 #!/usr/bin/env python3
-# Harness: on-demand knowledge -- domain expertise, loaded when the model asks.
+# Harness: on-demand knowledge -- discover skills cheaply, load them only when needed.
 """
 s05_skill_loading.py - Skills
 
-Two-layer skill injection that avoids bloating the system prompt:
+This chapter teaches a two-layer skill model:
 
-    Layer 1 (cheap): skill names in system prompt (~100 tokens/skill)
-    Layer 2 (on demand): full skill body in tool_result
+1. Put a cheap skill catalog in the system prompt.
+2. Load the full skill body only when the model asks for it.
 
-    skills/
-      pdf/
-        SKILL.md          <-- frontmatter (name, description) + body
-      code-review/
-        SKILL.md
-
-    System prompt:
-    +--------------------------------------+
-    | You are a coding agent.              |
-    | Skills available:                    |
-    |   - pdf: Process PDF files...        |  <-- Layer 1: metadata only
-    |   - code-review: Review code...      |
-    +--------------------------------------+
-
-    When model calls load_skill("pdf"):
-    +--------------------------------------+
-    | tool_result:                         |
-    | <skill>                              |
-    |   Full PDF processing instructions   |  <-- Layer 2: full body
-    |   Step 1: ...                        |
-    |   Step 2: ...                        |
-    | </skill>                             |
-    +--------------------------------------+
-
-Key insight: "Don't put everything in the system prompt. Load on demand."
+That keeps the prompt small while still giving the model access to reusable,
+task-specific guidance.
 """
 
 import os
 import re
 import subprocess
-import yaml
+from dataclasses import dataclass
 from pathlib import Path
 
 from anthropic import Anthropic
@@ -55,156 +32,250 @@ MODEL = os.environ["MODEL_ID"]
 SKILLS_DIR = WORKDIR / "skills"
 
 
-# -- SkillLoader: scan skills/<name>/SKILL.md with YAML frontmatter --
-class SkillLoader:
+@dataclass
+class SkillManifest:
+    name: str
+    description: str
+    path: Path
+
+
+@dataclass
+class SkillDocument:
+    manifest: SkillManifest
+    body: str
+
+
+class SkillRegistry:
     def __init__(self, skills_dir: Path):
         self.skills_dir = skills_dir
-        self.skills = {}
+        self.documents: dict[str, SkillDocument] = {}
         self._load_all()
 
-    def _load_all(self):
+    def _load_all(self) -> None:
         if not self.skills_dir.exists():
             return
-        for f in sorted(self.skills_dir.rglob("SKILL.md")):
-            text = f.read_text()
-            meta, body = self._parse_frontmatter(text)
-            name = meta.get("name", f.parent.name)
-            self.skills[name] = {"meta": meta, "body": body, "path": str(f)}
 
-    def _parse_frontmatter(self, text: str) -> tuple:
-        """Parse YAML frontmatter between --- delimiters."""
+        for path in sorted(self.skills_dir.rglob("SKILL.md")):
+            meta, body = self._parse_frontmatter(path.read_text())
+            name = meta.get("name", path.parent.name)
+            description = meta.get("description", "No description")
+            manifest = SkillManifest(name=name, description=description, path=path)
+            self.documents[name] = SkillDocument(manifest=manifest, body=body.strip())
+
+    def _parse_frontmatter(self, text: str) -> tuple[dict, str]:
         match = re.match(r"^---\n(.*?)\n---\n(.*)", text, re.DOTALL)
         if not match:
             return {}, text
-        try:
-            meta = yaml.safe_load(match.group(1)) or {}
-        except yaml.YAMLError:
-            meta = {}
-        return meta, match.group(2).strip()
 
-    def get_descriptions(self) -> str:
-        """Layer 1: short descriptions for the system prompt."""
-        if not self.skills:
+        meta = {}
+        for line in match.group(1).strip().splitlines():
+            if ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            meta[key.strip()] = value.strip()
+        return meta, match.group(2)
+
+    def describe_available(self) -> str:
+        if not self.documents:
             return "(no skills available)"
         lines = []
-        for name, skill in self.skills.items():
-            desc = skill["meta"].get("description", "No description")
-            tags = skill["meta"].get("tags", "")
-            line = f"  - {name}: {desc}"
-            if tags:
-                line += f" [{tags}]"
-            lines.append(line)
+        for name in sorted(self.documents):
+            manifest = self.documents[name].manifest
+            lines.append(f"- {manifest.name}: {manifest.description}")
         return "\n".join(lines)
 
-    def get_content(self, name: str) -> str:
-        """Layer 2: full skill body returned in tool_result."""
-        skill = self.skills.get(name)
-        if not skill:
-            return f"Error: Unknown skill '{name}'. Available: {', '.join(self.skills.keys())}"
-        return f"<skill name=\"{name}\">\n{skill['body']}\n</skill>"
+    def load_full_text(self, name: str) -> str:
+        document = self.documents.get(name)
+        if not document:
+            known = ", ".join(sorted(self.documents)) or "(none)"
+            return f"Error: Unknown skill '{name}'. Available skills: {known}"
+
+        return (
+            f"<skill name=\"{document.manifest.name}\">\n"
+            f"{document.body}\n"
+            "</skill>"
+        )
 
 
-SKILL_LOADER = SkillLoader(SKILLS_DIR)
+SKILL_REGISTRY = SkillRegistry(SKILLS_DIR)
 
-# Layer 1: skill metadata injected into system prompt
 SYSTEM = f"""You are a coding agent at {WORKDIR}.
-Use load_skill to access specialized knowledge before tackling unfamiliar topics.
+Use load_skill when a task needs specialized instructions before you act.
 
 Skills available:
-{SKILL_LOADER.get_descriptions()}"""
+{SKILL_REGISTRY.describe_available()}
+"""
 
 
-# -- Tool implementations --
-def safe_path(p: str) -> Path:
-    path = (WORKDIR / p).resolve()
+def safe_path(path_str: str) -> Path:
+    path = (WORKDIR / path_str).resolve()
     if not path.is_relative_to(WORKDIR):
-        raise ValueError(f"Path escapes workspace: {p}")
+        raise ValueError(f"Path escapes workspace: {path_str}")
     return path
+
 
 def run_bash(command: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
-    if any(d in command for d in dangerous):
+    if any(item in command for item in dangerous):
         return "Error: Dangerous command blocked"
     try:
-        r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                           capture_output=True, text=True, timeout=120)
-        out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
+        result = subprocess.run(
+            command,
+            shell=True,
+            cwd=WORKDIR,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
 
-def run_read(path: str, limit: int = None) -> str:
+    output = (result.stdout + result.stderr).strip()
+    return output[:50000] if output else "(no output)"
+
+
+def run_read(path: str, limit: int | None = None) -> str:
     try:
         lines = safe_path(path).read_text().splitlines()
         if limit and limit < len(lines):
-            lines = lines[:limit] + [f"... ({len(lines) - limit} more)"]
+            lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
         return "\n".join(lines)[:50000]
-    except Exception as e:
-        return f"Error: {e}"
+    except Exception as exc:
+        return f"Error: {exc}"
+
 
 def run_write(path: str, content: str) -> str:
     try:
-        fp = safe_path(path)
-        fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
-        return f"Wrote {len(content)} bytes"
-    except Exception as e:
-        return f"Error: {e}"
+        file_path = safe_path(path)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(content)
+        return f"Wrote {len(content)} bytes to {path}"
+    except Exception as exc:
+        return f"Error: {exc}"
+
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
-        fp = safe_path(path)
-        content = fp.read_text()
+        file_path = safe_path(path)
+        content = file_path.read_text()
         if old_text not in content:
             return f"Error: Text not found in {path}"
-        fp.write_text(content.replace(old_text, new_text, 1))
+        file_path.write_text(content.replace(old_text, new_text, 1))
         return f"Edited {path}"
-    except Exception as e:
-        return f"Error: {e}"
+    except Exception as exc:
+        return f"Error: {exc}"
 
 
 TOOL_HANDLERS = {
-    "bash":       lambda **kw: run_bash(kw["command"]),
-    "read_file":  lambda **kw: run_read(kw["path"], kw.get("limit")),
+    "bash": lambda **kw: run_bash(kw["command"]),
+    "read_file": lambda **kw: run_read(kw["path"], kw.get("limit")),
     "write_file": lambda **kw: run_write(kw["path"], kw["content"]),
-    "edit_file":  lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"]),
-    "load_skill": lambda **kw: SKILL_LOADER.get_content(kw["name"]),
+    "edit_file": lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"]),
+    "load_skill": lambda **kw: SKILL_REGISTRY.load_full_text(kw["name"]),
 }
 
 TOOLS = [
-    {"name": "bash", "description": "Run a shell command.",
-     "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
-    {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["path"]}},
-    {"name": "write_file", "description": "Write content to file.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
-    {"name": "edit_file", "description": "Replace exact text in file.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
-    {"name": "load_skill", "description": "Load specialized knowledge by name.",
-     "input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "Skill name to load"}}, "required": ["name"]}},
+    {
+        "name": "bash",
+        "description": "Run a shell command.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"command": {"type": "string"}},
+            "required": ["command"],
+        },
+    },
+    {
+        "name": "read_file",
+        "description": "Read file contents.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "limit": {"type": "integer"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "write_file",
+        "description": "Write content to a file.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+            },
+            "required": ["path", "content"],
+        },
+    },
+    {
+        "name": "edit_file",
+        "description": "Replace exact text in a file once.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "old_text": {"type": "string"},
+                "new_text": {"type": "string"},
+            },
+            "required": ["path", "old_text", "new_text"],
+        },
+    },
+    {
+        "name": "load_skill",
+        "description": "Load the full body of a named skill into the current context.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        },
+    },
 ]
 
 
-def agent_loop(messages: list):
+def extract_text(content) -> str:
+    if not isinstance(content, list):
+        return ""
+    texts = []
+    for block in content:
+        text = getattr(block, "text", None)
+        if text:
+            texts.append(text)
+    return "\n".join(texts).strip()
+
+
+def agent_loop(messages: list) -> None:
     while True:
         response = client.messages.create(
-            model=MODEL, system=SYSTEM, messages=messages,
-            tools=TOOLS, max_tokens=8000,
+            model=MODEL,
+            system=SYSTEM,
+            messages=messages,
+            tools=TOOLS,
+            max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
+
         if response.stop_reason != "tool_use":
             return
+
         results = []
         for block in response.content:
-            if block.type == "tool_use":
-                handler = TOOL_HANDLERS.get(block.name)
-                try:
-                    output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
-                except Exception as e:
-                    output = f"Error: {e}"
-                print(f"> {block.name}:")
-                print(str(output)[:200])
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
+            if block.type != "tool_use":
+                continue
+
+            handler = TOOL_HANDLERS.get(block.name)
+            try:
+                output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
+            except Exception as exc:
+                output = f"Error: {exc}"
+
+            print(f"> {block.name}: {str(output)[:200]}")
+            results.append({
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": str(output),
+            })
+
         messages.append({"role": "user", "content": results})
 
 
@@ -217,11 +288,11 @@ if __name__ == "__main__":
             break
         if query.strip().lower() in ("q", "exit", ""):
             break
+
         history.append({"role": "user", "content": query})
         agent_loop(history)
-        response_content = history[-1]["content"]
-        if isinstance(response_content, list):
-            for block in response_content:
-                if hasattr(block, "text"):
-                    print(block.text)
+
+        final_text = extract_text(history[-1]["content"])
+        if final_text:
+            print(final_text)
         print()

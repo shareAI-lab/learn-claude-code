@@ -115,6 +115,14 @@ function extractDocVersion(filename: string): string | null {
   return m ? m[1] : null;
 }
 
+function isMainlineChapterVersion(version: string | null): boolean {
+  return version !== null && (LEARNING_PATH as readonly string[]).includes(version);
+}
+
+function slugFromFilename(filename: string): string {
+  return path.basename(filename, ".md");
+}
+
 // Main extraction
 function main() {
   console.log("Extracting content from agents and docs...");
@@ -168,7 +176,7 @@ function main() {
       keyInsight: meta?.keyInsight ?? "",
       classes,
       functions,
-      layer: meta?.layer ?? "tools",
+      layer: meta?.layer ?? "core",
       source,
     });
   }
@@ -234,18 +242,22 @@ function main() {
 
       for (const filename of docFiles) {
         const version = extractDocVersion(filename);
-        if (!version) {
-          console.warn(`  Skipping doc ${locale}/${filename}: could not determine version`);
-          continue;
-        }
-
+        const kind = isMainlineChapterVersion(version) ? "chapter" : "bridge";
         const filePath = path.join(localeDir, filename);
         const content = fs.readFileSync(filePath, "utf-8");
 
         const titleMatch = content.match(/^#\s+(.+)$/m);
         const title = titleMatch ? titleMatch[1] : filename;
 
-        docs.push({ version, locale: locale as "en" | "zh" | "ja", title, content });
+        docs.push({
+          version: kind === "chapter" ? version : null,
+          slug: slugFromFilename(filename),
+          locale: locale as "en" | "zh" | "ja",
+          title,
+          kind,
+          filename,
+          content,
+        });
       }
     }
 

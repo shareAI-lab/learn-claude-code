@@ -1,96 +1,306 @@
-# s04: Subagents (Subagent)
+# s04: Subagents (子智能体)
 
-`s01 > s02 > s03 > [ s04 ] s05 > s06 | s07 > s08 > s09 > s10 > s11 > s12`
+`s00 > s01 > s02 > s03 > [ s04 ] > s05 > s06 > s07 > s08 > s09 > s10 > s11 > s12 > s13 > s14 > s15 > s16 > s17 > s18 > s19`
 
-> *"大任务拆小, 每个小任务干净的上下文"* -- Subagent 用独立 messages[], 不污染主对话。
->
-> **Harness 层**: 上下文隔离 -- 守护模型的思维清晰度。
+> *一个大任务，不一定要塞进一个上下文里做完。*
 
-## 问题
+## 这一章到底要解决什么问题
 
-Agent 工作越久, messages 数组越臃肿。每次读文件、跑命令的输出都永久留在上下文里。"这个项目用什么测试框架?" 可能要读 5 个文件, 但父 Agent 只需要一个词: "pytest。"
+当 agent 连续做很多事时，`messages` 会越来越长。
 
-## 解决方案
+比如用户只问：
 
+> “这个项目用什么测试框架？”
+
+但 agent 可能为了回答这个问题：
+
+- 读了 `pyproject.toml`
+- 读了 `requirements.txt`
+- 搜了 `pytest`
+- 跑了测试命令
+
+真正有价值的最终答案，可能只有一句话：
+
+> “这个项目主要用 `pytest`。”
+
+如果这些中间过程都永久堆在父对话里，后面的问题会越来越难回答，因为上下文被大量局部任务的噪声填满了。
+
+这就是子智能体要解决的问题：
+
+**把局部任务放进独立上下文里做，做完只把必要结果带回来。**
+
+## 先解释几个名词
+
+### 什么是“父智能体”
+
+当前正在和用户对话、持有主 `messages` 的 agent，就是父智能体。
+
+### 什么是“子智能体”
+
+父智能体临时派生出来，专门处理某个子任务的 agent，就是子智能体。
+
+### 什么叫“上下文隔离”
+
+意思是：
+
+- 父智能体有自己的 `messages`
+- 子智能体也有自己的 `messages`
+- 子智能体的中间过程不会自动写回父智能体
+
+## 最小心智模型
+
+```text
+Parent agent
+  |
+  | 1. 决定把一个局部任务外包出去
+  v
+Subagent
+  |
+  | 2. 在自己的上下文里读文件 / 搜索 / 执行工具
+  v
+Summary
+  |
+  | 3. 只把最终摘要或结果带回父智能体
+  v
+Parent agent continues
 ```
-Parent agent                     Subagent
-+------------------+             +------------------+
-| messages=[...]   |             | messages=[]      | <-- fresh
-|                  |  dispatch   |                  |
-| tool: task       | ----------> | while tool_use:  |
-|   prompt="..."   |             |   call tools     |
-|                  |  summary    |   append results |
-|   result = "..." | <---------- | return last text |
-+------------------+             +------------------+
 
-Parent context stays clean. Subagent context is discarded.
-```
+最重要的点只有一个：
 
-## 工作原理
+**子智能体的价值，不是“多一个模型实例”本身，而是“多一个干净上下文”。**
 
-1. 父 Agent 有一个 `task` 工具。Subagent 拥有除 `task` 外的所有基础工具 (禁止递归生成)。
+## 最小实现长什么样
+
+### 第一步：给父智能体一个 `task` 工具
+
+父智能体需要一个工具，让模型可以主动说：
+
+> “这个子任务我想交给一个独立上下文去做。”
+
+最小 schema 可以非常简单：
 
 ```python
-PARENT_TOOLS = CHILD_TOOLS + [
-    {"name": "task",
-     "description": "Spawn a subagent with fresh context.",
-     "input_schema": {
-         "type": "object",
-         "properties": {"prompt": {"type": "string"}},
-         "required": ["prompt"],
-     }},
-]
+{
+    "name": "task",
+    "description": "Run a subtask in a clean context and return a summary.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "prompt": {"type": "string"}
+        },
+        "required": ["prompt"]
+    }
+}
 ```
 
-2. Subagent 以 `messages=[]` 启动, 运行自己的循环。只有最终文本返回给父 Agent。
+### 第二步：子智能体使用自己的消息列表
 
 ```python
 def run_subagent(prompt: str) -> str:
     sub_messages = [{"role": "user", "content": prompt}]
-    for _ in range(30):  # safety limit
-        response = client.messages.create(
-            model=MODEL, system=SUBAGENT_SYSTEM,
-            messages=sub_messages,
-            tools=CHILD_TOOLS, max_tokens=8000,
-        )
-        sub_messages.append({"role": "assistant",
-                             "content": response.content})
-        if response.stop_reason != "tool_use":
-            break
-        results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                handler = TOOL_HANDLERS.get(block.name)
-                output = handler(**block.input)
-                results.append({"type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": str(output)[:50000]})
-        sub_messages.append({"role": "user", "content": results})
-    return "".join(
-        b.text for b in response.content if hasattr(b, "text")
-    ) or "(no summary)"
+    ...
 ```
 
-Subagent 可能跑了 30+ 次工具调用, 但整个消息历史直接丢弃。父 Agent 收到的只是一段摘要文本, 作为普通 `tool_result` 返回。
+这就是隔离的关键。
 
-## 相对 s03 的变更
+不是共享父智能体的 `messages`，而是从一份新的列表开始。
 
-| 组件           | 之前 (s03)       | 之后 (s04)                    |
-|----------------|------------------|-------------------------------|
-| Tools          | 5                | 5 (基础) + task (仅父端)      |
-| 上下文         | 单一共享         | 父 + 子隔离                   |
-| Subagent       | 无               | `run_subagent()` 函数         |
-| 返回值         | 不适用           | 仅摘要文本                    |
+### 第三步：子智能体只拿必要工具
 
-## 试一试
+子智能体通常不需要拥有和父智能体完全一样的能力。
 
-```sh
-cd learn-claude-code
-python agents/s04_subagent.py
+最小版本里，常见做法是：
+
+- 给它文件读取、搜索、bash 之类的基础工具
+- 不给它继续派生子智能体的能力
+
+这样可以防止它无限递归。
+
+### 第四步：只把结果带回父智能体
+
+子智能体做完事后，不把全部内部历史写回去，而是返回一段总结。
+
+```python
+return {
+    "type": "tool_result",
+    "tool_use_id": block.id,
+    "content": summary_text,
+}
 ```
 
-试试这些 prompt (英文 prompt 对 LLM 效果更好, 也可以用中文):
+## 这一章最关键的数据结构
 
-1. `Use a subtask to find what testing framework this project uses`
-2. `Delegate: read all .py files and summarize what each one does`
-3. `Use a task to create a new module, then verify it from here`
+如果你只记一个结构，就记这个：
+
+```python
+class SubagentContext:
+    messages: list
+    tools: list
+    handlers: dict
+    max_turns: int
+```
+
+解释一下：
+
+- `messages`：子智能体自己的上下文
+- `tools`：子智能体可以调用哪些工具
+- `handlers`：这些工具到底对应哪些 Python 函数
+- `max_turns`：防止子智能体无限跑
+
+这就是最小子智能体的骨架。
+
+## 为什么它真的有用
+
+### 用处 1：给父上下文减负
+
+局部任务的中间噪声不会全都留在主对话里。
+
+### 用处 2：让任务描述更清楚
+
+一个子智能体接到的 prompt 可以非常聚焦：
+
+- “读完这几个文件，给我一句总结”
+- “检查这个目录里有没有测试”
+- “对这个函数写一个最小修复”
+
+### 用处 3：让后面的多 agent 协作有基础
+
+你可以把子智能体理解成多 agent 系统的最小起点。
+
+先把一次性子任务外包做明白，后面再升级到长期 teammate、任务认领、团队协议，会顺很多。
+
+## 从 0 到 1 的实现顺序
+
+推荐按这个顺序写：
+
+### 版本 1：空白上下文子智能体
+
+先只实现：
+
+- 一个 `task` 工具
+- 一个 `run_subagent(prompt)` 函数
+- 子智能体自己的 `messages`
+- 子智能体最后返回摘要
+
+这已经够了。
+
+### 版本 2：限制工具集
+
+给子智能体一个更小、更安全的工具集。
+
+比如：
+
+- 允许 `read_file`
+- 允许 `grep`
+- 允许只读 bash
+- 不允许 `task`
+
+### 版本 3：加入最大轮数和失败保护
+
+至少补两个保护：
+
+- 最多跑多少轮
+- 工具出错时怎么退出
+
+### 版本 4：再考虑 fork
+
+只有当你已经稳定跑通前面三步，才考虑 fork。
+
+## 什么是 fork，为什么它是“下一步”，不是“起步”
+
+前面的最小实现是：
+
+- 子智能体从空白上下文开始
+
+这叫最朴素的子智能体。
+
+但有时一个子任务必须知道父智能体之前在聊什么。
+
+例如：
+
+> “基于我们刚才已经讨论出来的方案，去补测试。”
+
+这时可以用 `fork`：
+
+- 不是从空白 `messages` 开始
+- 而是先复制父智能体的已有上下文，再追加子任务 prompt
+
+```python
+sub_messages = list(parent_messages)
+sub_messages.append({"role": "user", "content": prompt})
+```
+
+这就是 fork 的本质：
+
+**继承上下文，而不是重头开始。**
+
+## 初学者最容易踩的坑
+
+### 坑 1：把子智能体当成“为了炫技的并发”
+
+子智能体首先是为了解决上下文问题，不是为了展示“我有很多 agent”。
+
+### 坑 2：把父历史全部原样灌回去
+
+如果你最后又把子智能体全量历史粘回父对话，那隔离价值就几乎没了。
+
+### 坑 3：一上来就做特别复杂的角色系统
+
+比如一开始就加：
+
+- explorer
+- reviewer
+- planner
+- tester
+- implementer
+
+这些都可以做，但不应该先做。
+
+先把“一个干净上下文的子任务执行器”做对，后面角色化只是在它上面再包一层。
+
+### 坑 4：忘记给子智能体设置停止条件
+
+如果没有：
+
+- 最大轮数
+- 异常处理
+- 工具过滤
+
+子智能体很容易无限转。
+
+## 教学边界
+
+这章要先打牢的，不是“多 agent 很高级”，而是：
+
+**子智能体首先是一个上下文边界。**
+
+所以教学版先停在这里就够了：
+
+- 一次性子任务就够
+- 摘要返回就够
+- 新 `messages` + 工具过滤就够
+
+不要提前把 `fork`、后台运行、transcript 持久化、worktree 绑定一起塞进来。
+
+真正该守住的顺序仍然是：
+
+**先做隔离，再做高级化。**
+
+## 和后续章节的关系
+
+- `s04` 解决的是“局部任务的上下文隔离”
+- `s15-s17` 解决的是“多个长期角色如何协作”
+- `s18` 解决的是“多个执行者如何在文件系统层面隔离”
+
+它们不是重复关系，而是递进关系。
+
+## 这一章学完后，你应该能回答
+
+- 为什么大任务不应该总塞在一个 `messages` 里？
+- 子智能体最小版为什么只需要独立上下文和摘要返回？
+- fork 是什么，为什么它不该成为第一步？
+- 为什么子智能体的第一价值是“减噪”，而不是“炫多 agent”？
+
+---
+
+**一句话记住：子智能体的核心，不是多一个角色，而是多一个干净上下文。**

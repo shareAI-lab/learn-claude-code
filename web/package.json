@@ -8,7 +8,9 @@
     "dev": "next dev",
     "prebuild": "npm run extract",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:browser:smoke": "bash scripts/browser-smoke.sh",
+    "test:browser:flows": "bash scripts/browser-flows.sh"
   },
   "dependencies": {
     "diff": "^8.0.3",
