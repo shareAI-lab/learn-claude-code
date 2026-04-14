@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: resilience -- a robust agent recovers instead of crashing.
 """
 s11_error_recovery.py - Error Recovery
@@ -47,16 +47,14 @@ import subprocess
 import time
 from pathlib import Path
 
-from anthropic import Anthropic, APIError
+from anthropic import APIError
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 
 # Recovery constants
@@ -70,11 +68,9 @@ CONTINUATION_MESSAGE = (
     "no recap, no repetition. Pick up mid-sentence if needed."
 )
 
-
 def estimate_tokens(messages: list) -> int:
     """Rough token estimate: ~4 chars per token."""
     return len(json.dumps(messages, default=str)) // 4
-
 
 def auto_compact(messages: list) -> list:
     """
@@ -107,13 +103,11 @@ def auto_compact(messages: list) -> list:
     )
     return [{"role": "user", "content": continuation}]
 
-
 def backoff_delay(attempt: int) -> float:
     """Exponential backoff with jitter: base * 2^attempt + random(0, 1)."""
     delay = min(BACKOFF_BASE_DELAY * (2 ** attempt), BACKOFF_MAX_DELAY)
     jitter = random.uniform(0, 1)
     return delay + jitter
-
 
 # -- Tool implementations --
 def safe_path(p: str) -> Path:
@@ -121,7 +115,6 @@ def safe_path(p: str) -> Path:
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {p}")
     return path
-
 
 def run_bash(command: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
@@ -135,7 +128,6 @@ def run_bash(command: str) -> str:
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
 
-
 def run_read(path: str, limit: int = None) -> str:
     try:
         lines = safe_path(path).read_text().splitlines()
@@ -145,7 +137,6 @@ def run_read(path: str, limit: int = None) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
 def run_write(path: str, content: str) -> str:
     try:
         fp = safe_path(path)
@@ -154,7 +145,6 @@ def run_write(path: str, content: str) -> str:
         return f"Wrote {len(content)} bytes"
     except Exception as e:
         return f"Error: {e}"
-
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
@@ -166,7 +156,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
-
 
 TOOL_HANDLERS = {
     "bash":       lambda **kw: run_bash(kw["command"]),
@@ -187,7 +176,6 @@ TOOLS = [
 ]
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks."
-
 
 def agent_loop(messages: list):
     """
@@ -293,7 +281,6 @@ def agent_loop(messages: list):
         if estimate_tokens(messages) > TOKEN_THRESHOLD:
             print("[Recovery] Token estimate exceeds threshold. Auto-compacting...")
             messages[:] = auto_compact(messages)
-
 
 if __name__ == "__main__":
     print("[Error recovery enabled: max_tokens / prompt_too_long / connection backoff]")

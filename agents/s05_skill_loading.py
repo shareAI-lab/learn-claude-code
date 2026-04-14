@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: on-demand knowledge -- discover skills cheaply, load them only when needed.
 """
 s05_skill_loading.py - Skills
@@ -18,19 +18,15 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 SKILLS_DIR = WORKDIR / "skills"
-
 
 @dataclass
 class SkillManifest:
@@ -38,12 +34,10 @@ class SkillManifest:
     description: str
     path: Path
 
-
 @dataclass
 class SkillDocument:
     manifest: SkillManifest
     body: str
-
 
 class SkillRegistry:
     def __init__(self, skills_dir: Path):
@@ -96,7 +90,6 @@ class SkillRegistry:
             "</skill>"
         )
 
-
 SKILL_REGISTRY = SkillRegistry(SKILLS_DIR)
 
 SYSTEM = f"""You are a coding agent at {WORKDIR}.
@@ -106,13 +99,11 @@ Skills available:
 {SKILL_REGISTRY.describe_available()}
 """
 
-
 def safe_path(path_str: str) -> Path:
     path = (WORKDIR / path_str).resolve()
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {path_str}")
     return path
-
 
 def run_bash(command: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
@@ -133,7 +124,6 @@ def run_bash(command: str) -> str:
     output = (result.stdout + result.stderr).strip()
     return output[:50000] if output else "(no output)"
 
-
 def run_read(path: str, limit: int | None = None) -> str:
     try:
         lines = safe_path(path).read_text().splitlines()
@@ -143,7 +133,6 @@ def run_read(path: str, limit: int | None = None) -> str:
     except Exception as exc:
         return f"Error: {exc}"
 
-
 def run_write(path: str, content: str) -> str:
     try:
         file_path = safe_path(path)
@@ -152,7 +141,6 @@ def run_write(path: str, content: str) -> str:
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as exc:
         return f"Error: {exc}"
-
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
@@ -164,7 +152,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
         return f"Edited {path}"
     except Exception as exc:
         return f"Error: {exc}"
-
 
 TOOL_HANDLERS = {
     "bash": lambda **kw: run_bash(kw["command"]),
@@ -232,7 +219,6 @@ TOOLS = [
     },
 ]
 
-
 def extract_text(content) -> str:
     if not isinstance(content, list):
         return ""
@@ -242,7 +228,6 @@ def extract_text(content) -> str:
         if text:
             texts.append(text)
     return "\n".join(texts).strip()
-
 
 def agent_loop(messages: list) -> None:
     while True:
@@ -277,7 +262,6 @@ def agent_loop(messages: list) -> None:
             })
 
         messages.append({"role": "user", "content": results})
-
 
 if __name__ == "__main__":
     history = []

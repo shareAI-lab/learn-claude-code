@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: protocols -- structured handshakes between models.
 """
 s16_team_protocols.py - Team Protocols
@@ -69,15 +69,13 @@ import time
 import uuid
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
 
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 TEAM_DIR = WORKDIR / ".team"
 INBOX_DIR = TEAM_DIR / "inbox"
@@ -136,9 +134,7 @@ class MessageBus:
                 count += 1
         return f"Broadcast to {count} teammates"
 
-
 BUS = MessageBus(INBOX_DIR)
-
 
 class RequestStore:
     """
@@ -178,9 +174,7 @@ class RequestStore:
             self._path(request_id).write_text(json.dumps(record, indent=2))
         return record
 
-
 REQUEST_STORE = RequestStore(REQUESTS_DIR)
-
 
 # -- TeammateManager with shutdown + plan approval --
 class TeammateManager:
@@ -354,9 +348,7 @@ class TeammateManager:
     def member_names(self) -> list:
         return [m["name"] for m in self.config["members"]]
 
-
 TEAM = TeammateManager(TEAM_DIR)
-
 
 # -- Base tool implementations (these base tools are unchanged from s02) --
 def _safe_path(p: str) -> Path:
@@ -364,7 +356,6 @@ def _safe_path(p: str) -> Path:
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {p}")
     return path
-
 
 def _run_bash(command: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot"]
@@ -380,7 +371,6 @@ def _run_bash(command: str) -> str:
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
 
-
 def _run_read(path: str, limit: int = None) -> str:
     try:
         lines = _safe_path(path).read_text().splitlines()
@@ -390,7 +380,6 @@ def _run_read(path: str, limit: int = None) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
 def _run_write(path: str, content: str) -> str:
     try:
         fp = _safe_path(path)
@@ -399,7 +388,6 @@ def _run_write(path: str, content: str) -> str:
         return f"Wrote {len(content)} bytes"
     except Exception as e:
         return f"Error: {e}"
-
 
 def _run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
@@ -411,7 +399,6 @@ def _run_edit(path: str, old_text: str, new_text: str) -> str:
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
-
 
 # -- Lead-specific protocol handlers --
 def handle_shutdown_request(teammate: str) -> str:
@@ -431,7 +418,6 @@ def handle_shutdown_request(teammate: str) -> str:
     )
     return f"Shutdown request {req_id} sent to '{teammate}' (status: pending)"
 
-
 def handle_plan_review(request_id: str, approve: bool, feedback: str = "") -> str:
     req = REQUEST_STORE.get(request_id)
     if not req:
@@ -449,10 +435,8 @@ def handle_plan_review(request_id: str, approve: bool, feedback: str = "") -> st
     )
     return f"Plan {'approved' if approve else 'rejected'} for '{req['from']}'"
 
-
 def _check_shutdown_status(request_id: str) -> str:
     return json.dumps(REQUEST_STORE.get(request_id) or {"error": "not found"})
-
 
 # -- Lead tool dispatch (12 tools) --
 TOOL_HANDLERS = {
@@ -498,7 +482,6 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"request_id": {"type": "string"}, "approve": {"type": "boolean"}, "feedback": {"type": "string"}}, "required": ["request_id", "approve"]}},
 ]
 
-
 def agent_loop(messages: list):
     while True:
         inbox = BUS.read_inbox("lead")
@@ -533,7 +516,6 @@ def agent_loop(messages: list):
                     "content": str(output),
                 })
         messages.append({"role": "user", "content": results})
-
 
 if __name__ == "__main__":
     history = []

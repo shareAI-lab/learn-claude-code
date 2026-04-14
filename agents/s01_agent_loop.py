@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: the loop -- keep feeding real tool results back into the model.
 """
 s01_agent_loop.py - The Agent Loop
@@ -30,15 +30,12 @@ try:
 except ImportError:
     pass
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = (
@@ -56,14 +53,12 @@ TOOLS = [{
     },
 }]
 
-
 @dataclass
 class LoopState:
     # The minimal loop state: history, loop count, and why we continue.
     messages: list
     turn_count: int = 1
     transition_reason: str | None = None
-
 
 def run_bash(command: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
@@ -86,7 +81,6 @@ def run_bash(command: str) -> str:
     output = (result.stdout + result.stderr).strip()
     return output[:50000] if output else "(no output)"
 
-
 def extract_text(content) -> str:
     if not isinstance(content, list):
         return ""
@@ -96,7 +90,6 @@ def extract_text(content) -> str:
         if text:
             texts.append(text)
     return "\n".join(texts).strip()
-
 
 def execute_tool_calls(response_content) -> list[dict]:
     results = []
@@ -113,7 +106,6 @@ def execute_tool_calls(response_content) -> list[dict]:
             "content": output,
         })
     return results
-
 
 def run_one_turn(state: LoopState) -> bool:
     response = client.messages.create(
@@ -139,11 +131,9 @@ def run_one_turn(state: LoopState) -> bool:
     state.transition_reason = "tool_result"
     return True
 
-
 def agent_loop(state: LoopState) -> None:
     while run_one_turn(state):
         pass
-
 
 if __name__ == "__main__":
     history = []

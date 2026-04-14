@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: integration -- tools aren't just in your code.
 """
 s19_mcp_plugin.py - MCP & Plugin System
@@ -43,19 +43,15 @@ import subprocess
 import threading
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 PERMISSION_MODES = ("default", "auto")
-
 
 class CapabilityPermissionGate:
     """
@@ -141,9 +137,7 @@ class CapabilityPermissionGate:
             return False
         return answer in ("y", "yes")
 
-
 permission_gate = CapabilityPermissionGate()
-
 
 class MCPClient:
     """
@@ -265,7 +259,6 @@ class MCPClient:
             pass
         return None
 
-
 class PluginLoader:
     """
     Load plugins from .claude-plugin/ directories.
@@ -305,7 +298,6 @@ class PluginLoader:
                 servers[f"{plugin_name}__{server_name}"] = config
         return servers
 
-
 class MCPToolRouter:
     """
     Routes tool calls to the correct MCP server.
@@ -341,7 +333,6 @@ class MCPToolRouter:
         for client in self.clients.values():
             tools.extend(client.get_agent_tools())
         return tools
-
 
 # -- Native tool implementations (same as s02) --
 def safe_path(p: str) -> Path:
@@ -388,7 +379,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
 NATIVE_HANDLERS = {
     "bash":       lambda **kw: run_bash(kw["command"]),
     "read_file":  lambda **kw: run_read(kw["path"]),
@@ -407,11 +397,9 @@ NATIVE_TOOLS = [
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
 ]
 
-
 # -- MCP Tool Router (global) --
 mcp_router = MCPToolRouter()
 plugin_loader = PluginLoader()
-
 
 def build_tool_pool() -> list:
     """
@@ -430,7 +418,6 @@ def build_tool_pool() -> list:
 
     return all_tools
 
-
 def handle_tool_call(tool_name: str, tool_input: dict) -> str:
     """Dispatch to native handler or MCP router."""
     if mcp_router.is_mcp_tool(tool_name):
@@ -439,7 +426,6 @@ def handle_tool_call(tool_name: str, tool_input: dict) -> str:
     if handler:
         return handler(**tool_input)
     return f"Unknown tool: {tool_name}"
-
 
 def normalize_tool_result(tool_name: str, output: str, intent: dict | None = None) -> str:
     intent = intent or permission_gate.normalize(tool_name, {})
@@ -453,7 +439,6 @@ def normalize_tool_result(tool_name: str, output: str, intent: dict | None = Non
         "preview": output[:500],
     }
     return json.dumps(payload, indent=2, ensure_ascii=False)
-
 
 def agent_loop(messages: list):
     """Agent loop with unified native + MCP tool pool."""
@@ -504,14 +489,12 @@ def agent_loop(messages: list):
 
         messages.append({"role": "user", "content": results})
 
-
 # Further upgrades you can add later:
 # - more transports
 # - auth / approval flows
 # - server reconnect and lifecycle management
 # - filtering external tools before they reach the model
 # - richer plugin installation and update handling
-
 
 if __name__ == "__main__":
     # Scan for plugins

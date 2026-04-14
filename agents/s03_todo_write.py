@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: planning -- keep the current session plan outside the model's head.
 """
 s03_todo_write.py - Session Planning with TodoWrite
@@ -13,16 +13,13 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 PLAN_REMINDER_INTERVAL = 3
 
@@ -31,19 +28,16 @@ Use the todo tool for multi-step work.
 Keep exactly one step in_progress when a task has multiple steps.
 Refresh the plan as work advances. Prefer tools over prose."""
 
-
 @dataclass
 class PlanItem:
     content: str
     status: str = "pending"
     active_form: str = ""
 
-
 @dataclass
 class PlanningState:
     items: list[PlanItem] = field(default_factory=list)
     rounds_since_update: int = 0
-
 
 class TodoManager:
     def __init__(self):
@@ -110,16 +104,13 @@ class TodoManager:
         lines.append(f"\n({completed}/{len(self.state.items)} completed)")
         return "\n".join(lines)
 
-
 TODO = TodoManager()
-
 
 def safe_path(path_str: str) -> Path:
     path = (WORKDIR / path_str).resolve()
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {path_str}")
     return path
-
 
 def run_bash(command: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
@@ -140,7 +131,6 @@ def run_bash(command: str) -> str:
     output = (result.stdout + result.stderr).strip()
     return output[:50000] if output else "(no output)"
 
-
 def run_read(path: str, limit: int | None = None) -> str:
     try:
         lines = safe_path(path).read_text().splitlines()
@@ -150,7 +140,6 @@ def run_read(path: str, limit: int | None = None) -> str:
     except Exception as exc:
         return f"Error: {exc}"
 
-
 def run_write(path: str, content: str) -> str:
     try:
         file_path = safe_path(path)
@@ -159,7 +148,6 @@ def run_write(path: str, content: str) -> str:
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as exc:
         return f"Error: {exc}"
-
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
@@ -171,7 +159,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
         return f"Edited {path}"
     except Exception as exc:
         return f"Error: {exc}"
-
 
 TOOL_HANDLERS = {
     "bash": lambda **kw: run_bash(kw["command"]),
@@ -258,7 +245,6 @@ TOOLS = [
     },
 ]
 
-
 def extract_text(content) -> str:
     if not isinstance(content, list):
         return ""
@@ -268,7 +254,6 @@ def extract_text(content) -> str:
         if text:
             texts.append(text)
     return "\n".join(texts).strip()
-
 
 def agent_loop(messages: list) -> None:
     while True:
@@ -314,7 +299,6 @@ def agent_loop(messages: list) -> None:
                 results.insert(0, {"type": "text", "text": reminder})
 
         messages.append({"role": "user", "content": results})
-
 
 if __name__ == "__main__":
     history = []

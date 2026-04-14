@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: compression -- keep the active context small enough to keep working.
 """
 s06_context_compact.py - Context Compact
@@ -21,16 +21,13 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = (
@@ -45,17 +42,14 @@ PREVIEW_CHARS = 2000
 TRANSCRIPT_DIR = WORKDIR / ".transcripts"
 TOOL_RESULTS_DIR = WORKDIR / ".task_outputs" / "tool-results"
 
-
 @dataclass
 class CompactState:
     has_compacted: bool = False
     last_summary: str = ""
     recent_files: list[str] = field(default_factory=list)
 
-
 def estimate_context_size(messages: list) -> int:
     return len(str(messages))
-
 
 def track_recent_file(state: CompactState, path: str) -> None:
     if path in state.recent_files:
@@ -64,13 +58,11 @@ def track_recent_file(state: CompactState, path: str) -> None:
     if len(state.recent_files) > 5:
         state.recent_files[:] = state.recent_files[-5:]
 
-
 def safe_path(path_str: str) -> Path:
     path = (WORKDIR / path_str).resolve()
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {path_str}")
     return path
-
 
 def persist_large_output(tool_use_id: str, output: str) -> str:
     if len(output) <= PERSIST_THRESHOLD:
@@ -91,7 +83,6 @@ def persist_large_output(tool_use_id: str, output: str) -> str:
         "</persisted-output>"
     )
 
-
 def collect_tool_result_blocks(messages: list) -> list[tuple[int, int, dict]]:
     blocks = []
     for message_index, message in enumerate(messages):
@@ -102,7 +93,6 @@ def collect_tool_result_blocks(messages: list) -> list[tuple[int, int, dict]]:
             if isinstance(block, dict) and block.get("type") == "tool_result":
                 blocks.append((message_index, block_index, block))
     return blocks
-
 
 def micro_compact(messages: list) -> list:
     tool_results = collect_tool_result_blocks(messages)
@@ -116,7 +106,6 @@ def micro_compact(messages: list) -> list:
         block["content"] = "[Earlier tool result compacted. Re-run the tool if you need full detail.]"
     return messages
 
-
 def write_transcript(messages: list) -> Path:
     TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
     path = TRANSCRIPT_DIR / f"transcript_{int(time.time())}.jsonl"
@@ -124,7 +113,6 @@ def write_transcript(messages: list) -> Path:
         for message in messages:
             handle.write(json.dumps(message, default=str) + "\n")
     return path
-
 
 def summarize_history(messages: list) -> str:
     conversation = json.dumps(messages, default=str)[:80000]
@@ -145,7 +133,6 @@ def summarize_history(messages: list) -> str:
         max_tokens=2000,
     )
     return response.content[0].text.strip()
-
 
 def compact_history(messages: list, state: CompactState, focus: str | None = None) -> list:
     transcript_path = write_transcript(messages)
@@ -169,7 +156,6 @@ def compact_history(messages: list, state: CompactState, focus: str | None = Non
         ),
     }]
 
-
 def run_bash(command: str, tool_use_id: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
     if any(item in command for item in dangerous):
@@ -189,7 +175,6 @@ def run_bash(command: str, tool_use_id: str) -> str:
     output = (result.stdout + result.stderr).strip() or "(no output)"
     return persist_large_output(tool_use_id, output)
 
-
 def run_read(path: str, tool_use_id: str, state: CompactState, limit: int | None = None) -> str:
     try:
         track_recent_file(state, path)
@@ -201,7 +186,6 @@ def run_read(path: str, tool_use_id: str, state: CompactState, limit: int | None
     except Exception as exc:
         return f"Error: {exc}"
 
-
 def run_write(path: str, content: str) -> str:
     try:
         file_path = safe_path(path)
@@ -210,7 +194,6 @@ def run_write(path: str, content: str) -> str:
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as exc:
         return f"Error: {exc}"
-
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
@@ -222,7 +205,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
         return f"Edited {path}"
     except Exception as exc:
         return f"Error: {exc}"
-
 
 TOOLS = [
     {
@@ -283,7 +265,6 @@ TOOLS = [
     },
 ]
 
-
 def extract_text(content) -> str:
     if not isinstance(content, list):
         return ""
@@ -293,7 +274,6 @@ def extract_text(content) -> str:
         if text:
             texts.append(text)
     return "\n".join(texts).strip()
-
 
 def execute_tool(block, state: CompactState) -> str:
     if block.name == "bash":
@@ -307,7 +287,6 @@ def execute_tool(block, state: CompactState) -> str:
     if block.name == "compact":
         return "Compacting conversation..."
     return f"Unknown tool: {block.name}"
-
 
 def agent_loop(messages: list, state: CompactState) -> None:
     while True:
@@ -353,7 +332,6 @@ def agent_loop(messages: list, state: CompactState) -> None:
         if manual_compact:
             print("[manual compact]")
             messages[:] = compact_history(messages, state, focus=compact_focus)
-
 
 if __name__ == "__main__":
     history = []

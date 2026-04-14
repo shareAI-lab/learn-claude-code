@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: all mechanisms combined -- the complete cockpit for the model.
 """
 s_full.py - Capstone Teaching Agent
@@ -43,15 +43,13 @@ import uuid
 from pathlib import Path
 from queue import Queue
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
 
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 
 TEAM_DIR = WORKDIR / ".team"
@@ -77,7 +75,6 @@ PRESERVE_RESULT_TOOLS = {"read_file"}
 
 VALID_MSG_TYPES = {"message", "broadcast", "shutdown_request",
                    "shutdown_response", "plan_approval_response"}
-
 
 # === SECTION: persisted_output (s06) ===
 def _persist_tool_result(tool_use_id: str, content: str) -> Path:
@@ -124,7 +121,6 @@ def maybe_persist_output(tool_use_id: str, output: str, trigger_chars: int = Non
         return output
     stored_path = _persist_tool_result(tool_use_id, output)
     return _build_persisted_marker(stored_path, output)
-
 
 # === SECTION: base_tools ===
 def safe_path(p: str) -> Path:
@@ -179,7 +175,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
 # === SECTION: todos (s03) ===
 class TodoManager:
     def __init__(self):
@@ -215,7 +210,6 @@ class TodoManager:
 
     def has_open_items(self) -> bool:
         return any(item.get("status") != "completed" for item in self.items)
-
 
 # === SECTION: subagent (s04) ===
 def run_subagent(prompt: str, agent_type: str = "Explore") -> str:
@@ -255,7 +249,6 @@ def run_subagent(prompt: str, agent_type: str = "Explore") -> str:
         return "".join(b.text for b in resp.content if hasattr(b, "text")) or "(no summary)"
     return "(subagent failed)"
 
-
 # === SECTION: skills (s05) ===
 class SkillLoader:
     def __init__(self, skills_dir: Path):
@@ -282,7 +275,6 @@ class SkillLoader:
         s = self.skills.get(name)
         if not s: return f"Error: Unknown skill '{name}'. Available: {', '.join(self.skills.keys())}"
         return f"<skill name=\"{name}\">\n{s['body']}\n</skill>"
-
 
 # === SECTION: compression (s06) ===
 def estimate_tokens(messages: list) -> int:
@@ -349,7 +341,6 @@ def auto_compact(messages: list, focus: str = None) -> list:
         {"role": "user", "content": continuation},
     ]
 
-
 # === SECTION: file_tasks (s07) ===
 class TaskManager:
     def __init__(self):
@@ -415,7 +406,6 @@ class TaskManager:
         self._save(task)
         return f"Claimed task #{tid} for {owner}"
 
-
 # === SECTION: background (s08) ===
 class BackgroundManager:
     def __init__(self):
@@ -451,7 +441,6 @@ class BackgroundManager:
             notifs.append(self.notifications.get_nowait())
         return notifs
 
-
 # === SECTION: messaging (s09) ===
 class MessageBus:
     def __init__(self):
@@ -481,11 +470,9 @@ class MessageBus:
                 count += 1
         return f"Broadcast to {count} teammates"
 
-
 # === SECTION: shutdown + plan tracking (s10) ===
 shutdown_requests = {}
 plan_requests = {}
-
 
 # === SECTION: team (s09/s11) ===
 class TeammateManager:
@@ -632,7 +619,6 @@ class TeammateManager:
     def member_names(self) -> list:
         return [m["name"] for m in self.config["members"]]
 
-
 # === SECTION: global_instances ===
 TODO = TodoManager()
 SKILLS = SkillLoader(SKILLS_DIR)
@@ -646,7 +632,6 @@ SYSTEM = f"""You are a coding agent at {WORKDIR}. Use tools to solve tasks.
 Prefer task_create/task_update/task_list for multi-step work. Use TodoWrite for short checklists.
 Use task for subagent delegation. Use load_skill for specialized knowledge.
 Skills: {SKILLS.descriptions()}"""
-
 
 # === SECTION: shutdown_protocol (s10) ===
 def handle_shutdown_request(teammate: str) -> str:
@@ -663,7 +648,6 @@ def handle_plan_review(request_id: str, approve: bool, feedback: str = "") -> st
     BUS.send("lead", req["from"], feedback, "plan_approval_response",
              {"request_id": request_id, "approve": approve, "feedback": feedback})
     return f"Plan {req['status']} for '{req['from']}'"
-
 
 # === SECTION: tool_dispatch (s02) ===
 TOOL_HANDLERS = {
@@ -741,7 +725,6 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
 ]
 
-
 # === SECTION: agent_loop ===
 def agent_loop(messages: list):
     rounds_without_todo = 0
@@ -800,7 +783,6 @@ def agent_loop(messages: list):
         if manual_compress:
             print("[manual compact]")
             messages[:] = auto_compact(messages, focus=compact_focus)
-
 
 # === SECTION: repl ===
 if __name__ == "__main__":

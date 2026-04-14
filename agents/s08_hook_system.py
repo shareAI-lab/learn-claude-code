@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: extensibility -- injecting behavior without touching the loop.
 """
 s08_hook_system.py - Hook System
@@ -28,16 +28,13 @@ import os
 import subprocess
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 
 # The teaching version keeps only the three clearest events. More complete
@@ -51,7 +48,6 @@ HOOK_TIMEOUT = 30  # seconds
 
 # Workspace trust marker. Hooks only run if this file exists (or SDK mode).
 TRUST_MARKER = WORKDIR / ".claude" / ".claude_trusted"
-
 
 class HookManager:
     """
@@ -173,14 +169,12 @@ class HookManager:
 
         return result
 
-
 # -- Tool implementations (same as s02) --
 def safe_path(p: str) -> Path:
     path = (WORKDIR / p).resolve()
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {p}")
     return path
-
 
 def run_bash(command: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
@@ -194,7 +188,6 @@ def run_bash(command: str) -> str:
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
 
-
 def run_read(path: str, limit: int = None) -> str:
     try:
         lines = safe_path(path).read_text().splitlines()
@@ -204,7 +197,6 @@ def run_read(path: str, limit: int = None) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
 def run_write(path: str, content: str) -> str:
     try:
         fp = safe_path(path)
@@ -213,7 +205,6 @@ def run_write(path: str, content: str) -> str:
         return f"Wrote {len(content)} bytes"
     except Exception as e:
         return f"Error: {e}"
-
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
@@ -225,7 +216,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
-
 
 TOOL_HANDLERS = {
     "bash":       lambda **kw: run_bash(kw["command"]),
@@ -246,7 +236,6 @@ TOOLS = [
 ]
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks."
-
 
 def agent_loop(messages: list, hooks: HookManager):
     """
@@ -314,7 +303,6 @@ def agent_loop(messages: list, hooks: HookManager):
             })
 
         messages.append({"role": "user", "content": results})
-
 
 if __name__ == "__main__":
     hooks = HookManager()

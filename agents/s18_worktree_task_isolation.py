@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: directory isolation -- parallel execution lanes that never collide.
 """
 s18_worktree_task_isolation.py - Worktree + Task Isolation
@@ -50,18 +50,14 @@ import subprocess
 import time
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
-
 
 def detect_repo_root(cwd: Path) -> Path | None:
     try:
@@ -74,7 +70,6 @@ def detect_repo_root(cwd: Path) -> Path | None:
     except Exception:
         return None
 
-
 REPO_ROOT = detect_repo_root(WORKDIR) or WORKDIR
 
 SYSTEM = (
@@ -83,7 +78,6 @@ SYSTEM = (
     "For parallel or risky changes: create tasks, allocate worktree lanes, "
     "run commands in those lanes, then choose keep/remove for closeout."
 )
-
 
 # -- EventBus: append-only lifecycle events for observability --
 class EventBus:
@@ -115,7 +109,6 @@ class EventBus:
             except Exception:
                 items.append({"event": "parse_error", "raw": line})
         return json.dumps(items, indent=2)
-
 
 # -- TaskManager: persistent task board with optional worktree binding --
 class TaskManager:
@@ -224,10 +217,8 @@ class TaskManager:
             lines.append(f"{marker} #{t['id']}: {t['subject']}{owner}{wt}")
         return "\n".join(lines)
 
-
 TASKS = TaskManager(REPO_ROOT / ".tasks")
 EVENTS = EventBus(REPO_ROOT / ".worktrees" / "events.jsonl")
-
 
 # -- WorktreeManager: create/list/run/remove git worktrees --
 class WorktreeManager:
@@ -471,9 +462,7 @@ class WorktreeManager:
             )
         raise ValueError("action must be 'keep' or 'remove'")
 
-
 WORKTREES = WorktreeManager(REPO_ROOT, TASKS, EVENTS)
-
 
 # -- Base tools (same as previous sessions, kept minimal) --
 def safe_path(p: str) -> Path:
@@ -522,7 +511,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
-
 
 TOOL_HANDLERS = {
     "bash": lambda **kw: run_bash(kw["command"]),
@@ -596,7 +584,6 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"limit": {"type": "integer"}}}},
 ]
 
-
 def agent_loop(messages: list):
     while True:
         response = client.messages.create(
@@ -617,7 +604,6 @@ def agent_loop(messages: list):
                 print(f"> {block.name}: {str(output)[:200]}")
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
         messages.append({"role": "user", "content": results})
-
 
 if __name__ == "__main__":
     print(f"Repo root for s18: {REPO_ROOT}")

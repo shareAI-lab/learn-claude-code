@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: persistence -- remembering across the session boundary.
 """
 s09_memory_system.py - Memory System
@@ -43,23 +43,19 @@ import re
 import subprocess
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 
 MEMORY_DIR = WORKDIR / ".memory"
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 MEMORY_TYPES = ("user", "feedback", "project", "reference")
 MAX_INDEX_LINES = 200
-
 
 class MemoryManager:
     """
@@ -185,7 +181,6 @@ class MemoryManager:
                 key, _, value = line.partition(":")
                 result[key.strip()] = value.strip()
         return result
-
 
 class DreamConsolidator:
     """
@@ -341,14 +336,12 @@ class DreamConsolidator:
         except (ValueError, OSError):
             pass
 
-
 # -- Tool implementations --
 def safe_path(p: str) -> Path:
     path = (WORKDIR / p).resolve()
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {p}")
     return path
-
 
 def run_bash(command: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
@@ -362,7 +355,6 @@ def run_bash(command: str) -> str:
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
 
-
 def run_read(path: str, limit: int = None) -> str:
     try:
         lines = safe_path(path).read_text().splitlines()
@@ -372,7 +364,6 @@ def run_read(path: str, limit: int = None) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
 def run_write(path: str, content: str) -> str:
     try:
         fp = safe_path(path)
@@ -381,7 +372,6 @@ def run_write(path: str, content: str) -> str:
         return f"Wrote {len(content)} bytes"
     except Exception as e:
         return f"Error: {e}"
-
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
@@ -394,14 +384,11 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
 # Global memory manager
 memory_mgr = MemoryManager()
 
-
 def run_save_memory(name: str, description: str, mem_type: str, content: str) -> str:
     return memory_mgr.save_memory(name, description, mem_type, content)
-
 
 TOOL_HANDLERS = {
     "bash":         lambda **kw: run_bash(kw["command"]),
@@ -446,7 +433,6 @@ When NOT to save:
 - Secrets or credentials (API keys, passwords)
 """
 
-
 def build_system_prompt() -> str:
     """Assemble system prompt with memory content included."""
     parts = [f"You are a coding agent at {WORKDIR}. Use tools to solve tasks."]
@@ -458,7 +444,6 @@ def build_system_prompt() -> str:
 
     parts.append(MEMORY_GUIDANCE)
     return "\n\n".join(parts)
-
 
 def agent_loop(messages: list):
     """
@@ -495,7 +480,6 @@ def agent_loop(messages: list):
             })
 
         messages.append({"role": "user", "content": results})
-
 
 if __name__ == "__main__":
     # Load existing memories at session start

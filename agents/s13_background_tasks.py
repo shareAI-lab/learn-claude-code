@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: background execution -- the model thinks while the harness waits.
 """
 s13_background_tasks.py - Background Tasks
@@ -34,24 +34,20 @@ import time
 import uuid
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
-
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
 
 WORKDIR = Path.cwd()
 RUNTIME_DIR = WORKDIR / ".runtime-tasks"
 RUNTIME_DIR.mkdir(exist_ok=True)
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use background_run for long-running commands."
 
 STALL_THRESHOLD_S = 45  # seconds before a task is considered stalled
-
 
 class NotificationQueue:
     """
@@ -82,7 +78,6 @@ class NotificationQueue:
             messages = [m for _, _, m in self._queue]
             self._queue.clear()
             return messages
-
 
 # -- BackgroundManager: threaded execution + notification queue --
 class BackgroundManager:
@@ -208,9 +203,7 @@ class BackgroundManager:
                 stalled.append(task_id)
         return stalled
 
-
 BG = BackgroundManager()
-
 
 # -- Tool implementations --
 def safe_path(p: str) -> Path:
@@ -260,7 +253,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
 TOOL_HANDLERS = {
     "bash":             lambda **kw: run_bash(kw["command"]),
     "read_file":        lambda **kw: run_read(kw["path"], kw.get("limit")),
@@ -284,7 +276,6 @@ TOOLS = [
     {"name": "check_background", "description": "Check background task status. Omit task_id to list all.",
      "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}}}},
 ]
-
 
 def agent_loop(messages: list):
     while True:
@@ -317,7 +308,6 @@ def agent_loop(messages: list):
                 print(str(output)[:200])
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
         messages.append({"role": "user", "content": results})
-
 
 if __name__ == "__main__":
     history = []

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: persistent tasks -- goals that outlive any single conversation.
 """
 s12_task_system.py - Tasks
@@ -45,21 +45,17 @@ import os
 import subprocess
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 TASKS_DIR = WORKDIR / ".tasks"
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use task tools to plan and track work."
-
 
 # -- TaskManager: CRUD for a persistent task graph --
 class TaskManager:
@@ -149,9 +145,7 @@ class TaskManager:
             lines.append(f"{marker} #{t['id']}: {t['subject']}{owner}{blocked}")
         return "\n".join(lines)
 
-
 TASKS = TaskManager(TASKS_DIR)
-
 
 # -- Base tool implementations --
 def safe_path(p: str) -> Path:
@@ -201,7 +195,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
 TOOL_HANDLERS = {
     "bash":        lambda **kw: run_bash(kw["command"]),
     "read_file":   lambda **kw: run_read(kw["path"], kw.get("limit")),
@@ -232,7 +225,6 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
 ]
 
-
 def agent_loop(messages: list):
     while True:
         response = client.messages.create(
@@ -253,7 +245,6 @@ def agent_loop(messages: list):
                 print(f"> {block.name}: {str(output)[:200]}")
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
         messages.append({"role": "user", "content": results})
-
 
 if __name__ == "__main__":
     history = []

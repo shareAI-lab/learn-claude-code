@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: time -- the agent schedules its own future work.
 """
 s14_cron_scheduler.py - Cron / Scheduled Tasks
@@ -64,16 +64,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from queue import Queue, Empty
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 
 SCHEDULED_TASKS_FILE = WORKDIR / ".claude" / "scheduled_tasks.json"
@@ -82,7 +79,6 @@ AUTO_EXPIRY_DAYS = 7
 JITTER_MINUTES = [0, 30]  # avoid these exact minutes for recurring tasks
 JITTER_OFFSET_MAX = 4     # offset range in minutes
 # Teaching version: use a simple 1-4 minute offset when needed.
-
 
 class CronLock:
     """
@@ -123,7 +119,6 @@ class CronLock:
         except (ValueError, OSError):
             pass
 
-
 def cron_matches(expr: str, dt: datetime) -> bool:
     """
     Check if a 5-field cron expression matches a given datetime.
@@ -147,7 +142,6 @@ def cron_matches(expr: str, dt: datetime) -> bool:
         if not _field_matches(field, value, lo, hi):
             return False
     return True
-
 
 def _field_matches(field: str, value: int, lo: int, hi: int) -> bool:
     """Match a single cron field against a value."""
@@ -177,7 +171,6 @@ def _field_matches(field: str, value: int, lo: int, hi: int) -> bool:
                 return True
 
     return False
-
 
 class CronScheduler:
     """
@@ -389,10 +382,8 @@ class CronScheduler:
             json.dumps(durable, indent=2) + "\n"
         )
 
-
 # Global scheduler
 scheduler = CronScheduler()
-
 
 # -- Tool implementations --
 def safe_path(p: str) -> Path:
@@ -400,7 +391,6 @@ def safe_path(p: str) -> Path:
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {p}")
     return path
-
 
 def run_bash(command: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
@@ -414,7 +404,6 @@ def run_bash(command: str) -> str:
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
 
-
 def run_read(path: str, limit: int = None) -> str:
     try:
         lines = safe_path(path).read_text().splitlines()
@@ -424,7 +413,6 @@ def run_read(path: str, limit: int = None) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
 def run_write(path: str, content: str) -> str:
     try:
         fp = safe_path(path)
@@ -433,7 +421,6 @@ def run_write(path: str, content: str) -> str:
         return f"Wrote {len(content)} bytes"
     except Exception as e:
         return f"Error: {e}"
-
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
@@ -445,7 +432,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
-
 
 TOOL_HANDLERS = {
     "bash":        lambda **kw: run_bash(kw["command"]),
@@ -483,7 +469,6 @@ TOOLS = [
 ]
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks.\n\nYou can schedule future work with cron_create. Tasks fire automatically and their prompts are injected into the conversation."
-
 
 def agent_loop(messages: list):
     """
@@ -526,7 +511,6 @@ def agent_loop(messages: list):
             })
 
         messages.append({"role": "user", "content": results})
-
 
 if __name__ == "__main__":
     scheduler.start()

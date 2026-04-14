@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # Harness: safety -- the pipeline between intent and execution.
 """
 s07_permission_system.py - Permission System
@@ -29,16 +29,13 @@ import subprocess
 from fnmatch import fnmatch
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from agents.anthropic_client import create_anthropic_client
 
 load_dotenv(override=True)
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = create_anthropic_client()
 MODEL = os.environ["MODEL_ID"]
 
 # -- Permission modes --
@@ -49,7 +46,6 @@ READ_ONLY_TOOLS = {"read_file", "bash_readonly"}
 
 # Tools that modify state
 WRITE_TOOLS = {"write_file", "edit_file", "bash"}
-
 
 # -- Bash security validation --
 class BashSecurityValidator:
@@ -94,7 +90,6 @@ class BashSecurityValidator:
         parts = [f"{name} (pattern: {pattern})" for name, pattern in failures]
         return "Security flags: " + ", ".join(parts)
 
-
 # -- Workspace trust --
 def is_workspace_trusted(workspace: Path = None) -> bool:
     """
@@ -107,10 +102,8 @@ def is_workspace_trusted(workspace: Path = None) -> bool:
     trust_marker = ws / ".claude" / ".claude_trusted"
     return trust_marker.exists()
 
-
 # Singleton validator instance used by the permission pipeline
 bash_validator = BashSecurityValidator()
-
 
 # -- Permission rules --
 # Rules are checked in order: first match wins.
@@ -122,7 +115,6 @@ DEFAULT_RULES = [
     # Allow reading anything
     {"tool": "read_file", "path": "*", "behavior": "allow"},
 ]
-
 
 class PermissionManager:
     """
@@ -246,14 +238,12 @@ class PermissionManager:
                 return False
         return True
 
-
 # -- Tool implementations --
 def safe_path(p: str) -> Path:
     path = (WORKDIR / p).resolve()
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {p}")
     return path
-
 
 def run_bash(command: str) -> str:
     try:
@@ -264,7 +254,6 @@ def run_bash(command: str) -> str:
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
 
-
 def run_read(path: str, limit: int = None) -> str:
     try:
         lines = safe_path(path).read_text().splitlines()
@@ -274,7 +263,6 @@ def run_read(path: str, limit: int = None) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
 def run_write(path: str, content: str) -> str:
     try:
         fp = safe_path(path)
@@ -283,7 +271,6 @@ def run_write(path: str, content: str) -> str:
         return f"Wrote {len(content)} bytes"
     except Exception as e:
         return f"Error: {e}"
-
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
@@ -295,7 +282,6 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
-
 
 TOOL_HANDLERS = {
     "bash":       lambda **kw: run_bash(kw["command"]),
@@ -317,7 +303,6 @@ TOOLS = [
 
 SYSTEM = f"""You are a coding agent at {WORKDIR}. Use tools to solve tasks.
 The user controls permissions. Some tool calls may be denied."""
-
 
 def agent_loop(messages: list, perms: PermissionManager):
     """
@@ -372,7 +357,6 @@ def agent_loop(messages: list, perms: PermissionManager):
             })
 
         messages.append({"role": "user", "content": results})
-
 
 if __name__ == "__main__":
     # Choose permission mode at startup
