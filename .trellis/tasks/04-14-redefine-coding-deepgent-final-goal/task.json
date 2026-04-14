@@ -52,8 +52,7 @@
     "04-14-stage-17a-task-graph-readiness-and-transition-invariants",
     "04-14-stage-17b-plan-verify-workflow-boundary",
     "04-15-stage-17c-explicit-plan-artifact-boundary",
-    "04-15-stage-17d-verifier-subagent-execution-boundary",
-    "04-15-stage-29-deferred-boundary-adr-mvp-release-checklist"
+    "04-15-stage-17d-verifier-subagent-execution-boundary"
   ],
   "parent": null,
   "relatedFiles": [],
