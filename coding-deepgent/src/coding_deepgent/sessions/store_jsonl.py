@@ -11,6 +11,8 @@ from typing import Any
 from coding_deepgent.compact import compact_messages_with_summary
 from coding_deepgent.runtime import default_runtime_state
 
+from .contribution_registry import RUNTIME_STATE_CONTRIBUTIONS
+from .contributions import coerce_runtime_state_contributions
 from .records import (
     COMPACT_RECORD_TYPE,
     EVIDENCE_RECORD_TYPE,
@@ -308,10 +310,14 @@ class JsonlSessionStore:
         if not isinstance(rounds_since_update, int):
             return None
 
-        return {
+        coerced = {
             "todos": deepcopy(todos),
             "rounds_since_update": rounds_since_update,
         }
+        coerced.update(
+            coerce_runtime_state_contributions(state, RUNTIME_STATE_CONTRIBUTIONS)
+        )
+        return coerced
 
     def _coerce_evidence(self, record: dict[str, Any]) -> SessionEvidence | None:
         kind = record.get("kind")

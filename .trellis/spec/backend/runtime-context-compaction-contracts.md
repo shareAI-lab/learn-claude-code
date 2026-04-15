@@ -17,8 +17,9 @@
 ```bash
 coding-deepgent sessions resume SESSION_ID
 coding-deepgent sessions resume SESSION_ID --prompt TEXT
+coding-deepgent sessions resume SESSION_ID --prompt TEXT --session-memory TEXT
 coding-deepgent sessions resume SESSION_ID --prompt TEXT --compact-summary SUMMARY [--compact-keep-last N]
-coding-deepgent sessions resume SESSION_ID --prompt TEXT --generate-compact-summary [--compact-instructions TEXT] [--compact-keep-last N]
+coding-deepgent sessions resume SESSION_ID --prompt TEXT --generate-compact-summary [--compact-instructions TEXT] [--compact-keep-last N] [--session-memory TEXT]
 ```
 
 #### Python Service Seams
@@ -53,7 +54,20 @@ def generate_compact_summary(
     summarizer: CompactSummarizer | Callable[[list[dict[str, Any]]], Any],
     *,
     custom_instructions: str | None = None,
+    assist_context: str | None = None,
 ) -> str: ...
+
+class RuntimeStateContribution:
+    key: str
+
+class RecoveryBriefContribution:
+    name: str
+
+class CompactAssistContribution:
+    name: str
+
+class CompactSummaryUpdateContribution:
+    name: str
 
 def append_compact(
     context: SessionContext,
@@ -102,6 +116,15 @@ class CompactedHistorySource:
   and `verdict=<verdict>`.
 - `render_recovery_brief()` must not dump arbitrary evidence metadata for
   runtime or verification evidence.
+- When `LoadedSession.state["session_memory"]` contains a valid artifact,
+  `render_recovery_brief()` must render it in a dedicated `Session memory:`
+  section and mark it `current` or `stale` based on the stored `message_count`
+  versus `LoadedSession.summary.message_count`.
+- Invalid `session_memory` state must be ignored rather than breaking session
+  load or resume.
+- Feature-specific recovery sections should enter through registered
+  `RecoveryBriefContribution` providers, not through one-off conditionals in
+  `render_recovery_brief()`.
 
 #### Manual Compact Continuation History
 
@@ -127,8 +150,51 @@ class CompactedHistorySource:
 - `--generate-compact-summary` is explicit and user-triggered only.
 - It must call `build_openai_model(settings)` only when `--generate-compact-summary` is present.
 - It must pass the loaded history into `generate_compact_summary()` through the fakeable summarizer seam.
+- When a current valid session-memory artifact exists, `generate_compact_summary()`
+  may receive it as a bounded assist text.
+- Stale or invalid session-memory artifacts must not be passed to the summarizer
+  as compact assist text.
+- Feature-specific assist text should enter through registered
+  `CompactAssistContribution` providers, then flow into the summarizer through
+  the generic `assist_context` parameter.
 - It must not add LangChain `SummarizationMiddleware`.
 - It must not delete, prune, rewrite, or compact persisted session JSONL transcript records.
+
+#### Module Contribution Seams
+
+- Runtime-state extensions should use `RuntimeStateContribution` providers for
+  validation/coercion instead of adding feature-specific fields to
+  `JsonlSessionStore._coerce_state_snapshot()`.
+- Recovery-context extensions should use `RecoveryBriefContribution` providers
+  and render as bounded sections.
+- Generated compact-summary extensions should use `CompactAssistContribution`
+  providers and return bounded text only when the assist is current/reliable.
+- State updates that happen after a generated compact summary should use
+  `CompactSummaryUpdateContribution` providers. Providers may update module
+  state only from the generated summary that already exists; they must not
+  trigger a new model call.
+- The current registry is intentionally static and local. It is not a plugin
+  registration system and must not introduce background/runtime discovery.
+- Contribution seams reduce accidental coupling but do not eliminate essential
+  cross-layer integration for model-visible flows.
+
+#### Session-Memory Local Updates
+
+- `--generate-compact-summary` is the only current path that can refresh
+  `LoadedSession.state["session_memory"]` automatically.
+- Plain `sessions resume SESSION_ID --prompt TEXT` must not trigger an implicit
+  summarizer call to update session memory.
+- A missing valid session-memory artifact may be initialized from the generated
+  compact summary.
+- A stale-enough artifact may be refreshed from the generated compact summary
+  when the module-owned threshold policy says it is due.
+- The module-owned threshold policy may use message-count delta, deterministic
+  estimated-token delta, and tool-call delta. Token counts are local estimates,
+  not provider billing/tokenizer values.
+- A current/recent artifact must not be refreshed.
+- Refreshed artifacts use `source == "generated_compact"` and
+  message, estimated-token, and tool-call counters derived from
+  `LoadedSession.history`.
 
 #### Compact Transcript Records
 
@@ -203,10 +269,12 @@ keep_from = original_message_count - kept_message_count
 | Case | Expected behavior |
 |---|---|
 | `sessions resume SESSION_ID` | prints recovery brief and continuation hint |
+| `--session-memory` without `--prompt` | Click error; run path is not called |
 | `--compact-summary` without `--prompt` | Click error; run path is not called |
 | `--generate-compact-summary` without `--prompt` | Click error; run path is not called |
 | `--compact-instructions` without `--generate-compact-summary` | Click error; run path is not called |
 | `--compact-summary` and `--generate-compact-summary` together | Click error; run path is not called |
+| blank `--session-memory` | session-memory validation error; run path is not called |
 | blank compact summary | `ValueError` from compaction helper, surfaced as Click error |
 | summarizer returns only `<analysis>` or blank text | `ValueError("compact summarizer returned an empty summary")` |
 | compact tail starts with `tool_result` | include matching previous `tool_use` message when present |
@@ -219,6 +287,13 @@ keep_from = original_message_count - kept_message_count
 | no compact record yields a valid derived tail | `LoadedSession.compacted_history` falls back to raw history |
 | selected compacted view comes from compact record at index N | `compacted_history_source == compact/latest_valid_compact/N` |
 | selected compacted view falls back to raw history | `compacted_history_source == raw/<reason>/None` |
+| valid current session-memory artifact | recovery brief renders `Session memory:` with `[current]`; generated compact summary may receive assist text |
+| stale session-memory artifact | recovery brief renders `Session memory:` with `[stale]`; generated compact summary ignores assist text |
+| invalid session-memory artifact in snapshot | load succeeds and artifact is ignored |
+| missing session-memory artifact after generated compact summary | artifact is initialized from generated summary |
+| stale-enough session-memory artifact after generated compact summary | artifact is refreshed from generated summary |
+| token/tool-call pressure exceeds session-memory thresholds | artifact is refreshed from generated summary |
+| current/recent session-memory artifact after generated compact summary | artifact is not refreshed |
 | duplicate memory save | returns "Memory not saved" and store remains unchanged |
 | verification evidence with `plan_id` and `verdict` metadata | recovery brief includes concise `(plan=...; verdict=...)` provenance |
 | non-verification evidence with metadata | recovery brief does not render arbitrary metadata |

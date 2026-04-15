@@ -35,6 +35,17 @@ def test_build_compact_summary_request_appends_prompt_without_mutating_messages(
     assert "Focus on code changes." in str(request[-1]["content"])
 
 
+def test_build_compact_summary_request_includes_session_memory_assist() -> None:
+    request = build_compact_summary_request(
+        [{"role": "user", "content": "hello"}],
+        assist_context="Session memory artifact:\nKeep repo focus.",
+    )
+
+    assert request[-2]["role"] == "system"
+    assert "Session memory artifact" in str(request[-2]["content"])
+    assert request[-1]["role"] == "user"
+
+
 def test_generate_compact_summary_invokes_summarizer_and_formats_output() -> None:
     summarizer = FakeSummarizer(
         {
@@ -58,6 +69,19 @@ def test_generate_compact_summary_invokes_summarizer_and_formats_output() -> Non
     assert summary == "Keep the compact summary."
     assert len(summarizer.requests) == 1
     assert summarizer.requests[0][0] == {"role": "user", "content": "old"}
+
+
+def test_generate_compact_summary_passes_session_memory_assist_to_summarizer() -> None:
+    summarizer = FakeSummarizer("<summary>Keep the compact summary.</summary>")
+
+    generate_compact_summary(
+        [{"role": "user", "content": "old"}],
+        summarizer,
+        assist_context="Session memory artifact:\nKeep repo focus.",
+    )
+
+    assert summarizer.requests[0][-2]["role"] == "system"
+    assert "Keep repo focus." in str(summarizer.requests[0][-2]["content"])
 
 
 def test_generate_compact_summary_supports_callable_summarizer() -> None:

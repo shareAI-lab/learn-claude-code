@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/tasks/04-15-stage-30a-module-upgrade-contribution-seams/prd.md", "reason": "Stage 30A module upgrade contribution seams plan"}
+{"file": ".trellis/tasks/04-15-diagnose-module-upgrade-coupling/prd.md", "reason": "Coupling diagnosis and cc-haha comparison"}

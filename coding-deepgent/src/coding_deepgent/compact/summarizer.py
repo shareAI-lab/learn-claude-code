@@ -38,9 +38,22 @@ def build_compact_summary_request(
     messages: list[dict[str, Any]],
     *,
     custom_instructions: str | None = None,
+    assist_context: str | None = None,
 ) -> list[dict[str, Any]]:
-    return [
-        *deepcopy(messages),
+    request = [*deepcopy(messages)]
+    if assist_context and assist_context.strip():
+        request.append(
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": assist_context.strip(),
+                    }
+                ],
+            }
+        )
+    request.append(
         {
             "role": "user",
             "content": [
@@ -49,8 +62,9 @@ def build_compact_summary_request(
                     "text": build_compact_summary_prompt(custom_instructions),
                 }
             ],
-        },
-    ]
+        }
+    )
+    return request
 
 
 def generate_compact_summary(
@@ -58,10 +72,12 @@ def generate_compact_summary(
     summarizer: CompactSummarizer | Callable[[list[dict[str, Any]]], Any],
     *,
     custom_instructions: str | None = None,
+    assist_context: str | None = None,
 ) -> str:
     request = build_compact_summary_request(
         messages,
         custom_instructions=custom_instructions,
+        assist_context=assist_context,
     )
     response = (
         summarizer(request)

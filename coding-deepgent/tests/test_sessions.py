@@ -14,6 +14,7 @@ from coding_deepgent.sessions import (
     resume_session,
     thread_config_for_session,
 )
+from coding_deepgent.sessions.session_memory import SESSION_MEMORY_STATE_KEY
 
 
 def test_jsonl_session_roundtrip_preserves_history_state_and_summary(tmp_path) -> None:
@@ -74,6 +75,37 @@ def test_jsonl_session_roundtrip_preserves_history_state_and_summary(tmp_path) -
     assert loaded.summary.evidence_count == 0
     assert loaded.summary.created_at is not None
     assert loaded.summary.updated_at is not None
+
+
+def test_jsonl_session_roundtrip_preserves_session_memory_artifact(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir, entrypoint="cli")
+    store.append_message(context, role="user", content="plan this", message_index=0)
+    store.append_state_snapshot(
+        context,
+        state={
+            "todos": [],
+            "rounds_since_update": 0,
+            SESSION_MEMORY_STATE_KEY: {
+                "content": "Current repo focus is deterministic assist.",
+                "source": "manual",
+                "message_count": 1,
+                "updated_at": "2026-04-15T00:00:00Z",
+            },
+        },
+    )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+
+    assert loaded.state[SESSION_MEMORY_STATE_KEY] == {
+        "content": "Current repo focus is deterministic assist.",
+        "source": "manual",
+        "message_count": 1,
+        "updated_at": "2026-04-15T00:00:00Z",
+    }
 
 
 def test_list_sessions_filters_by_workdir(tmp_path) -> None:
@@ -176,6 +208,35 @@ def test_load_session_ignores_corrupt_unknown_and_invalid_later_snapshots(
     }
 
 
+def test_load_session_ignores_invalid_session_memory_artifact(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="resume me")
+    store.append_state_snapshot(
+        context,
+        state={
+            "todos": [],
+            "rounds_since_update": 0,
+            SESSION_MEMORY_STATE_KEY: {
+                "content": "   ",
+                "source": "manual",
+                "message_count": 1,
+                "updated_at": "2026-04-15T00:00:00Z",
+            },
+        },
+    )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+
+    assert loaded.state == {
+        "todos": [],
+        "rounds_since_update": 0,
+    }
+
+
 def test_session_evidence_roundtrip_and_recovery_brief(tmp_path) -> None:
     store = JsonlSessionStore(tmp_path / "sessions-store")
     workdir = tmp_path / "repo"
@@ -263,6 +324,68 @@ def test_recovery_brief_renders_verification_provenance_only(tmp_path) -> None:
         in rendered
     )
     assert "ignored=value" not in rendered
+
+
+def test_recovery_brief_renders_session_memory_status(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="resume")
+    store.append_state_snapshot(
+        context,
+        state={
+            "todos": [],
+            "rounds_since_update": 0,
+            SESSION_MEMORY_STATE_KEY: {
+                "content": "Current repo focus is deterministic assist.",
+                "source": "manual",
+                "message_count": 1,
+                "updated_at": "2026-04-15T00:00:00Z",
+            },
+        },
+    )
+
+    rendered = render_recovery_brief(
+        build_recovery_brief(
+            store.load_session(session_id=context.session_id, workdir=workdir)
+        )
+    )
+
+    assert "Session memory:" in rendered
+    assert "[current] Current repo focus is deterministic assist." in rendered
+
+
+def test_recovery_brief_marks_stale_session_memory_status(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="resume")
+    store.append_message(context, role="assistant", content="continued")
+    store.append_state_snapshot(
+        context,
+        state={
+            "todos": [],
+            "rounds_since_update": 0,
+            SESSION_MEMORY_STATE_KEY: {
+                "content": "Current repo focus is deterministic assist.",
+                "source": "manual",
+                "message_count": 1,
+                "updated_at": "2026-04-15T00:00:00Z",
+            },
+        },
+    )
+
+    rendered = render_recovery_brief(
+        build_recovery_brief(
+            store.load_session(session_id=context.session_id, workdir=workdir)
+        )
+    )
+
+    assert "[stale] Current repo focus is deterministic assist." in rendered
 
 
 def test_compact_record_roundtrip_does_not_enter_history(tmp_path) -> None:

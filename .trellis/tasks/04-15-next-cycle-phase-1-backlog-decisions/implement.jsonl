@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/tasks/04-15-next-cycle-phase-1-backlog-decisions/prd.md", "reason": "Phase-1 deterministic assist PRD"}
+{"file": ".trellis/spec/backend/runtime-context-compaction-contracts.md", "reason": "Runtime compaction contract"}

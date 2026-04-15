@@ -6,6 +6,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from .contribution_registry import RECOVERY_BRIEF_CONTRIBUTIONS
+from .contributions import RecoveryBriefSection, build_recovery_brief_sections
 from .ports import SessionStore
 from .records import LoadedSession, SessionCompact, SessionEvidence
 
@@ -20,6 +22,7 @@ class RecoveryBrief:
     updated_at: str | None
     message_count: int
     active_todos: tuple[str, ...]
+    contribution_sections: tuple[RecoveryBriefSection, ...]
     recent_evidence: tuple[SessionEvidence, ...]
     recent_compacts: tuple[SessionCompact, ...]
 
@@ -67,6 +70,10 @@ def build_recovery_brief(
         updated_at=loaded_session.summary.updated_at,
         message_count=loaded_session.summary.message_count,
         active_todos=active_todos,
+        contribution_sections=build_recovery_brief_sections(
+            loaded_session,
+            RECOVERY_BRIEF_CONTRIBUTIONS,
+        ),
         recent_evidence=tuple(loaded_session.evidence[-evidence_limit:]),
         recent_compacts=tuple(loaded_session.compacts[-compact_limit:]),
     )
@@ -82,6 +89,10 @@ def render_recovery_brief(brief: RecoveryBrief) -> str:
     lines.extend(f"- {todo}" for todo in brief.active_todos)
     if not brief.active_todos:
         lines.append("- none")
+
+    for section in brief.contribution_sections:
+        lines.append(section.title)
+        lines.extend(section.lines)
 
     lines.append("Recent evidence:")
     lines.extend(_render_evidence(item) for item in brief.recent_evidence)

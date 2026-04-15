@@ -17,6 +17,7 @@ from coding_deepgent.renderers.text import (
 )
 from coding_deepgent.rendering import extract_text
 from coding_deepgent.settings import build_openai_model
+from coding_deepgent.sessions.session_memory import write_session_memory_artifact
 
 app = typer.Typer(
     add_completion=False,
@@ -113,6 +114,11 @@ def sessions_resume(
     prompt: str | None = typer.Option(
         None, "--prompt", help="Optional prompt to continue the session."
     ),
+    session_memory: str | None = typer.Option(
+        None,
+        "--session-memory",
+        help="Optional explicit session-memory artifact to persist and use for this resumed run.",
+    ),
     compact_summary: str | None = typer.Option(
         None,
         "--compact-summary",
@@ -143,14 +149,25 @@ def sessions_resume(
 
     if prompt is None:
         if (
+            session_memory is not None
+            or
             compact_summary is not None
             or generate_compact_summary
             or compact_instructions is not None
         ):
-            raise ClickException("compact options require --prompt.")
+            raise ClickException("session continuation options require --prompt.")
         typer.echo(cli_service.recovery_brief_text(loaded))
         typer.echo("Re-run with --prompt to continue.")
         raise typer.Exit()
+    if session_memory is not None:
+        try:
+            write_session_memory_artifact(
+                loaded.state,
+                content=session_memory,
+                message_count=loaded.summary.message_count,
+            )
+        except ValueError as exc:
+            raise ClickException(str(exc)) from exc
     if compact_summary is not None and generate_compact_summary:
         raise ClickException(
             "--compact-summary and --generate-compact-summary are mutually exclusive."

@@ -19,6 +19,14 @@ from coding_deepgent.sessions import (
     build_resume_context_message,
     render_recovery_brief,
 )
+from coding_deepgent.sessions.contribution_registry import (
+    COMPACT_ASSIST_CONTRIBUTIONS,
+    COMPACT_SUMMARY_UPDATE_CONTRIBUTIONS,
+)
+from coding_deepgent.sessions.contributions import (
+    apply_compact_summary_update_contributions,
+    compact_assist_text,
+)
 from coding_deepgent.sessions.service import (
     list_recorded_sessions,
     load_recorded_session,
@@ -168,6 +176,12 @@ def generated_compacted_continuation_history(
         [dict(message) for message in loaded.history],
         summarizer,
         custom_instructions=custom_instructions,
+        assist_context=compact_assist_text(loaded, COMPACT_ASSIST_CONTRIBUTIONS),
+    )
+    apply_compact_summary_update_contributions(
+        loaded,
+        summary=summary,
+        contributions=COMPACT_SUMMARY_UPDATE_CONTRIBUTIONS,
     )
     return compacted_continuation_history(
         loaded,

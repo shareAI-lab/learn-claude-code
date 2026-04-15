@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -9,6 +10,7 @@ from coding_deepgent import cli
 from coding_deepgent import cli_service
 from coding_deepgent.compact import COMPACT_BOUNDARY_PREFIX, COMPACT_SUMMARY_PREFIX
 from coding_deepgent.sessions import JsonlSessionStore
+from coding_deepgent.sessions.session_memory import SESSION_MEMORY_STATE_KEY
 from coding_deepgent.settings import Settings, load_settings
 
 runner = CliRunner()
@@ -200,6 +202,8 @@ def test_sessions_resume_uses_recovery_brief_continuation_history(
                     f"{loaded.summary.updated_at}\n"
                     "Active todos:\n"
                     "- Continue work\n"
+                    "Session memory:\n"
+                    "- none\n"
                     "Recent evidence:\n"
                     "- [passed] verification: pytest passed\n"
                     "Recent compacts:\n"
@@ -221,6 +225,129 @@ def test_sessions_resume_uses_recovery_brief_continuation_history(
         "session_id": "session-1",
     }
     assert "resumed" in result.stdout
+
+
+def test_sessions_resume_session_memory_option_updates_state_before_run(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+    loaded = _loaded_session(tmp_path)
+
+    def fake_run_prompt(
+        prompt: str,
+        history=None,
+        session_state=None,
+        session_id=None,
+    ) -> str:
+        captured["prompt"] = prompt
+        captured["history"] = history
+        captured["session_state"] = session_state
+        captured["session_id"] = session_id
+        return "resumed"
+
+    runtime = cli_service.CliRuntime(
+        settings_loader=load_settings,
+        list_sessions=lambda: [],
+        load_session=lambda session_id: loaded,
+        run_prompt=fake_run_prompt,
+        doctor_checks=lambda: [],
+    )
+    monkeypatch.setattr(cli, "build_cli_runtime", lambda: runtime)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "sessions",
+            "resume",
+            "session-1",
+            "--prompt",
+            "continue",
+            "--session-memory",
+            "Current focus is deterministic assist.",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["prompt"] == "continue"
+    assert isinstance(captured["session_state"], dict)
+    artifact = captured["session_state"][SESSION_MEMORY_STATE_KEY]
+    assert artifact["content"] == "Current focus is deterministic assist."
+    assert artifact["source"] == "manual"
+    assert artifact["message_count"] == 1
+    assert artifact["updated_at"]
+    history = captured["history"]
+    assert isinstance(history, list)
+    assert "Session memory:" in str(history[0]["content"])
+    assert "Current focus is deterministic assist." in str(history[0]["content"])
+    assert captured["session_id"] == "session-1"
+
+
+def test_sessions_resume_rejects_session_memory_without_prompt(
+    monkeypatch, tmp_path: Path
+) -> None:
+    loaded = _loaded_session(tmp_path)
+
+    runtime = cli_service.CliRuntime(
+        settings_loader=load_settings,
+        list_sessions=lambda: [],
+        load_session=lambda session_id: loaded,
+        run_prompt=_unused_run_prompt,
+        doctor_checks=lambda: [],
+    )
+    monkeypatch.setattr(cli, "build_cli_runtime", lambda: runtime)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "sessions",
+            "resume",
+            "session-1",
+            "--session-memory",
+            "Current focus is deterministic assist.",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert result.exception is not None
+
+
+def test_sessions_resume_rejects_blank_session_memory(
+    monkeypatch, tmp_path: Path
+) -> None:
+    loaded = _loaded_session(tmp_path)
+    called: list[str] = []
+
+    def run_prompt(
+        prompt: str, history=None, session_state=None, session_id=None
+    ) -> str:
+        del history, session_state, session_id
+        called.append(prompt)
+        return "unused"
+
+    runtime = cli_service.CliRuntime(
+        settings_loader=load_settings,
+        list_sessions=lambda: [],
+        load_session=lambda session_id: loaded,
+        run_prompt=run_prompt,
+        doctor_checks=lambda: [],
+    )
+    monkeypatch.setattr(cli, "build_cli_runtime", lambda: runtime)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "sessions",
+            "resume",
+            "session-1",
+            "--prompt",
+            "continue",
+            "--session-memory",
+            "   ",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert called == []
 
 
 def test_sessions_resume_defaults_to_latest_compacted_continuation_when_available(
@@ -479,6 +606,138 @@ def test_sessions_resume_can_generate_manual_compact_summary(
     assert captured["session_state"] == loaded.state
     assert captured["session_id"] == "session-1"
     assert "resumed" in result.stdout
+
+
+def test_sessions_resume_generated_compact_summary_uses_session_memory_assist(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+    loaded = _loaded_session(tmp_path)
+    summarizer = FakeCompactSummarizer("<summary>Generated compact summary.</summary>")
+
+    def fake_run_prompt(
+        prompt: str,
+        history=None,
+        session_state=None,
+        session_id=None,
+    ) -> str:
+        captured["prompt"] = prompt
+        captured["history"] = history
+        captured["session_state"] = session_state
+        captured["session_id"] = session_id
+        return "resumed"
+
+    runtime = cli_service.CliRuntime(
+        settings_loader=load_settings,
+        list_sessions=lambda: [],
+        load_session=lambda session_id: loaded,
+        run_prompt=fake_run_prompt,
+        doctor_checks=lambda: [],
+    )
+    monkeypatch.setattr(cli, "build_cli_runtime", lambda: runtime)
+    monkeypatch.setattr(cli, "build_openai_model", lambda _settings: summarizer)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "sessions",
+            "resume",
+            "session-1",
+            "--prompt",
+            "continue",
+            "--session-memory",
+            "Current focus is deterministic assist.",
+            "--generate-compact-summary",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert len(summarizer.requests) == 1
+    assert summarizer.requests[0][-2]["role"] == "system"
+    assert "Current focus is deterministic assist." in str(
+        summarizer.requests[0][-2]["content"]
+    )
+
+
+def test_generated_compacted_continuation_history_ignores_stale_session_memory_assist(
+    tmp_path: Path,
+) -> None:
+    loaded = _loaded_session(tmp_path)
+    loaded.state[SESSION_MEMORY_STATE_KEY] = {
+        "content": "Current focus is deterministic assist.",
+        "source": "manual",
+        "message_count": 0,
+        "updated_at": "2026-04-15T00:00:00Z",
+    }
+    summarizer = FakeCompactSummarizer("<summary>Generated compact summary.</summary>")
+
+    history = cli_service.generated_compacted_continuation_history(
+        loaded,
+        summarizer=summarizer,
+        keep_last=1,
+    )
+
+    assert len(summarizer.requests) == 1
+    assert len(summarizer.requests[0]) == 2
+    assert summarizer.requests[0][0] == {"role": "assistant", "content": "existing"}
+    assert summarizer.requests[0][-1]["role"] == "user"
+    assert "Session memory artifact" not in str(summarizer.requests[0])
+    assert isinstance(history, list)
+
+
+def test_generated_compacted_continuation_history_refreshes_missing_session_memory(
+    tmp_path: Path,
+) -> None:
+    loaded = _loaded_session(tmp_path)
+    summarizer = FakeCompactSummarizer("<summary>Generated compact summary.</summary>")
+
+    cli_service.generated_compacted_continuation_history(
+        loaded,
+        summarizer=summarizer,
+        keep_last=1,
+    )
+
+    assert loaded.state[SESSION_MEMORY_STATE_KEY]["content"] == (
+        "Generated compact summary."
+    )
+    assert loaded.state[SESSION_MEMORY_STATE_KEY]["source"] == "generated_compact"
+    assert loaded.state[SESSION_MEMORY_STATE_KEY]["message_count"] == 1
+
+
+def test_generated_compacted_continuation_history_refreshes_stale_enough_memory(
+    tmp_path: Path,
+) -> None:
+    loaded = _loaded_session(tmp_path)
+    loaded.state[SESSION_MEMORY_STATE_KEY] = {
+        "content": "Old memory.",
+        "source": "manual",
+        "message_count": 1,
+        "updated_at": "2026-04-15T00:00:00Z",
+    }
+    loaded = replace(
+        loaded,
+        history=[
+            {"role": "user", "content": "one"},
+            {"role": "assistant", "content": "two"},
+            {"role": "user", "content": "three"},
+            {"role": "assistant", "content": "four"},
+            {"role": "user", "content": "five"},
+        ],
+        summary=replace(loaded.summary, message_count=5),
+    )
+    summarizer = FakeCompactSummarizer("<summary>Generated compact summary.</summary>")
+
+    cli_service.generated_compacted_continuation_history(
+        loaded,
+        summarizer=summarizer,
+        keep_last=1,
+    )
+
+    assert loaded.state[SESSION_MEMORY_STATE_KEY]["content"] == (
+        "Generated compact summary."
+    )
+    assert loaded.state[SESSION_MEMORY_STATE_KEY]["source"] == "generated_compact"
+    assert loaded.state[SESSION_MEMORY_STATE_KEY]["message_count"] == 5
 
 
 def test_sessions_resume_rejects_manual_and_generated_compact_together(
