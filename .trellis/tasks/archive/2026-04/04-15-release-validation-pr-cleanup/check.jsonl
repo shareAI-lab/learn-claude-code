@@ -1,0 +1,7 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/project-handoff.md", "reason": "Ensure release-facing cleanup remains aligned with canonical next direction"}
+{"file": ".trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md", "reason": "Check MVP boundary and deferred rows remain unchanged"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Review and validation checklist for current pass"}
+{"file": ".trellis/spec/backend/runtime-context-compaction-contracts.md", "reason": "Check runtime/session/compact closeout behavior against contracts"}
+{"file": ".trellis/spec/backend/task-workflow-contracts.md", "reason": "Check durable task/subagent/verifier behavior against contracts"}

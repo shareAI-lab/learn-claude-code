@@ -1,0 +1,12 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Validation scope and review expectations for current mainline"}
+{"file": ".trellis/project-handoff.md", "reason": "Canonical current-state router and next recommended task"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "Keep any fixes within current LangChain-native boundaries"}
+{"file": ".trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md", "reason": "Canonical MVP boundary and highlight status dashboard"}
+{"file": ".trellis/spec/backend/runtime-context-compaction-contracts.md", "reason": "Runtime/session/compact validation boundary overview"}
+{"file": "coding-deepgent/tests/test_runtime_pressure.py", "reason": "High-signal runtime pressure and reactive compact regression slice"}
+{"file": ".trellis/spec/backend/task-workflow-contracts.md", "reason": "Durable task and verifier workflow contracts for Stage 17-29 closeout"}
+{"file": "coding-deepgent/tests/test_subagents.py", "reason": "Verifier child-agent execution and evidence lineage regression slice"}
+{"file": "coding-deepgent/tests/test_tasks.py", "reason": "Durable task and verification workflow regression slice"}
+{"file": "coding-deepgent/tests/test_cli.py", "reason": "High-signal resume and compact continuity regression slice"}

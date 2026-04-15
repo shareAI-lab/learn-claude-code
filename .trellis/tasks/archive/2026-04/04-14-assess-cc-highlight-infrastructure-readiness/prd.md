@@ -57,7 +57,7 @@ Determine whether the current `coding-deepgent` infrastructure is ready to suppo
 * [x] A source-backed target design exists for H01-H10.
 * [x] Infrastructure gaps are identified.
 * [x] A recommended next stage is named.
-* [ ] User confirms or adjusts the recommended next stage before implementation planning.
+* [x] User confirms or adjusts the recommended next stage before implementation planning.
 
 ## Definition of Done (team quality bar)
 
@@ -79,6 +79,8 @@ Determine whether the current `coding-deepgent` infrastructure is ready to suppo
 * Planning docs:
   - `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
   - `.trellis/plans/coding-deepgent-h01-h10-target-design.md`
+* Completion note:
+  - The Stage 12 recommendation was later confirmed by subsequent planning and implementation closeout across archived Stage 12A-12D task records and the current handoff/roadmap lineage.
 * Current recommendation from source-backed target design:
   - next stage should be `Stage 12: Context and Recovery Hardening`
   - implement it iteratively as 12A-12D rather than as one large infrastructure push

@@ -16,7 +16,22 @@ Canonical live coordination, specs, and implementation contracts now belong in:
 - `compatibility_anchor`: `mcp-plugin-real-loading`
 - `architecture_reshape_status`: `s1-skeleton-complete`
 - Status: MCP/plugin real loading implemented as one cumulative LangChain cc product surface
-- Last updated: 2026-04-14
+- Last updated: 2026-04-15
+
+This stage marker is retained as a product-local compatibility anchor for
+`coding-deepgent` docs/tests. It is not the canonical live release-progress
+tracker anymore.
+
+Canonical live status is now:
+
+- Approach A MVP closeout completed through `Stage 29`
+- `H13/H14/H21/H22` remain deferred out of MVP
+- current recommended next task: `release validation / PR cleanup for Approach A MVP`
+
+For the live source of truth, use:
+
+- `../.trellis/project-handoff.md`
+- `../.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
 
 ## Project-wide architecture reshape (S1 skeleton)
 

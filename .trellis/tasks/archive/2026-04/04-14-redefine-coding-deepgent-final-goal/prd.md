@@ -69,17 +69,17 @@ Redefine the long-term final goal of `coding-deepgent` after partial plan loss, 
 
 ## Acceptance Criteria (evolving)
 
-* [ ] The final goal states what must align with cc-haha and what must not be copied.
-* [ ] The final goal states which LangChain/LangGraph primitives are the preferred implementation boundary.
-* [ ] The final goal states the expected project shape: product-grade, modular, maintainable, non-demo.
-* [ ] The final goal defines stage progression logic or target completion criteria.
-* [ ] The final goal clarifies the boundary between product parity, teaching material, and deferred infrastructure.
-* [ ] The final goal names the core systems that must eventually reach cc-haha essence alignment.
-* [ ] Each core system gets a written “essence definition” before implementation planning resumes.
-* [ ] Each planned upgrade includes an explicit expected-benefit section and a why-now judgment.
-* [ ] Each planned upgrade includes an explicit function summary before implementation begins.
-* [ ] The final goal explicitly treats cross-session memory as a required end-state capability.
-* [ ] A source-backed cc core highlights roadmap exists and is used as the planning backlog.
+* [x] The final goal states what must align with cc-haha and what must not be copied.
+* [x] The final goal states which LangChain/LangGraph primitives are the preferred implementation boundary.
+* [x] The final goal states the expected project shape: product-grade, modular, maintainable, non-demo.
+* [x] The final goal defines stage progression logic or target completion criteria.
+* [x] The final goal clarifies the boundary between product parity, teaching material, and deferred infrastructure.
+* [x] The final goal names the core systems that must eventually reach cc-haha essence alignment.
+* [x] Each core system gets a written “essence definition” before implementation planning resumes.
+* [x] Each planned upgrade includes an explicit expected-benefit section and a why-now judgment.
+* [x] Each planned upgrade includes an explicit function summary before implementation begins.
+* [x] The final goal explicitly treats cross-session memory as a required end-state capability.
+* [x] A source-backed cc core highlights roadmap exists and is used as the planning backlog.
 
 ## Definition of Done (team quality bar)
 

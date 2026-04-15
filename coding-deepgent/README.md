@@ -22,6 +22,18 @@ coordination rules or executable implementation contracts.
 - `architecture_reshape_status`: `s1-skeleton-complete`
 - Upgrade policy: advance by explicit product-stage plan approval, not tutorial chapter completion.
 
+The `current_product_stage` marker is retained here as a product-local
+compatibility anchor for `coding-deepgent` docs and contract tests.
+
+Canonical live release status has moved to Trellis:
+
+- `../.trellis/project-handoff.md`
+- `../.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+
+As of 2026-04-15, the canonical MVP closeout line is complete through
+`Stage 29`, and the current recommended next task is
+`release validation / PR cleanup for Approach A MVP`.
+
 ## Current architecture
 
 - LangChain remains the runtime boundary: `RuntimeState`, `RuntimeContext`, `context=`, and LangGraph `thread_id` config own runtime invocation.
