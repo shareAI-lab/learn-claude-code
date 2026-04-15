@@ -1,7 +1,7 @@
 {
-  "id": "stage-30b-session-memory-threshold-local-updates",
-  "name": "stage-30b-session-memory-threshold-local-updates",
-  "title": "Stage 30B: Session Memory Threshold Local Updates",
+  "id": "stage-17a-task-graph-readiness-and-transition-invariants",
+  "name": "stage-17a-task-graph-readiness-and-transition-invariants",
+  "title": "Stage 17A: Task Graph Readiness and Transition Invariants",
   "description": "",
   "status": "completed",
   "dev_type": null,
@@ -9,7 +9,7 @@
   "priority": "P2",
   "creator": "kun",
   "assignee": "kun",
-  "createdAt": "2026-04-15",
+  "createdAt": "2026-04-14",
   "completedAt": "2026-04-15",
   "branch": null,
   "base_branch": "codex/stage-12-14-context-compact-foundation",
@@ -37,8 +37,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [],
-  "parent": null,
+  "parent": "04-14-redefine-coding-deepgent-final-goal",
   "relatedFiles": [],
-  "notes": "Reconciled on 2026-04-15: implemented and archived, but canonical handoff/roadmap still treat Stage 30-36 as reserve-only and not currently required for the MVP closeout path. Treat this as historical reserve work, not current mainline priority.",
+  "notes": "Reconciled on 2026-04-15: checkpoint evidence in the task PRD and canonical handoff/roadmap docs both show this historical stage is complete, so the task metadata was normalized for archive cleanup.",
   "meta": {}
 }

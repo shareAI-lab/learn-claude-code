@@ -39,6 +39,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "Reconciled on 2026-04-15: implemented and archived, but canonical handoff/roadmap still treat Stage 30-36 as reserve-only and not currently required for the MVP closeout path. Treat this as historical reserve work, not current mainline priority.",
   "meta": {}
 }

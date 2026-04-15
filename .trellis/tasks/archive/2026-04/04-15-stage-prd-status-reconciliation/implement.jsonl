@@ -1,0 +1,8 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md", "reason": "Canonical MVP boundary and Stage 30-36 reserve policy"}
+{"file": ".trellis/project-handoff.md", "reason": "Canonical current mainline status and latest stage-family completion claims"}
+{"file": ".trellis/spec/guides/trellis-doc-map-guide.md", "reason": "Task PRD vs archive ownership and canonical doc routing"}
+{"file": ".trellis/spec/backend/task-workflow-contracts.md", "reason": "Canonical task/plan/verifier contract coverage for Stage 17 classification"}
+{"file": ".trellis/spec/guides/staged-execution-guide.md", "reason": "Lean checkpoint discipline for this multi-stage reconciliation task"}
+{"file": ".trellis/spec/backend/runtime-context-compaction-contracts.md", "reason": "Canonical compact/session contract coverage for Stage 12-16 classification"}

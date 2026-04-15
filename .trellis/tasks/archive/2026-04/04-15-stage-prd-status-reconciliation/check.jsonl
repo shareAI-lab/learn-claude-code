@@ -1,0 +1,5 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/project-handoff.md", "reason": "Check final classifications against canonical current mainline status"}
+{"file": ".trellis/spec/guides/trellis-doc-map-guide.md", "reason": "Check archive decisions against Trellis task/archive ownership rules"}
+{"file": ".trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md", "reason": "Check final classifications against canonical MVP and reserve policy"}

@@ -1,0 +1,44 @@
+{
+  "id": "stage-prd-status-reconciliation",
+  "name": "stage-prd-status-reconciliation",
+  "title": "brainstorm: reconcile stage PRD status",
+  "description": "Use Trellis workflow to classify stage PRDs as completed, superseded, deferred, and perform the corresponding archive/cleanup actions based on canonical handoff, roadmap, and code evidence.",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "Trellis stage task/archive reconciliation for historical Stage 12A-17D and reserve-review of 30A/30B",
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-15",
+  "completedAt": "2026-04-15",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "Completed on 2026-04-15: reconciled active historical stage tasks with canonical handoff/roadmap docs, archived 12A-17D, and recorded reserve-policy notes for 30A/30B.",
+  "meta": {}
+}
