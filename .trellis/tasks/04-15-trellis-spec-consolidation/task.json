@@ -37,7 +37,6 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "04-15-trellis-custom-skill-migration",
     "04-15-trellis-docs-synthesis-interview",
     "04-15-trellis-docs-chinese-localization"
   ],
