@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
+- **Total Sessions**: 6
 - **Last Active**: 2026-04-15
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~261 | Active |
+| `journal-1.md` | ~293 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits |
 |---|------|-------|---------|
+| 6 | 2026-04-15 | Archive active Trellis tasks and validate Approach A MVP cleanup | `27690e4` |
 | 5 | 2026-04-15 | Trellis review fixes and rollback verification | `cb9f8fe`, `9141539` |
 | 4 | 2026-04-15 | Trellis consolidation and guide foundation | `7fffb8c`, `dbb8ae9`, `d6d0f0f`, `4ef12ca`, `4241062` |
 | 3 | 2026-04-15 | Runtime pressure management closeout | `5271b82`, `ee1322b`, `833325d` |

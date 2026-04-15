@@ -259,3 +259,35 @@ Implemented and validated coding-deepgent runtime context pressure loop: tool-re
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: Archive active Trellis tasks and validate Approach A MVP cleanup
+
+**Date**: 2026-04-15
+**Task**: Archive active Trellis tasks and validate Approach A MVP cleanup
+
+### Summary
+
+Archived all remaining active Trellis tasks, completed the release validation / PR cleanup task, clarified coding-deepgent release-facing docs around the stage-11 compatibility anchor versus Trellis live Stage 29 MVP status, and verified coding-deepgent with pytest, ruff, mypy, and contract regression checks.
+
+### Main Changes
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `27690e4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
