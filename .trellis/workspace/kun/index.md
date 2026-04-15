@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 4
+- **Total Sessions**: 5
 - **Last Active**: 2026-04-15
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~205 | Active |
+| `journal-1.md` | ~261 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits |
 |---|------|-------|---------|
+| 5 | 2026-04-15 | Trellis review fixes and rollback verification | `cb9f8fe`, `9141539` |
 | 4 | 2026-04-15 | Trellis consolidation and guide foundation | `7fffb8c`, `dbb8ae9`, `d6d0f0f`, `4ef12ca`, `4241062` |
 | 3 | 2026-04-15 | Runtime pressure management closeout | `5271b82`, `ee1322b`, `833325d` |
 | 2 | 2026-04-15 | Session memory contribution seams and local updates | `5958b9c`, `921cbfc`, `5e675c8`, `7d6bf7c`, `2cfcbcd` |

@@ -203,3 +203,59 @@ Implemented and validated coding-deepgent runtime context pressure loop: tool-re
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: Trellis review fixes and rollback verification
+
+**Date**: 2026-04-15
+**Task**: Trellis review fixes and rollback verification
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Area | Description |
+|------|-------------|
+| Rollback verification | Verified that prior Chinese localization rollback had restored high-value `guides/*` and `plans/*` to English content, then fixed the remaining broken local `.omx` links introduced by the rollback. |
+| Trellis review fixes | Repaired the main review findings in current Trellis docs: removed deleted reference-layer paths from backend index, restored `plans/index.md` as a real planning entrypoint, updated `master-plan-coding-deepgent-reconstructed.md` to point to surviving `.trellis/plans/...` evidence, and removed duplicate workspace-journal routing from the doc map. |
+| Session hygiene | Cleared a stale `.current-task` pointer that referenced an empty `04-15-trellis-plans-chinese-localization` directory so future sessions will not resume an invalid task context. |
+
+**Updated Files**:
+- `.trellis/spec/backend/index.md`
+- `.trellis/plans/index.md`
+- `.trellis/plans/master-plan-coding-deepgent-reconstructed.md`
+- `.trellis/spec/guides/trellis-doc-map-guide.md`
+- `.trellis/.current-task`
+
+**Verification**:
+- `python3 ./.trellis/scripts/check_trellis_links.py` passed
+- Reviewed current Trellis baseline for stale deleted-path references and navigation regressions
+
+**Status**:
+[OK] **Completed**
+
+**Next Steps**:
+- If needed, either delete or properly initialize `04-15-trellis-plans-chinese-localization` before using it again
+- Continue normal `coding-deepgent` work with the repaired Trellis entrypoints
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cb9f8fe` | (see git log) |
+| `9141539` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
