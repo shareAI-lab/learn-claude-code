@@ -1,5 +1,6 @@
 [English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
 
+<<<<<<< HEAD
 # Learn Claude Code
 
 A teaching repository for implementers who want to build a high-completion coding-agent harness from scratch.
@@ -23,6 +24,19 @@ This repo does not try to mirror every product detail from a production codebase
 The goal is simple:
 
 **understand the real design backbone well enough that you can rebuild it yourself.**
+=======
+## Agency Comes from the Model. An Agent Product = Model + Harness.
+
+Before we talk about code, let's get one thing straight.
+
+**Agency -- the ability to perceive, reason, and act -- comes from model training, not from external code orchestration.** But a working agent product needs both the model and the harness. The model is the driver, the harness is the vehicle. This repo teaches you how to build the vehicle.
+
+### Where Agency Comes From
+
+At the core of every agent is a neural network -- a Transformer, an RNN, a learned function -- that has been trained, through billions of gradient updates on action-sequence data, to perceive an environment, reason about goals, and take actions. Agency is never granted by the surrounding code. It is learned by the model during training.
+
+Humans are the best example. A biological neural network shaped by millions of years of evolutionary training, perceiving the world through senses, reasoning through a brain, acting through a body. When DeepMind, OpenAI, or Anthropic say "agent," the core of what they mean is always the same thing: **a model that has learned to act, plus the infrastructure that lets it operate in a specific environment.**
+>>>>>>> 4b95969a03f780e8aa17340a10ff0a6d9512a2c9
 
 ## What This Repo Is Really Teaching
 
@@ -44,10 +58,14 @@ That working environment is made of a few cooperating parts:
 
 This is the teaching promise of the repo:
 
+<<<<<<< HEAD
 - teach the mainline in a clean order
 - explain unfamiliar concepts before relying on them
 - stay close to real system structure
 - avoid drowning the learner in irrelevant product details
+=======
+Every one of these milestones points to the same fact: **agency -- the ability to perceive, reason, and act -- is trained, not coded.** But every agent also needed an environment to operate in: the Atari emulator, the Dota 2 client, the StarCraft II engine, the IDE and terminal. The model provides intelligence. The environment provides the action space. Together they form a complete agent.
+>>>>>>> 4b95969a03f780e8aa17340a10ff0a6d9512a2c9
 
 ## What This Repo Deliberately Does Not Teach
 
@@ -258,4 +276,58 @@ By the end of the repo, you should be able to answer these questions clearly:
 - what problem do permissions, hooks, memory, prompt assembly, and tasks each solve?
 - when should a single-agent system grow into tasks, teams, worktrees, and MCP?
 
+<<<<<<< HEAD
 If you can answer those questions clearly and build a similar system yourself, this repo has done its job.
+=======
+Skill & LSP support, Windows-ready, pluggable with GLM / MiniMax / DeepSeek and other open models. Install and go.
+
+GitHub: **[shareAI-lab/Kode-cli](https://github.com/shareAI-lab/Kode-cli)**
+
+### Kode Agent SDK -- Embed Agent Capabilities in Your App
+
+The official Claude Code Agent SDK communicates with a full CLI process under the hood -- each concurrent user means a separate terminal process. Kode SDK is a standalone library with no per-user process overhead, embeddable in backends, browser extensions, embedded devices, or any runtime.
+
+GitHub: **[shareAI-lab/Kode-agent-sdk](https://github.com/shareAI-lab/Kode-agent-sdk)**
+
+---
+
+## Sister Repo: from *on-demand sessions* to *always-on assistant*
+
+The harness this repo teaches is **use-and-discard** -- open a terminal, give the agent a task, close when done, next session starts blank. That is the Claude Code model.
+
+[OpenClaw](https://github.com/openclaw/openclaw) proved another possibility: on top of the same agent core, two harness mechanisms turn the agent from "poke it to make it move" into "it wakes up every 30 seconds to look for work":
+
+- **Heartbeat** -- every 30s the harness sends the agent a message to check if there is anything to do. Nothing? Go back to sleep. Something? Act immediately.
+- **Cron** -- the agent can schedule its own future tasks, executed automatically when the time comes.
+
+Add multi-channel IM routing (WhatsApp / Telegram / Slack / Discord, 13+ platforms), persistent context memory, and a Soul personality system, and the agent goes from a disposable tool to an always-on personal AI assistant.
+
+**[claw0](https://github.com/shareAI-lab/claw0)** is our companion teaching repo that deconstructs these harness mechanisms from scratch:
+
+```
+claw agent = agent core + heartbeat + cron + IM chat + memory + soul
+```
+
+```
+learn-claude-code                   claw0
+(agent harness core:                (proactive always-on harness:
+ loop, tools, planning,              heartbeat, cron, IM channels,
+ teams, worktree isolation)          memory, soul personality)
+```
+
+## About
+<img width="260" src="https://github.com/user-attachments/assets/fe8b852b-97da-4061-a467-9694906b5edf" /><br>
+
+Scan with WeChat to follow us,
+or follow on X: [shareAI-Lab](https://x.com/baicai003)
+
+## License
+
+MIT
+
+---
+
+**Agency comes from the model. The harness makes agency real. Build great harnesses. The model will do the rest.**
+
+**Bash is all you need. Real agents are all the universe needs.**
+>>>>>>> 4b95969a03f780e8aa17340a10ff0a6d9512a2c9

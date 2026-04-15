@@ -258,7 +258,7 @@ def agent_loop(state):
                 output = run_tool(block)
                 results.append({
                     "type": "tool_result",
-                    "tool_use_id": block.id,
+                    "tool_use_id": block.id,#并行工具调用的时候，防止工具返回的结果和发起的工具调用对应不上
                     "content": output,
                 })
 

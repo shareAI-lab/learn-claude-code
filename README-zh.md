@@ -2,6 +2,7 @@
 
 [English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
 
+<<<<<<< HEAD
 一个面向实现者的教学仓库：从零开始，手搓一个高完成度的 coding agent harness。
 
 这里教的不是“如何逐行模仿某个官方仓库”，而是“如何抓住真正决定 agent 能力的核心机制”，用清晰、渐进、可自己实现的方式，把一个类似 Claude Code 的系统从 0 做到能用、好用、可扩展。
@@ -14,6 +15,19 @@
 
 这个“工作环境”就是 `harness`。  
 对 coding agent 来说，harness 主要由这些部分组成：
+=======
+## Agency 来自模型，Agent 产品 = 模型 + Harness
+
+在讨论代码之前，先把一件事说清楚。
+
+**Agency -- 感知、推理、行动的能力 -- 来自模型训练，不是来自外部代码的编排。** 但一个能干活的 agent 产品，需要模型和 harness 缺一不可。模型是驾驶者，harness 是载具。本仓库教你造载具。
+
+### Agency 从哪来
+
+Agent 的核心是一个神经网络 -- Transformer、RNN、一个被训练出来的函数 -- 经过数十亿次梯度更新，在行动序列数据上学会了感知环境、推理目标、采取行动。Agency 这个东西从来不是外面那层代码赋予的，而是模型在训练中学到的。
+
+人类就是最好的例子。一个由数百万年进化训练出来的生物神经网络，通过感官感知世界，通过大脑推理，通过身体行动。当 DeepMind、OpenAI 或 Anthropic 说 "agent" 时，他们说的核心都是同一件事：**一个通过训练学会了行动的模型，加上让它能在特定环境中工作的基础设施。**
+>>>>>>> 4b95969a03f780e8aa17340a10ff0a6d9512a2c9
 
 - `Agent Loop`：不停地“向模型提问 -> 执行工具 -> 把结果喂回去”。
 - `Tools`：读文件、写文件、改文件、跑命令、搜索内容。
@@ -39,7 +53,11 @@
 - 为了历史兼容或产品集成而出现的大量边角判断
 - 只对某个特定内部运行环境有意义的命名或胶水代码
 
+<<<<<<< HEAD
 这不是偷懒，而是教学取舍。
+=======
+每一个里程碑都指向同一个事实：**Agency -- 那个感知、推理、行动的能力 -- 是训练出来的，不是编出来的。** 但每一个 agent 同时也需要一个环境才能工作：Atari 模拟器、Dota 2 客户端、星际争霸 II 引擎、IDE 和终端。模型提供智能，环境提供行动空间。两者合在一起才是一个完整的 agent。
+>>>>>>> 4b95969a03f780e8aa17340a10ff0a6d9512a2c9
 
 一个好的教学仓库，应该优先保证三件事：
 
@@ -353,4 +371,40 @@ learn-claude-code/
 
 ---
 
+<<<<<<< HEAD
 **这不是“照着源码抄”。这是“抓住真正关键的设计，然后自己做出来”。**
+=======
+## 姊妹教程: 从*被动临时会话*到*主动常驻助手*
+
+本仓库教的 harness 属于 **用完即走** 型 -- 开终端、给 agent 任务、做完关掉, 下次重开是全新会话。Claude Code 就是这种模式。
+
+但 [OpenClaw](https://github.com/openclaw/openclaw) 证明了另一种可能: 在同样的 agent core 之上, 加两个 harness 机制就能让 agent 从 "踹一下动一下" 变成 "自己隔 30 秒醒一次找活干":
+
+- **心跳 (Heartbeat)** -- 每 30 秒 harness 给 agent 发一条消息, 让它检查有没有事可做。没事就继续睡, 有事立刻行动。
+- **定时任务 (Cron)** -- agent 可以给自己安排未来要做的事, 到点自动执行。
+
+再加上 IM 多通道路由 (WhatsApp/Telegram/Slack/Discord 等 13+ 平台)、不清空的上下文记忆、Soul 人格系统, agent 就从一个临时工具变成了始终在线的个人 AI 助手。
+
+**[claw0](https://github.com/shareAI-lab/claw0)** 是我们的姊妹教学仓库, 从零拆解这些 harness 机制:
+
+```
+claw agent = agent core + heartbeat + cron + IM chat + memory + soul
+```
+
+```
+learn-claude-code                   claw0
+(agent harness 内核:                 (主动式常驻 harness:
+ 循环、工具、规划、                    心跳、定时任务、IM 通道、
+ 团队、worktree 隔离)                  记忆、Soul 人格)
+```
+
+## 许可证
+
+MIT
+
+---
+
+**Agency 来自模型。Harness 让 agency 落地。造好 Harness，模型会完成剩下的。**
+
+**Bash is all you need. Real agents are all the universe needs.**
+>>>>>>> 4b95969a03f780e8aa17340a10ff0a6d9512a2c9

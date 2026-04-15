@@ -1,5 +1,6 @@
 [English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
 
+<<<<<<< HEAD
 # Learn Claude Code
 
 高完成度の coding-agent harness を、0 から自分で実装できるようになるための教材リポジトリです。
@@ -12,6 +13,19 @@
 まず一文で言うと:
 
 **モデルが考え、harness がモデルに作業環境を与える。**
+=======
+## Agency はモデルから生まれる。Agent プロダクト = モデル + Harness
+
+コードの話をする前に、一つ明確にしておく。
+
+**Agency -- 知覚し、推論し、行動する能力 -- はモデルの訓練から生まれる。外部コードの編成からではない。** だが実際に動く Agent プロダクトには、モデルと Harness の両方が必要だ。モデルはドライバー、Harness は車。本リポジトリは車の作り方を教える。
+
+### Agency はどこから来るか
+
+Agent の核心にあるのはニューラルネットワークだ -- Transformer、RNN、学習された関数 -- 数十億回の勾配更新を経て、行動系列データの上で環境を知覚し、目標を推論し、行動を起こすことを学んだもの。Agency は周囲のコードから与えられるものではない。訓練を通じてモデルが獲得するものだ。
+
+人間が最もわかりやすい例だ。数百万年の進化的訓練によって形作られた生物的ニューラルネットワーク。感覚で世界を知覚し、脳で推論し、身体で行動する。DeepMind、OpenAI、Anthropic が "Agent" と言うとき、その核心は常に同じことを指している：**訓練によって行動を学んだモデルと、それを特定の環境で機能させるインフラの組み合わせ。**
+>>>>>>> 4b95969a03f780e8aa17340a10ff0a6d9512a2c9
 
 その作業環境を作る主な部品は次の通りです。
 
@@ -35,7 +49,11 @@
 
 実際の製品コードには、agent の本質とは直接関係しない細部も多くあります。
 
+<<<<<<< HEAD
 たとえば:
+=======
+すべてのマイルストーンが同じ事実を示している：**Agency -- 知覚し、推論し、行動する能力 -- は訓練によって獲得されるものであり、コードで組み立てるものではない。** しかし同時に、どの Agent も動作するための環境を必要とした：Atari エミュレータ、Dota 2 クライアント、StarCraft II エンジン、IDE とターミナル。モデルが知能を提供し、環境が行動空間を提供する。両方が揃って初めて完全な Agent となる。
+>>>>>>> 4b95969a03f780e8aa17340a10ff0a6d9512a2c9
 
 - パッケージングや配布の流れ
 - クロスプラットフォーム互換層
@@ -254,4 +272,52 @@ learn-claude-code/
 - permissions、hooks、memory、prompt、task がそれぞれ何を解決するのか
 - いつ単体 agent を tasks、teams、worktrees、MCP へ成長させるべきか
 
+<<<<<<< HEAD
 それを説明できて、自分で似たシステムを作れるなら、このリポジトリの目的は達成です。
+=======
+Skill & LSP 対応、Windows 対応、GLM / MiniMax / DeepSeek 等のオープンモデルに接続可能。インストールしてすぐ使える。
+
+GitHub: **[shareAI-lab/Kode-cli](https://github.com/shareAI-lab/Kode-cli)**
+
+### Kode Agent SDK -- アプリにエージェント機能を埋め込む
+
+公式 Claude Code Agent SDK は内部で完全な CLI プロセスと通信する -- 同時ユーザーごとに独立のターミナルプロセスが必要。Kode SDK は独立ライブラリでユーザーごとのプロセスオーバーヘッドがなく、バックエンド、ブラウザ拡張、組み込みデバイス等に埋め込み可能。
+
+GitHub: **[shareAI-lab/Kode-agent-sdk](https://github.com/shareAI-lab/Kode-agent-sdk)**
+
+---
+
+## 姉妹教材: *オンデマンドセッション*から*常時稼働アシスタント*へ
+
+本リポジトリが教える Harness は **使い捨て型** -- ターミナルを開き、Agent にタスクを与え、終わったら閉じる。次のセッションは白紙から始まる。Claude Code のモデル。
+
+[OpenClaw](https://github.com/openclaw/openclaw) は別の可能性を証明した: 同じ agent core の上に 2 つの Harness メカニズムを追加するだけで、Agent は「突かないと動かない」から「30 秒ごとに自分で起きて仕事を探す」に変わる:
+
+- **ハートビート** -- 30 秒ごとに Harness が Agent にメッセージを送り、やることがあるか確認させる。なければスリープ続行、あれば即座に行動。
+- **Cron** -- Agent が自ら未来のタスクをスケジュールし、時間が来たら自動実行。
+
+さらにマルチチャネル IM ルーティング (WhatsApp / Telegram / Slack / Discord 等 13+ プラットフォーム)、永続コンテキストメモリ、Soul パーソナリティシステムを加えると、Agent は使い捨てツールから常時稼働のパーソナル AI アシスタントへ変貌する。
+
+**[claw0](https://github.com/shareAI-lab/claw0)** はこれらの Harness メカニズムをゼロから分解する姉妹教材リポジトリ:
+
+```
+claw agent = agent core + heartbeat + cron + IM chat + memory + soul
+```
+
+```
+learn-claude-code                   claw0
+(agent harness コア:                 (能動的な常時稼働 harness:
+ ループ、ツール、計画、                ハートビート、cron、IM チャネル、
+ チーム、worktree 分離)                メモリ、Soul パーソナリティ)
+```
+
+## ライセンス
+
+MIT
+
+---
+
+**Agency はモデルから生まれる。Harness が Agency を現実にする。優れた Harness を作れ。モデルが残りをやる。**
+
+**Bash is all you need. Real agents are all the universe needs.**
+>>>>>>> 4b95969a03f780e8aa17340a10ff0a6d9512a2c9

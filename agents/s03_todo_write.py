@@ -29,7 +29,17 @@ PLAN_REMINDER_INTERVAL = 3
 SYSTEM = f"""You are a coding agent at {WORKDIR}.
 Use the todo tool for multi-step work.
 Keep exactly one step in_progress when a task has multiple steps.
-Refresh the plan as work advances. Prefer tools over prose."""
+Refresh the plan as work advances. Prefer tools over prose.
+
+<CRITICAL_RULE>
+MAXIMUM 2 TOOLS PER TURN!
+You are STRICTLY FORBIDDEN from using more than TWO tools in a single response.
+If you need to execute 3 actions, you MUST only execute 2, WAIT for the user to return the results, and then execute the 3rd.
+Violating this rule will cause a fatal API crash.
+</CRITICAL_RULE>
+"""
+
+
 
 
 @dataclass
