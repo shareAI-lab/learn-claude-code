@@ -33,6 +33,9 @@ class ToolCapability:
     execution: str = "plain_tool"
     exposure: str = "main"
     tags: tuple[str, ...] = field(default_factory=tuple)
+    persist_large_output: bool = False
+    max_inline_result_chars: int | None = None
+    microcompact_eligible: bool = False
 
 
 class CapabilityRegistry:
@@ -170,6 +173,9 @@ def build_builtin_capabilities(
             mutation="workspace_write",
             execution="plain_tool",
             tags=("shell", "workspace"),
+            persist_large_output=True,
+            max_inline_result_chars=4000,
+            microcompact_eligible=True,
         ),
         ToolCapability(
             name="read_file",
@@ -182,6 +188,9 @@ def build_builtin_capabilities(
             mutation="read",
             execution="plain_tool",
             tags=("read", "workspace"),
+            persist_large_output=True,
+            max_inline_result_chars=4000,
+            microcompact_eligible=True,
         ),
         ToolCapability(
             name="write_file",
@@ -234,6 +243,9 @@ def build_builtin_capabilities(
                 execution="plain_tool",
                 exposure="child_only",
                 tags=("discovery", "workspace"),
+                persist_large_output=True,
+                max_inline_result_chars=4000,
+                microcompact_eligible=True,
             )
         )
     if "grep" in tool_by_name:
@@ -250,6 +262,9 @@ def build_builtin_capabilities(
                 execution="plain_tool",
                 exposure="child_only",
                 tags=("discovery", "workspace"),
+                persist_large_output=True,
+                max_inline_result_chars=4000,
+                microcompact_eligible=True,
             )
         )
     if "save_memory" in tool_by_name:

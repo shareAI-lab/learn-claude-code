@@ -120,4 +120,9 @@ Use this template when recording sessions:
 
 ---
 
-**Language**: All documentation must be written in **English**.
+## Language Convention
+
+- Journal summaries, handoff notes, and other narrative prose may be written in **Simplified Chinese**.
+- Keep commands, file paths, file names, task names, commit hashes, code identifiers, and JSON/YAML keys in **English**.
+- Keep structured status values such as `Completed`, `In Progress`, and `Blocked` in **English** for consistency.
+- Keep English keywords in headings or checklist items when they are used for search or automation.

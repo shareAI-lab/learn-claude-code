@@ -1,12 +1,19 @@
 # Frontend Development Guidelines
 
-> Best practices for frontend development in this project.
+> Frontend guidance status for this repository.
 
 ---
 
-## Overview
+## Current Status
 
-This directory contains guidelines for frontend development. Fill in each file with your project's specific conventions.
+The current working mainline is `coding-deepgent/`, which is a Python
+LangChain/LangGraph product surface.
+
+Frontend/web assets are reference-only by default unless a task explicitly
+targets them. Do not treat `web/` or tutorial UI code as the current product
+implementation target.
+
+This directory is retained as a placeholder for future frontend-mainline work.
 
 ---
 
@@ -14,26 +21,28 @@ This directory contains guidelines for frontend development. Fill in each file w
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | App, page, component, and hook organization | To fill |
-| [Component Guidelines](./component-guidelines.md) | Component patterns, props, and composition | To fill |
-| [Hook Guidelines](./hook-guidelines.md) | Custom hook naming, dependencies, and side effects | To fill |
-| [State Management](./state-management.md) | Local, shared, server, and derived state patterns | To fill |
-| [Type Safety](./type-safety.md) | TypeScript conventions and type organization | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Testing, accessibility, linting, and review expectations | To fill |
+| [Directory Structure](./directory-structure.md) | App, page, component, and hook organization | Deferred |
+| [Component Guidelines](./component-guidelines.md) | Component patterns, props, and composition | Deferred |
+| [Hook Guidelines](./hook-guidelines.md) | Custom hook naming, dependencies, and side effects | Deferred |
+| [State Management](./state-management.md) | Local, shared, server, and derived state patterns | Deferred |
+| [Type Safety](./type-safety.md) | TypeScript conventions and type organization | Deferred |
+| [Quality Guidelines](./quality-guidelines.md) | Testing, accessibility, linting, and review expectations | Deferred |
 
 ---
 
-## How to Fill These Guidelines
+## Reactivation Rule
 
-For each guideline file:
+Only fill these frontend specs when:
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
+1. a task explicitly targets frontend/web product work, and
+2. the target is no longer reference-only, and
+3. the spec can be filled from actual code conventions rather than ideals.
 
 ---
 
-**Language**: All documentation should be written in **English**.
+## Language Convention
+
+- Narrative prose may be written in **Simplified Chinese**.
+- Keep commands, file paths, file names, task slugs, branch names, code identifiers, and JSON/YAML keys in **English**.
+- Keep checklist keywords and structured status values in **English** when they are used for search, automation, or coordination.
+- When introducing project-specific terms, prefer Chinese explanations with the original English term kept where precision matters.

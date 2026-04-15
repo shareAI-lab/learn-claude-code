@@ -7,7 +7,7 @@ Redefine the long-term final goal of `coding-deepgent` after partial plan loss, 
 ## What I already know
 
 * The user wants the final project goal to be: use LangChain to implement the essence of cc, specifically guided by `cc-haha` alignment.
-* The user explicitly wants LangChain-first implementation choices and long-term adherence to `langchain-architecture-guard`.
+* The user explicitly wants LangChain-first implementation choices and long-term adherence to Trellis LangChain-native implementation guidelines.
 * The user wants a professional large-project codebase, not a demo.
 * The user accepts complex architecture when it improves clarity.
 * The architecture preferences are: modularity, open-closed principle, maintainability, and clear concise code.
@@ -102,13 +102,13 @@ Redefine the long-term final goal of `coding-deepgent` after partial plan loss, 
   - `coding-deepgent/README.md`
   - `coding-deepgent/PROJECT_PROGRESS.md`
   - `coding-deepgent/project_status.json`
-  - `coding-deepgent/docs/cc-alignment-roadmap.md`
 * Recovered planning docs:
   - `.omx/plans/prd-coding-deepgent-runtime-foundation.md`
   - `.omx/plans/test-spec-coding-deepgent-runtime-foundation.md`
   - `.omx/plans/master-plan-coding-deepgent-reconstructed.md`
   - `.omx/plans/coding-deepgent-cc-core-highlights-roadmap.md`
   - `.omx/plans/coding-deepgent-h01-h10-target-design.md`
+  - `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
 * Existing prompt surface already encodes product intent:
   - `coding_deepgent.prompting.builder.build_default_system_prompt()`
   - “independent cumulative LangChain cc product agent”

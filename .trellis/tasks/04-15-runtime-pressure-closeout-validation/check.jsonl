@@ -1,0 +1,4 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/spec/backend/runtime-context-compaction-contracts.md", "reason": "Verify compact/runtime/evidence contracts after closeout."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Check domain boundaries and focused validation discipline."}

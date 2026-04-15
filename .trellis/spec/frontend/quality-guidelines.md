@@ -1,6 +1,16 @@
 # Frontend Quality Guidelines
 
-Document the quality bar for frontend changes in this project.
+Status: `Deferred`
+
+Current mainline is `coding-deepgent/`, not frontend/web product work.
+
+Only activate this spec when frontend/web becomes a product target.
+
+## Activation Requirements
+
+- User explicitly requests frontend/web product work.
+- The relevant package scripts and checks are identified.
+- Quality expectations are based on product needs, not tutorial/reference UI.
 
 ## What to Capture
 

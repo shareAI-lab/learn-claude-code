@@ -1,0 +1,5 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "verify migrated structure guidance matches current coding-deepgent layout"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "verify review checklist and quality rules are canonical after cleanup"}
+{"file": ".trellis/spec/guides/mainline-scope-guide.md", "reason": "verify deleted tutorial assets are outside mainline contract"}

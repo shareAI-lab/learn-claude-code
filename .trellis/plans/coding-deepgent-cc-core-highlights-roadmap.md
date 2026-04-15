@@ -212,7 +212,7 @@ For any future implementation request:
 2. Read the listed cc-haha source files, not just the docs.
 3. Produce a function summary and expected-effect statement.
 4. Produce a source-backed alignment matrix.
-5. Apply `langchain-architecture-guard` to choose the smallest official LangChain/LangGraph shape.
+5. Apply `.trellis/spec/backend/langchain-native-guidelines.md` to choose the smallest official LangChain/LangGraph shape.
 6. Implement only the rows whose local benefit is concrete.
 7. Update product docs/tests with evidence.
 

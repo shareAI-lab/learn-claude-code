@@ -8,6 +8,7 @@ from langchain.messages import ToolMessage
 from langchain.tools.tool_node import ToolCallRequest
 from langgraph.types import Command
 
+from coding_deepgent.compact import maybe_persist_large_tool_result
 from coding_deepgent.hooks.dispatcher import dispatch_context_hook
 from coding_deepgent.hooks.events import HookEventName
 from coding_deepgent.runtime import RuntimeEvent
@@ -79,6 +80,7 @@ class ToolGuardMiddleware(AgentMiddleware):
 
         self._emit(request=request, phase="allowed", decision=decision)
         result = handler(request)
+        result = self._process_tool_result(request=request, result=result)
         self._emit(
             request=request,
             phase="completed",
@@ -137,6 +139,29 @@ class ToolGuardMiddleware(AgentMiddleware):
             event=event,
             data=data,
         )
+
+    def _process_tool_result(
+        self,
+        *,
+        request: ToolCallRequest,
+        result: ToolMessage | Command[Any],
+    ) -> ToolMessage | Command[Any]:
+        if not isinstance(result, ToolMessage):
+            return result
+        capability = self.registry.get(str(request.tool_call["name"]))
+        if capability is None or not capability.persist_large_output:
+            return result
+        context = getattr(request.runtime, "context", None)
+        if context is None:
+            return result
+        try:
+            return maybe_persist_large_tool_result(
+                result,
+                runtime_context=context,
+                max_inline_chars=capability.max_inline_result_chars,
+            )
+        except OSError:
+            return result
 
 
 def _runtime_event_sink(runtime: object) -> object | None:

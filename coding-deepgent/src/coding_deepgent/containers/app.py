@@ -6,6 +6,7 @@ from dependency_injector import containers, providers
 from langchain.agents import create_agent as langchain_create_agent
 
 from coding_deepgent import agent_service
+from coding_deepgent.compact import RuntimePressureMiddleware
 from coding_deepgent import extensions_service
 from coding_deepgent.memory import MemoryContextMiddleware
 from coding_deepgent.settings import build_openai_model, load_settings
@@ -77,10 +78,21 @@ class AppContainer(containers.DeclarativeContainer):
     memory_middleware_list: Any = providers.Callable(
         agent_service.singleton_list, memory_middleware
     )
+    runtime_pressure_middleware: Any = providers.Factory(
+        RuntimePressureMiddleware,
+        registry=tool_system.capability_registry,
+        keep_recent_tool_results=settings.provided.keep_recent_tool_results,
+        auto_compact_threshold_tokens=settings.provided.auto_compact_threshold_tokens,
+        keep_recent_messages=settings.provided.keep_recent_messages_after_compact,
+    )
+    runtime_pressure_middleware_list: Any = providers.Callable(
+        agent_service.singleton_list, runtime_pressure_middleware
+    )
     middleware: Any = providers.Callable(
         agent_service.combine_middleware,
         todo.middleware_list,
         memory_middleware_list,
+        runtime_pressure_middleware_list,
         tool_system.middleware_list,
     )
     agent: Any = providers.Factory(

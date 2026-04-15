@@ -2,6 +2,17 @@
 
 # Learn Claude Code
 
+## 現在の協調入口
+
+現在このリポジトリで実装作業を進める場合の主線は次の通りです。
+
+- 製品主線: `coding-deepgent/`
+- 仕様と協調の正規入口: `.trellis/`
+
+`agents/`、`agents_deepagents/`、`docs/`、`web/`、`skills/`、および
+ルートの教材テストは既定では reference-only であり、現行製品の実装目標
+ではありません。
+
 高完成度の coding-agent harness を、0 から自分で実装できるようになるための教材リポジトリです。
 
 このリポジトリの目的は、実運用コードの細部を逐一なぞることではありません。  
@@ -256,7 +267,6 @@ learn-claude-code/
 ├── docs/zh/             # 中国語の主線文書
 ├── docs/en/             # 英語文書
 ├── docs/ja/             # 日本語文書
-├── skills/              # s05 で使う skill ファイル
 ├── web/                 # Web 教学プラットフォーム
 └── requirements.txt
 ```

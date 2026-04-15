@@ -122,6 +122,41 @@ def test_tool_guard_preserves_allowed_handler_return_values_and_events() -> None
     assert [event.kind for event in sink.snapshot()] == ["allowed", "completed"]
 
 
+def test_tool_guard_persists_large_tool_output_for_eligible_tools(tmp_path: Path) -> None:
+    registry = canonical_registry()
+    sink = InMemoryEventSink()
+    middleware = ToolGuardMiddleware(
+        registry=registry,
+        policy=ToolPolicy(
+            registry=registry,
+            permission_manager=PermissionManager(mode="default", workdir=tmp_path),
+        ),
+        event_sink=sink,
+    )
+    req = request("read_file", {"path": "README.md"}, sink)
+    req.runtime.context = RuntimeContext(
+        session_id="session-1",
+        workdir=tmp_path,
+        trusted_workdirs=(),
+        entrypoint="test",
+        agent_name="test-agent",
+        skill_dir=tmp_path / "skills",
+        event_sink=sink,
+        hook_registry=LocalHookRegistry(),
+    )
+
+    result = middleware.wrap_tool_call(
+        req,
+        lambda _request: ToolMessage(content="x" * 5000, tool_call_id="call-1"),
+    )
+
+    assert isinstance(result, ToolMessage)
+    assert ".coding-deepgent/tool-results/session-1/call-1.txt" in str(result.content)
+    stored = tmp_path / ".coding-deepgent" / "tool-results" / "session-1" / "call-1.txt"
+    assert stored.exists()
+    assert stored.read_text(encoding="utf-8") == "x" * 5000
+
+
 def test_tool_guard_blocks_ask_decisions_without_calling_handler() -> None:
     registry = canonical_registry()
     policy = ToolPolicy(

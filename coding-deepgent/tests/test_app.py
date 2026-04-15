@@ -13,6 +13,7 @@ from coding_deepgent.containers import AppContainer
 from coding_deepgent.hooks import HookPayload, HookResult, LocalHookRegistry
 from coding_deepgent.memory import MemoryContextMiddleware
 from coding_deepgent.middleware import PlanContextMiddleware
+from coding_deepgent.compact import RuntimePressureMiddleware
 from coding_deepgent.runtime import (
     InMemoryEventSink,
     RuntimeContext,
@@ -89,10 +90,11 @@ def test_build_agent_binds_todowrite_product_tools(monkeypatch) -> None:
     assert agent is not None
     assert captured["state_schema"] is RuntimeState
     middleware = cast(Sequence[object], captured["middleware"])
-    assert len(middleware) == 3
+    assert len(middleware) == 4
     assert isinstance(middleware[0], PlanContextMiddleware)
     assert isinstance(middleware[1], MemoryContextMiddleware)
-    assert isinstance(middleware[2], ToolGuardMiddleware)
+    assert isinstance(middleware[2], RuntimePressureMiddleware)
+    assert isinstance(middleware[3], ToolGuardMiddleware)
     tool_names = [
         getattr(tool, "name", getattr(tool, "__name__", ""))
         for tool in cast(Iterable[object], captured["tools"])
@@ -102,6 +104,37 @@ def test_build_agent_binds_todowrite_product_tools(monkeypatch) -> None:
     assert "explicit progress tracking helps on multi-step work" in system_prompt
     assert "activeForm for every todo" in system_prompt
     assert "write_plan" not in system_prompt
+
+
+def test_build_agent_wires_runtime_pressure_settings(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_create_agent(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(app, "build_openai_model", lambda: object())
+    monkeypatch.setattr(app, "create_agent", fake_create_agent)
+    container = AppContainer(
+        settings=providers.Object(
+            Settings(
+                auto_compact_threshold_tokens=1234,
+                keep_recent_tool_results=5,
+                keep_recent_messages_after_compact=6,
+            )
+        ),
+        model=providers.Object(object()),
+        create_agent_factory=providers.Object(fake_create_agent),
+    )
+
+    agent = app.build_agent(container=container)
+
+    assert agent is not None
+    middleware = cast(Sequence[object], captured["middleware"])
+    runtime_pressure = cast(RuntimePressureMiddleware, middleware[2])
+    assert runtime_pressure.auto_compact_threshold_tokens == 1234
+    assert runtime_pressure.keep_recent_tool_results == 5
+    assert runtime_pressure.keep_recent_messages == 6
 
 
 def test_agent_loop_roundtrips_todo_state(monkeypatch) -> None:

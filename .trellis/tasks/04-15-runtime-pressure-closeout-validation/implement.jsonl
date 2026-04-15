@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+dence integration."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Keep runtime, sessions, compact, evidence, and settings boundaries coherent during the closeout pass."}

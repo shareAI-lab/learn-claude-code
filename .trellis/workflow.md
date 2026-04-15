@@ -87,6 +87,23 @@ cat .trellis/spec/frontend/type-safety.md          # For types
 cat .trellis/spec/backend/database-guidelines.md   # For DB operations
 cat .trellis/spec/backend/type-safety.md           # For types
 cat .trellis/spec/backend/logging-guidelines.md    # For logging
+cat .trellis/spec/backend/langchain-native-guidelines.md  # For LangChain/LangGraph work
+```
+
+**cc-haha Alignment Task**:
+```bash
+cat .trellis/spec/guides/cc-alignment-guide.md
+```
+
+**Staged / Multi-Checkpoint Work**:
+```bash
+cat .trellis/spec/guides/staged-execution-guide.md
+```
+
+**Filling Trellis Specs By Interview**:
+```bash
+cat .trellis/spec/guides/trellis-doc-map-guide.md
+cat .trellis/spec/guides/interview-driven-spec-expansion-guide.md
 ```
 
 ---
@@ -100,6 +117,13 @@ cat .trellis/spec/backend/logging-guidelines.md    # For logging
 3. **Incremental Development** - Complete one task at a time
 4. **Record Promptly** - Update tracking files immediately after completion
 5. **Document Limits** - [!] **Max 2000 lines per journal document**
+
+### Documentation Language Convention
+
+- Narrative prose in Trellis docs may be written in **Simplified Chinese**.
+- Keep commands, file paths, file names, task slugs, branch names, code identifiers, and JSON/YAML keys in **English**.
+- Keep structured status values and checklist keywords in **English** when they are used for search, automation, or coordination.
+- When precision matters, write the Chinese explanation first and retain the original English term alongside it.
 
 ### File System
 
@@ -162,6 +186,23 @@ python3 ./.trellis/scripts/get_context.py
 python3 ./.trellis/scripts/get_context.py --json
 ```
 
+### Step 1A: Minimal Mainline Resume
+
+When resuming the `coding-deepgent` mainline and you want the cheapest safe
+resume path, read:
+
+```bash
+cat .trellis/project-handoff.md
+```
+
+Then refresh only lightweight live state:
+
+```bash
+git branch --show-current
+git status -sb
+gh pr view 220 --repo shareAI-lab/learn-claude-code --json number,title,url,isDraft,headRefName,baseRefName
+```
+
 ### Step 2: Read Development Guidelines [!] REQUIRED
 
 **[!] CRITICAL: MUST read guidelines before writing any code**
@@ -211,6 +252,9 @@ python3 ./.trellis/scripts/task.py create "<title>" --slug <task-name>
 2. Write code according to guidelines
    --> Read .trellis/spec/ docs relevant to your task
    --> For cross-layer: read .trellis/spec/guides/
+   --> For cc-haha-targeted behavior: read .trellis/spec/guides/cc-alignment-guide.md
+   --> For staged work: read .trellis/spec/guides/staged-execution-guide.md
+   --> For missing project conventions: read .trellis/spec/guides/interview-driven-spec-expansion-guide.md
 
 3. Self-test
    --> Run project's lint/test commands (see spec docs)
@@ -225,6 +269,25 @@ python3 ./.trellis/scripts/task.py create "<title>" --slug <task-name>
    --> python3 ./.trellis/scripts/add_session.py --title "Title" --commit "hash"
 ```
 
+### Task Archive Policy
+
+Archive a Trellis task after the work is actually complete:
+
+- code/docs changes are tested as appropriate
+- acceptance criteria are met
+- the human has committed the work, or the task is explicitly docs/planning-only and complete
+
+Do not keep a task active only because `task.json` still says `planning` or
+`in_progress`.
+
+Use:
+
+```bash
+python3 ./.trellis/scripts/task.py archive <task-name>
+```
+
+For completed sessions, preserve the result with `$record-session`.
+
 ### Code Quality Checklist
 
 **Must pass before commit**:
@@ -235,6 +298,70 @@ python3 ./.trellis/scripts/task.py create "<title>" --slug <task-name>
 **Project-specific checks**:
 - See `.trellis/spec/frontend/quality-guidelines.md` for frontend
 - See `.trellis/spec/backend/quality-guidelines.md` for backend
+
+### Staged Work Protocol
+
+For staged product work, Trellis should own the protocol directly:
+
+- default to `lean` mode unless the user explicitly asks for a broader long-run pass
+- for high-value, strongly coupled feature families with a clear boundary,
+  prefer one integrated delivery pass with internal checkpoints rather than
+  artificially tiny visible increments
+- use sub-stage states:
+  - `planning`
+  - `implementing`
+  - `verifying`
+  - `checkpoint`
+  - `terminal`
+- after every sub-stage, choose exactly one checkpoint decision:
+  - `continue`
+  - `adjust`
+  - `split`
+  - `stop`
+- if the decision is `continue`, move to the next sub-stage immediately
+- in `lean` mode, keep validation focused unless cross-cutting risk requires more
+- only split or stop a strongly coupled feature family when a real blocker,
+  boundary change, or verification failure appears
+
+Read `.trellis/spec/guides/staged-execution-guide.md` for the full checkpoint template and stop conditions.
+
+### Interview-Driven Spec Expansion
+
+When Trellis docs need missing project knowledge:
+
+1. Read `.trellis/spec/guides/trellis-doc-map-guide.md`.
+2. Read `.trellis/spec/guides/interview-driven-spec-expansion-guide.md`.
+3. Derive what can be learned from code, tests, PRDs, and current specs first.
+4. Choose the owning Trellis document before asking.
+5. Ask one targeted maintainer question.
+6. Write the answer into the owning document immediately.
+7. Record the interview note in the active task PRD.
+
+Do not collect a broad chat transcript and reorganize it later.
+
+Active task PRDs are the working record for requirements, interviews,
+checkpoints, and verification while work is in progress. Workspace journals are
+the completed-session record after human testing/commit via `record-session`.
+
+If the maintainer delegates future low-risk process choices to the agent,
+proceed with the documented recommended/default option. Still stop for
+irreversible deletion, major product direction changes, or unclear ownership.
+
+### Spec Update Trigger
+
+Update `.trellis/spec/*` only when a change creates or changes a reusable
+implementation contract, such as:
+
+- tool schema / command / API shape
+- runtime state fields or payload formats
+- module ownership or boundary
+- validation / error behavior
+- test requirements or verification matrix
+- cross-layer transformation
+- recurring mistake that should become a rule
+
+Do not update specs for ordinary implementation details that do not affect
+future implementation or review.
 
 ---
 
@@ -373,8 +500,11 @@ python3 ./.trellis/scripts/task.py list-archive    # List archived tasks
 | Task Type | Must-read Document |
 |-----------|-------------------|
 | Frontend work | `frontend/index.md` → relevant docs |
-| Backend work | `backend/index.md` → relevant docs |
+| Backend work | `backend/index.md` → relevant docs, plus `backend/langchain-native-guidelines.md` when LangChain/LangGraph surfaces change |
 | Cross-Layer Feature | `guides/cross-layer-thinking-guide.md` |
+| cc-haha-aligned work | `guides/cc-alignment-guide.md` |
+| Staged / checkpointed execution | `guides/staged-execution-guide.md` |
+| Interview-driven spec expansion | `guides/trellis-doc-map-guide.md` → `guides/interview-driven-spec-expansion-guide.md` |
 
 ### Commit Convention
 

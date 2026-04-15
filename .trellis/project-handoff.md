@@ -13,6 +13,44 @@ Canonical goal/backlog docs:
 * `.trellis/tasks/04-14-redefine-coding-deepgent-final-goal/prd.md`
 * `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
 
+## Minimal Resume Procedure
+
+Use this file as the canonical Trellis replacement for the old
+`project-handoff` skill.
+
+When starting a new `coding-deepgent` session, do this in order:
+
+1. Read this file.
+2. Read only these canonical docs:
+   * `.trellis/tasks/04-14-redefine-coding-deepgent-final-goal/prd.md`
+   * `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+   * `coding-deepgent/PROJECT_PROGRESS.md`
+   * `.trellis/spec/backend/runtime-context-compaction-contracts.md`
+   * `.trellis/spec/backend/task-workflow-contracts.md`
+3. Refresh live state only with:
+   * `git branch --show-current`
+   * `git status -sb`
+   * `gh pr view 220 --repo shareAI-lab/learn-claude-code --json number,title,url,isDraft,headRefName,baseRefName`
+4. Read latest stage PRDs only if a real ambiguity remains.
+
+## Update Policy
+
+Update this handoff only when mainline resume context materially changes.
+
+Update it when:
+
+* current mainline stage family changes
+* canonical roadmap/dashboard status changes
+* latest verified state changes
+* next recommended task changes
+* a new cross-session product requirement becomes canonical
+* the minimal resume reading order changes
+
+Do not update it for ordinary daily progress, minor implementation notes, or
+session summaries. Those belong in workspace journals via `record-session`.
+
+This file is a compact resume entrypoint, not a full project history.
+
 ## Current Mainline
 
 Current mainline has focused on:
@@ -171,6 +209,16 @@ Interpretation for current planning:
 * future stages should prefer durable memory/evidence/session mechanisms that improve cross-session continuity
 * stage proposals must say explicitly whether they advance cross-session memory directly, indirectly, or not at all
 
+Delivery preference for current planning:
+
+* for high-value, strongly coupled feature families with a clear boundary,
+  prefer one integrated optimization pass over artificially tiny visible
+  increments
+* keep internal checkpoints and evidence, but do not present work as
+  "toothpaste squeezing" when the family can be completed safely in one run
+* only split the family when a real safety, architecture, or verification
+  blocker appears
+
 ## Resume Strategy
 
 When starting a new session:
@@ -191,9 +239,12 @@ When starting a new session:
 
 ## Cost Control
 
-Default to `stage-iterate` lean mode:
+Default to Trellis `lean` staged-execution mode:
 
 * auto-progress sub-stages
 * avoid large re-reads unless a real ambiguity appears
 * prefer focused tests
 * avoid broad docs/git/PR work unless explicitly requested
+
+For the checkpoint state machine and `continue / adjust / split / stop`
+discipline, use `.trellis/spec/guides/staged-execution-guide.md`.

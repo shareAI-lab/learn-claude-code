@@ -2,6 +2,15 @@
 
 # Learn Claude Code
 
+## Current Contributor Note
+
+For active development work in this repository, the current mainline is
+`coding-deepgent/` and the canonical coordination/spec layer is `.trellis/`.
+
+The outer teaching/reference layer, including `agents/`, `agents_deepagents/`,
+`docs/`, `web/`, `skills/`, and root tutorial tests, is reference-only by
+default and may lag behind or be pruned as product work evolves.
+
 A teaching repository for implementers who want to build a high-completion coding-agent harness from scratch.
 
 This repo does not try to mirror every product detail from a production codebase. It focuses on the mechanisms that actually decide whether an agent can work well:
@@ -269,7 +278,6 @@ learn-claude-code/
 ├── docs/zh/             # Chinese mainline docs
 ├── docs/en/             # English docs
 ├── docs/ja/             # Japanese docs
-├── skills/              # skill files used in s05
 ├── web/                 # web teaching platform
 └── requirements.txt
 ```

@@ -1,6 +1,17 @@
 # Frontend Directory Structure
 
-Document how frontend code is organized in this project.
+Status: `Deferred`
+
+Current mainline is `coding-deepgent/`, not frontend/web product work.
+
+Only activate this spec when a task explicitly makes frontend/web a product
+target. Until then, treat `web/` as reference-only.
+
+## Activation Requirements
+
+- User explicitly requests frontend/web product work.
+- The task identifies the frontend app or package that becomes mainline.
+- Examples are extracted from actual current code, not ideals.
 
 ## What to Capture
 

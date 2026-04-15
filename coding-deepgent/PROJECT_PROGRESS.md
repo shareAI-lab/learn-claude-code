@@ -1,5 +1,15 @@
 # coding-deepgent progress
 
+## Canonical Coordination Note
+
+This file is a product status ledger.
+
+Canonical live coordination, specs, and implementation contracts now belong in:
+
+- `../.trellis/project-handoff.md`
+- `../.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+- `../.trellis/spec/backend/*.md`
+
 ## Current product stage
 
 - `current_product_stage`: `stage-11-mcp-plugin-real-loading`

@@ -12,6 +12,7 @@ from .session_memory import (
     recovery_brief_contribution,
     runtime_state_contribution,
 )
+from .runtime_pressure import recovery_brief_contribution as runtime_pressure_recovery_brief_contribution
 
 RUNTIME_STATE_CONTRIBUTIONS: tuple[RuntimeStateContribution, ...] = (
     runtime_state_contribution(),
@@ -19,6 +20,7 @@ RUNTIME_STATE_CONTRIBUTIONS: tuple[RuntimeStateContribution, ...] = (
 
 RECOVERY_BRIEF_CONTRIBUTIONS: tuple[RecoveryBriefContribution, ...] = (
     recovery_brief_contribution(),
+    runtime_pressure_recovery_brief_contribution(),
 )
 
 COMPACT_ASSIST_CONTRIBUTIONS: tuple[CompactAssistContribution, ...] = (

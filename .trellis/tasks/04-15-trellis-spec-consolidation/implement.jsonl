@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "target backend structure doc to replace coding-deepgent doc duplication"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "target review and quality norms to replace coding-deepgent review checklist"}
+{"file": ".trellis/spec/guides/mainline-scope-guide.md", "reason": "mainline-vs-reference scope boundary for cleanup decisions"}

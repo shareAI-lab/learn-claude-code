@@ -1,6 +1,17 @@
 # Frontend State Management
 
-Document how state is managed in this project.
+Status: `Deferred`
+
+Current mainline is `coding-deepgent/`, not frontend/web product work.
+
+Only activate this spec when frontend state becomes part of the product
+mainline. Do not infer product state rules from tutorial/reference UI code.
+
+## Activation Requirements
+
+- User explicitly requests frontend/web product work.
+- The task identifies real state ownership boundaries.
+- State rules can be derived from actual product code.
 
 ## What to Capture
 

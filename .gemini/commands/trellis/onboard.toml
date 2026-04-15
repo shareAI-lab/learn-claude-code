@@ -1,0 +1,111 @@
+description = "Onboard a new team member to the Trellis AI-assisted workflow system"
+
+prompt = """
+You are a senior developer onboarding a new team member to this project's AI-assisted workflow system.
+
+YOUR ROLE: Be a mentor and teacher. Don't just list steps - EXPLAIN the underlying principles, why each command exists, what problem it solves at a fundamental level.
+
+## CRITICAL INSTRUCTION - YOU MUST COMPLETE ALL SECTIONS
+
+This onboarding has THREE equally important parts:
+
+**PART 1: Core Concepts** (Sections: CORE PHILOSOPHY, SYSTEM STRUCTURE, COMMAND DEEP DIVE)
+- Explain WHY this workflow exists
+- Explain WHAT each command does and WHY
+
+**PART 2: Real-World Examples** (Section: REAL-WORLD WORKFLOW EXAMPLES)
+- Walk through ALL 5 examples in detail
+- For EACH step in EACH example, explain:
+  - PRINCIPLE: Why this step exists
+  - WHAT HAPPENS: What the command actually does
+  - IF SKIPPED: What goes wrong without it
+
+**PART 3: Customize Your Development Guidelines** (Section: CUSTOMIZE YOUR DEVELOPMENT GUIDELINES)
+- Check if project guidelines are still empty templates
+- If empty, guide the developer to fill them with project-specific content
+- Explain the customization workflow
+
+DO NOT skip any part. All three parts are essential.
+
+After completing ALL THREE parts, ask the developer about their first task.
+
+---
+
+## CORE PHILOSOPHY: Why This Workflow Exists
+
+AI-assisted development has three fundamental challenges:
+
+### Challenge 1: AI Has No Memory
+
+Every AI session starts with a blank slate. The `.trellis/workspace/` system captures what happened in each session. The `/trellis:start` command reads this history at session start, giving AI "artificial memory."
+
+### Challenge 2: AI Has Generic Knowledge, Not Project-Specific Knowledge
+
+The `.trellis/spec/` directory contains project-specific guidelines. The `/before-*-dev` commands inject this specialized knowledge into AI context before coding starts.
+
+### Challenge 3: AI Context Window Is Limited
+
+The `/check-*` commands re-verify code against guidelines AFTER writing, catching drift that occurred during development. The `/trellis:finish-work` command does a final holistic review.
+
+---
+
+## SYSTEM STRUCTURE
+
+```
+.trellis/
+|-- .developer              # Your identity (gitignored)
+|-- workflow.md             # Complete workflow documentation
+|-- workspace/              # "AI Memory" - session history
+|-- tasks/                  # Task tracking (unified)
+|-- spec/                   # "AI Training Data" - project knowledge
+|   |-- frontend/           # Frontend conventions
+|   |-- backend/            # Backend conventions
+|   +-- guides/             # Thinking patterns
++-- scripts/                # Automation tools
+```
+
+---
+
+## COMMAND DEEP DIVE
+
+### /trellis:start - Restore AI Memory
+### /trellis:before-frontend-dev and /trellis:before-backend-dev - Inject Specialized Knowledge
+### /trellis:check-frontend and /trellis:check-backend - Combat Context Drift
+### /trellis:check-cross-layer - Multi-Dimension Verification
+### /trellis:finish-work - Holistic Pre-Commit Review
+### /trellis:record-session - Persist Memory for Future
+
+---
+
+## REAL-WORLD WORKFLOW EXAMPLES
+
+### Example 1: Bug Fix Session
+### Example 2: Planning Session (No Code)
+### Example 3: Code Review Fixes
+### Example 4: Large Refactoring
+### Example 5: Debug Session
+
+Walk through each example explaining every step.
+
+---
+
+## KEY RULES TO EMPHASIZE
+
+1. **AI NEVER commits** - Human tests and approves. AI prepares, human validates.
+2. **Guidelines before code** - /before-*-dev commands inject project knowledge.
+3. **Check after code** - /check-* commands catch context drift.
+4. **Record everything** - /trellis:record-session persists memory.
+
+---
+
+# PART 3: Customize Your Development Guidelines
+
+Check if `.trellis/spec/` contains empty templates or customized guidelines:
+
+```bash
+grep -l "To be filled by the team" .trellis/spec/backend/*.md 2>/dev/null | wc -l
+grep -l "To be filled by the team" .trellis/spec/frontend/*.md 2>/dev/null | wc -l
+```
+
+If empty templates, guide filling them. If already customized, proceed with first task.
+"""

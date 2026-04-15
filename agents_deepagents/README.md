@@ -1,5 +1,10 @@
 # LangChain-Native Deep Agents s01-s06 Teaching Track
 
+> Reference-only note:
+> this directory is a teaching track, not the current product mainline.
+> Active implementation work should default to `coding-deepgent/` plus
+> `.trellis/`. Tutorial assets here may lag behind current product decisions.
+
 This directory is the parallel LangChain/Deep Agents track for the first
 milestone of the course. The original `agents/*.py` files remain the
 hand-written Anthropic SDK baseline; these files preserve the original

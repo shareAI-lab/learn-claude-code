@@ -1,0 +1,104 @@
+description = "Adapt and integrate an external skill into project development guidelines"
+
+prompt = """
+# Integrate Skill into Project Guidelines
+
+Adapt and integrate an external skill into your project's development guidelines (not directly into project code).
+
+## Usage
+
+```
+/trellis:integrate-skill <skill-name>
+```
+
+**Examples**:
+```
+/trellis:integrate-skill frontend-design
+/trellis:integrate-skill mcp-builder
+```
+
+## Core Principle
+
+> [!] **Important**: The goal of skill integration is to update **development guidelines**, not to generate project code directly.
+>
+> - Guidelines content -> Write to `.trellis/spec/{target}/doc.md`
+> - Code examples -> Place in `.trellis/spec/{target}/examples/skills/<skill-name>/`
+> - Example files -> Use `.template` suffix (e.g., `component.tsx.template`) to avoid IDE errors
+>
+> Where `{target}` is `frontend` or `backend`, determined by skill type.
+
+## Execution Steps
+
+### 1. Read Skill Content
+
+Locate and read the skill definition. If the skill doesn't exist, prompt user to check available skills.
+
+### 2. Determine Integration Target
+
+Based on skill type, determine which guidelines to update:
+
+| Skill Category | Integration Target |
+|----------------|-------------------|
+| UI/Frontend (`frontend-design`, `web-artifacts-builder`) | `.trellis/spec/frontend/` |
+| Backend/API (`mcp-builder`) | `.trellis/spec/backend/` |
+| Documentation (`doc-coauthoring`, `docx`, `pdf`) | `.trellis/` or create dedicated guidelines |
+| Testing (`webapp-testing`) | `.trellis/spec/frontend/` (E2E) |
+
+### 3. Analyze Skill Content
+
+Extract from the skill:
+- **Core concepts**: How the skill works and key concepts
+- **Best practices**: Recommended approaches
+- **Code patterns**: Reusable code templates
+- **Caveats**: Common issues and solutions
+
+### 4. Execute Integration
+
+#### 4.1 Update Guidelines Document
+
+Add a new section to the corresponding `doc.md`.
+
+#### 4.2 Create Examples Directory (if code examples exist)
+
+```bash
+# Directory structure ({target} = frontend or backend)
+.trellis/spec/{target}/
+|-- doc.md                      # Add skill-related section
+|-- index.md                    # Update index
++-- examples/
+    +-- skills/
+        +-- <skill-name>/
+            |-- README.md               # Example documentation
+            |-- example-1.ts.template   # Code example (use .template suffix)
+            +-- example-2.tsx.template
+```
+
+**File naming conventions**:
+- Code files: `<name>.<ext>.template` (e.g., `component.tsx.template`)
+- Config files: `<name>.config.template` (e.g., `tailwind.config.template`)
+- Documentation: `README.md` (normal suffix)
+
+#### 4.3 Update Index File
+
+Add to the Quick Navigation table in `index.md`.
+
+### 5. Generate Integration Report
+
+Report:
+- Skill description and integration target
+- Tech stack compatibility
+- Integration locations (files modified)
+- Dependencies needed (if any)
+- Completed changes checklist
+
+---
+
+## Common Skill Integration Reference
+
+| Skill | Integration Target | Examples Directory |
+|-------|-------------------|-------------------|
+| `frontend-design` | `frontend` | `examples/skills/frontend-design/` |
+| `mcp-builder` | `backend` | `examples/skills/mcp-builder/` |
+| `webapp-testing` | `frontend` | `examples/skills/webapp-testing/` |
+| `doc-coauthoring` | `.trellis/` | N/A (documentation workflow only) |
+"""

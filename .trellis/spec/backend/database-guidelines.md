@@ -1,51 +1,84 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+> Persistence guidance for the current `coding-deepgent` mainline.
 
 ---
 
-## Overview
+## Current Status
 
-<!--
-Document your project's database conventions here.
+`coding-deepgent` currently does **not** use a relational database, ORM, or
+migration system.
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+Current durable/stateful surfaces are:
 
-(To be filled by the team)
+- LangGraph store/checkpointer seams in `coding_deepgent.runtime.checkpointing`
+- JSONL session transcripts in `coding_deepgent.sessions.store_jsonl`
+- LangGraph store-backed memory/task/plan records in `memory/` and `tasks/`
+- workspace-local persisted tool outputs under `.coding-deepgent/tool-results/`
+
+Do not introduce SQL/ORM/migration infrastructure unless a Trellis PRD states
+the concrete product benefit and target contract.
 
 ---
 
-## Query Patterns
+## Store Patterns
 
-<!-- How should queries be written? Batch operations? -->
+Preferred current patterns:
 
-(To be filled by the team)
+- Use LangGraph `InMemoryStore` / store-compatible APIs for product-domain
+  records such as memory, durable tasks, and plan artifacts.
+- Keep namespace ownership inside the owning domain.
+- Store Pydantic `model_dump()` payloads for typed records.
+- Validate records before writing and when reconstructing from storage.
+
+Examples:
+
+- `coding_deepgent.memory.store`
+- `coding_deepgent.tasks.store`
+- `coding_deepgent.runtime.checkpointing`
+
+---
+
+## Session Persistence
+
+Session transcript persistence belongs to `sessions/`.
+
+Rules:
+
+- Use `JsonlSessionStore` for local transcript, evidence, compact, and state
+  snapshot records.
+- Keep session storage append-oriented unless a Trellis contract explicitly says
+  otherwise.
+- Keep session evidence, compact records, and state snapshots distinct instead
+  of merging them into one generic blob.
+
+Examples:
+
+- `coding_deepgent.sessions.store_jsonl`
+- `coding_deepgent.sessions.records`
+- `coding_deepgent.sessions.evidence_events`
 
 ---
 
 ## Migrations
 
-<!-- How to create and run migrations -->
+There are currently no database migrations.
 
-(To be filled by the team)
+If a future task introduces SQL or another schema-migrated persistence layer, it
+must first define:
 
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
+- target storage backend
+- schema ownership
+- migration command surface
+- rollback strategy
+- validation and error matrix
+- tests proving old records are handled safely
 
 ---
 
 ## Common Mistakes
 
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Treating `sessions/` as generic durable storage for unrelated domains.
+- Adding SQLite/SQLAlchemy just because a structure is durable.
+- Hiding task/memory schema evolution in ad hoc dict writes.
+- Reusing one store namespace for multiple domain concepts.

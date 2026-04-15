@@ -2,6 +2,19 @@
 
 Independent cumulative LangChain cc product surface.
 
+## Canonical Working Docs
+
+For current implementation work, treat these as canonical first:
+
+- `../AGENTS.md`
+- `../.trellis/workflow.md`
+- `../.trellis/project-handoff.md`
+- `../.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+- `../.trellis/spec/backend/*.md`
+
+This README is a product summary, not the canonical place for live
+coordination rules or executable implementation contracts.
+
 ## Current product stage
 
 - `current_product_stage`: `stage-11-mcp-plugin-real-loading`

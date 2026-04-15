@@ -1,0 +1,4 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Review layer-boundary correctness for tool result storage and compact flow."}
+{"file": ".trellis/spec/backend/runtime-context-compaction-contracts.md", "reason": "Verify runtime/session/compact invariants after implementation."}

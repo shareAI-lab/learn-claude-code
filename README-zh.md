@@ -1,5 +1,14 @@
 # Learn Claude Code
 
+## 当前协作入口
+
+如果你是来做当前仓库的主线开发，而不是阅读教程，那么默认入口应是：
+
+- 产品主线：`coding-deepgent/`
+- 规范与协作主入口：`.trellis/`
+
+仓库外层的教学/参考层，包括 `agents/`、`agents_deepagents/`、`docs/`、`web/`、`skills/` 以及根目录教程测试，默认都不是当前实现目标，后续也可能继续裁剪。
+
 [English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
 
 一个面向实现者的教学仓库：从零开始，手搓一个高完成度的 coding agent harness。
@@ -353,7 +362,6 @@ learn-claude-code/
 ├── docs/zh/             # 中文主线文档
 ├── docs/en/             # 英文文档，当前为部分同步
 ├── docs/ja/             # 日文文档，当前为部分同步
-├── skills/              # s05 使用的技能文件
 ├── web/                 # Web 教学平台
 └── requirements.txt
 ```

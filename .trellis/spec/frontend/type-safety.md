@@ -1,6 +1,17 @@
 # Frontend Type Safety
 
-Document the TypeScript and data-shape conventions used by the frontend.
+Status: `Deferred`
+
+Current mainline is `coding-deepgent/`, not frontend/web product work.
+
+Only activate this spec when frontend TypeScript becomes part of product
+implementation or review.
+
+## Activation Requirements
+
+- User explicitly requests frontend/web product work.
+- There are actual product-facing types or API payloads to document.
+- Runtime validation expectations are known from code or explicit decision.
 
 ## What to Capture
 

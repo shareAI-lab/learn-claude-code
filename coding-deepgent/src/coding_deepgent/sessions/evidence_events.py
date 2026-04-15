@@ -4,7 +4,15 @@ from coding_deepgent.runtime.events import RuntimeEvent
 from coding_deepgent.sessions.records import SessionContext
 from coding_deepgent.sessions.store_jsonl import JsonlSessionStore
 
-RUNTIME_EVIDENCE_KINDS = frozenset({"hook_blocked", "permission_denied"})
+RUNTIME_EVIDENCE_KINDS = frozenset(
+    {
+        "hook_blocked",
+        "permission_denied",
+        "microcompact",
+        "auto_compact",
+        "reactive_compact",
+    }
+)
 
 
 def append_runtime_event_evidence(
@@ -36,13 +44,26 @@ def _safe_metadata(event: RuntimeEvent) -> dict[str, object]:
         "event_kind": event.kind,
         "source": source if isinstance(source, str) else "runtime",
     }
-    for key in ("hook_event", "tool", "policy_code", "permission_behavior"):
+    for key in (
+        "hook_event",
+        "tool",
+        "policy_code",
+        "permission_behavior",
+        "strategy",
+    ):
         value = event.metadata.get(key)
         if isinstance(value, str) and value:
             metadata[key] = value
     blocked = event.metadata.get("blocked")
     if isinstance(blocked, bool):
         metadata["blocked"] = blocked
+    for key in ("cleared_tool_results", "restored_path_count"):
+        value = event.metadata.get(key)
+        if isinstance(value, int) and value >= 0:
+            metadata[key] = value
+    used_session_memory_assist = event.metadata.get("used_session_memory_assist")
+    if isinstance(used_session_memory_assist, bool):
+        metadata["used_session_memory_assist"] = used_session_memory_assist
     return metadata
 
 
@@ -54,6 +75,13 @@ def _summary(event: RuntimeEvent, metadata: dict[str, object]) -> str:
         tool = metadata.get("tool", "unknown")
         policy_code = metadata.get("policy_code", "permission_denied")
         return f"Tool {tool} denied by {policy_code}."
+    if event.kind == "microcompact":
+        cleared = metadata.get("cleared_tool_results", 0)
+        return f"Live microcompact cleared {cleared} older tool results."
+    if event.kind == "auto_compact":
+        return "Live auto-compact summarized history."
+    if event.kind == "reactive_compact":
+        return "Reactive compact retried after prompt-too-long."
     return event.message
 
 
@@ -62,11 +90,13 @@ def _status(event: RuntimeEvent) -> str:
         return "blocked"
     if event.kind == "permission_denied":
         return "denied"
+    if event.kind in {"microcompact", "auto_compact", "reactive_compact"}:
+        return "completed"
     return "recorded"
 
 
 def _subject(metadata: dict[str, object]) -> str | None:
-    for key in ("tool", "hook_event"):
+    for key in ("tool", "hook_event", "strategy"):
         value = metadata.get(key)
         if isinstance(value, str) and value:
             return value

@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     agent_name: str = "coding-deepgent"
     entrypoint: str = "coding-deepgent"
     model_timeout_seconds: int = Field(default=60, ge=1, le=600)
+    auto_compact_threshold_tokens: int | None = Field(default=8000, ge=1)
+    keep_recent_tool_results: int = Field(default=3, ge=0)
+    keep_recent_messages_after_compact: int = Field(default=4, ge=0)
 
     @field_validator("workdir", mode="before")
     @classmethod

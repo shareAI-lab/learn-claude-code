@@ -40,10 +40,13 @@ def invoke_agent(
 
 
 def session_payload(session_state: MutableMapping[str, Any]) -> dict[str, Any]:
-    return {
+    payload = {
         "todos": session_state.get("todos", []),
         "rounds_since_update": session_state.get("rounds_since_update", 0),
     }
+    if "session_memory" in session_state:
+        payload["session_memory"] = session_state["session_memory"]
+    return payload
 
 
 def update_session_state(
@@ -56,3 +59,5 @@ def update_session_state(
             "rounds_since_update": result.get("rounds_since_update", 0),
         }
     )
+    if "session_memory" in result:
+        session_state["session_memory"] = result["session_memory"]

@@ -235,25 +235,40 @@ def compact_assist_contribution() -> CompactAssistContribution:
 
 def compact_summary_update_contribution() -> CompactSummaryUpdateContribution:
     def update(loaded_session: LoadedSession, summary: str) -> bool:
-        metrics = session_memory_metrics(loaded_session.history)
-        if not should_refresh_session_memory(
+        return update_session_memory_from_summary(
             loaded_session.state,
-            current_message_count=metrics.message_count,
-            current_token_count=metrics.estimated_token_count,
-            current_tool_call_count=metrics.tool_call_count,
-        ):
-            return False
-        write_session_memory_artifact(
-            loaded_session.state,
-            content=summary,
-            message_count=metrics.message_count,
-            token_count=metrics.estimated_token_count,
-            tool_call_count=metrics.tool_call_count,
+            messages=loaded_session.history,
+            summary=summary,
             source="generated_compact",
         )
-        return True
 
     return CompactSummaryUpdateContribution(
         name=SESSION_MEMORY_STATE_KEY,
         update=update,
     )
+
+
+def update_session_memory_from_summary(
+    state: MutableMapping[str, Any],
+    *,
+    messages: list[dict[str, Any]],
+    summary: str,
+    source: str,
+) -> bool:
+    metrics = session_memory_metrics(messages)
+    if not should_refresh_session_memory(
+        state,
+        current_message_count=metrics.message_count,
+        current_token_count=metrics.estimated_token_count,
+        current_tool_call_count=metrics.tool_call_count,
+    ):
+        return False
+    write_session_memory_artifact(
+        state,
+        content=summary,
+        message_count=metrics.message_count,
+        token_count=metrics.estimated_token_count,
+        tool_call_count=metrics.tool_call_count,
+        source=source,
+    )
+    return True

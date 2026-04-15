@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/project-handoff.md", "reason": "target handoff doc for project-handoff skill migration"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "target backend structure doc for LangChain boundary migration"}
+{"file": ".trellis/spec/guides/index.md", "reason": "guide index update for migrated custom skill knowledge"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "target backend rule doc for LangChain architecture guard migration"}

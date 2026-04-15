@@ -1,0 +1,6 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/workflow.md", "reason": "verify migrated staged-workflow rules are canonical"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "verify modularity/boundary rules survive after skill deletion"}
+{"file": ".trellis/project-handoff.md", "reason": "verify project-handoff skill migration is complete"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "verify LangChain guard rules are preserved in Trellis"}

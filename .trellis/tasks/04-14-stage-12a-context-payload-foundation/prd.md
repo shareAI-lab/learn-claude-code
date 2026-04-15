@@ -24,7 +24,7 @@ This stage is infrastructure-only and should prepare the product for later conte
   - `/root/claude-code-haha/src/utils/queryContext.ts`
   - `/root/claude-code-haha/src/context.ts`
 * LangChain docs frame context engineering as controlling model context, tool context, and lifecycle context through middleware.
-* `langchain-architecture-guard` says the smallest viable shape should use middleware and avoid speculative wrapper layers.
+* Trellis LangChain-native implementation guidance says the smallest viable shape should use middleware and avoid speculative wrapper layers.
 
 ## Assumptions
 

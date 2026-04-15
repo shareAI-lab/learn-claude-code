@@ -18,7 +18,11 @@ from coding_deepgent.sessions.records import (
     CompactedHistorySource,
     LoadedSession,
     SessionContext,
+    SessionEvidence,
     SessionSummary,
+)
+from coding_deepgent.sessions.runtime_pressure import (
+    recovery_brief_contribution as runtime_pressure_recovery_brief_contribution,
 )
 from coding_deepgent.sessions.session_memory import (
     SESSION_MEMORY_STATE_KEY,
@@ -56,6 +60,22 @@ def _loaded_session(state: dict[str, Any] | None = None) -> LoadedSession:
             first_prompt="hello",
             message_count=1,
         ),
+    )
+
+
+def _loaded_session_with_evidence(
+    evidence: list[SessionEvidence],
+) -> LoadedSession:
+    loaded = _loaded_session()
+    return LoadedSession(
+        context=loaded.context,
+        history=loaded.history,
+        compacted_history=loaded.compacted_history,
+        compacted_history_source=loaded.compacted_history_source,
+        state=loaded.state,
+        evidence=evidence,
+        compacts=loaded.compacts,
+        summary=loaded.summary,
     )
 
 
@@ -248,3 +268,38 @@ def test_session_memory_compact_summary_update_provider_skips_recent_state() -> 
         "Generated compact summary.",
     )
     assert loaded.state[SESSION_MEMORY_STATE_KEY]["content"] == "Recent memory."
+
+
+def test_runtime_pressure_recovery_brief_contribution_counts_events() -> None:
+    loaded = _loaded_session_with_evidence(
+        [
+            SessionEvidence(
+                kind="runtime_event",
+                summary="micro",
+                status="completed",
+                created_at="2026-04-15T00:00:00Z",
+                metadata={"event_kind": "microcompact"},
+            ),
+            SessionEvidence(
+                kind="runtime_event",
+                summary="auto",
+                status="completed",
+                created_at="2026-04-15T00:00:01Z",
+                metadata={"event_kind": "auto_compact"},
+            ),
+            SessionEvidence(
+                kind="runtime_event",
+                summary="auto-2",
+                status="completed",
+                created_at="2026-04-15T00:00:02Z",
+                metadata={"event_kind": "auto_compact"},
+            ),
+        ]
+    )
+
+    section = runtime_pressure_recovery_brief_contribution().render(loaded)
+
+    assert section == RecoveryBriefSection(
+        title="Runtime pressure:",
+        lines=("- microcompact: 1", "- auto_compact: 2"),
+    )
