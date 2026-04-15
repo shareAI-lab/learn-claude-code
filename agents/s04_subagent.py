@@ -165,6 +165,11 @@ def agent_loop(messages: list):
                     output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
                 print(f"  {str(output)[:200]}")
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
+            elif block.type == "text":
+                if block.text.strip():
+                    results.append(block)
+        if not results:
+            return
         messages.append({"role": "user", "content": results})
 
 
