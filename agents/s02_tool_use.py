@@ -124,7 +124,10 @@ def agent_loop(messages: list):
         for block in response.content:
             if block.type == "tool_use":
                 handler = TOOL_HANDLERS.get(block.name)
-                output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
+                try:
+                    output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
+                except Exception as e:
+                    output = f"Error: {e}"
                 print(f"> {block.name}:")
                 print(output[:200])
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": output})
