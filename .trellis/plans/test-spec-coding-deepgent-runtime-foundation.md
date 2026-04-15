@@ -2,7 +2,7 @@
 # Test Specification — coding-deepgent Professional Domain Runtime Foundation
 
 Status: final test spec for dependency-injector + domain-first architecture
-Scope: no-network verification for `.omx/plans/prd-coding-deepgent-runtime-foundation.md`.
+Scope: no-network verification for `.trellis/plans/prd-coding-deepgent-runtime-foundation.md`.
 
 ## 1. Test Strategy
 
@@ -15,14 +15,14 @@ cd coding-deepgent
 pytest
 ruff check .
 ruff format --check .
-mypy src/coding_deepgent tests
+mypy coding-deepgent/src/coding_deepgent coding-deepgent/tests
 ```
 
 ## 2. Dependency and Tooling Tests
 
 Files:
 - `pyproject.toml`
-- `tests/test_structure.py`
+- `coding-deepgent/tests/test_structure.py`
 
 Required cases:
 1. Runtime dependencies include `dependency-injector`, `pydantic-settings`, `typer`, `rich`, `structlog`.
@@ -34,7 +34,7 @@ Required cases:
 ## 3. Container Tests
 
 Files:
-- Add `tests/test_container.py`
+- Add `coding-deepgent/tests/test_container.py`
 
 Required cases:
 1. `AppContainer` can instantiate settings, session store, capability registry, middleware list, and agent.
@@ -46,8 +46,8 @@ Required cases:
 ## 4. Settings Tests
 
 Files:
-- Add/update `tests/test_settings.py`
-- Update `tests/test_config.py`
+- Add/update `coding-deepgent/tests/test_settings.py`
+- Update `coding-deepgent/tests/test_config.py`
 
 Required cases:
 1. `Settings` loads defaults.
@@ -59,8 +59,8 @@ Required cases:
 ## 5. Architecture / Cohesion / Coupling Tests
 
 Files:
-- Update `tests/test_structure.py`
-- Update `tests/test_contract.py`
+- Update `coding-deepgent/tests/test_structure.py`
+- Update `coding-deepgent/tests/test_contract.py`
 
 Required cases:
 1. Required domain packages exist: `runtime`, `tool_system`, `filesystem`, `todo`, `sessions`, `containers`.
@@ -75,9 +75,9 @@ Required cases:
 ## 6. Runtime Spine Tests
 
 Files:
-- `tests/test_runtime_context.py`
-- `tests/test_runtime_state.py`
-- `tests/test_app.py`
+- `coding-deepgent/tests/test_runtime_context.py`
+- `coding-deepgent/tests/test_runtime_state.py`
+- `coding-deepgent/tests/test_app.py`
 
 Required cases:
 1. `RuntimeContext` carries session/workdir/entrypoint/agent identity/event sink.
@@ -90,7 +90,7 @@ Required cases:
 ## 7. Todo Domain Tests
 
 Files:
-- `tests/test_todo_domain.py` or existing planning tests
+- `coding-deepgent/tests/test_todo_domain.py` or existing planning tests
 
 Required cases:
 1. Todo schemas are strict Pydantic models.
@@ -103,8 +103,8 @@ Required cases:
 ## 8. Filesystem Domain Tests
 
 Files:
-- `tests/test_filesystem_domain.py`
-- `tests/test_tool_schemas.py`
+- `coding-deepgent/tests/test_filesystem_domain.py`
+- `coding-deepgent/tests/test_tool_schemas.py`
 
 Required cases:
 1. bash/read/write/edit schemas are explicit and strict.
@@ -116,9 +116,9 @@ Required cases:
 ## 9. Tool System Tests
 
 Files:
-- `tests/test_tool_system_capabilities.py`
-- `tests/test_tool_system_policy.py`
-- `tests/test_tool_system_middleware.py`
+- `coding-deepgent/tests/test_tool_system_capabilities.py`
+- `coding-deepgent/tests/test_tool_system_policy.py`
+- `coding-deepgent/tests/test_tool_system_middleware.py`
 
 Required cases:
 1. Capability registry is authoritative for agent tool list.
@@ -131,8 +131,8 @@ Required cases:
 ## 10. Sessions Tests
 
 Files:
-- `tests/test_sessions.py`
-- optional `tests/test_sessions_domain.py`
+- `coding-deepgent/tests/test_sessions.py`
+- optional `coding-deepgent/tests/test_sessions_domain.py`
 
 Required cases:
 1. JSONL transcript roundtrip remains stable.
@@ -145,8 +145,8 @@ Required cases:
 ## 11. CLI / Rich Tests
 
 Files:
-- `tests/test_cli.py`
-- optional `tests/test_renderers.py`
+- `coding-deepgent/tests/test_cli.py`
+- optional `coding-deepgent/tests/test_renderers.py`
 
 Required cases:
 1. Typer CLI help works with no credentials.
@@ -158,8 +158,8 @@ Required cases:
 ## 12. Logging / Events Tests
 
 Files:
-- `tests/test_runtime_events.py`
-- optional `tests/test_logging.py`
+- `coding-deepgent/tests/test_runtime_events.py`
+- optional `coding-deepgent/tests/test_logging.py`
 
 Required cases:
 1. Runtime event sink records ordered local events.
@@ -175,7 +175,7 @@ python -m coding_deepgent --help
 coding-deepgent --help
 coding-deepgent config show
 coding-deepgent sessions list
-pytest tests/test_cli.py tests/test_app.py tests/test_sessions.py
+pytest coding-deepgent/tests/test_cli.py coding-deepgent/tests/test_app.py coding-deepgent/tests/test_sessions.py
 ```
 
 No live model call is required.
@@ -185,9 +185,9 @@ No live model call is required.
 ```bash
 rg -n "agents_deepagents|s[0-9]{2}_" src tests
 rg -n "runtime/query.py|tool_executor.py|app_state_store.py|class Tool\(" src tests
-rg -n "from coding_deepgent.containers|import coding_deepgent.containers" src/coding_deepgent/todo src/coding_deepgent/filesystem src/coding_deepgent/sessions src/coding_deepgent/tool_system
+rg -n "from coding_deepgent.containers|import coding_deepgent.containers" coding-deepgent/src/coding_deepgent/todo coding-deepgent/src/coding_deepgent/filesystem coding-deepgent/src/coding_deepgent/sessions coding-deepgent/src/coding_deepgent/tool_system
 rg -n "FastAPI|Depends|pluggy|opentelemetry|SQLAlchemy|Alembic" src tests
-rg -n "dict\[str, Any\]|normalize_.*\(|fallback|alias|ToolRuntime|InjectedToolCallId" src/coding_deepgent tests
+rg -n "dict\[str, Any\]|normalize_.*\(|fallback|alias|ToolRuntime|InjectedToolCallId" coding-deepgent/src/coding_deepgent tests
 ```
 
 Expected interpretation:

@@ -69,13 +69,13 @@
 
 ## Acceptance Criteria (evolving)
 
-* [ ] 有一份 source-backed 映射，说明每个目标 skill 的规则迁移到了哪些 Trellis 文档。
-* [ ] `cc-haha-alignment` 的关键护栏已写入 Trellis，而不是仅存在 skill 中。
-* [ ] `langchain-architecture-guard` 的关键护栏已写入 Trellis backend 规范。
-* [ ] `stage-iterate` 的 checkpoint / validation-budget 规则已写入 Trellis workflow 或 guide。
-* [ ] `project-handoff` 的最小 resume 读取规则已由 Trellis 文档承接。
-* [ ] 目标 skill 文件已删除。
-* [ ] `record-session` 未被修改或删除。
+* [x] 有一份 source-backed 映射，说明每个目标 skill 的规则迁移到了哪些 Trellis 文档。
+* [x] `cc-haha-alignment` 的关键护栏已写入 Trellis，而不是仅存在 skill 中。
+* [x] `langchain-architecture-guard` 的关键护栏已写入 Trellis backend 规范。
+* [x] `stage-iterate` 的 checkpoint / validation-budget 规则已写入 Trellis workflow 或 guide。
+* [x] `project-handoff` 的最小 resume 读取规则已由 Trellis 文档承接。
+* [x] 目标 skill 文件已删除。
+* [x] `record-session` 未被修改或删除。
 
 ## Definition of Done (team quality bar)
 
@@ -182,3 +182,32 @@ Recommended execution order:
 4. migrate `langchain-architecture-guard`
 5. remove target skill files
 6. update references and re-read Trellis entry docs for coherence
+
+## Checkpoint: Custom Skill Migration
+
+State:
+
+* terminal
+
+Verdict:
+
+* APPROVE
+
+Implemented:
+
+* Migrated `cc-haha-alignment` into `.trellis/spec/guides/cc-alignment-guide.md`.
+* Migrated `langchain-architecture-guard` into `.trellis/spec/backend/langchain-native-guidelines.md` plus backend quality/structure docs.
+* Migrated `stage-iterate` into `.trellis/spec/guides/staged-execution-guide.md` and `.trellis/workflow.md`.
+* Migrated `project-handoff` into `.trellis/project-handoff.md` and `.trellis/workflow.md`.
+* Deleted target custom skill files and directories.
+* Kept `.agents/skills/record-session/SKILL.md`.
+
+Verification:
+
+* Confirmed target custom skill paths were removed.
+* Confirmed `.agents/skills/record-session/SKILL.md` still exists.
+* Scanned canonical Trellis docs for removed skill references and replaced current references with Trellis document links.
+
+Decision:
+
+* terminal for this custom skill migration task.

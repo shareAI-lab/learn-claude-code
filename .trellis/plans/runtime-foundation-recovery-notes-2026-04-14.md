@@ -2,14 +2,14 @@
 # Runtime Foundation Recovery Notes
 
 Recovered artifacts:
-- `.omx/plans/prd-coding-deepgent-runtime-foundation.md`
-- `.omx/plans/test-spec-coding-deepgent-runtime-foundation.md`
-- `.omx/context/coding-deepgent-runtime-foundation-20260412T213209Z.md`
+- `.trellis/plans/prd-coding-deepgent-runtime-foundation.md`
+- `.trellis/plans/test-spec-coding-deepgent-runtime-foundation.md`
+- `.trellis/plans/coding-deepgent-runtime-foundation-20260412T213209Z.md`
 
 Evidence sources:
 - Direct session output from `/root/.codex/sessions/2026/04/13/...jsonl`
 - `/root/.codex/history.jsonl`
-- Session records showing the original `.omx/plans/` and `.omx/context/` paths existed before uninstall
+- Session records showing the original `.trellis/plans/` and `.trellis/plans/` paths existed before uninstall
 
 Confidence:
 - `test-spec-coding-deepgent-runtime-foundation.md`: high

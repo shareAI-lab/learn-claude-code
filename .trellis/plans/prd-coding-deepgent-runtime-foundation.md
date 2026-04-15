@@ -3,8 +3,8 @@
 
 Status: final ralplan plan, revised for dependency-injector + professional domain architecture
 Scope: `coding-deepgent/` product code only. This planning step does not implement code.
-Context snapshot: `.omx/context/coding-deepgent-runtime-foundation-20260412T213209Z.md`
-Test spec: `.omx/plans/test-spec-coding-deepgent-runtime-foundation.md`
+Context snapshot: `.trellis/plans/coding-deepgent-runtime-foundation-20260412T213209Z.md`
+Test spec: `.trellis/plans/test-spec-coding-deepgent-runtime-foundation.md`
 
 ## 1. RALPLAN-DR Summary
 
@@ -304,8 +304,8 @@ Stage 3 should deliver a working skeleton, not only folders:
 
 Files:
 - `pyproject.toml`
-- `tests/test_structure.py`
-- `tests/test_contract.py`
+- `coding-deepgent/tests/test_structure.py`
+- `coding-deepgent/tests/test_contract.py`
 
 Actions:
 - Add dependency/dependency-absence tests.
@@ -449,7 +449,7 @@ cd coding-deepgent
 pytest
 ruff check .
 ruff format --check .
-mypy src/coding_deepgent tests
+mypy coding-deepgent/src/coding_deepgent coding-deepgent/tests
 python -m coding_deepgent --help
 coding-deepgent --help
 ```
@@ -459,9 +459,9 @@ Architecture grep:
 ```bash
 rg -n "agents_deepagents|s[0-9]{2}_" src tests
 rg -n "runtime/query.py|tool_executor.py|app_state_store.py|class Tool\(" src tests
-rg -n "from coding_deepgent.containers|import coding_deepgent.containers" src/coding_deepgent/todo src/coding_deepgent/filesystem src/coding_deepgent/sessions src/coding_deepgent/tool_system
+rg -n "from coding_deepgent.containers|import coding_deepgent.containers" coding-deepgent/src/coding_deepgent/todo coding-deepgent/src/coding_deepgent/filesystem coding-deepgent/src/coding_deepgent/sessions coding-deepgent/src/coding_deepgent/tool_system
 rg -n "FastAPI|Depends|pluggy|opentelemetry|SQLAlchemy|Alembic" src tests
-rg -n "dict\[str, Any\]|normalize_.*\(|fallback|alias|ToolRuntime|InjectedToolCallId" src/coding_deepgent tests
+rg -n "dict\[str, Any\]|normalize_.*\(|fallback|alias|ToolRuntime|InjectedToolCallId" coding-deepgent/src/coding_deepgent tests
 ```
 
 ## 13. Roadmap Toward cc Parity
@@ -519,7 +519,7 @@ This combines cc domain boundaries with LangChain runtime seams and a clear Pyth
 ### Ralph path
 
 ```text
-$ralph .omx/plans/prd-coding-deepgent-runtime-foundation.md .omx/plans/test-spec-coding-deepgent-runtime-foundation.md
+$ralph .trellis/plans/prd-coding-deepgent-runtime-foundation.md .trellis/plans/test-spec-coding-deepgent-runtime-foundation.md
 ```
 
 Sequence:
@@ -534,7 +534,7 @@ Sequence:
 ### Team path
 
 ```text
-$team .omx/plans/prd-coding-deepgent-runtime-foundation.md
+$team .trellis/plans/prd-coding-deepgent-runtime-foundation.md
 ```
 
 Lanes:

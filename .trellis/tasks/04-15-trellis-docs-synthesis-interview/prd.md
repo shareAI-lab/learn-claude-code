@@ -696,3 +696,43 @@ Verification:
 Decision:
 
 * terminal for this Trellis docs synthesis/interview foundation pass.
+
+## Checkpoint: Trellis Optimization Batch
+
+State:
+
+* terminal
+
+Verdict:
+
+* APPROVE
+
+Implemented:
+
+* Updated `.trellis/spec/backend/index.md` statuses for database, error handling, and logging from placeholder to active.
+* Split the oversized runtime context/compaction contract into:
+  * `.trellis/spec/backend/tool-result-storage-contracts.md`
+  * `.trellis/spec/backend/session-compact-contracts.md`
+  * `.trellis/spec/backend/runtime-pressure-contracts.md`
+  * kept `.trellis/spec/backend/runtime-context-compaction-contracts.md` as an overview index.
+* Normalized current backend spec paths to `coding-deepgent/tests/...` and `coding-deepgent/src/...`.
+* Replaced migrated `.omx/...` current references with `.trellis/...` paths in Trellis planning docs where appropriate.
+* Expanded `.trellis/plans/index.md` with plan roles, read timing, and maintenance rules.
+* Updated `.trellis/spec/guides/trellis-doc-map-guide.md` to mark frontend specs as deferred/future-activatable.
+* Added review output format requirements to `.trellis/spec/backend/quality-guidelines.md`.
+* Added `.trellis/scripts/check_trellis_links.py` for lightweight local Markdown link checks.
+
+Verification:
+
+* `python3 ./.trellis/scripts/check_trellis_links.py` -> passed.
+* Scanned current Trellis specs/plans/workflow/handoff for stale `tests/test_*`, `src/coding_deepgent`, `.omx/`, deleted `coding-deepgent/docs`, and removed skill references.
+* Confirmed backend specs no longer contain old relative `tests/test_*` or `src/coding_deepgent` paths.
+
+Residual notes:
+
+* `.trellis/plans/index.md` intentionally mentions the removed `.omx` tree as migration context.
+* `.trellis/spec/backend/index.md` intentionally mentions `coding-deepgent/docs/` only to say not to revive parallel docs there.
+
+Decision:
+
+* terminal for the requested 8-item Trellis optimization batch.

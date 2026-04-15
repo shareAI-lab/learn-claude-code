@@ -8,8 +8,8 @@ Determine whether the current `coding-deepgent` infrastructure is ready to suppo
 
 * The product goal is to implement cc-haha Agent Harness essence in a LangChain-native, professional-grade product track.
 * The user wants source reading and target design to happen now, before implementation work.
-* The core highlight roadmap exists at `.omx/plans/coding-deepgent-cc-core-highlights-roadmap.md`.
-* The source-backed H01-H10 target design exists at `.omx/plans/coding-deepgent-h01-h10-target-design.md`.
+* The core highlight roadmap exists at `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`.
+* The source-backed H01-H10 target design exists at `.trellis/plans/coding-deepgent-h01-h10-target-design.md`.
 * H01/H02/H03 are directionally strong locally:
   - tool-first runtime has `ToolCapability`, `CapabilityRegistry`, `ToolPolicy`, and `ToolGuardMiddleware`
   - permission runtime has deterministic modes/rules/hard safety through `PermissionManager`
@@ -77,8 +77,8 @@ Determine whether the current `coding-deepgent` infrastructure is ready to suppo
 
 * Created task: `.trellis/tasks/04-14-assess-cc-highlight-infrastructure-readiness`
 * Planning docs:
-  - `.omx/plans/coding-deepgent-cc-core-highlights-roadmap.md`
-  - `.omx/plans/coding-deepgent-h01-h10-target-design.md`
+  - `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+  - `.trellis/plans/coding-deepgent-h01-h10-target-design.md`
 * Current recommendation from source-backed target design:
   - next stage should be `Stage 12: Context and Recovery Hardening`
   - implement it iteratively as 12A-12D rather than as one large infrastructure push

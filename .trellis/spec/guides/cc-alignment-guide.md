@@ -1,57 +1,54 @@
-# CC Alignment Guide
+# CC Alignment 指南
 
-> **Purpose**: Keep `cc-haha` / Claude Code alignment source-backed, effect-driven, and LangChain-native.
+> **Purpose**: 让 `cc-haha` / Claude Code 对齐保持 source-backed、effect-driven，并且用 LangChain-native 方式落地。
 
 ---
 
 ## Scope
 
-Use this guide when a `coding-deepgent` feature should align with
-`NanmiCoder/cc-haha` or related Claude Code runtime behavior.
+当 `coding-deepgent` 的功能需要对齐 `NanmiCoder/cc-haha` 或 Claude Code runtime 行为时，使用这份 guide。
 
-This guide is for:
+适用场景：
 
 - implementation
 - review
 - planning
-- documentation of feature alignment
+- alignment documentation
 
-It is not a license to copy behavior just because names look similar.
+不要因为名字相似就复制行为。
 
 ---
 
 ## Core Rule
 
-Before code changes, state the **expected effect** first, then produce a
-source-backed alignment matrix.
+改代码前，先说明 **expected effect**，再写 source-backed alignment matrix。
 
-If you cannot explain the concrete local effect, do not align by default.
-Mark the behavior as `defer` or `do-not-copy`.
+如果说不清具体本地效果，默认不要对齐。标记为 `defer` 或 `do-not-copy`。
 
 ---
 
-## Required Pre-Code Workflow
+## Pre-code Workflow
 
 1. **Name the feature band**
-   - Example: `TodoWrite`, `Skill loading`, `Runtime pressure`, `Verifier execution`
-2. **State the expected effect first**
-   - What concrete user/runtime/safety/reliability/maintainability effect should appear locally?
+   - 例如 `TodoWrite`、`Skill loading`、`Runtime pressure`、`Verifier execution`
+2. **State expected effect**
+   - 本地用户/runtime/safety/reliability/maintainability 会得到什么具体改善？
 3. **Identify cc-haha reference points**
-   - List exact source files and, when practical, symbols/functions.
+   - 列 exact source files，必要时列 symbol/function。
 4. **Extract functional essence**
-   - What problem does the cc behavior solve?
-   - What state does it own?
-   - What model-visible surface does it change?
+   - 这个 cc 行为解决什么问题？
+   - 拥有什么 state？
+   - 改变什么 model-visible surface？
 5. **Separate essence from product detail**
-   - keep the essence
-   - copy product detail only if it creates a concrete local benefit now
-6. **Write the alignment matrix before implementation**
+   - essence 需要对齐
+   - product detail 只有当前有本地收益才复制
+6. **Write alignment matrix before implementation**
 
 ---
 
 ## Required Alignment Matrix
 
-Use this shape in the task PRD or planning note before editing code:
+写在 task PRD 或 planning note：
 
 ```md
 ## Expected effect
@@ -66,7 +63,7 @@ shipping.
 | Runtime state | `appState.todos[...]` | correct isolation semantics | local state domain | defer | Requires later stage |
 ```
 
-Status vocabulary:
+Status vocabulary 保留英文：
 
 - `align`
 - `partial`
@@ -80,38 +77,38 @@ Status vocabulary:
 
 ### Align when
 
-- the effect is specific and valuable now
-- the behavior is model-visible contract or essential state semantics
-- it prevents a known failure mode
-- it fits naturally into official LangChain/LangGraph primitives
+- expected effect 具体且当前有价值
+- 属于 model-visible contract 或 essential state semantics
+- 能防止已知 agent failure
+- 能自然表达为官方 LangChain/LangGraph primitive
 
 ### Defer when
 
-- the effect depends on a later capability or stage
-- it would force speculative abstractions
-- it is real cc behavior but not current mainline priority
+- 效果依赖后续 capability/stage
+- 会引入 speculative abstractions
+- 是真实 cc 行为，但不是当前主线优先级
 
 ### Do-not-copy when
 
-- it is only UI/TUI detail
-- it is provider-specific plumbing better handled by LangChain
-- it conflicts with a simpler local abstraction
-- it would blur current product boundaries
+- 只是 UI/TUI detail
+- 是 provider-specific plumbing，LangChain 已有更合适抽象
+- 与本地更简单抽象冲突
+- 会模糊当前 product boundary
 
 ---
 
 ## Mandatory Boundary Checks
 
-Before implementation, answer these explicitly:
+实现前必须回答：
 
-1. What is the expected effect?
-2. What is in scope?
-3. What are the non-goals?
-4. What state is short-term, persistent, shared, or model-visible?
-5. What exact model-visible tool/prompt/schema surface changes?
-6. Which LangChain/LangGraph primitive should express it?
+1. Expected effect 是什么？
+2. Scope 是什么？
+3. Non-goals 是什么？
+4. 哪些 state 是 short-term / persistent / shared / model-visible？
+5. 哪些 tool/prompt/schema surface 会被模型看到？
+6. 用哪个 LangChain/LangGraph primitive？
 
-Valid local primitives usually include:
+常见 primitive：
 
 - strict tool + Pydantic schema
 - `Command(update=...)`
@@ -122,57 +119,53 @@ Valid local primitives usually include:
 
 ---
 
-## Documentation Rule For This Repo
+## Documentation Rule
 
-For the current `coding-deepgent` mainline:
+当前 `coding-deepgent` 主线中：
 
-- record cc alignment decisions in the active Trellis task PRD first
-- update `.trellis/plans/` only when the decision becomes roadmap/product direction
-- update `.trellis/spec/` only when the decision becomes an executable implementation constraint
-- do **not** default to tutorial-track `agents_deepagents/cc_alignment/` docs
-  unless the task explicitly targets tutorial/reference assets
+- cc alignment 先写 active task PRD
+- 只有稳定的 roadmap/product-direction 结果才提升到 `.trellis/plans/`
+- 只有 executable implementation constraints 才提升到 `.trellis/spec/`
+- 不默认写到 tutorial-track `agents_deepagents/cc_alignment/`
 
-Do not put every exploratory source note into canonical plans or specs. Promote
-only stable decisions.
+探索性 source notes 不要默认变成 canonical plans/specs。
 
 ---
 
 ## Verification Requirements
 
-Evidence should prove both:
+需要证明两侧：
 
 1. **cc-haha mapping evidence**
    - source files/symbols cited
    - matrix decisions recorded
    - intentional gaps documented
 2. **local behavior evidence**
-   - tests for model-visible schema
-   - tests for state/update shape
-   - tests for boundary guards
-   - grep or review checks for stale public names when needed
+   - model-visible schema tests
+   - state/update shape tests
+   - boundary guard tests
+   - 必要时 grep/review stale public names
 
 ---
 
-## Anti-Patterns
+## Anti-patterns
 
-Avoid:
-
-- implementing from memory without inspecting source
-- copying file names without functional intent
-- line-for-line cloning when LangChain has a simpler primitive
-- treating secondary analysis as stronger than source behavior
-- leaving alignment status implicit
+- 不看 source，凭记忆实现
+- 复制文件名但没复制 functional intent
+- LangChain 有简单 primitive 时还 line-for-line clone
+- 把 secondary analysis 当成比 source behavior 更强的证据
+- alignment status 不写明
 
 ---
 
 ## Final Output Checklist
 
-Report:
+报告时包含：
 
 - expected effect
 - source files/symbols inspected
 - alignment matrix summary
 - what aligned now
-- what was deferred or intentionally not copied
+- deferred / do-not-copy
 - files changed
 - verification evidence

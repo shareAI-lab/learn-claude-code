@@ -4,7 +4,7 @@
 Status: source-backed target design draft
 Scope: `coding-deepgent/` product track only
 Source anchor: `/root/claude-code-haha` at commit `d166eb8`
-Planning input: `.omx/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+Planning input: `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
 
 ## Purpose
 

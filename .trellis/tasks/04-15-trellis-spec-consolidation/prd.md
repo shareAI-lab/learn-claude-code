@@ -60,13 +60,13 @@
 
 ## Acceptance Criteria (evolving)
 
-* [ ] 有一份 source-backed 清单，列出当前所有规范类文档、其用途、保留/迁移/删除决策。
-* [ ] Trellis 明确记录 `coding-deepgent` 是当前主线，教程层默认 reference-only。
-* [ ] `.trellis/` 内形成项目规范的主入口与清晰索引。
-* [ ] 迁移后的 Trellis 内容能覆盖当前实际开发所需的项目要求与代码结构说明。
-* [ ] 被判定为重复或废弃的文档已删除，且相关引用已更新。
-* [ ] 被判定为重复或废弃的相关 skill 已删除或改造，且不再误导后续协作。
-* [ ] 根目录教程测试已按首批清理范围删除。
+* [x] 有一份 source-backed 清单，列出当前所有规范类文档、其用途、保留/迁移/删除决策。
+* [x] Trellis 明确记录 `coding-deepgent` 是当前主线，教程层默认 reference-only。
+* [x] `.trellis/` 内形成项目规范的主入口与清晰索引。
+* [x] 迁移后的 Trellis 内容能覆盖当前实际开发所需的项目要求与代码结构说明。
+* [x] 被判定为重复或废弃的文档已删除，且相关引用已更新。
+* [x] 被判定为重复或废弃的相关 skill 已删除或改造，且不再误导后续协作。
+* [x] 根目录教程测试已按首批清理范围删除。
 
 ## Definition of Done (team quality bar)
 
@@ -210,3 +210,33 @@
 * Cons:
   * 不能真正消除双入口和重复维护。
   * 不符合用户“以后都以 trellis 为主”的方向。
+
+## Checkpoint: Trellis Spec Consolidation
+
+State:
+
+* terminal
+
+Verdict:
+
+* APPROVE
+
+Implemented:
+
+* Established `coding-deepgent/` as current mainline and tutorial/reference layer as reference-only by default.
+* Migrated mainline governance into Trellis docs.
+* Removed duplicated `coding-deepgent/docs/*` governance docs.
+* Removed root tutorial `skills/`, root tutorial tests, and `live_tests/` as first-batch cleanup.
+* Added/updated Trellis guides and backend specs for mainline scope, doc map, interview expansion, cc alignment, staged execution, LangChain-native implementation, quality, persistence, error handling, and logging.
+* Added Trellis link checker.
+* Split oversized runtime/compact contract into focused backend contract files.
+
+Verification:
+
+* `python3 ./.trellis/scripts/check_trellis_links.py` passed.
+* Focused `coding-deepgent` skill/plugin tests passed earlier after root `skills/` removal.
+* Scanned current Trellis specs/plans for stale root tutorial paths and removed-skill references.
+
+Decision:
+
+* terminal for this consolidation task family. Archive after human review/commit according to Trellis workflow.

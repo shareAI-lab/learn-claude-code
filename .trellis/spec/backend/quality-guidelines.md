@@ -170,6 +170,21 @@ Do not default to full-suite validation for every small change.
 
 ## Code Review Checklist
 
+### Review Output Format
+
+When asked for a review, report findings first, ordered by severity.
+
+Required shape:
+
+- `Critical` / `High` / `Medium` / `Low` findings first
+- each finding should include file and line when available
+- explain impact and concrete fix direction
+- list open questions or assumptions after findings
+- keep summaries secondary and brief
+
+If no findings are found, say so explicitly and mention residual risks or
+testing gaps.
+
 ### Mainline scope
 
 - [ ] The change serves `coding-deepgent`, not tutorial parity by default.

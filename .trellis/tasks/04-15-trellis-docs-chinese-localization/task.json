@@ -1,7 +1,7 @@
 {
-  "id": "trellis-spec-consolidation",
-  "name": "trellis-spec-consolidation",
-  "title": "brainstorm: consolidate project docs into trellis",
+  "id": "trellis-docs-chinese-localization",
+  "name": "trellis-docs-chinese-localization",
+  "title": "brainstorm: localize trellis docs to chinese",
   "description": "",
   "status": "planning",
   "dev_type": null,
@@ -36,12 +36,8 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "04-15-trellis-custom-skill-migration",
-    "04-15-trellis-docs-synthesis-interview",
-    "04-15-trellis-docs-chinese-localization"
-  ],
-  "parent": null,
+  "children": [],
+  "parent": "04-15-trellis-spec-consolidation",
   "relatedFiles": [],
   "notes": "",
   "meta": {}

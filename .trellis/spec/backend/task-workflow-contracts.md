@@ -180,7 +180,7 @@ plan = create_plan(
     store,
     title="Feature plan",
     content="Use the existing task store and tests.",
-    verification="Run pytest tests/test_tasks.py",
+    verification="Run pytest coding-deepgent/tests/test_tasks.py",
     task_ids=[task.id],
 )
 ```
@@ -192,24 +192,24 @@ Expected:
 
 ### 6. Tests Required
 
-- `tests/test_tasks.py::test_task_store_transitions_dependencies_and_ready_rule`
-- `tests/test_tasks.py::test_task_graph_rejects_missing_self_and_cycle_dependencies`
-- `tests/test_tasks.py::test_task_update_requires_blocked_reason_or_dependency`
-- `tests/test_tasks.py::test_task_graph_needs_verification_after_closing_three_tasks`
-- `tests/test_tasks.py::test_task_graph_with_verification_task_does_not_need_nudge`
-- `tests/test_tasks.py::test_task_update_tool_marks_verification_nudge_in_output_metadata`
-- `tests/test_tasks.py::test_plan_artifact_roundtrip_requires_verification_and_known_tasks`
-- `tests/test_tasks.py::test_plan_tools_save_and_get_artifacts`
-- `tests/test_tool_system_registry.py::test_main_projection_preserves_current_product_tool_surface`
-- `tests/test_subagents.py::test_subagent_allowlists_are_exact_and_exclude_mutating_tools`
-- `tests/test_subagents.py::test_verifier_subagent_requires_plan_id`
-- `tests/test_subagents.py::test_verifier_subagent_requires_task_store`
-- `tests/test_subagents.py::test_verifier_subagent_rejects_unknown_plan`
-- `tests/test_subagents.py::test_run_subagent_task_verifier_uses_durable_plan_payload`
-- `tests/test_subagents.py::test_run_subagent_tool_returns_structured_verifier_result`
-- `tests/test_subagents.py::test_verifier_verdict_helpers_map_status_and_summary`
-- `tests/test_subagents.py::test_run_subagent_tool_persists_verifier_evidence_roundtrip`
-- `tests/test_subagents.py::test_run_subagent_tool_skips_verifier_evidence_without_recording_context`
+- `coding-deepgent/tests/test_tasks.py::test_task_store_transitions_dependencies_and_ready_rule`
+- `coding-deepgent/tests/test_tasks.py::test_task_graph_rejects_missing_self_and_cycle_dependencies`
+- `coding-deepgent/tests/test_tasks.py::test_task_update_requires_blocked_reason_or_dependency`
+- `coding-deepgent/tests/test_tasks.py::test_task_graph_needs_verification_after_closing_three_tasks`
+- `coding-deepgent/tests/test_tasks.py::test_task_graph_with_verification_task_does_not_need_nudge`
+- `coding-deepgent/tests/test_tasks.py::test_task_update_tool_marks_verification_nudge_in_output_metadata`
+- `coding-deepgent/tests/test_tasks.py::test_plan_artifact_roundtrip_requires_verification_and_known_tasks`
+- `coding-deepgent/tests/test_tasks.py::test_plan_tools_save_and_get_artifacts`
+- `coding-deepgent/tests/test_tool_system_registry.py::test_main_projection_preserves_current_product_tool_surface`
+- `coding-deepgent/tests/test_subagents.py::test_subagent_allowlists_are_exact_and_exclude_mutating_tools`
+- `coding-deepgent/tests/test_subagents.py::test_verifier_subagent_requires_plan_id`
+- `coding-deepgent/tests/test_subagents.py::test_verifier_subagent_requires_task_store`
+- `coding-deepgent/tests/test_subagents.py::test_verifier_subagent_rejects_unknown_plan`
+- `coding-deepgent/tests/test_subagents.py::test_run_subagent_task_verifier_uses_durable_plan_payload`
+- `coding-deepgent/tests/test_subagents.py::test_run_subagent_tool_returns_structured_verifier_result`
+- `coding-deepgent/tests/test_subagents.py::test_verifier_verdict_helpers_map_status_and_summary`
+- `coding-deepgent/tests/test_subagents.py::test_run_subagent_tool_persists_verifier_evidence_roundtrip`
+- `coding-deepgent/tests/test_subagents.py::test_run_subagent_tool_skips_verifier_evidence_without_recording_context`
 
 ### 7. Wrong vs Correct
 

@@ -1,91 +1,85 @@
-# Mainline Scope Guide
+# 主线范围指南
 
-> **Purpose**: Keep current work focused on the real product mainline instead of drifting into tutorial parity work.
+> **Purpose**: 避免当前工作被教程/reference 层带偏，始终优先服务真实产品主线。
 
 ---
 
 ## Current Mainline
 
-The current working mainline is:
+当前工作主线是：
 
 ```text
 coding-deepgent/
 ```
 
-Trellis tasks, plans, code-spec updates, and implementation decisions should
-default to serving `coding-deepgent/`.
+Trellis tasks、plans、spec updates 和 implementation decisions 默认都服务
+`coding-deepgent/`。
 
 ---
 
-## Reference-Only Layer
+## Reference-only Layer
 
-The following areas are reference-only by default unless a task explicitly
-targets them:
+除非任务明确指定，下列区域默认是 reference-only：
 
 - `agents/`
 - `agents_deepagents/`
 - `docs/`
 - `web/`
-- `skills/`
 - tutorial/demo-oriented tests and teaching artifacts
 
-These areas can still be useful for:
+这些内容可以用来：
 
-- teaching and explanation
-- source mapping and parity research
-- extracting reusable ideas or examples
+- 教学说明
+- source mapping / parity research
+- 提炼思路或 examples
 
-They are **not** the default implementation target for current product work.
+但它们不是当前默认实现目标。
 
 ---
 
 ## Decision Rule
 
-When a task is ambiguous, decide in this order:
+任务模糊时按顺序判断：
 
-1. Does the task explicitly target tutorial/reference assets?
-   - If yes, work there deliberately.
-2. If not, does the task affect the current product mainline?
-   - If yes, work in `coding-deepgent/` and `.trellis/`.
-3. If tutorial/reference material conflicts with product direction:
-   - treat the tutorial layer as evidence or examples only
-   - prefer `coding-deepgent` product boundaries and Trellis norms
+1. 任务是否明确要求修改 tutorial/reference assets？
+   - 是：按要求处理。
+2. 否则，任务是否影响当前 product mainline？
+   - 是：修改 `coding-deepgent/` 和 `.trellis/`。
+3. 如果 tutorial/reference material 与 product direction 冲突：
+   - tutorial 层只作为 evidence 或 examples
+   - 以 `coding-deepgent` product boundaries 和 Trellis norms 为准
 
 ---
 
-## What To Read First
+## 先读什么
 
-Before implementing in the current mainline, prefer these sources first:
+当前主线实现前优先读：
 
 - `AGENTS.md`
 - `.trellis/workflow.md`
 - `.trellis/project-handoff.md`
 - `.trellis/spec/backend/*.md`
-- `.trellis/spec/frontend/*.md`
+- `.trellis/spec/guides/*.md`
 - `coding-deepgent/README.md`
 - `coding-deepgent/PROJECT_PROGRESS.md`
 
-Use tutorial/reference docs only after the mainline sources are understood.
+教程/reference docs 只在主线来源不够时再读。
 
 ---
 
 ## Common Mistakes
 
-- treating tutorial chapter parity as the shipping goal
-- spending time fixing `web/`, tutorial `docs/`, or teaching tests that do not
-  strengthen `coding-deepgent`
-- copying tutorial structure into product code without source-backed product
-  justification
-- keeping duplicate norms outside Trellis after the product rule is already
-  captured in `.trellis/`
+- 把 tutorial chapter parity 当成 shipping goal
+- 花时间修 `web/`、教程 `docs/` 或 teaching tests，但没有增强 `coding-deepgent`
+- 没有 source-backed product justification 就把教程结构复制进产品代码
+- Trellis 已记录规则后，还继续维护重复规范入口
 
 ---
 
-## Practical Consequence For This Repo
+## Practical Consequence
 
-For current collaboration:
+当前协作中：
 
-- Trellis is the canonical coordination and norm layer.
-- `coding-deepgent/` is the canonical product codebase.
-- tutorial/reference assets should only be updated when explicitly requested or
-  when a small change is needed to avoid misleading future work.
+- `.trellis/` 是 canonical coordination and norm layer
+- `coding-deepgent/` 是 canonical product codebase
+- tutorial/reference assets 只有在明确要求或避免误导未来工作时才更新

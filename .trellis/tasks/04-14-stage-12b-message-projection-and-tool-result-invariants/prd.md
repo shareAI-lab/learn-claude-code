@@ -76,8 +76,8 @@ Add deterministic message/context projection primitives and tool-result invarian
 
 * Created task: `.trellis/tasks/04-14-stage-12b-message-projection-and-tool-result-invariants`
 * Parent planning docs:
-  - `.omx/plans/coding-deepgent-h01-h10-target-design.md`
-  - `.omx/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+  - `.trellis/plans/coding-deepgent-h01-h10-target-design.md`
+  - `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
 * This stage is the direct continuation of 12A after a `continue` checkpoint decision.
 
 ## Checkpoint: Stage 12B

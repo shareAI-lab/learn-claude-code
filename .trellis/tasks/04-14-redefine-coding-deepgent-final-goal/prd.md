@@ -103,11 +103,11 @@ Redefine the long-term final goal of `coding-deepgent` after partial plan loss, 
   - `coding-deepgent/PROJECT_PROGRESS.md`
   - `coding-deepgent/project_status.json`
 * Recovered planning docs:
-  - `.omx/plans/prd-coding-deepgent-runtime-foundation.md`
-  - `.omx/plans/test-spec-coding-deepgent-runtime-foundation.md`
-  - `.omx/plans/master-plan-coding-deepgent-reconstructed.md`
-  - `.omx/plans/coding-deepgent-cc-core-highlights-roadmap.md`
-  - `.omx/plans/coding-deepgent-h01-h10-target-design.md`
+  - `.trellis/plans/prd-coding-deepgent-runtime-foundation.md`
+  - `.trellis/plans/test-spec-coding-deepgent-runtime-foundation.md`
+  - `.trellis/plans/master-plan-coding-deepgent-reconstructed.md`
+  - `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+  - `.trellis/plans/coding-deepgent-h01-h10-target-design.md`
   - `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
 * Existing prompt surface already encodes product intent:
   - `coding_deepgent.prompting.builder.build_default_system_prompt()`
@@ -233,7 +233,7 @@ Define a product-level master goal for `coding-deepgent` with these rules:
 
 ## Essence Workshop Order
 
-Superseded by the highlight backlog in `.omx/plans/coding-deepgent-cc-core-highlights-roadmap.md`.
+Superseded by the highlight backlog in `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`.
 
 Original dependency-first order:
 

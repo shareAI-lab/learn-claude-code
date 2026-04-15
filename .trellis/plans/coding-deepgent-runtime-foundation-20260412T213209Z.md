@@ -1,7 +1,7 @@
 <!-- Recovered on 2026-04-14 from local Codex/OMX session logs after OMX uninstall. This file is reconstructed from direct session output and is high confidence. -->
 # Context Snapshot — coding-deepgent runtime foundation
 
-Task statement: Produce consensus planning artifacts for `coding-deepgent` runtime foundation: `.omx/plans/prd-coding-deepgent-runtime-foundation.md` and `.omx/plans/test-spec-coding-deepgent-runtime-foundation.md`.
+Task statement: Produce consensus planning artifacts for `coding-deepgent` runtime foundation: `.trellis/plans/prd-coding-deepgent-runtime-foundation.md` and `.trellis/plans/test-spec-coding-deepgent-runtime-foundation.md`.
 
 Desired outcome: A product-stage plan for turning `coding-deepgent` into a professional LangChain-native cc runtime foundation, using LangChain/LangGraph primitives first and cc-haha semantics through extension seams where LangChain does not directly match.
 
@@ -47,4 +47,4 @@ Likely touchpoints:
 - new `coding_deepgent/runtime/*`
 - possibly `coding_deepgent/tools/discovery.py`, `middleware/tool_guard.py`, `runtime/checkpointing.py`
 - `coding-deepgent/tests/*`
-- `coding-deepgent/docs/*`, `project_status.json`, `README.md`
+- `coding-deepgent/README.md`, `coding-deepgent/PROJECT_PROGRESS.md`, `coding-deepgent/project_status.json`, and migrated Trellis planning/spec docs

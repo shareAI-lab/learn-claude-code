@@ -43,12 +43,15 @@ contracts should be captured here in Trellis.
 | Guide | Description | Status |
 |-------|-------------|--------|
 | [Directory Structure](./directory-structure.md) | Actual `coding-deepgent` module layout and boundary rules | Active |
-| [Database Guidelines](./database-guidelines.md) | Database/ORM guidance when a real persistence surface is introduced | Placeholder |
-| [Error Handling](./error-handling.md) | Error typing and handling guidance | Placeholder |
+| [Database Guidelines](./database-guidelines.md) | Current persistence guidance; no SQL/ORM in mainline yet | Active |
+| [Error Handling](./error-handling.md) | Mixed-but-strict error boundary conventions | Active |
 | [LangChain-Native Implementation Guidelines](./langchain-native-guidelines.md) | Strict tool/schema/middleware/state rules for LangChain/LangGraph work | Active |
 | [Quality Guidelines](./quality-guidelines.md) | Mainline code-review, testing, and boundary rules | Active |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging guidance | Placeholder |
-| [Runtime Context And Compaction Contracts](./runtime-context-compaction-contracts.md) | Executable contracts for session resume, compact artifacts, generated manual compact, and memory quality | Active |
+| [Logging Guidelines](./logging-guidelines.md) | Structured logging and evidence-vs-log boundary | Active |
+| [Runtime Context And Compaction Contracts](./runtime-context-compaction-contracts.md) | Overview index for runtime/compact contract files | Active |
+| [Tool Result Storage Contracts](./tool-result-storage-contracts.md) | Executable contracts for large-output persistence and preview references | Active |
+| [Session Compact Contracts](./session-compact-contracts.md) | Executable contracts for resume, compact records, session memory, and memory quality | Active |
+| [Runtime Pressure Contracts](./runtime-pressure-contracts.md) | Executable contracts for live microcompact, auto/reactive compact, restoration, and runtime pressure evidence | Active |
 | [Task Workflow Contracts](./task-workflow-contracts.md) | Executable contracts for durable task graph readiness, transitions, and verification boundary | Active |
 
 ---
@@ -61,6 +64,9 @@ For most current `coding-deepgent` work, the high-signal Trellis docs are:
 - [LangChain-Native Implementation Guidelines](./langchain-native-guidelines.md)
 - [Quality Guidelines](./quality-guidelines.md)
 - [Runtime Context And Compaction Contracts](./runtime-context-compaction-contracts.md)
+- [Tool Result Storage Contracts](./tool-result-storage-contracts.md)
+- [Session Compact Contracts](./session-compact-contracts.md)
+- [Runtime Pressure Contracts](./runtime-pressure-contracts.md)
 - [Task Workflow Contracts](./task-workflow-contracts.md)
 
 If a task changes runtime/session/compact/task boundaries, these Trellis docs

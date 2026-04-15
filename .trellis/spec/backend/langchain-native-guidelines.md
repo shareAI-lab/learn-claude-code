@@ -16,8 +16,8 @@ Use this document when a task touches:
 - runtime state
 - model integration seams
 
-This is the canonical Trellis replacement for the old
-`langchain-architecture-guard` project skill.
+This is the canonical Trellis guidance for LangChain/LangGraph implementation
+shape.
 
 ---
 
