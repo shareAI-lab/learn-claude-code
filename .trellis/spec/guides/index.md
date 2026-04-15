@@ -1,112 +1,124 @@
-# 思考指南索引
+# Thinking Guides
 
-> **Purpose**: 帮助 AI agent 在写代码前先想清楚边界、复用、对齐、阶段执行和文档落点。
-
----
-
-## 这个目录负责什么
-
-`guides/` 放的是“怎么思考”的指南，不是具体实现 contract。
-
-- 具体模块规则、schema、测试要求 -> 写到 `.trellis/spec/backend/*.md`
-- 方向、roadmap、里程碑 -> 写到 `.trellis/plans/*.md`
-- 工作流程 -> 写到 `.trellis/workflow.md`
-- 思考触发器、采访流程、文档地图 -> 写到这里
+> **Purpose**: Expand your thinking to catch things you might not have considered.
 
 ---
 
-## 可用指南
+## Why Thinking Guides?
+
+**Most bugs and tech debt come from "didn't think of that"**, not from lack of skill:
+
+- Didn't think about what happens at layer boundaries → cross-layer bugs
+- Didn't think about code patterns repeating → duplicated code everywhere
+- Didn't think about edge cases → runtime errors
+- Didn't think about future maintainers → unreadable code
+
+These guides help you **ask the right questions before coding**.
+
+---
+
+## Available Guides
 
 | Guide | Purpose | When to Use |
-|---|---|---|
-| [Trellis Doc Map Guide](./trellis-doc-map-guide.md) | 说明高价值 Trellis 文档职责、阅读顺序和写入落点 | 不确定该读哪份 Trellis 文档或把新知识写到哪里 |
-| [Interview-Driven Spec Expansion Guide](./interview-driven-spec-expansion-guide.md) | 通过聚焦采访补充 Trellis specs | 缺失信息依赖维护者判断或项目偏好 |
-| [Mainline Scope Guide](./mainline-scope-guide.md) | 保持当前工作聚焦 `coding-deepgent` 主线 | 教程/reference 资产可能干扰主线判断 |
-| [CC Alignment Guide](./cc-alignment-guide.md) | 让 `cc-haha` 对齐保持 source-backed 和 effect-driven | 功能需要对齐 Claude Code / `cc-haha` 行为 |
-| [Staged Execution Guide](./staged-execution-guide.md) | 用 checkpoint 和验证预算推进多阶段任务 | 一个任务族需要跨 sub-stage 推进 |
-| [Cross-Layer Thinking Guide](./cross-layer-thinking-guide.md) | 思考跨层数据流和边界 | 功能跨多个层或 payload 会变化 |
-| [Code Reuse Thinking Guide](./code-reuse-thinking-guide.md) | 发现已有模式，避免重复实现 | 写新 helper、改常量、看到重复模式时 |
+|-------|---------|-------------|
+| [CC Alignment Guide](./cc-alignment-guide.md) | Keep cc-haha alignment source-backed and effect-driven | When a feature should align with Claude Code / cc-haha behavior |
+| [Code Reuse Thinking Guide](./code-reuse-thinking-guide.md) | Identify patterns and reduce duplication | When you notice repeated patterns |
+| [Cross-Layer Thinking Guide](./cross-layer-thinking-guide.md) | Think through data flow across layers | Features spanning multiple layers |
+| [Interview-Driven Spec Expansion Guide](./interview-driven-spec-expansion-guide.md) | Fill Trellis specs through focused maintainer interviews | When missing project knowledge depends on maintainer decisions |
+| [Mainline Scope Guide](./mainline-scope-guide.md) | Keep product work focused on the real implementation target | When tutorial/reference assets might distract from `coding-deepgent` |
+| [Staged Execution Guide](./staged-execution-guide.md) | Run multi-stage work with explicit checkpoints and bounded validation | When one task family should proceed across sub-stages without drift |
+| [Trellis Doc Map Guide](./trellis-doc-map-guide.md) | Explain high-value Trellis document roles, reading order, and update targets | When you need to understand or extend the `.trellis/` document system |
 
 ---
 
-## 快速触发器
+## Quick Reference: Thinking Triggers
 
-### 需要理解 Trellis 文档体系时
+### When to Think About Cross-Layer Issues
 
-- [ ] 不确定 `.trellis/` 哪份文档负责某条规则
-- [ ] 需要 `coding-deepgent` 的推荐阅读顺序
-- [ ] 准备通过采访补充 Trellis docs
+- [ ] Feature touches 3+ layers (API, Service, Component, Database)
+- [ ] Data format changes between layers
+- [ ] Multiple consumers need the same data
+- [ ] You're not sure where to put some logic
 
-→ 读 [Trellis Doc Map Guide](./trellis-doc-map-guide.md)
+→ Read [Cross-Layer Thinking Guide](./cross-layer-thinking-guide.md)
 
-### 需要采访补 spec 时
+### When To Run CC Alignment
 
-- [ ] 代码和现有文档推导不出项目约定
-- [ ] 答案依赖维护者偏好或产品方向
-- [ ] 已经知道答案要写进哪份 Trellis 文档
+- [ ] The task should align with `cc-haha` or Claude Code behavior
+- [ ] A feature name or shape looks similar, but the local effect is not yet explicit
+- [ ] You need to decide what to align, defer, or intentionally not copy
 
-→ 读 [Interview-Driven Spec Expansion Guide](./interview-driven-spec-expansion-guide.md)
+→ Read [CC Alignment Guide](./cc-alignment-guide.md)
 
-### 需要确认主线范围时
+### When to Think About Code Reuse
 
-- [ ] repo 同时存在 product code 和 tutorial/reference assets
-- [ ] 需求提到 `docs/`、`web/`、`skills/`、教程测试等非主线资产
-- [ ] 不确定是否需要追求教程 parity
+- [ ] You're writing similar code to something that exists
+- [ ] You see the same pattern repeated 3+ times
+- [ ] You're adding a new field to multiple places
+- [ ] **You're modifying any constant or config**
+- [ ] **You're creating a new utility/helper function** ← Search first!
 
-→ 读 [Mainline Scope Guide](./mainline-scope-guide.md)
+→ Read [Code Reuse Thinking Guide](./code-reuse-thinking-guide.md)
 
-### 需要做 `cc-haha` 对齐时
+### When to Check Mainline Scope
 
-- [ ] 任务要对齐 `cc-haha` 或 Claude Code 行为
-- [ ] 名称相似，但本地效果还不明确
-- [ ] 需要判断 `align / partial / defer / do-not-copy`
+- [ ] The repo has both product code and tutorial/reference assets
+- [ ] The request mentions docs, skills, tests, or web content that may not be product-critical
+- [ ] You're unsure whether parity with tutorial material is actually required
 
-→ 读 [CC Alignment Guide](./cc-alignment-guide.md)
+→ Read [Mainline Scope Guide](./mainline-scope-guide.md)
 
-### 需要多阶段执行时
+### When To Use Staged Execution
 
-- [ ] 工作跨多个 sub-stage 或 checkpoint
-- [ ] 需要 checkpoint 后自动 `continue / adjust / split / stop`
-- [ ] 需要控制 `lean` / `deep` 验证预算
+- [ ] The work spans multiple sub-stages or checkpoints
+- [ ] You want automatic progression only after an explicit checkpoint verdict
+- [ ] The task needs `lean` vs `deep` validation-budget control
 
-→ 读 [Staged Execution Guide](./staged-execution-guide.md)
+→ Read [Staged Execution Guide](./staged-execution-guide.md)
 
-### 需要思考跨层问题时
+### When To Navigate Trellis Docs
 
-- [ ] 功能触及 3 层以上
-- [ ] 数据格式或 payload 会变化
-- [ ] 多个消费者依赖同一份数据
-- [ ] 不确定逻辑该放在哪层
+- [ ] You are unsure which Trellis document owns a rule or decision
+- [ ] You need the recommended reading order for `coding-deepgent`
+- [ ] You are about to interview the user to fill missing Trellis docs
 
-→ 读 [Cross-Layer Thinking Guide](./cross-layer-thinking-guide.md)
+→ Read [Trellis Doc Map Guide](./trellis-doc-map-guide.md)
 
-### 需要复用检查时
+### When To Interview For Missing Specs
 
-- [ ] 正在写类似已有代码的实现
-- [ ] 看到重复模式
-- [ ] 正在改常量或配置
-- [ ] 正在新增 utility/helper
+- [ ] Existing code/docs do not answer a project convention question
+- [ ] The answer depends on maintainer preference or product direction
+- [ ] You know which Trellis document should receive the answer
 
-→ 读 [Code Reuse Thinking Guide](./code-reuse-thinking-guide.md)
+→ Read [Interview-Driven Spec Expansion Guide](./interview-driven-spec-expansion-guide.md)
 
 ---
 
-## Pre-Modification Rule
+## Pre-Modification Rule (CRITICAL)
 
-改任何值之前先搜索。
+> **Before changing ANY value, ALWAYS search first!**
 
 ```bash
-rg -n "value_to_change" .
+# Search for the value you're about to change
+grep -r "value_to_change" .
 ```
 
-这不是形式主义。它能避免“只改了一处，忘了别的调用点”的问题。
+This single habit prevents most "forgot to update X" bugs.
 
 ---
 
-## 贡献规则
+## How to Use This Directory
 
-发现新的可复用思考规则时：
+1. **Before coding**: Skim the relevant thinking guide
+2. **During coding**: If something feels repetitive or complex, check the guides
+3. **After bugs**: Add new insights to the relevant guide (learn from mistakes)
 
-- 如果是“要思考什么” -> 更新 `guides/`
-- 如果是“代码必须怎么写” -> 更新 `spec/backend/`
-- 如果是“当前任务的临时判断” -> 先写 active task `prd.md`
+---
+
+## Contributing
+
+Found a new "didn't think of that" moment? Add it to the relevant guide.
+
+---
+
+**Core Principle**: 30 minutes of thinking saves 3 hours of debugging.

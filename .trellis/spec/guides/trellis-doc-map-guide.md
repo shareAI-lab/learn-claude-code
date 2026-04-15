@@ -1,58 +1,59 @@
-# Trellis 文档地图指南
+# Trellis Doc Map Guide
 
-> **Purpose**: 说明当前 `coding-deepgent` 主线中高价值 `.trellis/` 文档的职责、阅读顺序和写入落点。
+> **Purpose**: Explain the high-value `.trellis/` documents for the current `coding-deepgent` mainline: what each layer owns, what to read first, and where new knowledge should be written.
 
 ---
 
 ## Scope
 
-这份 guide 只覆盖当前主线高频使用的 Trellis 文档。
+This guide maps only the high-value Trellis documents used in current
+`coding-deepgent` work.
 
-它不试图解释 `.trellis/scripts/`、配置文件、历史归档任务和所有内部细节。
+It intentionally does not document every internal script, config file, archived
+task, or implementation detail under `.trellis/`.
 
-用途：
+Use this as:
 
-- 给维护者看：理解 Trellis 文档职责分层
-- 给 AI agent 看：知道先读什么、把新知识写到哪里
-
----
-
-## 核心原则
-
-Trellis 不应该变成一份巨型 handbook。
-
-当前分工是：
-
-- `workflow.md` 说明 **工作如何流转**
-- `project-handoff.md` 说明 **当前主线状态**
-- `plans/` 说明 **长期产品方向**
-- `spec/backend/` 说明 **实现时必须遵守的规则**
-- `spec/guides/` 说明 **改动前应该怎么思考**
-- `workspace/` 记录 **完成后发生了什么**
-
-新增知识时，写进“最窄且真正拥有它”的文档。
+- a maintainer map for Trellis document responsibilities
+- an AI-agent map for reading order and update targets
 
 ---
 
-## 高价值文档层级
+## Core Principle
+
+Trellis should not become one giant handbook.
+
+Use this structure instead:
+
+- `workflow.md` explains **how work moves**
+- `project-handoff.md` explains **where the current mainline stands**
+- `plans/` explains **long-lived product direction**
+- `spec/backend/` explains **how to implement safely**
+- `spec/guides/` explains **how to think before changing things**
+- `workspace/` records **what happened after work is done**
+
+When adding new knowledge, update the narrowest document that owns it.
+
+---
+
+## High-Value Document Layers
 
 | Layer | Main paths | Owns | Does not own |
 |---|---|---|---|
-| Workflow | `.trellis/workflow.md` | session flow、task lifecycle、staged execution、finish/record expectations | product architecture details |
-| Mainline handoff | `.trellis/project-handoff.md` | 当前 `coding-deepgent` 目标、latest verified state、minimal resume procedure | 详细 implementation contracts |
-| Plans | `.trellis/plans/index.md`, `.trellis/plans/*.md` | roadmap、target design、stage sequencing、milestone boundaries | 日常 coding conventions |
-| Backend specs | `.trellis/spec/backend/index.md`, `.trellis/spec/backend/*.md` | implementation contracts、module boundaries、quality rules、LangChain-native rules | 广泛 brainstorm notes |
-| Thinking guides | `.trellis/spec/guides/index.md`, `.trellis/spec/guides/*.md` | pre-implementation thinking、source alignment、staged work、scope checks | 精确 code/API contracts |
-| Deferred frontend specs | `.trellis/spec/frontend/index.md`, `.trellis/spec/frontend/*.md` | future frontend activation conditions | 当前 `coding-deepgent` product rules |
-| Workspace records | `.trellis/workspace/index.md`, `.trellis/workspace/<developer>/journal-N.md` | completed session summaries、commit/session records | future requirements 或 canonical rules |
+| Workflow | `.trellis/workflow.md` | session flow, task lifecycle, staged execution protocol, finish/record expectations | product architecture details |
+| Mainline handoff | `.trellis/project-handoff.md` | current `coding-deepgent` goal, latest verified state, minimal resume procedure | detailed implementation contracts |
+| Long-lived plans | `.trellis/plans/index.md`, `.trellis/plans/*.md` | roadmaps, reconstructed master plans, target designs, canonical dashboards | day-to-day coding conventions |
+| Backend specs | `.trellis/spec/backend/index.md`, `.trellis/spec/backend/*.md` | implementation contracts, module boundaries, quality rules, LangChain-native rules | broad brainstorming notes |
+| Thinking guides | `.trellis/spec/guides/index.md`, `.trellis/spec/guides/*.md` | pre-implementation thinking, source alignment, staged work, scope checks | exact code/API contracts |
+| Workspace records | `.trellis/workspace/index.md`, `.trellis/workspace/<developer>/journal-N.md` | session history, completed work summaries, commit/session records | future requirements or canonical rules |
 
 ---
 
-## 阅读顺序
+## Reading Order
 
-### 维护者
+### For Maintainers
 
-想理解或调整项目方向时，按这个顺序：
+Use this path when you want to understand or reshape the project direction:
 
 1. `AGENTS.md`
 2. `.trellis/workflow.md`
@@ -62,182 +63,217 @@ Trellis 不应该变成一份巨型 handbook。
 6. `.trellis/spec/backend/index.md`
 7. `.trellis/spec/guides/index.md`
 
-之后只打开当前决策需要的具体 topic docs。
+Then open only the specific topic docs needed for the current decision.
 
-### AI agent
+### For AI Agents
 
-实现前按这个顺序：
+Use this path before implementation:
 
 1. `AGENTS.md`
 2. `.trellis/workflow.md`
 3. `python3 ./.trellis/scripts/get_context.py`
-4. 如果任务涉及当前主线状态，读 `.trellis/project-handoff.md`
-5. backend/product work 读 `.trellis/spec/backend/index.md`
-6. 需要思考触发器时读 `.trellis/spec/guides/index.md`
-7. 读 active task `prd.md` 和注入的 `implement.jsonl` / `check.jsonl`
+4. `.trellis/project-handoff.md` if the task is about current `coding-deepgent` mainline state
+5. `.trellis/spec/backend/index.md` for backend/product work
+6. `.trellis/spec/guides/index.md` for thinking triggers
+7. active task `prd.md` and injected `implement.jsonl` / `check.jsonl`
 
-不要无差别读取整个 `.trellis/tasks/` 或 `.trellis/plans/` 树。
+Do not read broad `.trellis/tasks/` or `.trellis/plans/` trees unless a real
+ambiguity remains.
 
 ---
 
-## 新知识写到哪里
+## Where To Write New Knowledge
 
 | New knowledge type | Write it here | Example |
 |---|---|---|
-| 工作流程变化 | `.trellis/workflow.md` | staged validation budget changed |
-| 当前主线状态变化 | `.trellis/project-handoff.md` | latest verified stage family updated |
-| 普通完成会话 | `.trellis/workspace/<developer>/journal-N.md` via `record-session` | daily progress summary |
-| 长期 roadmap 变化 | `.trellis/plans/*.md` | H-row status or MVP boundary changed |
-| 模块职责或布局变化 | `.trellis/spec/backend/directory-structure.md` | new domain package added |
-| LangChain/LangGraph 规则变化 | `.trellis/spec/backend/langchain-native-guidelines.md` | tool schema rule changed |
-| review/testing 规则变化 | `.trellis/spec/backend/quality-guidelines.md` | new forbidden pattern |
-| runtime/session/compact contract 变化 | `.trellis/spec/backend/*-contracts.md` | new compact invariant |
-| task/plan/verifier contract 变化 | `.trellis/spec/backend/task-workflow-contracts.md` | new verifier evidence rule |
-| thinking checklist 变化 | `.trellis/spec/guides/*.md` | new scope or alignment trigger |
+| Work process changed | `.trellis/workflow.md` | staged validation budget changed |
+| Current mainline status changed | `.trellis/project-handoff.md` | latest verified stage family updated |
+| Ordinary completed session | `.trellis/workspace/<developer>/journal-N.md` via `record-session` | daily progress or minor implementation summary |
+| Long-term roadmap changed | `.trellis/plans/*.md` | H-row status or MVP boundary changed |
+| Module ownership or layout changed | `.trellis/spec/backend/directory-structure.md` | new domain package added |
+| LangChain/LangGraph rule changed | `.trellis/spec/backend/langchain-native-guidelines.md` | tool schema rule changed |
+| Review/testing rule changed | `.trellis/spec/backend/quality-guidelines.md` | new forbidden pattern |
+| Runtime/session/compact contract changed | `.trellis/spec/backend/runtime-context-compaction-contracts.md` | new compact record invariant |
+| Task/plan/verifier contract changed | `.trellis/spec/backend/task-workflow-contracts.md` | new verifier evidence rule |
+| Thinking checklist changed | `.trellis/spec/guides/*.md` | new scope or alignment trigger |
+| Work was completed and committed | `.trellis/workspace/<developer>/journal-N.md` via `record-session` | session summary |
 
 ---
 
-## Plans vs Specs
+## Plans Vs Specs Boundary
 
-`plans/` 写方向：
+Use `.trellis/plans/` for direction.
+
+Plans own:
 
 - product goals
 - roadmap rows
 - stage sequencing
 - strategic tradeoffs
 - deferred / do-not-copy decisions
-- milestone boundaries
+- current or future milestone boundaries
 
-`spec/` 写可执行约束：
+Use `.trellis/spec/` for execution.
+
+Specs own:
 
 - implementation contracts
 - schemas and signatures
 - module boundaries
 - validation/error matrices
 - testing requirements
-- concrete do/don't rules
+- concrete do/don't rules for future code changes
 
-如果 plan 里的决定变成未来每次实现都必须遵守的规则，要抽取到 owning spec。
+If a plan decision becomes something every implementation must obey, extract
+that rule into the owning spec. Do not force future agents to read broad plans
+to discover executable constraints.
 
 ---
 
-## Task PRD vs Workspace Journal
+## Task PRD Vs Workspace Journal Boundary
 
-工作进行中使用 active task PRD。
+Use the active task PRD while work is in progress.
 
-PRD 负责：
+Task PRDs own:
 
-- requirements / acceptance criteria
+- requirements and acceptance criteria
 - interview notes
 - scope decisions
 - implementation checkpoints
-- verification evidence
-- unresolved questions
+- verification evidence for the task
+- unresolved questions and follow-up decisions
 
-工作完成并提交后使用 workspace journal。
+Use workspace journals after work is completed and committed.
 
-Journal 负责：
+Workspace journals own:
 
-- completed session summary
-- commit list
+- completed session summaries
+- commit lists
 - final testing notes
-- next-step handoff
+- next-step handoff after a completed session
 
-不要让未来 agent 必须翻 journal 才能恢复 active task 的需求。
-
----
-
-## 什么时候必须更新 Specs
-
-当改动创建或改变未来 agent 必须遵守的 implementation contract 时，更新 `.trellis/spec/*`。
-
-触发条件：
-
-- tool schema / command / API shape 改变
-- runtime state fields 或 payload formats 改变
-- module ownership 或 boundary 改变
-- validation / error behavior 改变
-- testing requirements 或 verification matrix 改变
-- cross-layer transformation 改变
-- repeated mistake 需要变成 rule / anti-pattern
-
-普通实现细节不要写进 spec。
+Do not require future agents to search journals to recover active task
+requirements. Keep active decisions in the active task PRD until the work is
+done.
 
 ---
 
-## CC Alignment 记录位置
+## Task Archive Boundary
 
-`cc-haha` 对齐按这个顺序记录：
+Keep active tasks focused on work still being decided, implemented, or verified.
 
-1. Active task PRD
+Archive a task when:
+
+- acceptance criteria are met
+- verification is complete for the task's risk level
+- the human has committed the work, or the task is docs/planning-only and
+  explicitly complete
+
+Do not keep tasks open just because task metadata still says `planning` or
+`in_progress`.
+
+Workspace journals record completed sessions; archived tasks preserve the
+task-level requirements and decisions.
+
+---
+
+## When Specs Must Be Updated
+
+Update `.trellis/spec/*` when a change creates or changes an executable
+contract future agents must obey.
+
+Required spec-update triggers:
+
+- tool schema, command, or public API shape changes
+- runtime state fields or payload formats change
+- module ownership or boundary changes
+- validation or error behavior changes
+- testing requirements or verification matrix changes
+- cross-layer data transformation changes
+- a repeated mistake becomes a rule or anti-pattern
+
+Do not update specs for ordinary implementation detail that does not affect
+future implementation or review behavior.
+
+When unsure, write the decision in the active task PRD first, then extract it
+to the owning spec only if it becomes reusable.
+
+---
+
+## CC Alignment Record Placement
+
+Record `cc-haha` alignment in this order:
+
+1. Active task PRD:
    - expected effect
    - source files inspected
    - alignment matrix
-   - `align / partial / defer / do-not-copy`
-2. `.trellis/plans/`
-   - 稳定的 roadmap / product-direction 结果
-3. `.trellis/spec/`
-   - 未来实现必须遵守的 executable constraints
+   - `align / partial / defer / do-not-copy` decisions
+2. `.trellis/plans/`:
+   - only stable roadmap/product-direction outcomes
+3. `.trellis/spec/`:
+   - only executable implementation constraints future agents must obey
 
-不要把探索性 source notes 默认变成 canonical specs。
+Do not let exploratory source notes become canonical specs by default.
 
 ---
 
-## Summary docs vs Atomic specs
+## Summary Docs Vs Atomic Specs
 
-地图/总结文档用于：
+Use summary/map docs for:
 
 - orientation
 - reading order
 - responsibility boundaries
-- “这条规则应该写到哪里？”
+- "where should this go?" decisions
 
-原子 spec 用于：
+Use atomic specs for:
 
 - concrete implementation rules
 - signatures and contracts
 - validation/error matrices
 - examples and anti-patterns
 
-不要把原子 spec 的细节复制到地图文档里。地图只负责指路。
+Do not duplicate detailed rules from atomic specs into map docs. Link or point
+to the owning spec instead.
 
 ---
 
-## Interview-driven expansion
+## Interview-Driven Expansion
 
-采访补文档时：
+This map is the entrypoint for later interview-based Trellis expansion.
 
-1. 识别缺失知识类别。
-2. 从上面的表选择 owning Trellis document。
-3. 一次只问一个问题。
-4. 回答立即写入 owning doc。
-5. 只有文档结构或路由规则变化时，才更新这份地图。
+When interviewing the user to fill docs:
+
+1. Identify the missing knowledge category.
+2. Choose the owning Trellis document from the table above.
+3. Ask one targeted question.
+4. Write the answer into the owning document, not into this map.
+5. Update this map only if the document structure or routing rule changes.
+
+Good interview targets:
+
+- unclear module ownership
+- recurring review concerns
+- unstated testing expectations
+- accepted `cc-haha` alignment boundaries
+- when to update specs vs plans vs workspace records
 
 ---
 
-## Frontend 状态
+## Current Mainline Bias
 
-frontend specs 当前是 future-activatable placeholders。
+This map serves `coding-deepgent`.
 
-只有当任务明确把 frontend/web product work 纳入主线时，才激活这些 spec。
-
----
-
-## Lightweight Path Checks
-
-重组 Trellis docs 后运行：
-
-```bash
-python3 ./.trellis/scripts/check_trellis_links.py
-```
-
-这是 Markdown link smoke check，不替代人工 review。
+Tutorial/reference assets such as `agents/`, `agents_deepagents/`, `docs/`, and
+`web/` are not default implementation targets. Use
+`mainline-scope-guide.md` when that boundary is unclear.
 
 ---
 
 ## Maintenance Rules
 
-- 保持这份 guide 可快速扫描。
-- 只有当新文档成为高价值入口时，才加入地图。
-- 优先更新 owning atomic doc，不要扩张这份地图。
-- 如果两份文档看起来拥有同一条规则，在这里澄清 ownership。
+- Keep this guide short enough to scan.
+- Add new Trellis documents to the map only when they become high-value entrypoints.
+- Prefer updating the owning atomic doc over expanding this guide.
+- If two docs appear to own the same rule, clarify ownership here and remove duplication from one side.

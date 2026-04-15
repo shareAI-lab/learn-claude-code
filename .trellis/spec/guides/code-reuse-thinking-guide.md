@@ -1,118 +1,105 @@
-# 代码复用思考指南
+# Code Reuse Thinking Guide
 
-> **Purpose**: 在写新代码前先找已有模式，减少重复实现和配置漂移。
+> **Purpose**: Stop and think before creating new code - does it already exist?
 
 ---
 
-## 核心原则
+## The Problem
 
-新增 helper、常量、配置、schema 或流程前，先搜索。
+**Duplicated code is the #1 source of inconsistency bugs.**
+
+When you copy-paste or rewrite existing logic:
+- Bug fixes don't propagate
+- Behavior diverges over time
+- Codebase becomes harder to understand
+
+---
+
+## Before Writing New Code
+
+### Step 1: Search First
 
 ```bash
-rg -n "keyword_or_value" .
+# Search for similar function names
+grep -r "functionName" .
+
+# Search for similar logic
+grep -r "keyword" .
 ```
 
-这能避免：
+### Step 2: Ask These Questions
 
-- 同一规则出现两份实现
-- 只更新一个调用点
-- 新旧配置并存
-- 文档和代码 contract 不一致
+| Question | If Yes... |
+|----------|-----------|
+| Does a similar function exist? | Use or extend it |
+| Is this pattern used elsewhere? | Follow the existing pattern |
+| Could this be a shared utility? | Create it in the right place |
+| Am I copying code from another file? | **STOP** - extract to shared |
 
 ---
 
-## 什么时候必须先搜
+## Common Duplication Patterns
 
-- 新增 utility/helper
-- 修改常量或配置值
-- 新增 tool/schema/state field
-- 新增文件路径规则
-- 修改 command/API shape
-- 看到相似逻辑第三次出现
+### Pattern 1: Copy-Paste Functions
 
----
+**Bad**: Copying a validation function to another file
 
-## 搜索策略
+**Good**: Extract to shared utilities, import where needed
 
-### 1. 搜索名字
+### Pattern 2: Similar Components
 
-```bash
-rg -n "function_or_field_name" coding-deepgent .trellis
-```
+**Bad**: Creating a new component that's 80% similar to existing
 
-### 2. 搜索值
+**Good**: Extend existing component with props/variants
 
-```bash
-rg -n "exact_value" .
-```
+### Pattern 3: Repeated Constants
 
-### 3. 搜索概念
+**Bad**: Defining the same constant in multiple files
 
-```bash
-rg -n "compact|session_memory|permission_denied|plan_get" coding-deepgent .trellis
-```
-
-### 4. 搜索测试
-
-```bash
-rg -n "expected behavior" coding-deepgent/tests
-```
+**Good**: Single source of truth, import everywhere
 
 ---
 
-## 复用决策
+## When to Abstract
 
-找到已有实现后：
+**Abstract when**:
+- Same code appears 3+ times
+- Logic is complex enough to have bugs
+- Multiple people might need this
 
-- 如果职责相同，复用或扩展 existing seam
-- 如果职责相近但边界不同，记录区别，避免硬合并
-- 如果已有实现是错误抽象，先在 PRD 说明为什么不复用
-
-不要为了“减少文件数量”把不同 product concept 合并。
-
----
-
-## 常见反模式
-
-### 1. 新增第二套配置
-
-Bad:
-
-- 新增一个阈值，但已有 settings/provider 已经有同类字段。
-
-Good:
-
-- 扩展 owning settings 或 domain policy。
-
-### 2. 新增第二个 renderer
-
-Bad:
-
-- 为一个新场景复制已有 render 逻辑。
-
-Good:
-
-- 复用 existing renderer seam，或明确说明输出 contract 不同。
-
-### 3. 新增第二个 store namespace
-
-Bad:
-
-- 同一 domain 的 record 分散到多个 namespace。
-
-Good:
-
-- 让 owning domain 决定 namespace 和 schema。
+**Don't abstract when**:
+- Only used once
+- Trivial one-liner
+- Abstraction would be more complex than duplication
 
 ---
 
-## Trellis 更新规则
+## After Batch Modifications
 
-如果你发现可复用模式已经稳定：
+When you've made similar changes to multiple files:
 
-- 代码结构规则 -> `.trellis/spec/backend/directory-structure.md`
-- LangChain/schema 规则 -> `.trellis/spec/backend/langchain-native-guidelines.md`
-- review/testing 规则 -> `.trellis/spec/backend/quality-guidelines.md`
-- 只是一条思考触发器 -> 留在本 guide
+1. **Review**: Did you catch all instances?
+2. **Search**: Run grep to find any missed
+3. **Consider**: Should this be abstracted?
 
-如果只是当前任务的一次判断，先写 active task PRD。
+---
+
+## Gotcha: Asymmetric Mechanisms Producing Same Output
+
+**Problem**: When two different mechanisms must produce the same file set (e.g., recursive directory copy for init vs. manual `files.set()` for update), structural changes (renaming, moving, adding subdirectories) only propagate through the automatic mechanism. The manual one silently drifts.
+
+**Symptom**: Init works perfectly, but update creates files at wrong paths or misses files entirely.
+
+**Prevention checklist**:
+- [ ] When migrating directory structures, search for ALL code paths that reference the old structure
+- [ ] If one path is auto-derived (glob/copy) and another is manually listed, the manual one needs updating
+- [ ] Add a regression test that compares outputs from both mechanisms
+
+---
+
+## Checklist Before Commit
+
+- [ ] Searched for existing similar code
+- [ ] No copy-pasted logic that should be shared
+- [ ] Constants defined in one place
+- [ ] Similar patterns follow same structure

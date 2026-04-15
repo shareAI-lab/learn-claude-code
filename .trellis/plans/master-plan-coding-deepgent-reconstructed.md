@@ -10,10 +10,10 @@ Intent: consolidate the surviving planning artifacts and current product status 
 This document is not claimed to be the original master plan. It is a reconstruction derived from the strongest surviving artifacts.
 
 Primary evidence:
-- `.trellis/plans/prd-coding-deepgent-runtime-foundation.md`
-- `.trellis/plans/test-spec-coding-deepgent-runtime-foundation.md`
-- `.trellis/plans/coding-deepgent-runtime-foundation-20260412T213209Z.md`
-- `.trellis/plans/runtime-foundation-recovery-notes-2026-04-14.md`
+- `.omx/plans/prd-coding-deepgent-runtime-foundation.md`
+- `.omx/plans/test-spec-coding-deepgent-runtime-foundation.md`
+- `.omx/context/coding-deepgent-runtime-foundation-20260412T213209Z.md`
+- `.omx/recovery/runtime-foundation-recovery-notes-2026-04-14.md`
 - `coding-deepgent/README.md`
 - `coding-deepgent/PROJECT_PROGRESS.md`
 - `coding-deepgent/project_status.json`
@@ -217,7 +217,7 @@ Until stronger historical plan files are recovered, future planning should treat
    - gaps
    - deferred items
 2. Reconstruct or newly author post-Stage-3 PRDs one stage at a time, starting with the current Stage 11 anchor and the next intended stage after it.
-3. Add a single index file in `.trellis/plans/` that lists all authoritative planning artifacts and their confidence levels.
+3. Add a single index file in `.omx/plans/` that lists all authoritative planning artifacts and their confidence levels.
 4. When a stage is materially complete, update both:
    - `coding-deepgent/PROJECT_PROGRESS.md`
    - `coding-deepgent/project_status.json`

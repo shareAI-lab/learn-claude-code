@@ -1,50 +1,52 @@
-# Staged Execution 指南
+# Staged Execution Guide
 
-> **Purpose**: 用明确 checkpoint、验证预算和安全自动推进，执行多阶段 `coding-deepgent` 工作。
+> **Purpose**: Run multi-stage `coding-deepgent` work with explicit checkpoints, bounded validation, and safe auto-progression.
 
 ---
 
 ## When To Use
 
-当一个任务族跨多个 sub-stage，且每个阶段都需要显式 checkpoint 后再继续时，使用这份 guide。
+Use this guide when a task family spans multiple sub-stages and should continue
+only after each stage is explicitly reviewed.
 
-常见场景：
+Typical use cases:
 
 - staged feature families
 - roadmap closeout slices
 - checkpointed infrastructure upgrades
-- 长时间实现但不能漂移的任务
+- long-running implementation that should not drift
 
 ---
 
 ## Modes
 
-支持两种模式：
+Two execution modes are supported:
 
-- `lean`（默认）
+- `lean` (default)
 - `deep`
 
 ### `lean`
 
-- 一次做一个 sub-stage
-- 优先 focused tests
-- 不重复读取已稳定的大量 source/docs
-- 除非风险明确，不跑 full-suite validation
-- checkpoint decision 为 `continue` 时，立即进入下一个 sub-stage
+- work one sub-stage at a time
+- prefer focused tests
+- avoid broad re-reading of settled source/doc context
+- avoid full-suite validation unless clearly required
+- if checkpoint result is `continue`, immediately start the next sub-stage
 
 ### `deep`
 
-- 可以更广泛重新定向
-- 可以做更广验证
-- 用户明确要求时，可以把 docs/git/PR work 合入同一轮
+- broader re-orientation is allowed
+- broader validation is allowed
+- can fold larger docs/git/PR work into the same run when explicitly justified
 
-未明确要求 long-running all-in-one 时，默认 `lean`。
+If the user did not explicitly opt into a long-running all-in-one pass, default
+to `lean`.
 
 ---
 
-## Sub-stage State Machine
+## Sub-Stage State Machine
 
-每个 staged run 使用一个状态：
+Every staged run should use one explicit sub-stage state:
 
 - `planning`
 - `implementing`
@@ -52,74 +54,82 @@
 - `checkpoint`
 - `terminal`
 
-恢复已有 stage family 时，从当前 active state 继续，不从零重跑 orientation。
+If resuming an existing stage family, resume from the current active state
+instead of replaying orientation from zero.
 
 ---
 
 ## Before Implementation
 
-- Trellis task 存在
-- PRD 存在
-- expected benefit 具体
-- 需要对齐时已有 source mapping
-- 需要 LangChain 时已选 primitive
-- out-of-scope 明确
-- focused tests 已命名
+- A Trellis task exists.
+- A PRD exists.
+- Expected benefit is concrete.
+- Relevant source mapping is recorded when alignment matters.
+- LangChain-native boundary is chosen when applicable.
+- Out-of-scope items are explicit.
+- Focused tests are named.
 
-如果是新 feature band，扩展研究；否则复用最近 verified PRD/checkpoint context。
+If the task introduces a genuinely new feature band, expand research. Otherwise,
+reuse recent verified PRD/checkpoint context when safe.
 
 ---
 
 ## Validation Budget
 
-默认：
+Default validation rules:
 
 - `lean`
-  - focused tests
-  - touched-file lint/typecheck
-  - 只有 contract/runtime/cross-layer 风险明确时跑更广验证
+  - focused tests only
+  - targeted lint/typecheck on changed files
+  - run broader validation only when:
+    - the user asks
+    - the change touches cross-cutting contracts
+    - focused validation exposes ambiguity
 - `deep`
-  - focused + broader regression
+  - focused plus broader regression as appropriate
 
-当前 `coding-deepgent` 默认：
+Do not treat "more validation" as automatically better. Match validation cost to
+change risk.
+
+Current default for `coding-deepgent`:
 
 - focused validation first
-- broader validation only on cross-layer/contract/runtime risk、ambiguous focused failures、或用户明确要求
+- broader validation only on cross-layer/contract/runtime risk, ambiguous focused failures, or explicit user request
 
 ---
 
 ## Checkpoint Gate
 
-每个 sub-stage 结束时记录：
+At the end of each sub-stage, record:
 
 - implemented behavior
 - tests run and result
 - files changed
-- alignment evidence（如适用）
-- architecture evidence（如适用）
-- boundary issues
-- next sub-stage 是否仍成立
+- alignment evidence when relevant
+- architecture evidence when relevant
+- boundary issues discovered
+- whether the next sub-stage still holds
 
-内部 verdict：
+Use internal verdict vocabulary:
 
 - `APPROVE`
 - `ITERATE`
 - `REJECT`
 
-执行决策：
+Map to execution decisions:
 
 - `APPROVE` -> `continue`
 - `ITERATE` -> `adjust` or `split`
 - `REJECT` -> `stop`
 
-规则：
+Execution rule:
 
-- `continue` -> 立即开始下一 sub-stage
-- `adjust` -> 先改写下一阶段计划
-- `split` -> 创建 prerequisite task，并停止主线
-- `stop` -> 停下来问用户
+- `continue` -> start the next sub-stage immediately
+- `adjust` -> rewrite the next sub-stage plan first
+- `split` -> create a prerequisite task and stop the main run
+- `stop` -> stop and ask the user
 
-不要仅为了总结进度而停下 `continue` 的 staged run。
+Do not stop only to summarize progress if the decision is `continue`.
 
 ---
 
@@ -164,32 +174,31 @@ Reason:
 
 ## Stop Conditions
 
-停止并询问用户：
+Stop and ask the user when:
 
-- 下一阶段 scope 已经不成立
-- 测试失败且修复不局限于当前 sub-stage
-- alignment-critical change 缺少 source mapping
-- 实现需要替换 LangChain/LangGraph runtime seam
-- worktree 有冲突的用户改动
-- 下一步需要新产品决策
+- the next sub-stage scope is no longer valid
+- tests fail and the fix is not local to the current sub-stage
+- required source mapping is missing for an alignment-critical change
+- the implementation would replace LangChain/LangGraph runtime seams
+- the worktree contains conflicting user changes
+- the next step requires a new product decision
 
 ---
 
 ## Subagent Rule
 
-只有用户明确授权 subagent / delegation / parallel work 时使用。
+If subagents are explicitly authorized:
 
-- 任务必须 bounded
-- 文件 ownership 不重叠
-- 不把 final synthesis 交给 subagent
-- critical path 不应交给非必要 subagent
+- give each one a bounded, non-overlapping task
+- keep them off the critical path unless the main agent is blocked
+- final synthesis remains with the main agent
 
 ---
 
 ## Current Repo Default
 
-当前 `coding-deepgent` 主线：
+For the current `coding-deepgent` mainline:
 
-- Trellis tasks + PRDs 是 stage ledger
-- 使用本 guide 作为 canonical staged-execution protocol
-- checkpoint 逻辑写进 Trellis docs，不依赖外部 skill wrapper
+- use Trellis tasks + PRDs as the stage ledger
+- use this guide instead of the removed `stage-iterate` skill
+- keep checkpoint logic in Trellis docs, not in external skill wrappers
