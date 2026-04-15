@@ -13,8 +13,6 @@
   - `agents_deepagents/`
   - `docs/`
   - `web/`
-  - `skills/`
-  - root tutorial/reference tests under `tests/`
 
 Use tutorial/reference material as evidence or examples only unless a task
 explicitly targets it.

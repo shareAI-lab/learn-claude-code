@@ -9,11 +9,15 @@ Intent: consolidate the surviving planning artifacts and current product status 
 
 This document is not claimed to be the original master plan. It is a reconstruction derived from the strongest surviving artifacts.
 
+Some evidence originally came from removed `.omx/...` locations. The paths
+listed below are the surviving `.trellis/plans/...` copies that future work
+should actually read.
+
 Primary evidence:
-- `.omx/plans/prd-coding-deepgent-runtime-foundation.md`
-- `.omx/plans/test-spec-coding-deepgent-runtime-foundation.md`
-- `.omx/context/coding-deepgent-runtime-foundation-20260412T213209Z.md`
-- `.omx/recovery/runtime-foundation-recovery-notes-2026-04-14.md`
+- `.trellis/plans/prd-coding-deepgent-runtime-foundation.md`
+- `.trellis/plans/test-spec-coding-deepgent-runtime-foundation.md`
+- `.trellis/plans/coding-deepgent-runtime-foundation-20260412T213209Z.md`
+- `.trellis/plans/runtime-foundation-recovery-notes-2026-04-14.md`
 - `coding-deepgent/README.md`
 - `coding-deepgent/PROJECT_PROGRESS.md`
 - `coding-deepgent/project_status.json`

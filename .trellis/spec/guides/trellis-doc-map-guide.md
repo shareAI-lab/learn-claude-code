@@ -96,7 +96,6 @@ ambiguity remains.
 | Runtime/session/compact contract changed | `.trellis/spec/backend/runtime-context-compaction-contracts.md` | new compact record invariant |
 | Task/plan/verifier contract changed | `.trellis/spec/backend/task-workflow-contracts.md` | new verifier evidence rule |
 | Thinking checklist changed | `.trellis/spec/guides/*.md` | new scope or alignment trigger |
-| Work was completed and committed | `.trellis/workspace/<developer>/journal-N.md` via `record-session` | session summary |
 
 ---
 
