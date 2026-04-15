@@ -117,3 +117,89 @@ Implemented and validated coding-deepgent runtime context pressure loop: tool-re
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: Trellis consolidation and guide foundation
+
+**Date**: 2026-04-15
+**Task**: Trellis consolidation and guide foundation
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Area | Description |
+|------|-------------|
+| Trellis consolidation | Established `.trellis/` as the canonical mainline documentation layer for `coding-deepgent`, removed duplicated product governance docs, and cleaned tutorial/reference-only skill and test surfaces. |
+| Custom skill migration | Migrated project-specific skill behavior into Trellis docs (`cc alignment`, `LangChain-native rules`, `staged execution`, `project handoff`) and removed the old custom skills while preserving `record-session`. |
+| Doc system | Added Trellis doc map and interview-driven spec expansion guides, clarified plans-vs-specs, PRD-vs-journal, spec update triggers, handoff update policy, validation scope policy, and task archive policy. |
+| Backend specs | Filled backend persistence, error handling, logging guidance; split oversized runtime/compact contracts into focused contract files; added Trellis markdown link smoke checker. |
+| Chinese localization | Localized `.trellis/spec/guides/*.md` to Simplified Chinese while preserving English commands, paths, identifiers, and structured tokens. |
+
+**Archived Tasks**:
+- `04-15-trellis-custom-skill-migration`
+- `04-15-trellis-docs-synthesis-interview`
+- `04-15-trellis-docs-chinese-localization`
+- `04-15-trellis-spec-consolidation`
+
+**Updated Files**:
+- `.trellis/workflow.md`
+- `.trellis/project-handoff.md`
+- `.trellis/plans/index.md`
+- `.trellis/spec/backend/index.md`
+- `.trellis/spec/backend/database-guidelines.md`
+- `.trellis/spec/backend/error-handling.md`
+- `.trellis/spec/backend/logging-guidelines.md`
+- `.trellis/spec/backend/quality-guidelines.md`
+- `.trellis/spec/backend/langchain-native-guidelines.md`
+- `.trellis/spec/backend/runtime-context-compaction-contracts.md`
+- `.trellis/spec/backend/tool-result-storage-contracts.md`
+- `.trellis/spec/backend/session-compact-contracts.md`
+- `.trellis/spec/backend/runtime-pressure-contracts.md`
+- `.trellis/spec/guides/index.md`
+- `.trellis/spec/guides/trellis-doc-map-guide.md`
+- `.trellis/spec/guides/interview-driven-spec-expansion-guide.md`
+- `.trellis/spec/guides/mainline-scope-guide.md`
+- `.trellis/spec/guides/cc-alignment-guide.md`
+- `.trellis/spec/guides/staged-execution-guide.md`
+- `.trellis/spec/guides/cross-layer-thinking-guide.md`
+- `.trellis/spec/guides/code-reuse-thinking-guide.md`
+- `.trellis/spec/frontend/index.md`
+- `.trellis/spec/frontend/*.md`
+- `.trellis/scripts/check_trellis_links.py`
+
+**Verification**:
+- `python3 ./.trellis/scripts/check_trellis_links.py` passed
+- Focused `coding-deepgent` skill/plugin tests had passed earlier after root tutorial `skills/` removal
+
+**Status**:
+[OK] **Completed**
+
+**Next Steps**:
+- Continue using Trellis-first workflow for new `coding-deepgent` tasks
+- If needed, localize additional high-value Trellis docs beyond `spec/guides/*` in a later phased pass
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7fffb8c` | (see git log) |
+| `dbb8ae9` | (see git log) |
+| `d6d0f0f` | (see git log) |
+| `4ef12ca` | (see git log) |
+| `4241062` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
