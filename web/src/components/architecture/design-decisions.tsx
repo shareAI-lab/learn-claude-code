@@ -609,7 +609,7 @@ const GENERIC_ANNOTATIONS: Record<string, AnnotationFile> = {
         alternatives:
           "Collapsing task and worktree into one object removes one layer, but it becomes harder to explain whether the system is talking about work intent or execution environment.",
         zh: {
-          title: "Worktree 是执行车道，不是任务本身",
+          title: "Worktree 是执行通道，不是任务本身",
           description:
             "Task 描述目标和依赖状态，worktree 描述隔离执行发生在哪个目录里。把两者分开，运行时模型才不会糊成一团。",
           alternatives:
@@ -635,7 +635,7 @@ const GENERIC_ANNOTATIONS: Record<string, AnnotationFile> = {
           description:
             "隔离工作结束后，系统应该显式决定这个 lane 是继续保留给后续工作，还是立即回收。这样生命周期状态才可见，而不是碰运气。",
           alternatives:
-            "隐式清理看起来很自动，但会把很多关键执行车道决策藏起来。显式 closeout 语义更适合教学，也更利于调试。",
+            "隐式清理看起来很自动，但会把很多关键执行通道决策藏起来。显式 closeout 语义更适合教学，也更利于调试。",
         },
         ja: {
           title: "Closeout では保持か回収かを明示的に決めるべきだ",
@@ -717,9 +717,10 @@ function DecisionCard({
       ? ((decision as unknown as Record<string, unknown>)[locale] as DecisionLocaleCopy | undefined)
       : undefined;
 
-  const title = localized?.title || decision.title;
-  const description = localized?.description || decision.description;
-  const alternatives = localized?.alternatives || decision.alternatives;
+  const title = locale === "en" ? decision.title : (localized?.title ?? "");
+  const description = locale === "en" ? decision.description : (localized?.description ?? "");
+  const alternatives =
+    localized?.alternatives ?? (locale === "en" ? decision.alternatives : "");
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">

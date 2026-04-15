@@ -8,7 +8,8 @@
       "alternatives": "Injecting skills into the system prompt is simpler and gives skills higher priority in the model's attention. But it breaks prompt caching (every skill load creates a new system prompt variant) and bloats the system prompt over time as skills accumulate. The tool_result approach keeps things cache-friendly at the cost of slightly lower attention priority.",
       "zh": {
         "title": "Skill 通过 tool_result 注入，而非系统提示词",
-        "description": "当 agent 调用 Skill 工具时，Skill 内容（SKILL.md 文件）作为 tool_result 在用户消息中返回，而非注入系统提示词。这是一个刻意的缓存优化：系统提示词在各轮次间保持静态，API 提供商可以缓存它（Anthropic 的 prompt caching、OpenAI 的 system message caching）。如果 Skill 内容在系统提示词中，每次加载新 Skill 都会使缓存失效。将动态内容放在 tool_result 中，既保持了昂贵的系统提示词可缓存，又让 Skill 知识进入了上下文。"
+        "description": "当 agent 调用 Skill 工具时，Skill 内容（SKILL.md 文件）作为 tool_result 在用户消息中返回，而非注入系统提示词。这是一个刻意的缓存优化：系统提示词在各轮次间保持静态，API 提供商可以缓存它（Anthropic 的 prompt caching、OpenAI 的 system message 缓存）。如果 Skill 内容在系统提示词中，每次加载新 Skill 都会使缓存失效。将动态内容放在 tool_result 中，既保持了昂贵的系统提示词可缓存，又让 Skill 知识进入了上下文。",
+        "alternatives": "把技能直接注入系统提示词实现更直观，也可能获得更高注意力权重；但会破坏提示词缓存（每次加载技能都生成新变体），并让系统提示词持续膨胀。tool_result（工具结果）路径更缓存友好，代价是注意力优先级略低。"
       },
       "ja": {
         "title": "スキルはシステムプロンプトではなく tool_result で注入",
@@ -22,7 +23,8 @@
       "alternatives": "Loading all skills upfront guarantees the model always has all knowledge available, but wastes tokens on irrelevant skills and may hit context limits. A recommendation system (model suggests skills, human approves) adds latency. Lazy loading lets the model self-serve the knowledge it needs, when it needs it.",
       "zh": {
         "title": "按需加载 Skill 而非预加载",
-        "description": "Skill 不会在启动时加载。Agent 初始只拥有 Skill 名称和描述（来自 frontmatter）。当 agent 判断需要特定 Skill 时，调用 Skill 工具将完整的 SKILL.md 内容加载到上下文中。这保持了初始提示词的精简。一个正在修复 Python bug 的 agent 不需要加载 Kubernetes 部署 Skill——那会浪费上下文窗口空间，还可能用无关指令干扰模型。"
+        "description": "Skill 不会在启动时加载。Agent 初始只拥有 Skill 名称和描述（来自 frontmatter）。当 agent 判断需要特定 Skill 时，调用 Skill 工具将完整的 SKILL.md 内容加载到上下文中。这保持了初始提示词的精简。一个正在修复 Python bug 的 agent 不需要加载 Kubernetes 部署 Skill——那会浪费上下文窗口空间，还可能用无关指令干扰模型。",
+        "alternatives": "启动时加载全部技能可以保证知识随时可用，但会占据大量上下文并更容易触达窗口上限。加入“模型推荐+人工审批”的流程更稳，但会引入额外时延。按需加载让模型在需要时自助获取知识。"
       },
       "ja": {
         "title": "起動時ではなくオンデマンドでスキルを読み込み",
@@ -36,7 +38,8 @@
       "alternatives": "A separate metadata file (skill.yaml + skill.md) would work but doubles the number of files. Embedding metadata in the markdown (as headings or comments) requires parsing the full file to extract metadata. Frontmatter is a well-established convention (Jekyll, Hugo, Astro) that keeps metadata and content co-located but separately parseable.",
       "zh": {
         "title": "SKILL.md 采用 YAML Frontmatter + Markdown 正文",
-        "description": "每个 SKILL.md 文件有两部分：YAML frontmatter（名称、描述、globs）和 markdown 正文（实际指令）。Frontmatter 作为 Skill 注册表的元数据——当 agent 问'有哪些可用 Skill'时，展示的就是这些信息。正文是按需加载的有效负载。这种分离意味着可以列出 100 个 Skill（每个只读几字节的 frontmatter）而不必加载 100 套完整指令集（每套可能数千 token）。"
+        "description": "每个 SKILL.md 文件有两部分：YAML frontmatter（名称、描述、globs）和 markdown 正文（实际指令）。Frontmatter 作为 Skill 注册表的元数据——当 agent 问'有哪些可用 Skill'时，展示的就是这些信息。正文是按需加载的有效负载。这种分离意味着可以列出 100 个 Skill（每个只读几字节的 frontmatter）而不必加载 100 套完整指令集（每套可能数千 token）。",
+        "alternatives": "也可以拆成 skill.yaml + skill.md 双文件，但会增加文件数量与维护成本。或把元数据埋在正文里再解析，但必须读取整文件。Frontmatter（前置元数据）是成熟约定，能在同一文件中实现“内容共存、解析分离”。"
       },
       "ja": {
         "title": "SKILL.md で YAML フロントマター + Markdown 本文",

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSteppedVisualization } from "@/hooks/useSteppedVisualization";
 import { StepControls } from "@/components/visualizations/shared/step-controls";
+import { useLocale } from "@/lib/i18n";
 
 type BlockType = "user" | "assistant" | "tool_result";
 
@@ -25,6 +26,168 @@ const BLOCK_LABELS: Record<BlockType, string> = {
   assistant: "AST",
   tool_result: "TRL",
 };
+
+type SupportedLocale = "zh" | "en";
+
+interface LocaleCopy {
+  title: string;
+  contextWindow: string;
+  tokenUsage: string;
+  legend: Record<BlockType, string>;
+  warningTitle: string;
+  warningDesc: string;
+  compressionLabelMap: Record<string, string>;
+  compressionDesc: Record<string, string>;
+  steps: Array<{ title: string; description: string }>;
+  finalStageRows: Array<{ label: string; mode: string }>;
+}
+
+const COPY: Record<SupportedLocale, LocaleCopy> = {
+  zh: {
+    title: "三层上下文压缩",
+    contextWindow: "上下文窗口",
+    tokenUsage: "Token 用量",
+    legend: {
+      user: "用户消息",
+      assistant: "助手消息",
+      tool_result: "工具结果",
+    },
+    warningTitle: "tool_result（工具结果）通常最占 token",
+    warningDesc: "文件内容、命令输出、搜索结果都可能是几千 token。",
+    compressionLabelMap: {
+      "MICRO-COMPACT": "微压缩",
+      "AUTO-COMPACT": "自动压缩",
+      "/compact": "/compact",
+    },
+    compressionDesc: {
+      "MICRO-COMPACT": "旧 tool_result 被缩成短摘要",
+      "AUTO-COMPACT": "完整对话被压缩为摘要块",
+      "/compact": "最强压缩，接近空上下文",
+    },
+    steps: [
+      {
+        title: "上下文增长",
+        description: "上下文窗口承载对话历史。每次 API 调用都会追加消息。",
+      },
+      {
+        title: "持续累积",
+        description: "随着任务推进，消息不断增长，上下文逐步逼近上限。",
+      },
+      {
+        title: "接近阈值",
+        description: "旧 tool_result 往往最占空间，因此先做微压缩。",
+      },
+      {
+        title: "阶段 1：微压缩",
+        description: "把旧 tool_result 缩短为摘要。自动执行，对模型透明。",
+      },
+      {
+        title: "再次增长",
+        description: "工作继续推进，上下文再次逼近阈值。",
+      },
+      {
+        title: "阶段 2：自动压缩",
+        description: "整段会话汇总成摘要块，在阈值触发时执行。",
+      },
+      {
+        title: "阶段 3：/compact",
+        description: "由用户手动触发的最强压缩，支持超长会话持续运行。",
+      },
+    ],
+    finalStageRows: [
+      {
+        label: "阶段 1：Micro（微压缩）-- 收缩旧 tool_results",
+        mode: "自动",
+      },
+      {
+        label: "阶段 2：Auto（自动）-- 汇总整段会话",
+        mode: "阈值触发",
+      },
+      {
+        label: "阶段 3：/compact -- 用户触发的深度压缩",
+        mode: "手动",
+      },
+    ],
+  },
+  en: {
+    title: "Three-Layer Context Compression",
+    contextWindow: "Context Window",
+    tokenUsage: "Token usage",
+    legend: {
+      user: "user",
+      assistant: "assistant",
+      tool_result: "tool_result",
+    },
+    warningTitle: "tool_results are the largest blocks",
+    warningDesc: "File contents, command outputs, search results -- each one is thousands of tokens.",
+    compressionLabelMap: {
+      "MICRO-COMPACT": "MICRO-COMPACT",
+      "AUTO-COMPACT": "AUTO-COMPACT",
+      "/compact": "/compact",
+    },
+    compressionDesc: {
+      "MICRO-COMPACT": "Old tool_results shrunk to tiny summaries",
+      "AUTO-COMPACT": "Full conversation compressed to summary block",
+      "/compact": "Most aggressive compression -- near-empty context",
+    },
+    steps: [
+      {
+        title: "Growing Context",
+        description:
+          "The context window holds the conversation. Each API call adds more messages.",
+      },
+      {
+        title: "Context Growing",
+        description:
+          "As the agent works, messages accumulate. The context window fills up.",
+      },
+      {
+        title: "Approaching Limit",
+        description:
+          "Old tool_results are the biggest consumers. Micro-compact targets these first.",
+      },
+      {
+        title: "Stage 1: Micro-Compact",
+        description:
+          "Replace old tool_results with short summaries. Automatic, transparent to the model.",
+      },
+      {
+        title: "Still Growing",
+        description:
+          "Work continues. Context grows again toward the threshold...",
+      },
+      {
+        title: "Stage 2: Auto-Compact",
+        description:
+          "Entire conversation summarized into a compact block. Triggered at token threshold.",
+      },
+      {
+        title: "Stage 3: /compact",
+        description:
+          "User-triggered, most aggressive. Three layers of strategic forgetting enable infinite sessions.",
+      },
+    ],
+    finalStageRows: [
+      {
+        label: "Stage 1: Micro -- shrink old tool_results",
+        mode: "automatic",
+      },
+      {
+        label: "Stage 2: Auto -- summarize entire conversation",
+        mode: "at threshold",
+      },
+      {
+        label: "Stage 3: /compact -- user-triggered, deepest compression",
+        mode: "manual",
+      },
+    ],
+  },
+};
+
+function normalizeLocale(locale: string): SupportedLocale {
+  if (locale === "zh") return locale;
+  return "en";
+}
 
 function generateBlocks(count: number, seed: number): ContextBlock[] {
   const types: BlockType[] = ["user", "assistant", "tool_result"];
@@ -155,45 +318,10 @@ function computeStepState(step: number): StepState {
   }
 }
 
-const STEPS = [
-  {
-    title: "Growing Context",
-    description:
-      "The context window holds the conversation. Each API call adds more messages.",
-  },
-  {
-    title: "Context Growing",
-    description:
-      "As the agent works, messages accumulate. The context window fills up.",
-  },
-  {
-    title: "Approaching Limit",
-    description:
-      "Old tool_results are the biggest consumers. Micro-compact targets these first.",
-  },
-  {
-    title: "Stage 1: Micro-Compact",
-    description:
-      "Replace old tool_results with short summaries. Automatic, transparent to the model.",
-  },
-  {
-    title: "Still Growing",
-    description:
-      "Work continues. Context grows again toward the threshold...",
-  },
-  {
-    title: "Stage 2: Auto-Compact",
-    description:
-      "Entire conversation summarized into a compact block. Triggered at token threshold.",
-  },
-  {
-    title: "Stage 3: /compact",
-    description:
-      "User-triggered, most aggressive. Three layers of strategic forgetting enable infinite sessions.",
-  },
-];
-
 export default function ContextCompact({ title }: { title?: string }) {
+  const locale = normalizeLocale(useLocale());
+  const copy = COPY[locale];
+  const STEPS = copy.steps;
   const {
     currentStep,
     totalSteps,
@@ -218,7 +346,7 @@ export default function ContextCompact({ title }: { title?: string }) {
   return (
     <section className="space-y-4">
       <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-        {title || "Three-Layer Context Compression"}
+        {title || copy.title}
       </h2>
 
       <div
@@ -229,7 +357,7 @@ export default function ContextCompact({ title }: { title?: string }) {
           {/* Token Window (tall vertical bar on the left) */}
           <div className="flex flex-col items-center">
             <div className="mb-2 font-mono text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
-              Context Window
+              {copy.contextWindow}
             </div>
             <div
               className="relative w-24 overflow-hidden rounded-xl border-2 border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800"
@@ -298,7 +426,7 @@ export default function ContextCompact({ title }: { title?: string }) {
             <div>
               <div className="mb-1 flex items-center justify-between">
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Token usage
+                  {copy.tokenUsage}
                 </span>
                 <span className="font-mono text-xs text-zinc-500">
                   {state.tokenCount.toLocaleString()} / {MAX_TOKENS.toLocaleString()}
@@ -317,15 +445,15 @@ export default function ContextCompact({ title }: { title?: string }) {
             <div className="mt-4 flex items-center gap-4">
               <div className="flex items-center gap-1">
                 <div className="h-3 w-3 rounded bg-blue-500" />
-                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">user</span>
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{copy.legend.user}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="h-3 w-3 rounded bg-zinc-500" />
-                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">assistant</span>
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{copy.legend.assistant}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="h-3 w-3 rounded bg-emerald-500" />
-                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">tool_result</span>
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{copy.legend.tool_result}</span>
               </div>
             </div>
 
@@ -339,10 +467,10 @@ export default function ContextCompact({ title }: { title?: string }) {
                   className="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-700 dark:bg-amber-900/20"
                 >
                   <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">
-                    tool_results are the largest blocks
+                    {copy.warningTitle}
                   </div>
                   <div className="text-[11px] text-amber-600 dark:text-amber-400">
-                    File contents, command outputs, search results -- each one is thousands of tokens.
+                    {copy.warningDesc}
                   </div>
                 </motion.div>
               )}
@@ -372,7 +500,7 @@ export default function ContextCompact({ title }: { title?: string }) {
                           ? "text-blue-600 dark:text-blue-300"
                           : "text-emerald-600 dark:text-emerald-300"
                     }`}>
-                      {state.compressionLabel}
+                      {copy.compressionLabelMap[state.compressionLabel] ?? state.compressionLabel}
                     </div>
                     <div className={`mt-1 text-xs ${
                       currentStep === 3
@@ -381,9 +509,7 @@ export default function ContextCompact({ title }: { title?: string }) {
                           ? "text-blue-500 dark:text-blue-400"
                           : "text-emerald-500 dark:text-emerald-400"
                     }`}>
-                      {currentStep === 3 && "Old tool_results shrunk to tiny summaries"}
-                      {currentStep === 5 && "Full conversation compressed to summary block"}
-                      {currentStep === 6 && "Most aggressive compression -- near-empty context"}
+                      {copy.compressionDesc[state.compressionLabel] ?? ""}
                     </div>
                   </div>
                 </motion.div>
@@ -401,28 +527,28 @@ export default function ContextCompact({ title }: { title?: string }) {
                 <div className="flex items-center gap-2 rounded bg-amber-50 px-3 py-1.5 dark:bg-amber-900/10">
                   <div className="h-2 w-2 rounded-full bg-amber-500" />
                   <span className="text-xs text-amber-700 dark:text-amber-300">
-                    Stage 1: Micro -- shrink old tool_results
+                    {copy.finalStageRows[0].label}
                   </span>
                   <span className="ml-auto font-mono text-[10px] text-amber-500">
-                    automatic
+                    {copy.finalStageRows[0].mode}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 rounded bg-blue-50 px-3 py-1.5 dark:bg-blue-900/10">
                   <div className="h-2 w-2 rounded-full bg-blue-500" />
                   <span className="text-xs text-blue-700 dark:text-blue-300">
-                    Stage 2: Auto -- summarize entire conversation
+                    {copy.finalStageRows[1].label}
                   </span>
                   <span className="ml-auto font-mono text-[10px] text-blue-500">
-                    at threshold
+                    {copy.finalStageRows[1].mode}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 rounded bg-emerald-50 px-3 py-1.5 dark:bg-emerald-900/10">
                   <div className="h-2 w-2 rounded-full bg-emerald-500" />
                   <span className="text-xs text-emerald-700 dark:text-emerald-300">
-                    Stage 3: /compact -- user-triggered, deepest compression
+                    {copy.finalStageRows[2].label}
                   </span>
                   <span className="ml-auto font-mono text-[10px] text-emerald-500">
-                    manual
+                    {copy.finalStageRows[2].mode}
                   </span>
                 </div>
               </motion.div>

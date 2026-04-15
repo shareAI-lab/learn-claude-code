@@ -96,9 +96,9 @@ const VERSION_CONTENT: Record<LearningLocale, Record<VersionId, VersionContent>>
       keyInsight: "自主性开始于：队友能安全找到可做的事、认领它，并带着正确身份继续执行。",
     },
     s18: {
-      subtitle: "独立目录，独立车道",
+      subtitle: "独立目录，独立通道",
       coreAddition: "task-worktree 状态 + 显式 enter / closeout 生命周期",
-      keyInsight: "task 管目标，worktree 管隔离执行车道和收尾状态；两者不能混成一个概念。",
+      keyInsight: "task 管目标，worktree 管隔离执行通道和收尾状态；两者不能混成一个概念。",
     },
     s19: {
       subtitle: "外部能力总线",

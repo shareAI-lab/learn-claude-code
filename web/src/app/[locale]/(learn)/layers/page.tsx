@@ -243,7 +243,7 @@ export default function LayersPage() {
         ja: "`s15-s19` を読む前に、まずこの橋渡し資料を手元に置く",
       }),
       body: pickText(locale, {
-        zh: "后五章最容易混的是队友、协议请求、任务、运行时槽位、worktree 车道，以及最后接进来的外部能力层。这几份文档就是专门用来反复校正这段心智模型的。",
+        zh: "后五章最容易混的是队友、协议请求、任务、运行时槽位、worktree 执行通道，以及最后接进来的外部能力层。这几份文档就是专门用来反复校正这段心智模型的。",
         en: "The last five chapters are where teammates, protocol requests, tasks, runtime slots, worktree lanes, and finally external capability layers start to blur together. These bridge docs are meant to keep that model clean.",
         ja: "最後の5章では、チームメイト・プロトコル要求・タスク・実行スロット・worktree レーン、そして最後に入ってくる外部能力層の境界が混ざりやすくなります。ここに並べた資料は、その学習モデルを何度でも補正するためのものです。",
       }),

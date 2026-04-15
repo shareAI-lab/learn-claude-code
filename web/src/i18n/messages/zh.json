@@ -45,7 +45,7 @@
     "guide_middle_title": "读到中段：先分清状态层",
     "guide_middle_desc": "当你开始分不清 task、runtime task、teammate、worktree 这些词时，说明你该回头看阶段边界与数据结构地图。",
     "guide_finish_title": "读到后段：盯住平台边界",
-    "guide_finish_desc": "进入 s15-s19 后，重点不再只是多几个功能，而是系统边界如何从单执行者升级成多执行车道和外部能力总线。",
+    "guide_finish_desc": "进入 s15-s19 后，重点不再只是多几个功能，而是系统边界如何从单执行者升级成多执行通道和外部能力总线。",
     "loc": "行",
     "learn_more": "了解更多",
     "versions_in_layer": "个章节",

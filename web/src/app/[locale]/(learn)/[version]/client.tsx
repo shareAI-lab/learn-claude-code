@@ -78,7 +78,7 @@ export function VersionDetailClient({
               <SessionVisualization version={version} />
 
               {/* Execution flow + Architecture side by side */}
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                     {t("execution_flow")}

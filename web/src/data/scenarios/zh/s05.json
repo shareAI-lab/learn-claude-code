@@ -1,0 +1,44 @@
+{
+  "version": "s05",
+  "title": "技能系统",
+  "description": "Agent 从 SKILL.md 文件按需加载外部知识",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "帮我初始化一个带 TypeScript 的 Next.js 项目",
+      "annotation": "该任务需要框架专项知识"
+    },
+    {
+      "type": "system_event",
+      "content": "[SkillLoader] 扫描 SKILL.md 文件... 已发现：nextjs.SKILL.md",
+      "annotation": "在主循环执行前，SkillLoader 先发现匹配技能"
+    },
+    {
+      "type": "system_event",
+      "content": "[Skill 注入] nextjs.SKILL.md -> 已追加到 tool_result 消息",
+      "annotation": "技能内容以 tool_result（工具结果）形式注入，而不是塞进 system prompt"
+    },
+    {
+      "type": "assistant_text",
+      "content": "我已获得 Next.js 初始化知识，现在开始创建项目结构。",
+      "annotation": "模型已具备来自技能文件的框架上下文"
+    },
+    {
+      "type": "tool_call",
+      "content": "npx create-next-app@latest my-app --typescript --tailwind --eslint --app --src-dir",
+      "toolName": "bash",
+      "annotation": "按技能知识提供的正确参数执行命令"
+    },
+    {
+      "type": "tool_result",
+      "content": "成功！已在 /workspace/my-app 创建项目",
+      "toolName": "bash",
+      "annotation": "项目已按目标配置创建完成"
+    },
+    {
+      "type": "assistant_text",
+      "content": "Next.js 项目已创建，包含 TypeScript、Tailwind CSS、ESLint、App Router 和 src 目录。",
+      "annotation": "技能通过 tool_result 注入，避免 system prompt 过重"
+    }
+  ]
+}

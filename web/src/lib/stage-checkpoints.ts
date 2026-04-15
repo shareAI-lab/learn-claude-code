@@ -82,12 +82,12 @@ export const STAGE_CHECKPOINTS: readonly StageCheckpoint[] = [
       ja: "最後の段階で作るのは機能の山ではなくプラットフォーム境界です",
     },
     body: {
-      zh: "读完 `s15-s19` 后，最应该回头确认的是五层边界有没有彻底分清：teammate、protocol request、task、worktree lane、external capability。",
+      zh: "读完 `s15-s19` 后，最应该回头确认的是五层边界有没有彻底分清：teammate、protocol request、task、worktree 执行通道、external capability。",
       en: "You've completed the entire course. The key test: can you cleanly separate teammate, protocol request, task, worktree lane, and external capability? If yes, you understand the full design backbone.",
       ja: "`s15-s19` の後で最も確認すべきなのは、teammate・protocol request・task・worktree lane・external capability の 5 層を本当に分けて保てるかどうかです。",
     },
     rebuild: {
-      zh: "一个拥有长期队友、共享协议、自治认领、隔离执行车道，并把原生工具与外部能力接回同一控制面的平台雏形。",
+      zh: "一个拥有长期队友、共享协议、自治认领、隔离执行通道，并把原生工具与外部能力接回同一控制面的平台雏形。",
       en: "An agent platform with persistent teammates, shared protocols, autonomous claiming, isolated execution lanes, and one control plane for native and external capabilities.",
       ja: "永続 teammate、共有 protocol、自律 claim、分離 execution lane、そして native/external capability を 1 つの control plane へ戻したプラットフォームの骨格。",
     },

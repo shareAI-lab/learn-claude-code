@@ -644,7 +644,7 @@ export default function ComparePage() {
               </h2>
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 {pickText(locale, {
-                  zh: "先看一条请求在两章之间是怎么变的：新的分支出现在哪里，哪些结果会回流到主循环，哪些部分只是侧车或外部车道。",
+                  zh: "先看一条请求在两章之间是怎么变的：新的分支出现在哪里，哪些结果会回流到主循环，哪些部分只是旁路扩展（sidecar）或外部通道。",
                   en: "Compare how one request evolves between the two chapters: where the new branch appears, what writes back into the loop, and what remains a side lane.",
                   ja: "1つの要求が2つの章の間でどう変わるかを先に見ます。どこで新しい分岐が生まれ、何が主ループへ戻り、何が側車レーンに残るのかを比較します。",
                 })}

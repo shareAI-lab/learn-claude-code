@@ -64,7 +64,7 @@ const ZH_COPY: Record<string, OverviewCopy> = {
           "无论是 allow、deny 还是 ask，最终都要回到主循环，成为模型下一步推理可以看到的上下文。",
       },
     ],
-    flowLabel: "Permission Pipeline",
+    flowLabel: "权限决策流水线（Permission Pipeline）",
     flow: ["模型产生命令", "提取意图", "策略判定", "执行或回写拒绝"],
     cautionLabel: "最容易讲错",
     caution:
@@ -94,7 +94,7 @@ const ZH_COPY: Record<string, OverviewCopy> = {
           "这样新增审计、埋点、自动修复建议时，不会反复打断主线心智，也不会污染每个工具处理函数。",
       },
     ],
-    flowLabel: "Lifecycle Events",
+    flowLabel: "生命周期事件流水线（Lifecycle Events）",
     flow: ["主循环推进", "发出事件", "Hook 观察", "副作用回写"],
     cautionLabel: "最容易讲错",
     caution:
@@ -106,7 +106,7 @@ const ZH_COPY: Record<string, OverviewCopy> = {
   s09: {
     eyebrow: "把跨会话知识单独存放",
     summary:
-      "Memory 系统只保存那些跨轮次、跨会话、无法从当前工作目录重新推导出来的事实，而不是把所有历史都塞进长期记忆。",
+      "记忆系统（Memory）只保存那些跨轮次、跨会话、无法从当前工作目录重新推导出来的事实，而不是把所有历史都塞进长期记忆。",
     sections: [
       {
         title: "记忆要有类型",
@@ -124,7 +124,7 @@ const ZH_COPY: Record<string, OverviewCopy> = {
           "短期上下文负责当前过程，长期记忆只保留压缩后仍然重要的事实。两者职责必须明确分层。",
       },
     ],
-    flowLabel: "Memory Lifecycle",
+    flowLabel: "记忆读写生命周期（Memory Lifecycle）",
     flow: ["加载记忆", "组装输入", "完成工作", "提炼并落盘"],
     cautionLabel: "最容易讲错",
     caution:
@@ -151,17 +151,17 @@ const ZH_COPY: Record<string, OverviewCopy> = {
       {
         title: "输入其实是控制平面",
         body:
-          "Prompt pipeline 决定了模型在每一轮能看到什么、看见的顺序是什么，这本质上就是控制系统行为。",
+          "提示词装配流水线（Prompt pipeline）决定了模型在每一轮能看到什么、看见的顺序是什么，这本质上就是控制系统行为。",
       },
     ],
-    flowLabel: "Prompt Assembly",
+    flowLabel: "提示词装配流程（Prompt Assembly）",
     flow: ["稳定规则", "运行时状态", "工具/记忆注入", "形成最终输入"],
     cautionLabel: "最容易讲错",
     caution:
       "不要把“提示词工程”讲成玄学调参。这里真正需要讲清的是数据来源、拼接顺序和信息边界。",
     outcomeLabel: "学完应掌握",
     outcome:
-      "你应该能把 system prompt 改写成一条显式的构建流水线，而不是一段越来越长的大字符串。",
+      "你应该能把系统提示词（system prompt）改写成一条显式的构建流水线，而不是一段越来越长的大字符串。",
   },
   s11: {
     eyebrow: "失败后仍能继续推进",
@@ -184,7 +184,7 @@ const ZH_COPY: Record<string, OverviewCopy> = {
           "重试次数、降级路径、终止条件都要清楚。否则系统只是把失败隐藏成无限循环。",
       },
     ],
-    flowLabel: "Recovery Branches",
+    flowLabel: "错误恢复分支（Recovery Branches）",
     flow: ["发现错误", "分类原因", "选择恢复分支", "带着原因继续"],
     cautionLabel: "最容易讲错",
     caution:
@@ -196,7 +196,7 @@ const ZH_COPY: Record<string, OverviewCopy> = {
   s12: {
     eyebrow: "把会话步骤升级成持久工作图",
     summary:
-      "任务系统不是把 todo 列表存盘那么简单，而是把工作拆成可追踪、可解锁、可跨轮次继续推进的 durable task graph。",
+      "任务系统不是把待办列表（todo）存盘那么简单，而是把工作拆成可追踪、可解锁、可跨轮次继续推进的持久任务图（durable task graph）。",
     sections: [
       {
         title: "任务先是记录，不是线程",
@@ -214,7 +214,7 @@ const ZH_COPY: Record<string, OverviewCopy> = {
           "真正要教清楚的是：完成一个节点以后，系统如何检查依赖、解锁后继任务，并把状态变化回写到任务板。",
       },
     ],
-    flowLabel: "Durable Task Graph",
+    flowLabel: "持久任务图（Durable Task Graph）",
     flow: ["创建任务记录", "写入依赖关系", "完成当前节点", "解锁后续任务"],
     cautionLabel: "最容易讲错",
     caution:
@@ -226,47 +226,47 @@ const ZH_COPY: Record<string, OverviewCopy> = {
   s13: {
     eyebrow: "把目标记录和运行槽位分开",
     summary:
-      "后台任务这一章真正要教的是：任务目标依然留在 task board，正在执行的那一份工作则进入独立的 runtime record，并用通知把结果带回主循环。",
+      "后台任务这一章真正要教的是：任务目标依然留在任务板（task board），正在执行的那一份工作则进入独立的运行记录（runtime record），并用通知把结果带回主循环。",
     sections: [
       {
         title: "运行记录必须独立",
         body:
-          "RuntimeTaskRecord 应该有自己的 id、status、started_at、result_preview、output_file。它描述的是“这次执行本身”，不是任务目标本体。",
+          "运行任务记录（RuntimeTaskRecord）应该有自己的 id、status、started_at、result_preview、output_file。它描述的是“这次执行本身”，不是任务目标本体。",
       },
       {
         title: "预览和全文要分层",
         body:
-          "完整输出写文件，通知里只放 preview。这样模型先知道“有结果了、结果大概是什么”，真要看细节再去读文件。",
+          "完整输出写文件，通知里只放预览（preview）。这样模型先知道“有结果了、结果大概是什么”，真要看细节再去读文件。",
       },
       {
         title: "通知是回到主循环的桥",
         body:
-          "后台线程并不直接改模型状态。它只写 runtime record 和 notification，等下一轮前再统一注入上下文。",
+          "后台线程并不直接改模型状态。它只写运行记录（runtime record）和通知（notification），等下一轮前再统一注入上下文。",
       },
     ],
-    flowLabel: "Runtime Task Return Path",
-    flow: ["创建 runtime record", "后台执行", "写入 preview / output", "下一轮通知回写"],
+    flowLabel: "运行任务回流路径（Runtime Task Return Path）",
+    flow: ["创建运行记录（runtime record）", "后台执行", "写入预览 / 输出", "下一轮通知回写"],
     cautionLabel: "最容易讲错",
     caution:
       "后台任务不是另一个会思考的 agent。并行的是等待和执行，不是主循环本身。",
     outcomeLabel: "学完应掌握",
     outcome:
-      "你应该能把慢命令放到后台执行，并用 runtime record + notification 把结果稳稳接回主循环。",
+      "你应该能把慢命令放到后台执行，并用运行记录（runtime record）+ 通知（notification）把结果稳稳接回主循环。",
   },
   s14: {
     eyebrow: "让时间成为启动源",
     summary:
-      "当任务系统和后台执行已经成立后，Cron 章节要讲清的是：时间只负责触发，不负责执行。这样调度器和运行时边界才不会混乱。",
+      "当任务系统和后台执行已经成立后，定时调度（Cron）章节要讲清的是：时间只负责触发，不负责执行。这样调度器和运行时边界才不会混乱。",
     sections: [
       {
         title: "调度器只管命中规则",
         body:
-          "Cron 负责判断“什么时候该触发”，例如每小时、每天、工作日；它不直接承担具体任务执行逻辑。",
+          "定时调度器（Cron）负责判断“什么时候该触发”，例如每小时、每天、工作日；它不直接承担具体任务执行逻辑。",
       },
       {
         title: "命中后仍生成运行任务",
         body:
-          "时间触发到来时，应该像用户请求一样生成 runtime task，再交给后台执行层处理。",
+          "时间触发到来时，应该像用户请求一样生成运行任务（runtime task），再交给后台执行层处理。",
       },
       {
         title: "时间与执行要解耦",
@@ -274,24 +274,24 @@ const ZH_COPY: Record<string, OverviewCopy> = {
           "这样你才能分别解释：一个任务为什么被触发，以及它被触发后如何进入执行、重试、通知和完成流程。",
       },
     ],
-    flowLabel: "Scheduled Trigger",
-    flow: ["Cron tick", "规则匹配", "创建 runtime task", "交给后台执行"],
+    flowLabel: "定时触发链路（Scheduled Trigger）",
+    flow: ["Cron 触发（tick）", "规则匹配", "创建运行任务（runtime task）", "交给后台执行"],
     cautionLabel: "最容易讲错",
     caution:
-      "不要把 Cron 讲成“后台线程每分钟跑一下”。真正的关键是时间触发面和执行运行时是两套职责。",
+      "不要把定时调度（Cron）讲成“后台线程每分钟跑一下”。真正的关键是时间触发面和执行运行时是两套职责。",
     outcomeLabel: "学完应掌握",
     outcome:
-      "你应该能把 schedule 记录和 runtime task 记录分开，并说明它们如何衔接。",
+      "你应该能把调度记录（schedule）和运行任务记录（runtime task）分开，并说明它们如何衔接。",
   },
   s15: {
     eyebrow: "让队友成为长期存在的角色",
     summary:
-      "Agent Teams 的重点不是多开几个模型调用，而是给系统引入一组长期存在、能反复接活、能被点名协作的 persistent specialists。",
+      "团队代理（Agent Teams）的重点不是多开几个模型调用，而是给系统引入一组长期存在、能反复接活、能被点名协作的持久专家（persistent specialists）。",
     sections: [
       {
         title: "身份先于单次任务",
         body:
-          "Teammate 需要名字、角色、状态和 inbox。它的价值来自持续存在，而不是像一次性 subagent 那样跑完就消失。",
+          "队友（Teammate）需要名字、角色、状态和收件箱（inbox）。它的价值来自持续存在，而不是像一次性子代理（subagent）那样跑完就消失。",
       },
       {
         title: "邮箱是协作边界",
@@ -301,22 +301,22 @@ const ZH_COPY: Record<string, OverviewCopy> = {
       {
         title: "负责人仍然掌控编排",
         body:
-          "Lead 不只是转发消息，它负责生成 roster、分配职责、观察状态，让团队协作保持可理解。",
+          "负责人（Lead）不只是转发消息，它负责生成名册（roster）、分配职责、观察状态，让团队协作保持可理解。",
       },
     ],
-    flowLabel: "Persistent Team Loop",
+    flowLabel: "持久团队协作环（Persistent Team Loop）",
     flow: ["生成队友身份", "投递消息", "队友独立执行", "回信或继续协作"],
     cautionLabel: "最容易讲错",
     caution:
-      "teammate 不是换了名字的 subagent。核心差别是长期身份、独立 inbox 和可重复协作。",
+      "队友（teammate）不是换了名字的子代理（subagent）。核心差别是长期身份、独立收件箱（inbox）和可重复协作。",
     outcomeLabel: "学完应掌握",
     outcome:
-      "你应该能搭出一个最小 team roster，让多个长期存在的执行者通过邮箱协作。",
+      "你应该能搭出一个最小团队名册（team roster），让多个长期存在的执行者通过邮箱协作。",
   },
   s16: {
     eyebrow: "把协作从自由文本升级成协议",
     summary:
-      "团队协议这一章的关键不是多几种消息类型，而是让重要协作拥有统一 envelope、request_id 和 durable request record，从而做到可追踪、可审批、可收尾。",
+      "团队协议这一章的关键不是多几种消息类型，而是让重要协作拥有统一信封（envelope）、request_id 和持久请求记录（durable request record），从而做到可追踪、可审批、可收尾。",
     sections: [
       {
         title: "协议消息要有固定外壳",
@@ -326,7 +326,7 @@ const ZH_COPY: Record<string, OverviewCopy> = {
       {
         title: "请求记录必须落盘",
         body:
-          "真正需要追踪的是 RequestRecord，而不是临时内存字典。审批、关机、交接都应该能在记录里看到当前状态和响应结果。",
+          "真正需要追踪的是请求记录（RequestRecord），而不是临时内存字典。审批、关机、交接都应该能在记录里看到当前状态和响应结果。",
       },
       {
         title: "状态流要比文本更重要",
@@ -334,14 +334,14 @@ const ZH_COPY: Record<string, OverviewCopy> = {
           "pending、approved、rejected、expired 这些状态迁移，才是协议章节真正的教学主线，文本只是承载说明。",
       },
     ],
-    flowLabel: "Protocol Request Lifecycle",
-    flow: ["发协议请求", "登记 request record", "收到明确响应", "更新状态继续协作"],
+    flowLabel: "协议请求生命周期（Protocol Request Lifecycle）",
+    flow: ["发协议请求", "登记请求记录（request record）", "收到明确响应", "更新状态继续协作"],
     cautionLabel: "最容易讲错",
     caution:
       "协议不是更正式的聊天文案。它是带 request_id 和状态机的结构化协作通道。",
     outcomeLabel: "学完应掌握",
     outcome:
-      "你应该能实现一套最小 request / response protocol，并用 durable request record 跟踪其状态。",
+      "你应该能实现一套最小请求/响应协议（request / response protocol），并用持久请求记录（durable request record）跟踪其状态。",
   },
   s17: {
     eyebrow: "让队友会自己接活和恢复",
@@ -351,7 +351,7 @@ const ZH_COPY: Record<string, OverviewCopy> = {
       {
         title: "空闲轮询是自治入口",
         body:
-          "Teammate 在 idle cycle 中轮询 inbox、共享任务板或待处理请求，这一步决定它能否在没有新指令时继续前进。",
+          "队友（Teammate）在空闲轮询（idle cycle）中轮询收件箱（inbox）、共享任务板或待处理请求，这一步决定它能否在没有新指令时继续前进。",
       },
       {
         title: "认领规则必须清楚",
@@ -361,57 +361,57 @@ const ZH_COPY: Record<string, OverviewCopy> = {
       {
         title: "恢复上下文要有依据",
         body:
-          "队友不是凭空继续工作，而是根据 task state、request state、mailbox 和自身状态恢复到正确分支。",
+          "队友不是凭空继续工作，而是根据任务状态（task state）、请求状态（request state）、邮箱状态（mailbox）和自身状态恢复到正确分支。",
       },
     ],
-    flowLabel: "Autonomy Loop",
+    flowLabel: "自治执行循环（Autonomy Loop）",
     flow: ["进入空闲轮询", "发现可认领工作", "恢复上下文执行", "回写状态后继续"],
     cautionLabel: "最容易讲错",
     caution:
-      "自治不是让 agent 随便乱动。真正关键的是 self-claim 规则和 resume 所依赖的状态边界。",
+      "自治不是让代理（agent）随便乱动。真正关键的是自认领（self-claim）规则和恢复（resume）所依赖的状态边界。",
     outcomeLabel: "学完应掌握",
     outcome:
-      "你应该能解释 agent 怎样在没有新用户输入时，自主发现、认领并恢复工作。",
+      "你应该能解释代理（agent）怎样在没有新用户输入时，自主发现、认领并恢复工作。",
   },
   s18: {
-    eyebrow: "把任务绑定到独立执行车道",
+    eyebrow: "把任务绑定到独立执行通道",
     summary:
-      "Worktree Isolation 章节的核心不是 git 命令细节，而是把任务和执行车道绑定，让不同工作在各自目录里推进，并拥有清晰的 enter / run / closeout 生命周期。",
+      "工作树隔离（Worktree Isolation）章节的核心不是 git 命令细节，而是把任务和执行通道绑定，让不同工作在各自目录里推进，并拥有清晰的进入/执行/收尾（enter / run / closeout）生命周期。",
     sections: [
       {
         title: "任务和车道要分层",
         body:
-          "Task 管目标，worktree 管隔离执行环境。只有把两者分开，系统才知道“做什么”和“在哪做”分别由谁负责。",
+          "任务（Task）管目标，工作树（worktree）管隔离执行环境。只有把两者分开，系统才知道“做什么”和“在哪做”分别由谁负责。",
       },
       {
         title: "生命周期要完整",
         body:
-          "分配 worktree、进入目录、执行任务、closeout 保留或删除，这几步都应该显式存在，而不是做完命令就算结束。",
+          "分配工作树（worktree）、进入目录、执行任务、收尾（closeout）保留或删除，这几步都应该显式存在，而不是做完命令就算结束。",
       },
       {
         title: "事件流帮助观察执行面",
         body:
-          "create、enter、closeout 这些 worktree event 让主系统能看到执行车道发生了什么，而不是只看到最后结果。",
+          "创建（create）、进入（enter）、收尾（closeout）这些工作树事件（worktree event）让主系统能看到执行通道发生了什么，而不是只看到最后结果。",
       },
     ],
-    flowLabel: "Isolated Execution Lane",
-    flow: ["分配 worktree", "进入隔离目录", "执行任务", "closeout / 保留事件"],
+    flowLabel: "隔离执行通道（Isolated Execution Lane）",
+    flow: ["分配工作树（worktree）", "进入隔离目录", "执行任务", "收尾（closeout）/ 保留事件"],
     cautionLabel: "最容易讲错",
     caution:
-      "Worktree 不是任务系统本身。它只是给任务提供一条独立、可回收、可观察的执行车道。",
+      "工作树（Worktree）不是任务系统本身。它只是给任务提供一条独立、可回收、可观察的执行通道。",
     outcomeLabel: "学完应掌握",
     outcome:
-      "你应该能把 task record 和 worktree lifecycle 连接起来，并讲清 keep / remove 何时发生。",
+      "你应该能把任务记录（task record）和工作树生命周期（worktree lifecycle）连接起来，并讲清 keep / remove 何时发生。",
   },
   s19: {
     eyebrow: "把外部能力挂回同一控制面",
     summary:
-      "MCP 与 Plugin 章节的重点不是罗列外部生态，而是说明：外部能力进入系统后，如何像本地工具一样被发现、路由、授权、调用和回写。",
+      "MCP 与插件（Plugin）章节的重点不是罗列外部生态，而是说明：外部能力进入系统后，如何像本地工具一样被发现、路由、授权、调用和回写。",
     sections: [
       {
         title: "能力先做统一抽象",
         body:
-          "无论是本地工具、插件能力还是 MCP server 提供的远程能力，都应该被整理到同一种 capability 视图里。",
+          "无论是本地工具、插件能力还是 MCP 服务器（server）提供的远程能力，都应该被整理到同一种能力视图（capability view）里。",
       },
       {
         title: "路由前仍要过策略层",
@@ -421,17 +421,17 @@ const ZH_COPY: Record<string, OverviewCopy> = {
       {
         title: "结果回到同一消息总线",
         body:
-          "调用远程能力后，返回结果仍然要标准化成主循环能消费的 tool_result 或结构化事件。",
+          "调用远程能力后，返回结果仍然要标准化成主循环能消费的 tool_result（工具结果）或结构化事件。",
       },
     ],
-    flowLabel: "Capability Bus",
+    flowLabel: "能力总线（Capability Bus）",
     flow: ["发现能力", "选择路由", "远程调用", "标准化回写"],
     cautionLabel: "最容易讲错",
     caution:
-      "不要把 MCP 讲成一个孤立外挂。教学上真正要强调的是“它如何接回原本的 agent 控制平面”。",
+      "不要把 MCP 讲成一个孤立外挂。教学上真正要强调的是“它如何接回原本的代理（agent）控制平面”。",
     outcomeLabel: "学完应掌握",
     outcome:
-      "你应该能解释本地工具、插件和 MCP server 为何可以共享同一套 capability routing 模型。",
+      "你应该能解释本地工具、插件和 MCP 服务器（server）为何可以共享同一套能力路由模型（capability routing）。",
   },
 };
 
@@ -970,22 +970,22 @@ export function GenericSessionOverview({
             <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
               {copy.flowLabel}
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
+            <div className="mt-4 space-y-2">
               {copy.flow.map((step, index) => (
-                <div key={step} className="contents">
+                <div key={step}>
                   <motion.div
                     initial={{ opacity: 0, scale: 0.94 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: index * 0.07, duration: 0.28 }}
-                    className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                    className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
                   >
-                    <span className="mr-2 font-mono text-[10px] text-zinc-400 dark:text-zinc-500">
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-900 font-mono text-[10px] text-white dark:bg-zinc-100 dark:text-zinc-900">
                       {index + 1}
                     </span>
-                    {step}
+                    <span className="break-words [word-break:keep-all]">{step}</span>
                   </motion.div>
                   {index < copy.flow.length - 1 && (
-                    <span className="text-zinc-300 dark:text-zinc-600">-&gt;</span>
+                    <div className="ml-2.5 h-3 w-px bg-zinc-300 dark:bg-zinc-600" />
                   )}
                 </div>
               ))}

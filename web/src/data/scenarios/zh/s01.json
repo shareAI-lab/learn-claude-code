@@ -1,0 +1,51 @@
+{
+  "version": "s01",
+  "title": "Agent 循环",
+  "description": "一个仅使用 bash（命令行）即可完成任务的最小 Agent",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "创建一个名为 hello.py 的文件，输出 \"Hello, World!\"",
+      "annotation": "用户向 Agent 提交任务"
+    },
+    {
+      "type": "assistant_text",
+      "content": "我会用 bash 帮你创建这个文件。",
+      "annotation": "模型决定使用唯一工具：bash"
+    },
+    {
+      "type": "tool_call",
+      "content": "echo 'print(\"Hello, World!\")' > hello.py",
+      "toolName": "bash",
+      "annotation": "工具调用：模型生成 bash 命令"
+    },
+    {
+      "type": "tool_result",
+      "content": "",
+      "toolName": "bash",
+      "annotation": "bash 返回空输出（表示成功）"
+    },
+    {
+      "type": "assistant_text",
+      "content": "我再验证一下文件是否写对了。",
+      "annotation": "循环继续：模型看到结果后决定下一步动作"
+    },
+    {
+      "type": "tool_call",
+      "content": "cat hello.py",
+      "toolName": "bash",
+      "annotation": "再次调用 bash 做结果校验"
+    },
+    {
+      "type": "tool_result",
+      "content": "print(\"Hello, World!\")",
+      "toolName": "bash",
+      "annotation": "文件内容确认无误"
+    },
+    {
+      "type": "assistant_text",
+      "content": "完成了！我已经创建了 hello.py。你可以运行 `python hello.py` 进行验证。",
+      "annotation": "stop_reason != tool_use（工具调用）-> 循环退出并回复用户"
+    }
+  ]
+}

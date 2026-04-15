@@ -73,7 +73,7 @@ const SLICE_STYLE: Record<
       "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300",
     surface:
       "from-rose-500/12 via-rose-500/5 to-transparent dark:from-rose-500/10 dark:via-transparent",
-    title: { zh: "并行 / 外部车道", en: "Lanes / External", ja: "並行 / 外部レーン" },
+    title: { zh: "并行 / 外部通道", en: "Lanes / External", ja: "並行 / 外部レーン" },
     note: {
       zh: "长期队友、后台槽位或外部能力的进入面。",
       en: "Where long-lived workers, background slots, or external capability enter.",
@@ -151,7 +151,7 @@ export function ArchDiagram({ version }: ArchDiagramProps) {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <section className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
         {visibleSlices.map((sliceId, sliceIndex) => {
           const slice = blueprint.slices[sliceId] ?? [];
           const style = SLICE_STYLE[sliceId];
@@ -192,19 +192,19 @@ export function ArchDiagram({ version }: ArchDiagramProps) {
                     className="rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/70"
                   >
                     <div className="flex flex-wrap items-start gap-2">
-                      <h4 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                      <h4 className="min-w-0 flex-1 break-words [overflow-wrap:anywhere] text-sm font-semibold text-zinc-950 dark:text-zinc-50">
                         {translateArchitectureText(
                           locale,
                           pickDiagramText(locale, item.name)
                         )}
                       </h4>
                       {item.fresh && (
-                        <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-bold uppercase text-white dark:bg-zinc-100 dark:text-zinc-900">
+                        <span className="shrink-0 rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-bold uppercase text-white dark:bg-zinc-100 dark:text-zinc-900">
                           {pickDiagramText(locale, UI_TEXT.fresh)}
                         </span>
                       )}
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                    <p className="mt-2 break-words text-sm leading-6 [word-break:keep-all] text-zinc-600 dark:text-zinc-300">
                       {translateArchitectureText(
                         locale,
                         pickDiagramText(locale, item.detail)
@@ -219,7 +219,7 @@ export function ArchDiagram({ version }: ArchDiagramProps) {
       </section>
 
       <section className="rounded-[30px] border border-zinc-200/80 bg-white/95 px-5 py-6 shadow-sm dark:border-zinc-800/80 dark:bg-zinc-950/90 sm:px-6">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+        <div className="space-y-5">
           <div className="max-w-xl space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">
               {pickDiagramText(locale, UI_TEXT.recordsTitle)}
@@ -228,7 +228,7 @@ export function ArchDiagram({ version }: ArchDiagramProps) {
               {pickDiagramText(locale, UI_TEXT.recordsNote)}
             </p>
           </div>
-          <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
             {blueprint.records.map((record, index) => (
               <motion.div
                 key={`${translateArchitectureText(locale, pickDiagramText(locale, record.name))}-${index}`}
@@ -238,19 +238,19 @@ export function ArchDiagram({ version }: ArchDiagramProps) {
                 className="rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/70"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+                  <span className="min-w-0 break-words [overflow-wrap:anywhere] font-mono text-xs font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
                     {translateArchitectureText(
                       locale,
                       pickDiagramText(locale, record.name)
                     )}
                   </span>
                   {record.fresh && (
-                    <span className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
+                    <span className="shrink-0 rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
                       {pickDiagramText(locale, UI_TEXT.fresh)}
                     </span>
                   )}
                 </div>
-                <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                <p className="mt-2 break-words text-sm leading-6 [word-break:keep-all] text-zinc-600 dark:text-zinc-300">
                   {translateArchitectureText(
                     locale,
                     pickDiagramText(locale, record.detail)
@@ -266,7 +266,7 @@ export function ArchDiagram({ version }: ArchDiagramProps) {
         <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">
           {pickDiagramText(locale, UI_TEXT.handoffTitle)}
         </p>
-        <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div className="mt-5 space-y-3">
           {blueprint.handoff.map((step, index) => (
             <motion.div
               key={`${translateArchitectureText(locale, pickDiagramText(locale, step))}-${index}`}
@@ -279,7 +279,7 @@ export function ArchDiagram({ version }: ArchDiagramProps) {
                 <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
                   {index + 1}
                 </span>
-                <p className="text-sm leading-6 text-zinc-700 dark:text-zinc-200">
+                <p className="break-words text-sm leading-6 [word-break:keep-all] text-zinc-700 dark:text-zinc-200">
                   {translateArchitectureText(
                     locale,
                     pickDiagramText(locale, step)

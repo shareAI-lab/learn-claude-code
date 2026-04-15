@@ -1,0 +1,51 @@
+{
+  "version": "s04",
+  "title": "子代理",
+  "description": "Agent 将子任务委托给 subagent（子代理）并隔离上下文执行",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "重构计算器：拆分模块并补上测试",
+      "annotation": "这是一个适合委托的复杂任务"
+    },
+    {
+      "type": "assistant_text",
+      "content": "我会把“编写测试”委托给子代理，我来处理重构主线。",
+      "annotation": "Agent 决定通过 Task 工具拆分工作"
+    },
+    {
+      "type": "tool_call",
+      "content": "为 calc.py 编写单元测试，覆盖 4 种运算和除零等边界情况",
+      "toolName": "task",
+      "annotation": "Task（任务委托）工具会启动一个拥有独立上下文的子代理"
+    },
+    {
+      "type": "system_event",
+      "content": "子代理已创建：fresh messages[]、共享工具集、scoped prompt（范围化提示）",
+      "annotation": "子代理拿到干净上下文，避免被父流程历史干扰"
+    },
+    {
+      "type": "tool_result",
+      "content": "已创建 test_calc.py，包含 8 个测试用例，全部通过。",
+      "toolName": "task",
+      "annotation": "子代理完成后向父代理返回摘要结果"
+    },
+    {
+      "type": "tool_call",
+      "content": "calc.py -> calc/operations.py, calc/cli.py",
+      "toolName": "write_file",
+      "annotation": "父代理继续推进自己的主线任务：代码重构"
+    },
+    {
+      "type": "tool_result",
+      "content": "文件写入成功",
+      "toolName": "write_file",
+      "annotation": "模块拆分完成"
+    },
+    {
+      "type": "assistant_text",
+      "content": "已重构为 calc/operations.py 与 calc/cli.py；测试由子代理完成并全部通过。",
+      "annotation": "上下文隔离可避免不同子任务之间的语义串扰"
+    }
+  ]
+}

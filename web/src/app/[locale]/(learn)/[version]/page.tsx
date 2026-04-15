@@ -108,7 +108,7 @@ export default async function VersionPage({
       : null;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 py-4">
+    <div className="w-full max-w-none space-y-6 py-4">
       {/* Compact header: 3 lines */}
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-3">

@@ -118,7 +118,7 @@ const FLOW_REPLACEMENTS: Record<Exclude<DiagramLocale, "en">, ReplacementPair[]>
     ["Task State:", "任务状态："],
     ["bind + worktree_state", "绑定 + worktree_state"],
     ["Create / Enter", "创建 / 进入"],
-    ["Worktree Lane", "Worktree 车道"],
+    ["Worktree Lane", "Worktree 执行通道"],
     ["Run in", "运行于"],
     ["Isolated Dir", "隔离目录"],
     ["Emit enter / run /", "发出 enter / run /"],

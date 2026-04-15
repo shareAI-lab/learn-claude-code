@@ -8,7 +8,8 @@
       "alternatives": "We could add specialized tools (list_directory, search_files, http_request), and later versions do. But at this stage, bash already covers those use cases. The split from v0's single tool to v1's four tools is specifically about giving the model structured I/O for file operations, where bash's quoting and escaping often trips up the model.",
       "zh": {
         "title": "为什么恰好四个工具",
-        "description": "四个工具分别是 bash、read_file、write_file 和 edit_file，覆盖了大约 95% 的编程任务。Bash 处理执行和任意命令；read_file 提供带行号的精确文件读取；write_file 创建或覆盖文件；edit_file 做精确的字符串替换。工具越多，模型的认知负担越重——它必须在更多选项中做选择，选错的概率也随之增加。更少的工具也意味着更少的 schema 需要维护、更少的边界情况需要处理。"
+        "description": "四个工具分别是 bash、read_file、write_file 和 edit_file，覆盖了大约 95% 的编程任务。Bash 处理执行和任意命令；read_file 提供带行号的精确文件读取；write_file 创建或覆盖文件；edit_file 做精确的字符串替换。工具越多，模型的认知负担越重——它必须在更多选项中做选择，选错的概率也随之增加。更少的工具也意味着更少的 schema 需要维护、更少的边界情况需要处理。",
+        "alternatives": "当然可以继续增加 list_directory、search_files、http_request 等专用工具，后续版本也会这样做。但在这个阶段，bash 已覆盖这些需求。v0 到 v1 的关键增量是把文件操作从通用 shell 拆成结构化 I/O，从而降低 quoting/escaping 错误。"
       },
       "ja": {
         "title": "なぜ正確に4つのツールなのか",
@@ -22,7 +23,8 @@
       "alternatives": "Many agent frameworks add elaborate orchestration layers: ReAct loops with explicit Thought/Action/Observation parsing, LangChain-style chains, AutoGPT-style goal decomposition. These frameworks assume the model needs scaffolding to behave as an agent. Our approach assumes the model already knows how to be an agent -- it just needs tools to act on the world.",
       "zh": {
         "title": "模型本身就是代理",
-        "description": "核心 agent 循环极其简单：不断调用 LLM，如果返回 tool_use 块就执行并回传结果，如果只返回文本就停止。没有路由器，没有决策树，没有工作流引擎。模型自己决定做什么、何时停止、如何从错误中恢复。代码只是连接模型和工具的管道。这是一种设计哲学：agent 行为从模型中涌现，而非由框架定义。"
+        "description": "核心 agent 循环极其简单：不断调用 LLM，如果返回 tool_use 块就执行并回传结果，如果只返回文本就停止。没有路由器，没有决策树，没有工作流引擎。模型自己决定做什么、何时停止、如何从错误中恢复。代码只是连接模型和工具的管道。这是一种设计哲学：agent 行为从模型中涌现，而非由框架定义。",
+        "alternatives": "很多框架会叠加复杂编排层，例如 ReAct 解析、链式工作流、自动目标分解。这类方案假设模型需要大量脚手架才像 agent。这里的立场相反：模型本身就是 agent，代码只负责把工具连接到可执行环境。"
       },
       "ja": {
         "title": "モデルそのものがエージェント",
@@ -36,7 +38,8 @@
       "alternatives": "Some agent systems let the model output free-form text that gets parsed with regex or heuristics (e.g., extracting code from markdown blocks). This is fragile -- the model might format output slightly differently and break the parser. JSON schemas trade flexibility for reliability.",
       "zh": {
         "title": "每个工具都有 JSON Schema",
-        "description": "每个工具都为输入参数定义了严格的 JSON schema。例如，edit_file 要求 old_string 和 new_string 是精确的字符串，而非正则表达式。这消除了一整类错误：模型无法传递格式错误的输入，因为 API 会在执行前校验 schema。这也使模型的意图变得明确——当它用特定字符串调用 edit_file 时，不存在关于它想修改什么的解析歧义。"
+        "description": "每个工具都为输入参数定义了严格的 JSON schema。例如，edit_file 要求 old_string 和 new_string 是精确的字符串，而非正则表达式。这消除了一整类错误：模型无法传递格式错误的输入，因为 API 会在执行前校验 schema。这也使模型的意图变得明确——当它用特定字符串调用 edit_file 时，不存在关于它想修改什么的解析歧义。",
+        "alternatives": "另一种做法是让模型输出自由文本，再用正则或启发式去解析（例如从 Markdown 代码块提取指令）。这类方案很脆弱，格式稍变就会失效。JSON Schema（结构化输入约束）牺牲了一点灵活性，换来更高可靠性。"
       },
       "ja": {
         "title": "全ツールに JSON Schema を定義",

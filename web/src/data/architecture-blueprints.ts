@@ -476,12 +476,12 @@ export const ARCHITECTURE_BLUEPRINTS: Record<VersionId, ArchitectureBlueprint> =
   },
   s18: {
     summary: l(
-      "Worktree 章节把执行环境从主目录里拆开，任务继续表达目标，而 worktree 成为独立、可观察、可 closeout 的执行车道。",
+      "Worktree 章节把执行环境从主目录里拆开，任务继续表达目标，而 worktree 成为独立、可观察、可 closeout 的执行通道。",
       "The worktree chapter pulls execution environments out of the main directory: tasks still express goals while worktrees become isolated, observable, closeout-capable lanes."
     ),
     slices: {
       control: [
-        { name: l("Task-to-Lane Binding", "Task-to-Lane Binding"), detail: l("系统明确记录哪条任务用哪条执行车道。", "The system records which task is using which execution lane."), fresh: true },
+        { name: l("Task-to-Lane Binding", "Task-to-Lane Binding"), detail: l("系统明确记录哪条任务用哪条执行通道。", "The system records which task is using which execution lane."), fresh: true },
         { name: l("Closeout Semantics", "Closeout Semantics"), detail: l("收尾时显式决定 keep 还是 remove。", "Closeout explicitly decides whether to keep or remove the lane."), fresh: true },
       ],
       state: [
@@ -505,30 +505,30 @@ export const ARCHITECTURE_BLUEPRINTS: Record<VersionId, ArchitectureBlueprint> =
   },
   s19: {
     summary: l(
-      "最后一章把本地工具、插件和 MCP server 重新统一到同一 capability bus 下，外部能力终于回到原有控制面里。",
+      "最后一章把本地工具、插件和 MCP 服务器（server）重新统一到同一能力总线（capability bus）下，外部能力终于回到原有控制面里。",
       "The final chapter reunifies native tools, plugins, and MCP servers on one capability bus so external capability returns to the same control plane."
     ),
     slices: {
       control: [
-        { name: l("Capability Router", "Capability Router"), detail: l("先发现能力，再决定本地、插件还是 MCP 路由。", "Discovers capability first, then routes to native, plugin, or MCP."), fresh: true },
-        { name: l("Shared Permission Gate", "Shared Permission Gate"), detail: l("外部能力和本地工具共用同一权限语义。", "External capabilities and native tools share one permission contract."), fresh: true },
-        { name: l("Result Normalizer", "Result Normalizer"), detail: l("远程结果也要转成主循环看得懂的标准 payload。", "Remote results are normalized into a payload the main loop already understands."), fresh: true },
+        { name: l("能力路由器（Capability Router）", "Capability Router"), detail: l("先发现能力，再决定本地、插件还是 MCP 路由。", "Discovers capability first, then routes to native, plugin, or MCP."), fresh: true },
+        { name: l("共享权限闸门（Shared Permission Gate）", "Shared Permission Gate"), detail: l("外部能力和本地工具共用同一权限语义。", "External capabilities and native tools share one permission contract."), fresh: true },
+        { name: l("结果标准化器（Result Normalizer）", "Result Normalizer"), detail: l("远程结果也要转成主循环看得懂的标准 payload。", "Remote results are normalized into a payload the main loop already understands."), fresh: true },
       ],
       state: [
-        { name: l("Plugin Manifest", "Plugin Manifest"), detail: l("告诉系统有哪些外部 server 可用。", "Tells the system which external servers are available."), fresh: true },
-        { name: l("Capability View", "Capability View"), detail: l("把 native / plugin / mcp 整理成一个可比较的能力面。", "Collects native, plugin, and MCP capability into one comparable view."), fresh: true },
+        { name: l("插件清单（Plugin Manifest）", "Plugin Manifest"), detail: l("告诉系统有哪些外部服务器（server）可用。", "Tells the system which external servers are available."), fresh: true },
+        { name: l("能力视图（Capability View）", "Capability View"), detail: l("把本地 / 插件 / MCP 整理成一个可比较的能力面。", "Collects native, plugin, and MCP capability into one comparable view."), fresh: true },
       ],
       lanes: [
-        { name: l("Native Tool", "Native Tool"), detail: l("本地 handler。", "A local handler."), },
-        { name: l("MCP / Plugin Lane", "MCP / Plugin Lane"), detail: l("外部 server 或插件提供的远程能力。", "Remote capability provided by an external server or plugin."), fresh: true },
+        { name: l("原生工具（Native Tool）", "Native Tool"), detail: l("本地处理器（handler）。", "A local handler."), },
+        { name: l("MCP / 插件车道（Plugin Lane）", "MCP / Plugin Lane"), detail: l("外部服务器（server）或插件提供的远程能力。", "Remote capability provided by an external server or plugin."), fresh: true },
       ],
     },
     records: [
-      { name: l("Scoped Capability", "Scoped Capability"), detail: l("带 server / source / risk 信息的能力对象。", "A capability object carrying server, source, and risk information."), fresh: true },
+      { name: l("作用域能力（Scoped Capability）", "Scoped Capability"), detail: l("带服务器（server）/来源（source）/风险（risk）信息的能力对象。", "A capability object carrying server, source, and risk information."), fresh: true },
     ],
     handoff: [
-      l("先做 capability discovery", "Capability discovery happens first"),
-      l("统一 permission + routing", "Routing and permission stay unified"),
+      l("先做能力发现（capability discovery）", "Capability discovery happens first"),
+      l("统一权限（permission）+ 路由（routing）", "Routing and permission stay unified"),
       l("标准化结果再回写主循环", "A normalized result writes back into the main loop"),
     ],
   },

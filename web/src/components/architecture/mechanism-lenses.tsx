@@ -569,12 +569,12 @@ const TEAM_BOUNDARY_TEXT = {
     ja: "チーム境界モデル",
   },
   title: {
-    zh: "把 teammate、协议请求、任务、执行槽位、worktree 车道分开",
+    zh: "把 teammate、协议请求、任务、执行槽位、worktree 执行通道分开",
     en: "Separate teammates, protocol requests, tasks, runtime slots, and worktree lanes",
     ja: "teammate・protocol request・task・runtime slot・worktree lane を分ける",
   },
   note: {
-    zh: "到了 `s15-s18`，最容易让读者打结的不是某个函数，而是这五层对象一起动起来时，到底谁表示身份、谁表示目标、谁表示执行、谁表示目录车道。",
+    zh: "到了 `s15-s18`，最容易让读者打结的不是某个函数，而是这五层对象一起动起来时，到底谁表示身份、谁表示目标、谁表示执行、谁表示目录通道。",
     en: "From `s15` to `s18`, the hardest thing is not one function. It is keeping identity, coordination, goals, execution, and directory lanes distinct while all five move together.",
     ja: "`s15-s18` で難しいのは個別の関数ではなく、identity・coordination・goal・execution・directory lane を同時に分けて保つことです。",
   },
@@ -644,7 +644,7 @@ const TEAM_BOUNDARY_TEXT = {
     },
     {
       title: {
-        zh: "Worktree Lane",
+        zh: "Worktree 执行通道",
         en: "Worktree Lane",
         ja: "Worktree Lane",
       },
@@ -787,9 +787,9 @@ function ToolRuntimeLens({
           </p>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid gap-4 2xl:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
               {TOOL_RUNTIME_TEXT.stages.map((stage) => (
                 <div
                   key={stage.title.en}
@@ -908,7 +908,7 @@ function QueryTransitionLens({
           </p>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="grid gap-4 2xl:grid-cols-[1.05fr_0.95fr]">
           <div className="rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/70">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
               {pick(locale, QUERY_TRANSITION_TEXT.chainLabel)}
@@ -1011,13 +1011,13 @@ function TaskRuntimeLens({
           </p>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+        <div className="grid gap-4 2xl:grid-cols-[1.08fr_0.92fr]">
           <div className="space-y-4">
             <div className="rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/70">
               <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
                 {pick(locale, TASK_RUNTIME_TEXT.layersLabel)}
               </p>
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <div className="mt-3 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
                 {TASK_RUNTIME_TEXT.layers.map((layer) => (
                   <div
                     key={layer.title.en}
@@ -1117,7 +1117,7 @@ function TeamBoundaryLens({
           </p>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+        <div className="grid gap-4 2xl:grid-cols-[1.08fr_0.92fr]">
           <div className="rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/70">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
               {pick(locale, TEAM_BOUNDARY_TEXT.layersLabel)}
@@ -1196,7 +1196,7 @@ function CapabilityLayerLens({
           </p>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+        <div className="grid gap-4 2xl:grid-cols-[1.08fr_0.92fr]">
           <div className="rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/70">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
               {pick(locale, CAPABILITY_LAYER_TEXT.layersLabel)}

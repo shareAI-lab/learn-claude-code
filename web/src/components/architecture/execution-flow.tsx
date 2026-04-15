@@ -10,6 +10,24 @@ import type { FlowNode, FlowEdge } from "@/types/agent-data";
 const NODE_WIDTH = 140;
 const NODE_HEIGHT = 40;
 const DIAMOND_SIZE = 50;
+type AnchorSide = "top" | "right" | "bottom" | "left";
+
+interface AnchorPoint {
+  x: number;
+  y: number;
+  side: AnchorSide;
+}
+
+interface EdgePathResult {
+  d: string;
+  midX: number;
+  midY: number;
+}
+
+interface FlowBounds {
+  minX: number;
+  maxX: number;
+}
 
 const NODE_COLORS: Record<string, string> = {
   start: "#3B82F6",
@@ -45,9 +63,9 @@ const NODE_GUIDE = {
     },
   },
   subprocess: {
-    title: { zh: "子流程 / 外部车道", en: "Subprocess / Lane", ja: "子過程 / 外部レーン" },
+    title: { zh: "子流程 / 外部通道", en: "Subprocess / Lane", ja: "子過程 / 外部レーン" },
     note: {
-      zh: "常见于外部执行、侧车流程或隔离车道。",
+      zh: "常见于外部执行、旁路流程（sidecar）或隔离通道。",
       en: "Often used for external execution, sidecars, or isolated lanes.",
       ja: "外部実行、サイドカー、隔離レーンなどでよく現れます。",
     },
@@ -70,7 +88,7 @@ const UI_TEXT = {
     ja: "まず主線の回流を見て、その後で左右の分岐を見る",
   },
   readNote: {
-    zh: "从上往下看时间顺序，中间通常是主线，左右是分支、隔离车道或恢复路径。真正重要的不是节点有多少，而是这一章新增的分叉与回流在哪里。",
+    zh: "从上往下看时间顺序，中间通常是主线，左右是分支、隔离通道或恢复路径。真正重要的不是节点有多少，而是这一章新增的分叉与回流在哪里。",
     en: "Read top to bottom for time order. The center usually carries the mainline, while the sides hold branches, isolated lanes, or recovery paths. The key question is not how many nodes exist, but where this chapter introduces a new split and write-back.",
     ja: "上から下へ時間順に読みます。中央は主線、左右は分岐・隔離レーン・回復経路です。大事なのはノード数ではなく、この章で新しく増えた分岐と回流がどこかです。",
   },
@@ -85,14 +103,14 @@ const UI_TEXT = {
     en: "The path the system keeps returning to during the turn.",
     ja: "システムがこのターン中に繰り返し戻る経路です。",
   },
-  sideLane: { zh: "分支 / 侧车", en: "Branch / Side Lane", ja: "分岐 / サイドレーン" },
+  sideLane: { zh: "分支 / 旁路通道", en: "Branch / Side Lane", ja: "分岐 / サイドレーン" },
   sideLaneNote: {
-    zh: "权限分支、自治扫描、后台槽位、worktree 车道常在这里展开。",
+    zh: "权限分支、自治扫描、后台槽位、worktree 执行通道常在这里展开。",
     en: "Permission branches, autonomy scans, background slots, and worktree lanes often expand here.",
     ja: "権限分岐、自治スキャン、バックグラウンドスロット、worktree レーンはここで展開されます。",
   },
   bottomNote: {
-    zh: "虚线边框通常表示子流程或外部车道；箭头标签说明当前分叉为什么发生。",
+    zh: "虚线边框通常表示子流程、旁路流程（sidecar）或外部通道；箭头标签说明当前分叉为什么发生。",
     en: "Dashed borders usually indicate a subprocess or external lane; arrow labels explain why a branch was taken.",
     ja: "破線の枠は子過程や外部レーンを示すことが多く、矢印ラベルはなぜ分岐したかを示します。",
   },
@@ -102,23 +120,225 @@ function getNodeCenter(node: FlowNode): { cx: number; cy: number } {
   return { cx: node.x, cy: node.y };
 }
 
-function getEdgePath(from: FlowNode, to: FlowNode): string {
-  const { cx: x1, cy: y1 } = getNodeCenter(from);
-  const { cx: x2, cy: y2 } = getNodeCenter(to);
+function getNodeHalfWidth(node: FlowNode): number {
+  return node.type === "decision" ? DIAMOND_SIZE / 2 : NODE_WIDTH / 2;
+}
 
-  const halfH = from.type === "decision" ? DIAMOND_SIZE / 2 : NODE_HEIGHT / 2;
-  const halfHTo = to.type === "decision" ? DIAMOND_SIZE / 2 : NODE_HEIGHT / 2;
+function getNodeHalfHeight(node: FlowNode): number {
+  return node.type === "decision" ? DIAMOND_SIZE / 2 : NODE_HEIGHT / 2;
+}
 
-  if (Math.abs(x1 - x2) < 10) {
-    const startY = y1 + halfH;
-    const endY = y2 - halfHTo;
-    return `M ${x1} ${startY} L ${x2} ${endY}`;
+function getAnchor(node: FlowNode, side: AnchorSide): AnchorPoint {
+  const { cx, cy } = getNodeCenter(node);
+  const halfW = getNodeHalfWidth(node);
+  const halfH = getNodeHalfHeight(node);
+
+  if (side === "top") return { x: cx, y: cy - halfH, side };
+  if (side === "right") return { x: cx + halfW, y: cy, side };
+  if (side === "bottom") return { x: cx, y: cy + halfH, side };
+  return { x: cx - halfW, y: cy, side };
+}
+
+function getFlowBounds(nodes: FlowNode[]): FlowBounds {
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+
+  for (const node of nodes) {
+    const halfW = getNodeHalfWidth(node);
+    minX = Math.min(minX, node.x - halfW);
+    maxX = Math.max(maxX, node.x + halfW);
   }
 
-  const startY = y1 + halfH;
-  const endY = y2 - halfHTo;
-  const midY = (startY + endY) / 2;
-  return `M ${x1} ${startY} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${endY}`;
+  return { minX, maxX };
+}
+
+function pickSourceSide(from: FlowNode, to: FlowNode): AnchorSide {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+
+  if (from.type === "decision") {
+    if (dx > 24) return "right";
+    if (dx < -24) return "left";
+    return dy >= 0 ? "bottom" : "top";
+  }
+
+  if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+    return dx > 0 ? "right" : "left";
+  }
+
+  return dy >= 0 ? "bottom" : "top";
+}
+
+function pickTargetSide(from: FlowNode, to: FlowNode): AnchorSide {
+  const dx = from.x - to.x;
+  const dy = from.y - to.y;
+
+  if (to.type === "decision") {
+    if (dx > 24) return "right";
+    if (dx < -24) return "left";
+    return dy < 0 ? "top" : "bottom";
+  }
+
+  if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+    return dx > 0 ? "right" : "left";
+  }
+
+  return dy < 0 ? "top" : "bottom";
+}
+
+function getDefaultEdgePath(from: FlowNode, to: FlowNode): EdgePathResult {
+  // 回流边（往上）统一走外侧轨道，避免穿越主干区域造成交叉。
+  if (to.y < from.y - 20) {
+    const railOnLeft = from.x <= to.x;
+    const sourceSide: AnchorSide = railOnLeft ? "left" : "right";
+    const targetSide: AnchorSide = railOnLeft ? "left" : "right";
+    const start = getAnchor(from, sourceSide);
+    const end = getAnchor(to, targetSide);
+    const railX = railOnLeft
+      ? Math.min(start.x, end.x) - 42
+      : Math.max(start.x, end.x) + 42;
+
+    return {
+      d: `M ${start.x} ${start.y} L ${railX} ${start.y} L ${railX} ${end.y} L ${end.x} ${end.y}`,
+      midX: railX,
+      midY: (start.y + end.y) / 2,
+    };
+  }
+
+  const start = getAnchor(from, pickSourceSide(from, to));
+  const end = getAnchor(to, pickTargetSide(from, to));
+
+  if (Math.abs(start.x - end.x) < 1 || Math.abs(start.y - end.y) < 1) {
+    return {
+      d: `M ${start.x} ${start.y} L ${end.x} ${end.y}`,
+      midX: (start.x + end.x) / 2,
+      midY: (start.y + end.y) / 2,
+    };
+  }
+
+  if (start.side === "left" || start.side === "right") {
+    if (to.y > from.y + 20) {
+      const midY = (start.y + end.y) / 2;
+      return {
+        d: `M ${start.x} ${start.y} L ${start.x} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y}`,
+        midX: (start.x + end.x) / 2,
+        midY,
+      };
+    }
+
+    if (end.side === "left" || end.side === "right") {
+      const midX = (start.x + end.x) / 2;
+      return {
+        d: `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`,
+        midX,
+        midY: (start.y + end.y) / 2,
+      };
+    }
+
+    return {
+      d: `M ${start.x} ${start.y} L ${end.x} ${start.y} L ${end.x} ${end.y}`,
+      midX: (start.x + end.x) / 2,
+      midY: (start.y + end.y) / 2,
+    };
+  }
+
+  if (end.side === "top" || end.side === "bottom") {
+    const midY = (start.y + end.y) / 2;
+    return {
+      d: `M ${start.x} ${start.y} L ${start.x} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y}`,
+      midX: (start.x + end.x) / 2,
+      midY,
+    };
+  }
+
+  return {
+    d: `M ${start.x} ${start.y} L ${start.x} ${end.y} L ${end.x} ${end.y}`,
+    midX: (start.x + end.x) / 2,
+    midY: (start.y + end.y) / 2,
+  };
+}
+
+function getZhEdgePath(
+  from: FlowNode,
+  to: FlowNode,
+  bounds: FlowBounds,
+  edgeIndex: number
+): EdgePathResult {
+  // 中文讲解模式下，回流统一走图外轨道，尽量避免压在主干上。
+  if (to.y < from.y - 20) {
+    const railOnLeft = from.x <= to.x;
+    const sourceSide: AnchorSide = railOnLeft ? "left" : "right";
+    const targetSide: AnchorSide = railOnLeft ? "left" : "right";
+    const start = getAnchor(from, sourceSide);
+    const end = getAnchor(to, targetSide);
+    const railBaseX = railOnLeft ? bounds.minX - 34 : bounds.maxX + 34;
+    const laneOffset = (edgeIndex % 3) * 10;
+    const railXRaw = railOnLeft ? railBaseX - laneOffset : railBaseX + laneOffset;
+    // 轨道保持在可视区域内，避免被 viewBox 裁切导致“流程不完整”。
+    const railX = Math.max(16, Math.min(584, railXRaw));
+
+    return {
+      d: `M ${start.x} ${start.y} L ${railX} ${start.y} L ${railX} ${end.y} L ${end.x} ${end.y}`,
+      midX: railX,
+      midY: (start.y + end.y) / 2,
+    };
+  }
+
+  // 从判断节点向左右分支时，先竖向下落再横向展开，降低与主竖线交叉概率。
+  if (from.type === "decision" && to.y > from.y + 8 && Math.abs(to.x - from.x) > 24) {
+    const branchRight = to.x > from.x;
+    const start = getAnchor(from, branchRight ? "right" : "left");
+    const end = getAnchor(to, "top");
+    const laneX = start.x + (branchRight ? 16 : -16);
+    const entryY = Math.min(start.y + 28, end.y - 14);
+
+    return {
+      d: `M ${start.x} ${start.y} L ${laneX} ${start.y} L ${laneX} ${entryY} L ${end.x} ${entryY} L ${end.x} ${end.y}`,
+      midX: laneX,
+      midY: entryY,
+    };
+  }
+
+  return getDefaultEdgePath(from, to);
+}
+
+function getEdgePath(
+  from: FlowNode,
+  to: FlowNode,
+  locale: string,
+  bounds: FlowBounds,
+  edgeIndex: number
+): EdgePathResult {
+  if (locale === "zh") {
+    return getZhEdgePath(from, to, bounds, edgeIndex);
+  }
+  return getDefaultEdgePath(from, to);
+}
+
+function getEdgeColor(edge: FlowEdge, from: FlowNode, to: FlowNode, locale: string): string {
+  if (locale !== "zh") return "var(--color-text-secondary)";
+
+  if (to.y < from.y - 20) return "#38bdf8";
+
+  const label = (edge.label ?? "").toLowerCase();
+  if (label.includes("no") || label.includes("deny") || label.includes("reject") || label.includes("remove")) {
+    return "#f97316";
+  }
+  if (label.includes("plugin") || label.includes("mcp") || label.includes("external")) {
+    return "#a78bfa";
+  }
+  if (
+    label.includes("yes") ||
+    label.includes("allow") ||
+    label.includes("task") ||
+    label.includes("runtime") ||
+    label.includes("spawn") ||
+    label.includes("local")
+  ) {
+    return "#34d399";
+  }
+
+  return "#94a3b8";
 }
 
 function NodeShape({ node }: { node: FlowNode }) {
@@ -219,26 +439,27 @@ function EdgePath({
   nodes,
   index,
   locale,
+  bounds,
 }: {
   edge: FlowEdge;
   nodes: FlowNode[];
   index: number;
   locale: string;
+  bounds: FlowBounds;
 }) {
   const from = nodes.find((n) => n.id === edge.from);
   const to = nodes.find((n) => n.id === edge.to);
   if (!from || !to) return null;
 
-  const d = getEdgePath(from, to);
-  const midX = (from.x + to.x) / 2;
-  const midY = (from.y + to.y) / 2;
+  const { d, midX, midY } = getEdgePath(from, to, locale, bounds, index);
+  const strokeColor = getEdgeColor(edge, from, to, locale);
 
   return (
     <g>
       <motion.path
         d={d}
         fill="none"
-        stroke="var(--color-text-secondary)"
+        stroke={strokeColor}
         strokeWidth={1.5}
         markerEnd="url(#arrowhead)"
         initial={{ pathLength: 0, opacity: 0 }}
@@ -250,7 +471,7 @@ function EdgePath({
           x={midX + 8}
           y={midY - 4}
           fontSize={10}
-          fill="var(--color-text-secondary)"
+          fill={strokeColor}
           fontFamily="monospace"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -275,10 +496,11 @@ export function ExecutionFlow({ version }: ExecutionFlowProps) {
   if (!flow) return null;
 
   const maxY = Math.max(...flow.nodes.map((n) => n.y)) + 50;
+  const bounds = getFlowBounds(flow.nodes);
 
   return (
     <div className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/95 shadow-sm dark:border-zinc-800/80 dark:bg-zinc-950/90">
-      <div className="grid gap-4 border-b border-zinc-200/80 px-5 py-5 dark:border-zinc-800/80 sm:px-6 lg:grid-cols-[1.35fr_0.95fr]">
+      <div className="grid gap-4 border-b border-zinc-200/80 px-5 py-5 dark:border-zinc-800/80 sm:px-6 2xl:grid-cols-[1.35fr_0.95fr]">
         <div className="space-y-4">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">
@@ -287,18 +509,18 @@ export function ExecutionFlow({ version }: ExecutionFlowProps) {
             <h3 className="mt-3 text-lg font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
               {pickDiagramText(locale, UI_TEXT.readTitle)}
             </h3>
-            <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+            <p className="mt-2 break-words text-sm leading-6 [word-break:keep-all] text-zinc-600 dark:text-zinc-300">
               {pickDiagramText(locale, UI_TEXT.readNote)}
             </p>
           </div>
 
           {guide && (
-            <div className="grid gap-3 xl:grid-cols-3">
+            <div className="grid gap-3 2xl:grid-cols-3">
               <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/80 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/20">
                 <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-emerald-700/80 dark:text-emerald-300/80">
                   {pickDiagramText(locale, UI_TEXT.focusLabel)}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-zinc-700 dark:text-zinc-200">
+                <p className="mt-2 break-words text-sm leading-6 [word-break:keep-all] text-zinc-700 dark:text-zinc-200">
                   {guide.focus}
                 </p>
               </div>
@@ -306,7 +528,7 @@ export function ExecutionFlow({ version }: ExecutionFlowProps) {
                 <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-amber-700/80 dark:text-amber-300/80">
                   {pickDiagramText(locale, UI_TEXT.confusionLabel)}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-zinc-700 dark:text-zinc-200">
+                <p className="mt-2 break-words text-sm leading-6 [word-break:keep-all] text-zinc-700 dark:text-zinc-200">
                   {guide.confusion}
                 </p>
               </div>
@@ -314,7 +536,7 @@ export function ExecutionFlow({ version }: ExecutionFlowProps) {
                 <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-sky-700/80 dark:text-sky-300/80">
                   {pickDiagramText(locale, UI_TEXT.goalLabel)}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-zinc-700 dark:text-zinc-200">
+                <p className="mt-2 break-words text-sm leading-6 [word-break:keep-all] text-zinc-700 dark:text-zinc-200">
                   {guide.goal}
                 </p>
               </div>
@@ -343,7 +565,7 @@ export function ExecutionFlow({ version }: ExecutionFlowProps) {
                     {pickDiagramText(locale, NODE_GUIDE[nodeType].title)}
                   </span>
                 </div>
-                <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                <p className="mt-1 break-words text-xs leading-5 [word-break:keep-all] text-zinc-500 dark:text-zinc-400">
                   {pickDiagramText(locale, NODE_GUIDE[nodeType].note)}
                 </p>
               </div>
@@ -352,14 +574,14 @@ export function ExecutionFlow({ version }: ExecutionFlowProps) {
         </div>
       </div>
 
-      <div className="overflow-x-auto px-4 py-5 sm:px-6">
-        <div className="min-w-[640px]">
-          <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="px-4 py-5 sm:px-6">
+        <div>
+          <div className="mb-4 grid grid-cols-1 gap-3 2xl:grid-cols-3">
             <div className="rounded-2xl border border-zinc-200/70 bg-zinc-50/70 px-3 py-2.5 dark:border-zinc-800/70 dark:bg-zinc-900/60">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                 {pickDiagramText(locale, UI_TEXT.sideLane)}
               </p>
-              <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 break-words text-xs leading-5 [word-break:keep-all] text-zinc-500 dark:text-zinc-400">
                 {pickDiagramText(locale, UI_TEXT.sideLaneNote)}
               </p>
             </div>
@@ -367,7 +589,7 @@ export function ExecutionFlow({ version }: ExecutionFlowProps) {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300">
                 {pickDiagramText(locale, UI_TEXT.mainline)}
               </p>
-              <p className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+              <p className="mt-1 break-words text-xs leading-5 [word-break:keep-all] text-zinc-600 dark:text-zinc-300">
                 {pickDiagramText(locale, UI_TEXT.mainlineNote)}
               </p>
             </div>
@@ -375,7 +597,7 @@ export function ExecutionFlow({ version }: ExecutionFlowProps) {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                 {pickDiagramText(locale, UI_TEXT.sideLane)}
               </p>
-              <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 break-words text-xs leading-5 [word-break:keep-all] text-zinc-500 dark:text-zinc-400">
                 {pickDiagramText(locale, UI_TEXT.sideLaneNote)}
               </p>
             </div>
@@ -416,6 +638,7 @@ export function ExecutionFlow({ version }: ExecutionFlowProps) {
                   nodes={flow.nodes}
                   index={i}
                   locale={locale}
+                  bounds={bounds}
                 />
               ))}
 

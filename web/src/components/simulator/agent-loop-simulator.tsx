@@ -27,6 +27,21 @@ const scenarioModules: Record<string, () => Promise<{ default: Scenario }>> = {
   s12: () => import("@/data/scenarios/s12.json") as Promise<{ default: Scenario }>,
 };
 
+const zhScenarioModules: Record<string, () => Promise<{ default: Scenario }>> = {
+  s01: () =>
+    import("@/data/scenarios/zh/s01.json") as Promise<{ default: Scenario }>,
+  s02: () =>
+    import("@/data/scenarios/zh/s02.json") as Promise<{ default: Scenario }>,
+  s03: () =>
+    import("@/data/scenarios/zh/s03.json") as Promise<{ default: Scenario }>,
+  s04: () =>
+    import("@/data/scenarios/zh/s04.json") as Promise<{ default: Scenario }>,
+  s05: () =>
+    import("@/data/scenarios/zh/s05.json") as Promise<{ default: Scenario }>,
+  s06: () =>
+    import("@/data/scenarios/zh/s06.json") as Promise<{ default: Scenario }>,
+};
+
 function buildGenericScenario(version: string, locale: string): Scenario {
   if (locale === "zh") {
     const zh: Record<string, Scenario> = {
@@ -54,7 +69,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
           {
             type: "tool_result",
             toolName: "request_permission",
-            content: "User denied destructive delete. Suggest safer alternative.",
+            content: "用户拒绝了破坏性删除。请给出更安全的替代方案。",
             annotation: "拒绝结果也会回写到主循环，让模型据此重新规划。",
           },
           {
@@ -99,7 +114,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
       },
       s09: {
         version,
-        title: "Memory 系统",
+        title: "记忆系统（Memory）",
         description: "只把跨会话还需要的事实写入长期记忆，当前过程仍由上下文承担。",
         steps: [
           {
@@ -121,7 +136,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
           {
             type: "tool_result",
             toolName: "memory_write",
-            content: "Stored durable memory: package_manager_preference=pnpm",
+            content: "已写入长期记忆：package_manager_preference=pnpm",
             annotation: "长期记忆写入完成，后续会话可直接加载。",
           },
           {
@@ -133,7 +148,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
       },
       s10: {
         version,
-        title: "System Prompt",
+        title: "系统提示词（System Prompt）",
         description: "系统输入由多段信息按顺序装配，而不是一整块不可见的大字符串。",
         steps: [
           {
@@ -155,7 +170,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
           {
             type: "tool_result",
             toolName: "preview_prompt",
-            content: "Prompt sections assembled successfully (5 sections, 2217 chars)",
+            content: "提示词分段装配完成（5 个分段，2217 个字符）",
             annotation: "只有装配完成后，模型才看到最终输入。",
           },
           {
@@ -184,7 +199,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
           {
             type: "tool_result",
             toolName: "bash",
-            content: "Error: Timeout after 120s",
+            content: "错误：120 秒后超时",
             annotation: "工具失败后，系统不能只是把错误静默吞掉。",
           },
           {
@@ -218,7 +233,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
           {
             type: "tool_result",
             toolName: "task_create",
-            content: "Created task-auth-migrate (status=pending, blocks=1)",
+            content: "已创建 task-auth-migrate（状态=pending，阻塞数=1）",
             annotation: "任务板现在知道这项工作存在，并且后续节点暂时被它阻塞。",
           },
           {
@@ -290,7 +305,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
           {
             type: "tool_result",
             toolName: "runtime_task_spawn",
-            content: "Queued background runtime task #42 for nightly-health-check",
+            content: "已加入后台运行任务队列 #42（nightly-health-check）",
             annotation: "真正执行交给后台任务层接管。",
           },
           {
@@ -302,7 +317,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
       },
       s15: {
         version,
-        title: "Agent Teams",
+        title: "团队代理（Agent Teams）",
         description: "队友是长期存在的角色，有自己的名字、身份和 inbox，而不是一次性 subagent。",
         steps: [
           {
@@ -319,7 +334,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
           {
             type: "tool_result",
             toolName: "spawn_teammate",
-            content: "Spawned 'alice' (role: test-specialist)",
+            content: "已创建队友 'alice'（角色：test-specialist）",
             annotation: "队友进入 roster，后续可被反复派活。",
           },
           {
@@ -393,7 +408,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
           {
             type: "tool_result",
             toolName: "claim_task",
-            content: "alice claimed task-payment-adapter and resumed prior context",
+            content: "alice 已认领 task-payment-adapter，并恢复了此前上下文",
             annotation: "系统根据任务状态和角色状态恢复执行，而不是凭空继续。",
           },
           {
@@ -406,7 +421,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
       s18: {
         version,
         title: "Worktree 隔离",
-        description: "任务被绑定到独立执行车道，进入各自目录执行，再带着 closeout 语义回到主系统。",
+        description: "任务被绑定到独立执行通道，进入各自目录执行，再带着 closeout 语义回到主系统。",
         steps: [
           {
             type: "user_message",
@@ -422,7 +437,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
           {
             type: "system_event",
             content: "worktree_event(type=create, task_id=task-auth-migrate, path=.worktrees/wt-auth-migrate)",
-            annotation: "执行车道的生命周期事件被显式写出来，方便观察。",
+            annotation: "执行通道的生命周期事件被显式写出来，方便观察。",
           },
           {
             type: "tool_result",
@@ -439,7 +454,7 @@ function buildGenericScenario(version: string, locale: string): Scenario {
       },
       s19: {
         version,
-        title: "MCP 与 Plugin",
+        title: "MCP 与插件（Plugin）",
         description: "外部能力进入系统后，也应遵循与本地工具一致的发现、路由、授权和结果回写流程。",
         steps: [
           {
@@ -1420,7 +1435,10 @@ export function AgentLoopSimulator({ version }: AgentLoopSimulatorProps) {
       };
     }
 
-    const loader = scenarioModules[resolveLegacySessionAssetVersion(version)];
+    const resolvedVersion = resolveLegacySessionAssetVersion(version);
+    const localizedLoader =
+      locale === "zh" ? zhScenarioModules[resolvedVersion] : undefined;
+    const loader = localizedLoader ?? scenarioModules[resolvedVersion];
     if (!loader) {
       setScenario(buildFallbackScenario(version, locale));
       return () => {

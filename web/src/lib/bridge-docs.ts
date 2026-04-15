@@ -230,7 +230,7 @@ export const BRIDGE_DOCS: Record<string, BridgeDocDescriptor> = {
       ja: "チームメイト・タスク・レーンモデル",
     },
     summary: {
-      zh: "专门拆清队友、协议请求、任务、运行时槽位和 worktree 车道这五层边界。",
+      zh: "专门拆清队友、协议请求、任务、运行时槽位和 worktree 执行通道这五层边界。",
       en: "Five concepts that look similar but live on different layers. Keep open during s15-s18.",
       ja: "teammate・protocol request・task・runtime slot・worktree lane の 5 層境界を整理します。",
     },

@@ -220,7 +220,7 @@ const SCENARIOS: Record<LateStageVersion, ChapterScenario> = {
     lanes: [
       { id: "loop", label: l("主循环", "Main Loop", "主ループ"), note: l("核心状态推进仍留在这里。", "Core state progression stays here.", "中核の状態遷移はここに残ります。") },
       { id: "events", label: l("生命周期事件", "Lifecycle Events", "ライフサイクルイベント"), note: l("固定时机发出结构化事件。", "Structured events are emitted at fixed moments.", "固定タイミングで構造化イベントが出ます。") },
-      { id: "hooks", label: l("Hook 侧车", "Hook Sidecars", "Hook サイドカー"), note: l("审计、追踪、策略副作用挂在这里。", "Audit, tracing, and policy side effects live here.", "監査・追跡・副作用はここに乗ります。") },
+      { id: "hooks", label: l("Hook 旁路扩展（sidecar）", "Hook Sidecars", "Hook サイドカー"), note: l("审计、追踪、策略副作用挂在这里。", "Audit, tracing, and policy side effects live here.", "監査・追跡・副作用はここに乗ります。") },
       { id: "history", label: l("结果回流", "Result Write-back", "結果回流"), note: l("副作用和主线结果都可回写。", "Both side effects and mainline results can write back.", "副作用も主線結果も回写できます。") },
     ],
     nodes: [
@@ -243,7 +243,7 @@ const SCENARIOS: Record<LateStageVersion, ChapterScenario> = {
         activeNodes: ["advance", "emit"],
         activeRecords: ["hook-event"],
         boundary: l("先定义什么时候能观察，再定义谁来观察。", "Define when the loop is observable before deciding who observes it.", "誰が観測するかの前に、いつ観測可能かを定義します。"),
-        writeBack: l("事件不是终点，它会把本轮状态送到 Hook 侧车继续处理。", "The event is not the endpoint. It hands the current state to sidecar hooks.", "イベントは終点ではなく、このターンの状態を sidecar hook へ渡します。"),
+        writeBack: l("事件不是终点，它会把本轮状态送到 Hook 旁路扩展（sidecar）继续处理。", "The event is not the endpoint. It hands the current state to sidecar hooks.", "イベントは終点ではなく、このターンの状態を sidecar hook へ渡します。"),
       },
       {
         title: l("Hook 通过注册表挂上去", "Hooks attach through a registry", "Hook は registry 経由で接続する"),
@@ -780,23 +780,23 @@ const SCENARIOS: Record<LateStageVersion, ChapterScenario> = {
       { id: "task-goal", lane: "task", label: l("目标任务", "Task Goal", "task goal"), detail: l("任务记录仍是目标层。", "The task record still owns the goal.", "task record は引き続き goal を持ちます。") },
       { id: "assign", lane: "worktree", label: l("分配 worktree", "Assign Worktree", "worktree 割当"), detail: l("为任务分配隔离目录。", "Assign an isolated directory to the task.", "task に分離ディレクトリを割り当てます。") },
       { id: "enter", lane: "runtime", label: l("进入车道", "Enter Lane", "レーンに入る"), detail: l("显式进入隔离目录工作。", "Explicitly enter the isolated directory.", "明示的に分離ディレクトリへ入ります。") },
-      { id: "run", lane: "runtime", label: l("隔离执行", "Run in Isolation", "分離実行"), detail: l("执行动作发生在独立车道。", "Execution happens inside the isolated lane.", "実行は独立レーンの中で起こります。") },
+      { id: "run", lane: "runtime", label: l("隔离执行", "Run in Isolation", "分離実行"), detail: l("执行动作发生在独立通道。", "Execution happens inside the isolated lane.", "実行は独立レーンの中で起こります。") },
       { id: "closeout", lane: "return", label: l("closeout", "closeout", "closeout"), detail: l("决定 keep / remove / summarize。", "Decides keep / remove / summarize.", "keep / remove / summarize を決めます。") },
-      { id: "event", lane: "return", label: l("车道事件", "Worktree Event", "worktree event"), detail: l("主系统要看见 create / enter / closeout。", "The main system should see create / enter / closeout.", "主システムは create / enter / closeout を見えるようにします。") },
+      { id: "event", lane: "return", label: l("通道事件", "Worktree Event", "worktree event"), detail: l("主系统要看见 create / enter / closeout。", "The main system should see create / enter / closeout.", "主システムは create / enter / closeout を見えるようにします。") },
     ],
     records: [
-      { id: "worktree-state", label: l("worktree_state", "worktree_state", "worktree_state"), note: l("记录当前车道归属和状态。", "Tracks the worktree lane and its state.", "worktree lane と状態を記録します。") },
-      { id: "last-worktree", label: l("last_worktree", "last_worktree", "last_worktree"), note: l("帮助系统知道任务最近在哪条车道上。", "Helps the system remember the last lane for a task.", "task が直近どの lane にいたかを覚えます。") },
-      { id: "closeout-record", label: l("closeout", "closeout", "closeout"), note: l("描述车道最终怎么收尾。", "Describes how the lane is closed out.", "lane をどう収束させるかを表します。") },
+      { id: "worktree-state", label: l("worktree_state", "worktree_state", "worktree_state"), note: l("记录当前通道归属和状态。", "Tracks the worktree lane and its state.", "worktree lane と状態を記録します。") },
+      { id: "last-worktree", label: l("last_worktree", "last_worktree", "last_worktree"), note: l("帮助系统知道任务最近在哪条通道上。", "Helps the system remember the last lane for a task.", "task が直近どの lane にいたかを覚えます。") },
+      { id: "closeout-record", label: l("closeout", "closeout", "closeout"), note: l("描述通道最终怎么收尾。", "Describes how the lane is closed out.", "lane をどう収束させるかを表します。") },
     ],
     steps: [
       {
-        title: l("任务目标和执行车道先分层", "Separate the task goal from the execution lane first", "task goal と execution lane を先に分ける"),
+        title: l("任务目标和执行通道先分层", "Separate the task goal from the execution lane first", "task goal と execution lane を先に分ける"),
         description: l("这一章最重要的第一步是把‘做什么’和‘在哪做’拆开。任务板仍管目标，worktree 只管隔离执行环境。", "The first crucial step is to separate what should be done from where it runs. The task board still owns goals, while the worktree owns isolated execution space.", "最初の重要点は『何をするか』と『どこでやるか』を分けることです。"),
         activeNodes: ["task-goal", "assign"],
         activeRecords: ["worktree-state"],
-        boundary: l("worktree 不是另一种 task，它只是任务的隔离执行车道。", "A worktree is not another kind of task. It is the task's isolated execution lane.", "worktree は別種の task ではなく、task の分離実行レーンです。"),
-        writeBack: l("一旦分配了 worktree，任务就获得了明确的执行地点和 lane 状态。", "Once a worktree is assigned, the task gets a clear execution location and lane state.", "worktree が割り当てられると、task は明確な実行場所と lane 状態を持ちます。"),
+        boundary: l("worktree 不是另一种 task，它只是任务的隔离执行通道。", "A worktree is not another kind of task. It is the task's isolated execution lane.", "worktree は別種の task ではなく、task の分離実行レーンです。"),
+        writeBack: l("一旦分配了 worktree，任务就获得了明确的执行地点和通道状态。", "Once a worktree is assigned, the task gets a clear execution location and lane state.", "worktree が割り当てられると、task は明確な実行場所と lane 状態を持ちます。"),
       },
       {
         title: l("进入隔离目录后再执行", "Enter the isolated directory before executing", "分離ディレクトリへ入ってから実行する"),
@@ -804,7 +804,7 @@ const SCENARIOS: Record<LateStageVersion, ChapterScenario> = {
         activeNodes: ["assign", "enter", "run"],
         activeRecords: ["worktree-state", "last-worktree"],
         boundary: l("enter 是显式生命周期动作，不要把它写成隐含前提。", "enter is an explicit lifecycle action, not an implicit assumption.", "enter は明示的な lifecycle action であり、暗黙前提ではありません。"),
-        writeBack: l("进入车道后，系统会更新 last_worktree，并在隔离目录里继续执行任务。", "After entering the lane, the system updates last_worktree and continues execution inside the isolated directory.", "lane へ入ったあと、last_worktree が更新され、その分離ディレクトリで実行が続きます。"),
+        writeBack: l("进入通道后，系统会更新 last_worktree，并在隔离目录里继续执行任务。", "After entering the lane, the system updates last_worktree and continues execution inside the isolated directory.", "lane へ入ったあと、last_worktree が更新され、その分離ディレクトリで実行が続きます。"),
       },
       {
         title: l("执行结束后必须走 closeout", "After execution, closeout is mandatory", "実行後は必ず closeout を通る"),
@@ -812,15 +812,15 @@ const SCENARIOS: Record<LateStageVersion, ChapterScenario> = {
         activeNodes: ["run", "closeout"],
         activeRecords: ["closeout-record", "worktree-state"],
         boundary: l("不要把 worktree 用完就静默丢掉；收尾策略本身就是系统机制。", "Do not silently discard a worktree after use. Closeout strategy is itself a system mechanism.", "使い終わった worktree を黙って捨てないでください。closeout 戦略そのものがシステム機構です。"),
-        writeBack: l("closeout 决定这条 lane 是被保留、移除还是总结，并把结论写回主系统。", "closeout decides whether the lane is kept, removed, or summarized, and writes that conclusion back into the system.", "closeout は lane を keep / remove / summarize のどれにするかを決め、主システムへ書き戻します。"),
+        writeBack: l("closeout 决定这条通道是被保留、移除还是总结，并把结论写回主系统。", "closeout decides whether the lane is kept, removed, or summarized, and writes that conclusion back into the system.", "closeout は lane を keep / remove / summarize のどれにするかを決め、主システムへ書き戻します。"),
       },
       {
-        title: l("车道事件让主系统看见执行面发生了什么", "Worktree events let the main system see what happened in the lane", "worktree event で主システムが lane 内の出来事を見えるようにする"),
+        title: l("通道事件让主系统看见执行面发生了什么", "Worktree events let the main system see what happened in the lane", "worktree event で主システムが lane 内の出来事を見えるようにする"),
         description: l("教学上要强调的是观察能力：主系统不仅看到结果，还看到 create、enter、closeout 等生命周期事件。", "The teaching emphasis here is observability. The main system should see not only the final result, but lifecycle events like create, enter, and closeout.", "ここで強調したいのは観測可能性です。主システムは最終結果だけでなく create・enter・closeout も見えるべきです。"),
         activeNodes: ["closeout", "event", "task-goal"],
         activeRecords: ["closeout-record", "worktree-state", "last-worktree"],
-        boundary: l("没有 lane 事件，系统就只能看到‘做完了’，却不知道执行车道里发生过什么。", "Without lane events, the system only sees “done” and misses what happened inside the execution lane.", "lane event がないと、システムは『終わった』しか見えず、中で何が起きたか分かりません。"),
-        writeBack: l("closeout 和 worktree event 一起把隔离车道的生命周期重新接回任务主线。", "closeout and worktree events reconnect the lane lifecycle back into the task mainline.", "closeout と worktree event がレーンのライフサイクルを task 主線へ戻します。"),
+        boundary: l("没有 lane 事件，系统就只能看到‘做完了’，却不知道执行通道里发生过什么。", "Without lane events, the system only sees “done” and misses what happened inside the execution lane.", "lane event がないと、システムは『終わった』しか見えず、中で何が起きたか分かりません。"),
+        writeBack: l("closeout 和 worktree event 一起把隔离通道的生命周期重新接回任务主线。", "closeout and worktree events reconnect the lane lifecycle back into the task mainline.", "closeout と worktree event がレーンのライフサイクルを task 主線へ戻します。"),
       },
     ],
   },
@@ -947,7 +947,7 @@ export function LateStageTeachingMap({ version }: { version: LateStageVersion })
           stepDescription={pick(locale, step.description)}
         />
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.95fr)]">
+        <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,1fr)]">
           <section className="rounded-[24px] border border-zinc-200/80 bg-white/90 p-4 dark:border-zinc-800 dark:bg-zinc-950/60">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
@@ -971,17 +971,17 @@ export function LateStageTeachingMap({ version }: { version: LateStageVersion })
                     transition={{ duration: 0.28, delay: laneIndex * 0.05 }}
                     className={`rounded-[22px] border bg-zinc-50/80 p-3 dark:bg-zinc-900/80 ${accent.border}`}
                   >
-                    <div className="grid gap-3 lg:grid-cols-[152px_minmax(0,1fr)]">
+                    <div className="grid gap-3 2xl:grid-cols-[170px_minmax(0,1fr)]">
                       <div className="rounded-2xl border border-dashed border-zinc-300/80 bg-white/80 px-3 py-3 dark:border-zinc-700 dark:bg-zinc-950/60">
-                        <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        <div className="text-sm font-semibold text-zinc-900 [word-break:keep-all] dark:text-zinc-100">
                           {pick(locale, lane.label)}
                         </div>
-                        <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                        <p className="mt-1 break-words text-xs leading-5 [word-break:keep-all] text-zinc-500 dark:text-zinc-400">
                           {pick(locale, lane.note)}
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap gap-3">
+                      <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                         {laneNodes.map((node, nodeIndex) => {
                           const isActive = activeNodes.has(node.id);
                           return (
@@ -994,16 +994,16 @@ export function LateStageTeachingMap({ version }: { version: LateStageVersion })
                                 y: isActive ? -1 : 0,
                               }}
                               transition={{ duration: 0.24, delay: nodeIndex * 0.04 }}
-                              className={`min-w-[172px] flex-1 rounded-2xl border px-4 py-3 shadow-sm transition-colors ${
+                              className={`rounded-2xl border px-4 py-3 shadow-sm transition-colors ${
                                 isActive
                                   ? `${accent.pill} ring-1 ${accent.ring}`
                                   : "border-zinc-200/80 bg-white text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950/70 dark:text-zinc-300"
                               }`}
                             >
-                              <div className="text-sm font-semibold">
+                              <div className="text-sm font-semibold [word-break:keep-all]">
                                 {pick(locale, node.label)}
                               </div>
-                              <p className="mt-1 text-xs leading-5 opacity-85">
+                              <p className="mt-1 break-words text-xs leading-5 [word-break:keep-all] opacity-85">
                                 {pick(locale, node.detail)}
                               </p>
                             </motion.div>
@@ -1022,22 +1022,27 @@ export function LateStageTeachingMap({ version }: { version: LateStageVersion })
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">
                 {pick(locale, UI_TEXT.activePath)}
               </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-3 space-y-2">
                 {step.activeNodes.map((nodeId, index) => {
                   const node = nodeMap.get(nodeId);
                   if (!node) return null;
                   return (
-                    <div key={nodeId} className="contents">
+                    <div key={nodeId}>
                       <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.24, delay: index * 0.05 }}
-                        className={`inline-flex items-center rounded-full border px-3 py-2 text-xs font-medium shadow-sm ${accent.pill}`}
+                        className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium shadow-sm ${accent.pill}`}
                       >
-                        {pick(locale, node.label)}
+                        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-900 font-mono text-[10px] text-white dark:bg-zinc-100 dark:text-zinc-900">
+                          {index + 1}
+                        </span>
+                        <span className="break-words [word-break:keep-all]">
+                          {pick(locale, node.label)}
+                        </span>
                       </motion.div>
                       {index < step.activeNodes.length - 1 && (
-                        <span className="text-zinc-300 dark:text-zinc-600">-&gt;</span>
+                        <div className="ml-2.5 h-3 w-px bg-zinc-300 dark:bg-zinc-600" />
                       )}
                     </div>
                   );
@@ -1062,7 +1067,7 @@ export function LateStageTeachingMap({ version }: { version: LateStageVersion })
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        <div className="text-sm font-semibold text-zinc-900 [word-break:keep-all] dark:text-zinc-100">
                           {pick(locale, record.label)}
                         </div>
                         {!isActive && (
@@ -1071,7 +1076,7 @@ export function LateStageTeachingMap({ version }: { version: LateStageVersion })
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                      <p className="mt-1 break-words text-xs leading-5 [word-break:keep-all] text-zinc-500 dark:text-zinc-400">
                         {pick(locale, record.note)}
                       </p>
                     </div>
@@ -1084,7 +1089,7 @@ export function LateStageTeachingMap({ version }: { version: LateStageVersion })
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">
                 {pick(locale, UI_TEXT.boundary)}
               </p>
-              <p className="mt-2 text-sm leading-6 text-zinc-700 dark:text-zinc-300">
+              <p className="mt-2 break-words text-sm leading-6 [word-break:keep-all] text-zinc-700 dark:text-zinc-300">
                 {pick(locale, step.boundary)}
               </p>
             </div>
@@ -1093,7 +1098,7 @@ export function LateStageTeachingMap({ version }: { version: LateStageVersion })
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">
                 {pick(locale, UI_TEXT.writeBack)}
               </p>
-              <p className="mt-2 text-sm leading-6 text-zinc-700 dark:text-zinc-300">
+              <p className="mt-2 break-words text-sm leading-6 [word-break:keep-all] text-zinc-700 dark:text-zinc-300">
                 {pick(locale, step.writeBack)}
               </p>
             </div>

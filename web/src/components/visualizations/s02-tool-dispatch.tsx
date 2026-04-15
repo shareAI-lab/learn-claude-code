@@ -4,12 +4,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSteppedVisualization } from "@/hooks/useSteppedVisualization";
 import { StepControls } from "@/components/visualizations/shared/step-controls";
 import { useSvgPalette } from "@/hooks/useDarkMode";
+import { useLocale } from "@/lib/i18n";
 
 // -- Tool definitions --
 
+type SupportedLocale = "zh" | "en" | "ja";
+type ToolName = "bash" | "read_file" | "write_file" | "edit_file";
+
 interface ToolDef {
-  name: string;
-  desc: string;
+  name: ToolName;
   color: string;
   activeColor: string;
   darkColor: string;
@@ -19,7 +22,6 @@ interface ToolDef {
 const TOOLS: ToolDef[] = [
   {
     name: "bash",
-    desc: "Execute shell commands",
     color: "border-orange-300 bg-orange-50",
     activeColor: "border-orange-500 bg-orange-100 ring-2 ring-orange-400",
     darkColor: "dark:border-zinc-700 dark:bg-zinc-800/50",
@@ -27,7 +29,6 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: "read_file",
-    desc: "Read file contents",
     color: "border-sky-300 bg-sky-50",
     activeColor: "border-sky-500 bg-sky-100 ring-2 ring-sky-400",
     darkColor: "dark:border-zinc-700 dark:bg-zinc-800/50",
@@ -35,7 +36,6 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: "write_file",
-    desc: "Create or overwrite a file",
     color: "border-emerald-300 bg-emerald-50",
     activeColor: "border-emerald-500 bg-emerald-100 ring-2 ring-emerald-400",
     darkColor: "dark:border-zinc-700 dark:bg-zinc-800/50",
@@ -43,7 +43,6 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: "edit_file",
-    desc: "Apply targeted edits",
     color: "border-violet-300 bg-violet-50",
     activeColor: "border-violet-500 bg-violet-100 ring-2 ring-violet-400",
     darkColor: "dark:border-zinc-700 dark:bg-zinc-800/50",
@@ -54,25 +53,110 @@ const TOOLS: ToolDef[] = [
 // Per-step: which tool index is active (-1 = none, 4 = all)
 const ACTIVE_TOOL_PER_STEP: number[] = [-1, 0, 1, 2, 3, 4];
 
-// Incoming request JSON per step
-const REQUEST_PER_STEP: (string | null)[] = [
-  null,
-  '{ name: "bash", input: { cmd: "ls -la" } }',
-  '{ name: "read_file", input: { path: "src/auth.ts" } }',
-  '{ name: "write_file", input: { path: "config.json" } }',
-  '{ name: "edit_file", input: { path: "index.ts" } }',
-  null,
-];
+type StepInfo = { title: string; desc: string };
 
-// Step annotations
-const STEP_INFO = [
-  { title: "The Dispatch Map", desc: "A dictionary maps tool names to handler functions. The loop code never changes." },
-  { title: "Route: bash", desc: "tool_call.name -> handlers['bash'](input). Name-based routing." },
-  { title: "Route: read_file", desc: "Same pattern, different handler. Validate input, execute, return result." },
-  { title: "Route: write_file", desc: "Every tool returns a tool_result that goes back into messages[]." },
-  { title: "Route: edit_file", desc: "Adding a new tool = adding one entry to the dispatch map." },
-  { title: "The Key Insight", desc: "The while loop stays the same. You only grow the dispatch map. That's it." },
-];
+const COPY: Record<
+  SupportedLocale,
+  {
+    title: string;
+    incomingLabel: string;
+    waitingLabel: string;
+    allRoutesLabel: string;
+    toolDescriptions: Record<ToolName, string>;
+    requests: (string | null)[];
+    stepInfo: StepInfo[];
+  }
+> = {
+  zh: {
+    title: "工具分发表",
+    incomingLabel: "输入：",
+    waitingLabel: "等待 tool_call（工具调用）...",
+    allRoutesLabel: "全部路由已激活",
+    toolDescriptions: {
+      bash: "执行 shell（命令行）命令",
+      read_file: "读取文件内容",
+      write_file: "创建或覆盖文件",
+      edit_file: "定点编辑文本",
+    },
+    requests: [
+      null,
+      '{ name: "bash", input: { cmd: "ls -la" } }',
+      '{ name: "read_file", input: { path: "src/auth.ts" } }',
+      '{ name: "write_file", input: { path: "config.json" } }',
+      '{ name: "edit_file", input: { path: "index.ts" } }',
+      null,
+    ],
+    stepInfo: [
+      { title: "分发表本体", desc: "用一个字典把工具名映射到处理函数，主循环代码保持不变。" },
+      { title: "路由：bash", desc: "tool_call.name -> handlers['bash'](input)，按名称分发。" },
+      { title: "路由：read_file", desc: "模式相同、处理器不同：校验输入，执行并返回结果。" },
+      { title: "路由：write_file", desc: "所有工具最终都产出 tool_result（工具结果）并回写到 messages[]。" },
+      { title: "路由：edit_file", desc: "新增工具只需在分发表增加一项，不用改 while 主循环。" },
+      { title: "关键结论", desc: "while 循环保持稳定，系统能力通过扩展分发表增长。" },
+    ],
+  },
+  en: {
+    title: "Tool Dispatch Map",
+    incomingLabel: "Incoming:",
+    waitingLabel: "waiting for tool_call...",
+    allRoutesLabel: "All routes active",
+    toolDescriptions: {
+      bash: "Execute shell commands",
+      read_file: "Read file contents",
+      write_file: "Create or overwrite a file",
+      edit_file: "Apply targeted edits",
+    },
+    requests: [
+      null,
+      '{ name: "bash", input: { cmd: "ls -la" } }',
+      '{ name: "read_file", input: { path: "src/auth.ts" } }',
+      '{ name: "write_file", input: { path: "config.json" } }',
+      '{ name: "edit_file", input: { path: "index.ts" } }',
+      null,
+    ],
+    stepInfo: [
+      { title: "The Dispatch Map", desc: "A dictionary maps tool names to handler functions. The loop code never changes." },
+      { title: "Route: bash", desc: "tool_call.name -> handlers['bash'](input). Name-based routing." },
+      { title: "Route: read_file", desc: "Same pattern, different handler. Validate input, execute, return result." },
+      { title: "Route: write_file", desc: "Every tool returns a tool_result that goes back into messages[]." },
+      { title: "Route: edit_file", desc: "Adding a new tool = adding one entry to the dispatch map." },
+      { title: "The Key Insight", desc: "The while loop stays the same. You only grow the dispatch map. That's it." },
+    ],
+  },
+  ja: {
+    title: "ツール分配マップ",
+    incomingLabel: "入力:",
+    waitingLabel: "tool_call を待機中...",
+    allRoutesLabel: "すべてのルートが有効",
+    toolDescriptions: {
+      bash: "shell コマンドを実行",
+      read_file: "ファイル内容を読み取り",
+      write_file: "ファイルを作成・上書き",
+      edit_file: "対象文字列を編集",
+    },
+    requests: [
+      null,
+      '{ name: "bash", input: { cmd: "ls -la" } }',
+      '{ name: "read_file", input: { path: "src/auth.ts" } }',
+      '{ name: "write_file", input: { path: "config.json" } }',
+      '{ name: "edit_file", input: { path: "index.ts" } }',
+      null,
+    ],
+    stepInfo: [
+      { title: "分配マップ本体", desc: "ツール名を handler 関数へ対応付け、主ループ自体は変更しません。" },
+      { title: "ルート: bash", desc: "tool_call.name -> handlers['bash'](input)。名前ベースで分配します。" },
+      { title: "ルート: read_file", desc: "パターンは同じで handler が違います。入力検証・実行・結果返却です。" },
+      { title: "ルート: write_file", desc: "どのツールも tool_result を返し、messages[] に回写されます。" },
+      { title: "ルート: edit_file", desc: "新しいツール追加は分配マップに 1 行足すだけです。" },
+      { title: "重要な結論", desc: "while ループは不変で、拡張点は分配マップです。" },
+    ],
+  },
+};
+
+function normalizeLocale(locale: string): SupportedLocale {
+  if (locale === "zh" || locale === "ja") return locale;
+  return "en";
+}
 
 // SVG layout constants
 const SVG_WIDTH = 600;
@@ -93,6 +177,8 @@ function getCardX(index: number): number {
 }
 
 export default function ToolDispatch({ title }: { title?: string }) {
+  const locale = normalizeLocale(useLocale());
+  const copy = COPY[locale];
   const {
     currentStep,
     totalSteps,
@@ -105,21 +191,21 @@ export default function ToolDispatch({ title }: { title?: string }) {
 
   const palette = useSvgPalette();
   const activeToolIdx = ACTIVE_TOOL_PER_STEP[currentStep];
-  const request = REQUEST_PER_STEP[currentStep];
-  const stepInfo = STEP_INFO[currentStep];
+  const request = copy.requests[currentStep];
+  const stepInfo = copy.stepInfo[currentStep];
   const isAllActive = activeToolIdx === 4;
 
   return (
     <section className="min-h-[500px] space-y-4">
       <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-        {title || "Tool Dispatch Map"}
+        {title || copy.title}
       </h2>
 
       <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
         {/* Incoming request display */}
         <div className="mb-4 flex min-h-[32px] items-center gap-2">
           <span className="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            Incoming:
+            {copy.incomingLabel}
           </span>
           <AnimatePresence mode="wait">
             {request && (
@@ -141,7 +227,7 @@ export default function ToolDispatch({ title }: { title?: string }) {
                 animate={{ opacity: 0.6 }}
                 className="text-xs text-zinc-400 dark:text-zinc-600"
               >
-                waiting for tool_call...
+                {copy.waitingLabel}
               </motion.span>
             )}
             {isAllActive && (
@@ -151,7 +237,7 @@ export default function ToolDispatch({ title }: { title?: string }) {
                 animate={{ opacity: 1 }}
                 className="text-xs font-medium text-emerald-600 dark:text-emerald-400"
               >
-                All routes active
+                {copy.allRoutesLabel}
               </motion.span>
             )}
           </AnimatePresence>
@@ -303,7 +389,7 @@ export default function ToolDispatch({ title }: { title?: string }) {
                   animate={{ fill: isActive ? "rgba(255,255,255,0.8)" : palette.labelFill }}
                   transition={{ duration: 0.4 }}
                 >
-                  {tool.desc}
+                  {copy.toolDescriptions[tool.name]}
                 </motion.text>
               </g>
             );

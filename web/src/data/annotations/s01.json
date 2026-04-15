@@ -8,7 +8,8 @@
       "alternatives": "We could have started with a richer toolset (file I/O, HTTP, database), but that would obscure the core insight: an LLM with a shell is already a general-purpose agent. Starting minimal also makes it obvious what each subsequent version actually adds.",
       "zh": {
         "title": "为什么仅靠 Bash 就够了",
-        "description": "Bash 能读写文件、运行任意程序、在进程间传递数据、管理文件系统。任何额外的工具（read_file、write_file 等）都只是 bash 已有能力的子集。增加工具并不会解锁新能力，只会增加模型需要理解的接口。模型只需学习一个工具的 schema，实现代码不超过 100 行。这就是最小可行 agent：一个工具，一个循环。"
+        "description": "Bash 能读写文件、运行任意程序、在进程间传递数据、管理文件系统。任何额外的工具（read_file、write_file 等）都只是 bash 已有能力的子集。增加工具并不会解锁新能力，只会增加模型需要理解的接口。模型只需学习一个工具的 schema，实现代码不超过 100 行。这就是最小可行 agent：一个工具，一个循环。",
+        "alternatives": "也可以从一开始就给更丰富的工具集（文件 I/O、HTTP、数据库等），但会掩盖核心结论：带 shell（命令行）的 LLM 已经是通用代理。先从极简起步，才能看清后续每个版本到底新增了什么能力。"
       },
       "ja": {
         "title": "Bash だけで十分な理由",
@@ -22,7 +23,8 @@
       "alternatives": "A framework-level subagent system (like v3's Task tool) gives more control over what tools the subagent can access and how results are returned. But at v0, the point is to show that process spawning is the most primitive form of agent delegation -- no shared memory, no message passing, just stdin/stdout.",
       "zh": {
         "title": "用递归进程创建实现子代理机制",
-        "description": "当 agent 执行 `python v0.py \"subtask\"` 时，它会创建一个全新的进程，拥有全新的 LLM 上下文。这个子进程实际上就是一个子代理：有自己的系统提示词、对话历史和任务焦点。子进程完成后，父进程通过 stdout 获取结果。这就是不依赖任何框架的子代理委派——纯粹的 Unix 进程语义。每个子进程天然隔离关注点，因为它根本看不到父进程的上下文。"
+        "description": "当 agent 执行 `python v0.py \"subtask\"` 时，它会创建一个全新的进程，拥有全新的 LLM 上下文。这个子进程实际上就是一个子代理：有自己的系统提示词、对话历史和任务焦点。子进程完成后，父进程通过 stdout 获取结果。这就是不依赖任何框架的子代理委派——纯粹的 Unix 进程语义。每个子进程天然隔离关注点，因为它根本看不到父进程的上下文。",
+        "alternatives": "框架级子代理（例如 v3 的 Task（任务委托）工具）能更精细地控制子代理可用工具与返回格式。但在 v0 阶段，重点是展示“进程生成”就是最原始的委派：无共享内存、无消息总线，仅依赖 stdin/stdout。"
       },
       "ja": {
         "title": "再帰プロセス生成によるサブエージェント機構",
@@ -36,7 +38,8 @@
       "alternatives": "Later versions (v2) add explicit planning via TodoWrite. But v0 proves that implicit planning through the model's reasoning is sufficient for many tasks. The planning framework only becomes necessary when you need external visibility into the agent's intentions.",
       "zh": {
         "title": "没有规划框架——由模型自行决策",
-        "description": "没有规划器，没有任务队列，没有状态机。系统提示词告诉模型如何处理问题，模型根据对话历史决定下一步执行什么 bash 命令。这是有意为之的：在这个层级，添加规划层属于过早抽象。模型的思维链本身就是计划。agent 循环只是不断询问模型下一步做什么，直到模型不再请求工具为止。"
+        "description": "没有规划器，没有任务队列，没有状态机。系统提示词告诉模型如何处理问题，模型根据对话历史决定下一步执行什么 bash 命令。这是有意为之的：在这个层级，添加规划层属于过早抽象。模型的思维链本身就是计划。agent 循环只是不断询问模型下一步做什么，直到模型不再请求工具为止。",
+        "alternatives": "后续版本（v2）会通过 TodoWrite（待办写入）提供显式计划。但 v0 先证明：模型内部推理形成的隐式计划已能覆盖大量任务。只有当你需要把意图对用户和工具链显式暴露时，规划层才变成刚需。"
       },
       "ja": {
         "title": "計画フレームワークなし——モデルが全てを決定",

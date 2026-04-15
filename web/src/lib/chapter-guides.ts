@@ -301,7 +301,7 @@ export const CHAPTER_GUIDES: Record<VersionId, Record<SupportedLocale, ChapterGu
   s18: {
     zh: {
       focus: "先盯住 `worktree_state`、`last_worktree`、`closeout`，再看 `worktree_enter` 和统一 closeout。",
-      confusion: "worktree 不是任务目标，也不是后台任务；它只是任务的独立执行车道，而且车道状态和任务状态不是一回事。",
+      confusion: "worktree 不是任务目标，也不是后台任务；它只是任务的独立执行通道，而且通道状态和任务状态不是一回事。",
       goal: "让多个执行者并行改代码时，任务目标、执行目录和收尾动作都能被显式记录。",
     },
     en: {

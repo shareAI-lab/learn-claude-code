@@ -8,7 +8,8 @@
       "alternatives": "The model could plan internally via chain-of-thought reasoning (as it does in v0/v1). Internal planning works but is invisible and ephemeral -- once the thinking scrolls out of context, the plan is lost. Claude's extended thinking is another option, but it's not inspectable by the user or by downstream tools.",
       "zh": {
         "title": "通过 TodoWrite 让计划可见",
-        "description": "我们不让模型在思维链中默默规划，而是强制通过 TodoWrite 工具将计划外化。每个计划项都有可追踪的状态（pending、in_progress、completed）。这有三个好处：(1) 用户可以在执行前看到 agent 打算做什么；(2) 开发者可以通过检查计划状态来调试 agent 行为；(3) agent 自身可以在后续轮次中引用计划，即使早期上下文已经滚出窗口。"
+        "description": "我们不让模型在思维链中默默规划，而是强制通过 TodoWrite 工具将计划外化。每个计划项都有可追踪的状态（pending、in_progress、completed）。这有三个好处：(1) 用户可以在执行前看到 agent 打算做什么；(2) 开发者可以通过检查计划状态来调试 agent 行为；(3) agent 自身可以在后续轮次中引用计划，即使早期上下文已经滚出窗口。",
+        "alternatives": "模型也可以像 v0/v1 那样在内部链路中隐式规划，但这种计划不可见且易丢失；一旦上下文滚出窗口，就很难回看。extended thinking（扩展思考）也是类似问题：能力更强，但对用户和下游工具不透明。"
       },
       "ja": {
         "title": "TodoWrite による計画の可視化",
@@ -22,7 +23,8 @@
       "alternatives": "Allowing multiple in-progress items would let the agent context-switch between tasks, which seems more flexible. In practice, LLMs handle context-switching poorly -- they lose track of which task they were working on and mix up details between tasks. The single-focus constraint is a guardrail that improves output quality.",
       "zh": {
         "title": "同一时间只允许一个任务进行中",
-        "description": "TodoWrite 工具强制要求任何时候最多只能有一个任务处于 in_progress 状态。如果模型想开始第二个任务，必须先完成或放弃当前任务。这个约束防止了一种隐蔽的失败模式：试图通过交替处理多个项目来'多任务'的模型，往往会丢失状态并产出半成品。顺序执行的专注度远高于并行切换。"
+        "description": "TodoWrite 工具强制要求任何时候最多只能有一个任务处于 in_progress 状态。如果模型想开始第二个任务，必须先完成或放弃当前任务。这个约束防止了一种隐蔽的失败模式：试图通过交替处理多个项目来'多任务'的模型，往往会丢失状态并产出半成品。顺序执行的专注度远高于并行切换。",
+        "alternatives": "允许多个 in_progress（进行中）看似更灵活，agent（代理）可以频繁切任务；但在实践里 LLM 对上下文切换并不稳定，容易混淆当前目标并产出半成品。单焦点约束是提升结果质量的有效护栏。"
       },
       "ja": {
         "title": "同時に進行中にできるタスクは1つだけ",
@@ -36,7 +38,8 @@
       "alternatives": "No cap would give the model full flexibility, but in practice leads to absurdly detailed plans. A dynamic cap (proportional to task complexity) would be smarter but adds complexity. The fixed cap of 20 is a simple heuristic that works well empirically -- most real coding tasks can be expressed in 5-15 meaningful steps.",
       "zh": {
         "title": "计划项上限为 20 条",
-        "description": "TodoWrite 将计划项限制在 20 条以内。这是对过度规划的刻意约束。不加限制时，模型倾向于将任务分解成越来越细粒度的步骤，产出 50 条的计划，每一步都微不足道。冗长的计划很脆弱：如果第 15 步失败，剩下的 35 步可能全部作废。20 条以内的短计划保持在正确的抽象层级，更容易在现实偏离计划时做出调整。"
+        "description": "TodoWrite 将计划项限制在 20 条以内。这是对过度规划的刻意约束。不加限制时，模型倾向于将任务分解成越来越细粒度的步骤，产出 50 条的计划，每一步都微不足道。冗长的计划很脆弱：如果第 15 步失败，剩下的 35 步可能全部作废。20 条以内的短计划保持在正确的抽象层级，更容易在现实偏离计划时做出调整。",
+        "alternatives": "不设上限会给模型最大自由，但常导致过度细化。也可以做“按任务复杂度动态上限”，但实现成本更高。固定 20 条是经验上稳定的折中：多数真实编码任务可在 5-15 条有效步骤内表达清楚。"
       },
       "ja": {
         "title": "計画項目の上限は20個",
