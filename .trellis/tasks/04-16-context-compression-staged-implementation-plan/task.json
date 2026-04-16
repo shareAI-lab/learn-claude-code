@@ -38,7 +38,6 @@
   "subtasks": [],
   "children": [
     "04-15-opencode-style-auto-tool-output-prune",
-    "04-16-cc-style-time-based-local-microcompact",
     "04-16-cc-style-collapse-store-pressure-guard",
     "04-16-cc-style-autocompact-hardening",
     "04-16-token-budget-tool-output-prune",
