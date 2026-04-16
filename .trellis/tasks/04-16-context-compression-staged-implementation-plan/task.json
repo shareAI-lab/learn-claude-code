@@ -40,7 +40,6 @@
     "04-15-opencode-style-auto-tool-output-prune",
     "04-16-cc-style-collapse-store-pressure-guard",
     "04-16-cc-style-autocompact-hardening",
-    "04-16-post-compact-restoration-contributions",
     "04-16-pre-post-compact-hooks",
     "04-16-stable-message-ids-compression-projection"
   ],
