@@ -41,7 +41,6 @@
     "04-16-cc-style-time-based-local-microcompact",
     "04-16-cc-style-collapse-store-pressure-guard",
     "04-16-cc-style-autocompact-hardening",
-    "04-16-runtime-pressure-token-saved-evidence",
     "04-16-token-budget-tool-output-prune",
     "04-16-autocompact-failure-circuit-breaker",
     "04-16-compact-request-ptl-retry",
