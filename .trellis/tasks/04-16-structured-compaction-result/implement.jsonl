@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/tasks/04-16-structured-compaction-result/prd.md", "reason": "active structured compaction result PRD"}
+{"file": ".trellis/tasks/04-16-cc-style-autocompact-hardening/prd.md", "reason": "source hardening PRD"}
+{"file": ".trellis/spec/backend/runtime-pressure-contracts.md", "reason": "runtime pressure contract"}
+{"file": "coding-deepgent/src/coding_deepgent/compact/runtime_pressure.py", "reason": "live compaction implementation seam"}

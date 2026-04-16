@@ -129,4 +129,68 @@ Source references:
 
 ## Status
 
-Planning-only. Ready for future Task Workflow when implementation is requested.
+Checkpoint complete.
+
+State: checkpoint
+
+Verdict: APPROVE
+
+Implemented:
+
+* Added settings-backed `microcompact_time_gap_minutes` and
+  `microcompact_min_saved_tokens`.
+* Added main-context gating through configured `main_entrypoint` /
+  `main_agent_name` wired from existing settings.
+* Added timestamp-based trigger evaluation from `AIMessage` metadata.
+* Added aggressive keepRecent floor for time-gap clears.
+* Added minimum-savings skip behavior that prevents fallback count-based
+  clearing in the same call once the time-gap trigger has fired.
+* Added bounded `trigger == "time_gap"` and `gap_minutes` metadata.
+* Preserved raw transcript and existing persisted-output path behavior.
+
+Verification:
+
+* `pytest -q tests/test_runtime_pressure.py` -> 26 passed.
+* `pytest -q tests/test_app.py` -> 9 passed.
+* `ruff check src/coding_deepgent/compact/runtime_pressure.py src/coding_deepgent/compact/__init__.py src/coding_deepgent/sessions/evidence_events.py src/coding_deepgent/settings.py src/coding_deepgent/containers/app.py tests/test_runtime_pressure.py tests/test_app.py` -> passed.
+* `mypy src/coding_deepgent/compact/runtime_pressure.py src/coding_deepgent/sessions/evidence_events.py src/coding_deepgent/settings.py src/coding_deepgent/containers/app.py` -> passed.
+
+Alignment:
+
+* source files inspected:
+  * `/root/claude-code-haha/src/services/compact/microCompact.ts`
+  * `/root/claude-code-haha/src/services/compact/timeBasedMCConfig.ts`
+  * `/root/claude-code-haha/src/query.ts`
+* aligned:
+  * time-gap trigger based on latest assistant timestamp
+  * explicit main-thread gating
+  * keepRecent floor
+  * local token-saved accounting
+* deferred:
+  * provider `cache_edits`
+  * `cache_reference`
+  * cache-deletion API coordination
+* do-not-copy:
+  * GrowthBook config plumbing
+  * provider-specific cache APIs
+
+Architecture:
+
+* primitive used: existing LangChain middleware-level model-call projection.
+* why no heavier abstraction: the behavior is a deterministic pre-model-call
+  projection over the existing MicroCompact helper.
+
+Boundary findings:
+
+* No session schema migration needed.
+* No raw transcript mutation introduced.
+* Normal count-based MicroCompact remains available when time-gap trigger does
+  not fire.
+
+Decision: continue
+
+Reason:
+
+* This sub-stage is complete and verified.
+* The next parent-plan task still holds because normal MicroCompact remains
+  count-based rather than token-budget protected.

@@ -82,6 +82,16 @@ class AppContainer(containers.DeclarativeContainer):
         RuntimePressureMiddleware,
         registry=tool_system.capability_registry,
         keep_recent_tool_results=settings.provided.keep_recent_tool_results,
+        microcompact_time_gap_minutes=settings.provided.microcompact_time_gap_minutes,
+        microcompact_min_saved_tokens=settings.provided.microcompact_min_saved_tokens,
+        microcompact_protect_recent_tokens=(
+            settings.provided.microcompact_protect_recent_tokens
+        ),
+        microcompact_min_prune_saved_tokens=(
+            settings.provided.microcompact_min_prune_saved_tokens
+        ),
+        main_entrypoint=settings.provided.entrypoint,
+        main_agent_name=settings.provided.agent_name,
         snip_threshold_tokens=settings.provided.snip_threshold_tokens,
         keep_recent_messages_after_snip=(
             settings.provided.keep_recent_messages_after_snip
@@ -91,6 +101,8 @@ class AppContainer(containers.DeclarativeContainer):
             settings.provided.keep_recent_messages_after_collapse
         ),
         auto_compact_threshold_tokens=settings.provided.auto_compact_threshold_tokens,
+        auto_compact_max_failures=settings.provided.auto_compact_max_failures,
+        auto_compact_ptl_retry_limit=settings.provided.auto_compact_ptl_retry_limit,
         keep_recent_messages=settings.provided.keep_recent_messages_after_compact,
     )
     runtime_pressure_middleware_list: Any = providers.Callable(

@@ -52,6 +52,7 @@ def _safe_metadata(event: RuntimeEvent) -> dict[str, object]:
         "policy_code",
         "permission_behavior",
         "strategy",
+        "trigger",
     ):
         value = event.metadata.get(key)
         if isinstance(value, str) and value:
@@ -62,6 +63,14 @@ def _safe_metadata(event: RuntimeEvent) -> dict[str, object]:
     for key in (
         "hidden_messages",
         "cleared_tool_results",
+        "tools_cleared",
+        "tools_kept",
+        "tokens_saved_estimate",
+        "keep_recent",
+        "protected_recent_tokens",
+        "gap_minutes",
+        "failure_count",
+        "max_failures",
         "collapsed_messages",
         "restored_path_count",
     ):
@@ -92,6 +101,8 @@ def _summary(event: RuntimeEvent, metadata: dict[str, object]) -> str:
         collapsed = metadata.get("collapsed_messages", 0)
         return f"Live context collapse summarized {collapsed} older messages."
     if event.kind == "auto_compact":
+        if metadata.get("trigger") == "failure_circuit_breaker":
+            return "Live auto-compact skipped after repeated failures."
         return "Live auto-compact summarized history."
     if event.kind == "reactive_compact":
         return "Reactive compact retried after prompt-too-long."

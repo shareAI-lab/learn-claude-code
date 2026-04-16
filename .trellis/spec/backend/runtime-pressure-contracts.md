@@ -138,8 +138,57 @@ def microcompact_messages(
     min_content_chars: int = DEFAULT_MICROCOMPACT_MIN_CONTENT_CHARS,
 ) -> list[BaseMessage]: ...
 
+@dataclass(frozen=True, slots=True)
+class MicrocompactStats:
+    cleared_tool_results: int = 0
+    kept_tool_results: int = 0
+    tokens_saved_estimate: int = 0
+    keep_recent_tool_results: int = DEFAULT_KEEP_RECENT_TOOL_RESULTS
+    protected_recent_tokens: int | None = DEFAULT_MICROCOMPACT_PROTECT_RECENT_TOKENS
+
+@dataclass(frozen=True, slots=True)
+class MicrocompactResult:
+    messages: list[BaseMessage]
+    stats: MicrocompactStats
+
+def microcompact_messages_with_stats(
+    messages: Sequence[BaseMessage],
+    *,
+    registry: CapabilityRegistry,
+    keep_recent_tool_results: int = DEFAULT_KEEP_RECENT_TOOL_RESULTS,
+    min_content_chars: int = DEFAULT_MICROCOMPACT_MIN_CONTENT_CHARS,
+    protect_recent_tokens: int | None = DEFAULT_MICROCOMPACT_PROTECT_RECENT_TOKENS,
+    min_saved_tokens: int = DEFAULT_MICROCOMPACT_MIN_PRUNE_SAVED_TOKENS,
+) -> MicrocompactResult: ...
+
+@dataclass(frozen=True, slots=True)
+class TimeBasedMicrocompactDecision:
+    attempted: bool
+    result: MicrocompactResult | None = None
+    gap_minutes: int | None = None
+
+def maybe_time_based_microcompact_messages(
+    messages: Sequence[BaseMessage],
+    *,
+    registry: CapabilityRegistry,
+    context: object,
+    gap_threshold_minutes: int | None,
+    now: Callable[[], datetime],
+    keep_recent_tool_results: int = DEFAULT_KEEP_RECENT_TOOL_RESULTS,
+    min_content_chars: int = DEFAULT_MICROCOMPACT_MIN_CONTENT_CHARS,
+    min_saved_tokens: int = DEFAULT_MICROCOMPACT_MIN_SAVED_TOKENS,
+    main_entrypoint: str = "coding-deepgent",
+    main_agent_name: str = "coding-deepgent",
+) -> TimeBasedMicrocompactDecision: ...
+
 class RuntimePressureMiddleware(AgentMiddleware):
     registry: CapabilityRegistry
+    microcompact_time_gap_minutes: int | None
+    microcompact_min_saved_tokens: int
+    microcompact_protect_recent_tokens: int | None
+    microcompact_min_prune_saved_tokens: int
+    main_entrypoint: str
+    main_agent_name: str
 ```
 
 ### 3. Contracts
@@ -151,6 +200,19 @@ class RuntimePressureMiddleware(AgentMiddleware):
 - Error tool results must not be compacted.
 - If the number of compactable tool results is less than or equal to
   `keep_recent_tool_results`, messages must remain unchanged.
+- If `microcompact_protect_recent_tokens is None`, ordinary MicroCompact uses
+  the existing count-based keep policy.
+- If `microcompact_protect_recent_tokens` is configured, ordinary
+  MicroCompact must use token-budget protection instead of count-based
+  protection:
+  - walk compactable successful tool results from newest to oldest
+  - keep a newest suffix whose estimated content tokens fit within the budget
+  - always keep at least one newest compactable tool result even if it exceeds
+    the budget
+  - clear older eligible compactable tool results outside that suffix
+- If token-budget pruning would save fewer than
+  `microcompact_min_prune_saved_tokens`, messages must remain unchanged and no
+  microcompact event should be emitted.
 - Older compactable tool results beyond the kept recent tail may have their
   `ToolMessage.content` replaced, but must preserve:
   - `tool_call_id`
@@ -161,6 +223,36 @@ class RuntimePressureMiddleware(AgentMiddleware):
   replacement content must keep that path model-visible.
 - Recent compactable tool results within the kept tail must remain unchanged.
 - Ineligible tool results must remain unchanged.
+- `microcompact_messages_with_stats(...)` must use the same rewrite semantics
+  as `microcompact_messages(...)` and return bounded local observability stats.
+- `tokens_saved_estimate` is a deterministic local estimate derived from the
+  original cleared tool-result content minus the replacement marker content. It
+  is not provider billing or exact tokenizer output.
+- Time-based MicroCompact must be disabled when
+  `microcompact_time_gap_minutes is None`.
+- Time-based MicroCompact may run only for the configured main runtime context:
+  `RuntimeContext.entrypoint == main_entrypoint` and
+  `RuntimeContext.agent_name == main_agent_name`.
+- If no parseable timestamp exists on a prior `AIMessage`, time-based
+  MicroCompact must fail open and skip.
+- If `now - latest_assistant_timestamp` is below
+  `microcompact_time_gap_minutes`, time-based MicroCompact must skip.
+- If the time-gap trigger fires, aggressive keep-recent must floor to at least
+  one recent compactable tool result: `max(1, keep_recent_tool_results)`.
+- If the time-gap trigger fires but estimated saved tokens are below
+  `microcompact_min_saved_tokens`, no clearing occurs and the normal count-based
+  MicroCompact fallback must not run for that model call.
+- MicroCompact runtime event metadata must include bounded fields:
+  - `cleared_tool_results` for backward compatibility
+  - `tools_cleared`
+  - `tools_kept`
+  - `tokens_saved_estimate`
+  - `keep_recent`
+- Token-budget MicroCompact runtime event metadata must additionally include:
+  - `protected_recent_tokens`
+- Time-based MicroCompact runtime event metadata must additionally include:
+  - `trigger == "time_gap"`
+  - `gap_minutes`
 - `RuntimePressureMiddleware.wrap_model_call()` may replace request messages for
   the current model call only. It must not introduce a custom query runtime.
 
@@ -173,6 +265,17 @@ class RuntimePressureMiddleware(AgentMiddleware):
 | eligible tool result without persisted artifact | compacted content uses the generic cleared marker |
 | ineligible tool result | unchanged |
 | error tool result | unchanged |
+| microcompact clears older tool results | runtime event and session evidence include cleared/kept counts plus local saved-token estimate |
+| token-budget mode unset | existing count-based behavior is preserved |
+| token-budget mode set | recent compactable tool results within protected budget remain inline |
+| latest compactable result exceeds token budget | latest compactable result remains inline; older eligible results may clear |
+| token-budget estimated savings below minimum | no clearing and no event |
+| time-based microcompact disabled | no time-gap evaluation or event |
+| non-main runtime context | no time-based clearing |
+| no assistant timestamp | no time-based clearing |
+| idle gap under threshold | no time-based clearing |
+| idle gap over threshold | older eligible tool results clear before count-based fallback |
+| estimated savings below configured minimum | no clearing and no count-based fallback for that call |
 | `keep_recent_tool_results < 0` | `ValueError` |
 
 ### 5. Tests Required
@@ -186,6 +289,14 @@ Required assertion points:
 - older eligible tool results are compacted deterministically
 - recent eligible tool results remain inline
 - ineligible tool results are not rewritten
+- microcompact event/evidence metadata remains bounded and includes
+  `tools_cleared`, `tools_kept`, `tokens_saved_estimate`, and `keep_recent`
+- token-budget MicroCompact covers default compatibility, protected recent
+  budget, keep-at-least-one behavior, minimum-savings skip, and
+  `protected_recent_tokens` metadata
+- time-based MicroCompact covers disabled, non-main, missing timestamp,
+  under-threshold gap, over-threshold gap, keep-recent floor, and minimum
+  savings skip cases
 - app/container middleware chain includes runtime pressure middleware before tool guard
 
 ## Scenario: Live Context Collapse
@@ -218,6 +329,27 @@ def collapse_live_messages_with_summary(
     summary: str,
     keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_COLLAPSE,
 ) -> list[BaseMessage]: ...
+
+@dataclass(frozen=True, slots=True)
+class LiveCompactionResult:
+    boundary_message: SystemMessage
+    summary_message: HumanMessage
+    preserved_tail: tuple[BaseMessage, ...]
+    trigger: str
+    restoration_messages: tuple[SystemMessage, ...] = ()
+    original_token_estimate: int = 0
+    projected_token_estimate: int = 0
+
+    @property
+    def restored_path_count(self) -> int: ...
+    def render(self) -> list[BaseMessage]: ...
+
+def collapse_live_messages_with_result(
+    messages: Sequence[BaseMessage],
+    *,
+    summary: str,
+    keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_COLLAPSE,
+) -> LiveCompactionResult: ...
 ```
 
 ### 3. Contracts
@@ -244,6 +376,12 @@ def collapse_live_messages_with_summary(
   matching prior `AIMessage` tool call when present.
 - Collapse summaries are live artifacts only and must not be persisted as
   session compact records.
+- `collapse_live_messages_with_result(...)` must own boundary, summary,
+  restoration messages, preserved tail, trigger, and token estimates.
+- `collapse_live_messages_with_summary(...)` must remain a compatibility wrapper
+  returning `collapse_live_messages_with_result(...).render()`.
+- `LiveCompactionResult.render()` order is stable: boundary, summary,
+  restoration messages, preserved tail.
 
 ### 4. Validation & Error Matrix
 
@@ -269,6 +407,8 @@ Required assertion points:
 - threshold crossing triggers summarizer-backed context collapse
 - collapse fail-open preserves original messages
 - collapsed history shape includes boundary and summary messages
+- structured collapse result render order is stable and exposes bounded
+  metadata such as trigger, restored path count, and estimated token counts
 - restoration message includes collapsed-away persisted-output paths when present
 - tool-call/tool-result tail pairing is preserved
 - collapse runs before auto-compact in the middleware pipeline
@@ -297,14 +437,43 @@ def maybe_auto_compact_messages(
     threshold_tokens: int | None,
     keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES,
     assist_context: str | None = None,
+    state: Any = None,
+    ptl_retry_limit: int = 0,
 ) -> list[BaseMessage]: ...
+
+@dataclass(frozen=True, slots=True)
+class AutoCompactResult:
+    messages: list[BaseMessage]
+    attempted: bool = False
+    compacted: bool = False
+    failed: bool = False
+
+def maybe_auto_compact_messages_with_status(
+    messages: Sequence[BaseMessage],
+    *,
+    summarizer: Any,
+    threshold_tokens: int | None,
+    keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES,
+    assist_context: str | None = None,
+    state: Any = None,
+    ptl_retry_limit: int = 0,
+) -> AutoCompactResult: ...
 
 def compact_live_messages_with_summary(
     messages: Sequence[BaseMessage],
     *,
     summary: str,
     keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES,
+    state: Any = None,
 ) -> list[BaseMessage]: ...
+
+def compact_live_messages_with_result(
+    messages: Sequence[BaseMessage],
+    *,
+    summary: str,
+    keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES,
+    state: Any = None,
+) -> LiveCompactionResult: ...
 
 def reactive_compact_messages(
     messages: Sequence[BaseMessage],
@@ -336,6 +505,51 @@ def reactive_compact_messages(
   extraction workflow.
 - Summarizer failure must fail open in this stage: the original message history
   must be preserved so later fallback behavior can still run.
+- `maybe_auto_compact_messages(...)` must remain a compatibility wrapper that
+  returns only messages.
+- `maybe_auto_compact_messages_with_status(...)` must distinguish threshold not
+  attempted, attempted-and-compacted, and attempted-and-failed-open outcomes.
+- `compact_live_messages_with_result(...)` must own boundary, summary,
+  restoration messages, preserved tail, trigger, and token estimates.
+- `compact_live_messages_with_summary(...)` must remain a compatibility wrapper
+  returning `compact_live_messages_with_result(...).render()`.
+- `LiveCompactionResult.render()` order is stable: boundary, summary,
+  restoration messages, preserved tail.
+- Post-compact state restoration may add bounded restoration `SystemMessage`
+  entries through the structured result.
+- Current local restoration state includes active todos from runtime state:
+  `status in {"pending", "in_progress"}`.
+- Active todo restoration must be bounded and must not include completed todos.
+- Durable plan/verifier restoration requires a stable runtime-state source and
+  should not be fabricated from unrelated stores.
+- `PreCompact` hooks may contribute bounded `additional_context` that is passed
+  to the compact summarizer through the existing assist-context seam.
+- `PostCompact` hooks may contribute bounded `additional_context` that is
+  rendered as restoration messages through `LiveCompactionResult`.
+- Pre/PostCompact hooks must not call tools, mutate transcript records, or own
+  compact persistence.
+- Blank hook context is ignored; hook context is whitespace-normalized and
+  bounded before becoming model-visible.
+- `RuntimePressureMiddleware` may track consecutive proactive AutoCompact
+  failures on the middleware instance when `auto_compact_max_failures` is set.
+- Proactive AutoCompact failures increment only when the threshold was crossed
+  and summarization/compaction failed open.
+- A successful proactive AutoCompact resets the consecutive failure count.
+- When the failure count reaches `auto_compact_max_failures`, later model calls
+  skip proactive AutoCompact and emit bounded `auto_compact` runtime metadata:
+  - `trigger == "failure_circuit_breaker"`
+  - `failure_count`
+  - `max_failures`
+- `auto_compact_max_failures is None` preserves previous fail-open behavior
+  without circuit-breaker skip events.
+- When the proactive compact summarizer raises a prompt-too-long style error,
+  `maybe_auto_compact_messages_with_status(...)` may retry with a shortened
+  summary source up to `auto_compact_ptl_retry_limit`.
+- Each prompt-too-long retry must drop the oldest summary-source message group
+  and keep the original model-facing message list unchanged.
+- If all prompt-too-long retries are exhausted, AutoCompact fails open and the
+  attempt may count toward the failure circuit breaker.
+- Non prompt-too-long summarizer failures must not enter the PTL retry loop.
 - `compact_live_messages_with_summary(...)` must produce:
   1. one live compact boundary `SystemMessage`
   2. one live compact summary `HumanMessage`
@@ -360,7 +574,18 @@ def reactive_compact_messages(
 | estimated tokens above threshold and summarizer succeeds | live compact boundary + summary + preserved tail returned |
 | current session-memory artifact exists | summarizer request receives bounded assist text |
 | successful live compact with missing/stale session memory | runtime state may refresh `session_memory` with `source=live_compact` |
+| repeated proactive AutoCompact failures reach configured max | subsequent proactive AutoCompact is skipped and bounded skip event is emitted |
+| proactive AutoCompact succeeds after prior failures | consecutive failure count resets |
+| `auto_compact_max_failures is None` | summarizer failures continue to fail open without skip events |
+| compact summarizer raises prompt-too-long and retry limit remains | oldest summary-source group is dropped and summarizer is retried |
+| compact summarizer raises prompt-too-long until retry limit is exhausted | original history is preserved and the attempt fails open |
+| compact summarizer raises non prompt-too-long error | no PTL retry loop; original history is preserved |
 | compacted-away persisted output path exists | restoration message includes the path |
+| runtime state has active todos during compact | restoration message includes bounded pending/in-progress todos |
+| runtime state has completed todos only | no todo restoration message is added |
+| PreCompact hook returns additional context | summarizer receives bounded assist context |
+| PostCompact hook returns additional context | rendered compact projection includes bounded restoration context |
+| Pre/PostCompact hook returns blank context | context is ignored |
 | preserved tail starts with tool result | matching tool-call AI message is preserved |
 | summarizer raises or returns invalid summary | original history preserved |
 | handler raises prompt-too-long style error | one reactive compact retry is attempted |
@@ -380,9 +605,20 @@ Required assertion points:
 - current session-memory artifact can flow into live compact assist text
 - successful live compact can refresh in-memory/session runtime `session_memory` state when due
 - compacted history shape includes boundary and summary messages
+- structured compact result render order is stable and exposes bounded metadata
+  such as trigger, restored path count, and estimated token counts
 - restoration message includes compacted-away persisted-output paths
+- active todos restore after live compact without dumping completed todos
+- PreCompact and PostCompact hook additional context flows through bounded
+  compact assist/restoration seams
 - tool-call/tool-result tail pairing is preserved
 - summarizer failures do not corrupt the live history
+- failure circuit breaker skips repeated doomed proactive AutoCompact attempts
+- successful proactive AutoCompact resets failure count
+- prompt-too-long summarizer source retry is bounded and can succeed after
+  dropping oldest context
+- exhausted prompt-too-long summarizer retries fail open and can trip the
+  failure circuit breaker
 - prompt-too-long fallback retries only once
 
 ## Scenario: Runtime Pressure Recovery Summary
@@ -433,6 +669,15 @@ Required assertion points:
   - `strategy`
   - `hidden_messages`
   - `cleared_tool_results`
+  - `tools_cleared`
+  - `tools_kept`
+  - `tokens_saved_estimate`
+  - `keep_recent`
+  - `protected_recent_tokens`
+  - `trigger`
+  - `gap_minutes`
+  - `failure_count`
+  - `max_failures`
   - `collapsed_messages`
   - `restored_path_count`
   - `used_session_memory_assist`

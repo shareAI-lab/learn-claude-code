@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/tasks/04-16-cc-style-time-based-local-microcompact/prd.md", "reason": "time-based microcompact requirements"}
+{"file": ".trellis/tasks/04-16-runtime-pressure-token-saved-evidence/prd.md", "reason": "previous checkpoint stats contract"}
+{"file": ".trellis/spec/backend/runtime-pressure-contracts.md", "reason": "runtime pressure contract"}
+{"file": "coding-deepgent/src/coding_deepgent/compact/runtime_pressure.py", "reason": "implementation seam"}

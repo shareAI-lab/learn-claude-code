@@ -1,0 +1,6 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/tasks/04-16-cc-style-time-based-local-microcompact/prd.md", "reason": "time-based microcompact acceptance criteria"}
+{"file": ".trellis/tasks/04-16-runtime-pressure-token-saved-evidence/prd.md", "reason": "previous checkpoint verification evidence"}
+{"file": ".trellis/spec/backend/runtime-pressure-contracts.md", "reason": "runtime pressure contract checks"}
+{"file": "coding-deepgent/tests/test_runtime_pressure.py", "reason": "focused runtime pressure tests"}

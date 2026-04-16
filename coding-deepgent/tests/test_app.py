@@ -119,12 +119,20 @@ def test_build_agent_wires_runtime_pressure_settings(monkeypatch) -> None:
         settings=providers.Object(
             Settings(
                 auto_compact_threshold_tokens=1234,
+                auto_compact_max_failures=2,
+                auto_compact_ptl_retry_limit=3,
                 snip_threshold_tokens=2345,
                 collapse_threshold_tokens=3456,
                 keep_recent_tool_results=5,
+                microcompact_time_gap_minutes=60,
+                microcompact_min_saved_tokens=100,
+                microcompact_protect_recent_tokens=40000,
+                microcompact_min_prune_saved_tokens=20000,
                 keep_recent_messages_after_snip=7,
                 keep_recent_messages_after_collapse=8,
                 keep_recent_messages_after_compact=6,
+                agent_name="custom-agent",
+                entrypoint="custom-entrypoint",
             )
         ),
         model=providers.Object(object()),
@@ -137,9 +145,17 @@ def test_build_agent_wires_runtime_pressure_settings(monkeypatch) -> None:
     middleware = cast(Sequence[object], captured["middleware"])
     runtime_pressure = cast(RuntimePressureMiddleware, middleware[2])
     assert runtime_pressure.auto_compact_threshold_tokens == 1234
+    assert runtime_pressure.auto_compact_max_failures == 2
+    assert runtime_pressure.auto_compact_ptl_retry_limit == 3
     assert runtime_pressure.snip_threshold_tokens == 2345
     assert runtime_pressure.collapse_threshold_tokens == 3456
     assert runtime_pressure.keep_recent_tool_results == 5
+    assert runtime_pressure.microcompact_time_gap_minutes == 60
+    assert runtime_pressure.microcompact_min_saved_tokens == 100
+    assert runtime_pressure.microcompact_protect_recent_tokens == 40000
+    assert runtime_pressure.microcompact_min_prune_saved_tokens == 20000
+    assert runtime_pressure.main_agent_name == "custom-agent"
+    assert runtime_pressure.main_entrypoint == "custom-entrypoint"
     assert runtime_pressure.keep_recent_messages_after_snip == 7
     assert runtime_pressure.keep_recent_messages_after_collapse == 8
     assert runtime_pressure.keep_recent_messages == 6

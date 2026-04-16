@@ -1,0 +1,6 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/tasks/04-16-compact-request-ptl-retry/prd.md", "reason": "active PTL retry acceptance criteria"}
+{"file": ".trellis/tasks/04-16-cc-style-autocompact-hardening/prd.md", "reason": "source hardening checks"}
+{"file": ".trellis/spec/backend/runtime-pressure-contracts.md", "reason": "runtime pressure contract checks"}
+{"file": "coding-deepgent/tests/test_runtime_pressure.py", "reason": "focused tests"}

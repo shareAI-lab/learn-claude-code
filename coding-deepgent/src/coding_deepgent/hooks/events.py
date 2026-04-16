@@ -10,6 +10,8 @@ HookEventName = Literal[
     "PreToolUse",
     "PostToolUse",
     "PermissionDenied",
+    "PreCompact",
+    "PostCompact",
 ]
 HookDecision = Literal["approve", "block"]
 

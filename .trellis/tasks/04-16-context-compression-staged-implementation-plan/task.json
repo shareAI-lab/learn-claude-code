@@ -40,7 +40,15 @@
     "04-15-opencode-style-auto-tool-output-prune",
     "04-16-cc-style-time-based-local-microcompact",
     "04-16-cc-style-collapse-store-pressure-guard",
-    "04-16-cc-style-autocompact-hardening"
+    "04-16-cc-style-autocompact-hardening",
+    "04-16-runtime-pressure-token-saved-evidence",
+    "04-16-token-budget-tool-output-prune",
+    "04-16-autocompact-failure-circuit-breaker",
+    "04-16-compact-request-ptl-retry",
+    "04-16-structured-compaction-result",
+    "04-16-post-compact-restoration-contributions",
+    "04-16-pre-post-compact-hooks",
+    "04-16-stable-message-ids-compression-projection"
   ],
   "parent": null,
   "relatedFiles": [],

@@ -1,0 +1,6 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/tasks/04-16-token-budget-tool-output-prune/prd.md", "reason": "active token-budget pruning acceptance criteria"}
+{"file": ".trellis/tasks/04-15-opencode-style-auto-tool-output-prune/prd.md", "reason": "source planning acceptance criteria"}
+{"file": ".trellis/spec/backend/runtime-pressure-contracts.md", "reason": "runtime pressure checks"}
+{"file": "coding-deepgent/tests/test_runtime_pressure.py", "reason": "focused tests"}

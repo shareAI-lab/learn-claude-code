@@ -1,0 +1,7 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/tasks/04-16-token-budget-tool-output-prune/prd.md", "reason": "active token-budget pruning PRD"}
+{"file": ".trellis/tasks/04-15-opencode-style-auto-tool-output-prune/prd.md", "reason": "source planning PRD"}
+{"file": ".trellis/tasks/04-16-runtime-pressure-token-saved-evidence/prd.md", "reason": "stats evidence checkpoint"}
+{"file": ".trellis/spec/backend/runtime-pressure-contracts.md", "reason": "runtime pressure contract"}
+{"file": "coding-deepgent/src/coding_deepgent/compact/runtime_pressure.py", "reason": "implementation seam"}

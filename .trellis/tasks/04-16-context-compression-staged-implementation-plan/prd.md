@@ -190,3 +190,76 @@ Why:
 ## Status
 
 Planning-only parent task.
+
+## Checkpoint: Stage 1 Tool Output Pruning Foundation
+
+State: checkpoint
+
+Verdict: APPROVE
+
+Implemented:
+
+* `runtime-pressure-token-saved-evidence`
+* `time-based-local-microcompact`
+* `token-budget-tool-output-prune`
+
+Verification:
+
+* Focused runtime pressure/app/static checks passed at each sub-stage.
+* Final full `coding-deepgent` suite after Stage 2: `pytest -q` -> 281 passed.
+
+Decision: continue
+
+Reason:
+
+* Stage 1 completed without changing raw transcript persistence.
+
+## Checkpoint: Stage 2 AutoCompact Reliability Backbone
+
+State: checkpoint
+
+Verdict: APPROVE
+
+Implemented:
+
+* `autocompact-failure-circuit-breaker`
+* `compact-request-ptl-retry`
+* `structured-compaction-result`
+* `post-compact-restoration-contributions` active-todo slice
+* `pre-post-compact-hooks`
+
+Verification:
+
+* `pytest -q tests/test_runtime_pressure.py tests/test_hooks.py` -> 46 passed.
+* `pytest -q tests/test_app.py` -> 9 passed.
+* `pytest -q` -> 281 passed.
+* Targeted `ruff check` and `mypy` passed.
+
+Decision: continue
+
+Reason:
+
+* Stage 2 completed through the planned hook seam.
+
+## Checkpoint: Stage 3 Collapse Store And Projection
+
+State: checkpoint
+
+Verdict: ITERATE
+
+Boundary findings:
+
+* `collapse-records` and `collapse-projection-replay` need deterministic references
+  from collapse records back to raw transcript messages.
+* Current persisted session messages have `message_index` but no stable
+  `message_id`.
+* Parent plan already identified stable message IDs as a likely prerequisite
+  before full `collapse-projection-replay`.
+
+Decision: split
+
+Reason:
+
+* Created prerequisite task `04-16-stable-message-ids-compression-projection`.
+* Continuing directly into durable collapse replay would lock future
+  compression timeline/projection work onto unstable implicit indexes.
