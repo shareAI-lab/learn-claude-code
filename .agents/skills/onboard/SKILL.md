@@ -220,7 +220,7 @@ All the context AI built during this session will be lost when session ends. The
 **[4/8] Investigate and fix the bug** - Actual development work
 **[5/8] $check-frontend** - Re-verify code against guidelines
 **[6/8] $finish-work** - Holistic cross-layer review
-**[7/8] Human tests and commits** - Human validates before code enters repo
+**[7/8] AI validates and commits** - AI runs required checks, commits scoped changes
 **[8/8] $record-session** - Persist memory for future sessions
 
 ### Example 2: Planning Session (No Code)
@@ -237,7 +237,7 @@ All the context AI built during this session will be lost when session ends. The
 **[3/6] Fix each CR issue** - Address feedback with guidelines in context
 **[4/6] $check-backend** - Verify fixes didn't introduce new issues
 **[5/6] $finish-work** - Document lessons from CR
-**[6/6] Human commits, then $record-session** - Preserve CR lessons
+**[6/6] AI commits, then $record-session** - Preserve CR lessons
 
 ### Example 4: Large Refactoring
 
@@ -254,13 +254,15 @@ All the context AI built during this session will be lost when session ends. The
 **[3/6] Investigation** - Actual debugging work
 **[4/6] $check-backend** - Verify debug changes don't break other things
 **[5/6] $finish-work** - Debug findings might need documentation
-**[6/6] Human commits, then $record-session** - Debug knowledge is valuable
+**[6/6] AI commits, then $record-session** - Debug knowledge is valuable
 
 ---
 
 ## KEY RULES TO EMPHASIZE
 
-1. **AI NEVER commits** - Human tests and approves. AI prepares, human validates.
+1. **AI may commit after validation** - AI owns scoped commits and session
+   recording once required checks pass; never amend, use destructive git, or
+   include unrelated user changes without explicit approval.
 2. **Guidelines before code** - `$before-*-dev` skills inject project knowledge.
 3. **Check after code** - `$check-*` skills catch context drift.
 4. **Record everything** - $record-session persists memory.

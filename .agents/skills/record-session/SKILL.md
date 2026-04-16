@@ -1,11 +1,19 @@
 ---
 name: record-session
-description: "Record work progress after human has tested and committed code"
+description: "Record work progress after validated code has been committed"
 ---
 
-[!] **Prerequisite**: This skill should only be used AFTER the human has tested and committed the code.
+[!] **Prerequisite**: This skill should only be used AFTER the work has been
+validated and committed. AI may now create the code/docs commit autonomously
+after the required checks pass.
 
-**Do NOT run `git commit` directly** — the scripts below handle their own commits for `.trellis/` metadata. You only need to read git history (`git log`, `git status`, `git diff`) and run the Python scripts.
+Commit safety:
+- Do not amend commits unless explicitly requested.
+- Do not use destructive git commands.
+- Do not commit unrelated user changes.
+- If validation failed or was not run, do not record the session as complete.
+- The scripts below handle their own commits for `.trellis/` metadata after the
+  code/docs commit exists.
 
 ---
 

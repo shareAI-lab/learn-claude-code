@@ -142,7 +142,7 @@ Task PRDs own:
 - verification evidence for the task
 - unresolved questions and follow-up decisions
 
-Use workspace journals after work is completed and committed.
+Use workspace journals after work is completed, validated, and committed.
 
 Workspace journals own:
 
@@ -165,8 +165,8 @@ Archive a task when:
 
 - acceptance criteria are met
 - verification is complete for the task's risk level
-- the human has committed the work, or the task is docs/planning-only and
-  explicitly complete
+- the work has been committed, or the task is docs/planning-only and explicitly
+  complete
 
 Do not keep tasks open just because task metadata still says `planning` or
 `in_progress`.

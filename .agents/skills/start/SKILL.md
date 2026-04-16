@@ -286,10 +286,8 @@ Run a quality pass against check context:
 
 1. Verify lint and typecheck pass
 2. Report what was implemented
-3. Remind user to:
-   - Test the changes
-   - Commit when ready
-   - Run `$record-session` to record this session
+3. If validation is complete, AI may commit the scoped changes and run
+   `$record-session`; otherwise report the missing checks and stop before commit.
 
 ---
 

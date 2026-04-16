@@ -124,8 +124,9 @@ The active task PRD should record:
 This makes the interview auditable without turning the target spec into a chat
 log.
 
-Use workspace journals only after the work is completed and committed via
-`record-session`. Do not put active interview decisions only in the journal.
+Use workspace journals only after the work is completed, validated, committed,
+and recorded via `record-session`. Do not put active interview decisions only in
+the journal.
 
 ---
 

@@ -261,7 +261,8 @@ python3 ./.trellis/scripts/task.py create "<title>" --slug <task-name>
    --> Manual feature testing
 
 4. Commit code
-   --> git add <files>
+   --> AI may commit autonomously after validation passes
+   --> git add <scoped files>
    --> git commit -m "type(scope): description"
        Format: feat/fix/docs/refactor/test/chore
 
@@ -275,7 +276,7 @@ Archive a Trellis task after the work is actually complete:
 
 - code/docs changes are tested as appropriate
 - acceptance criteria are met
-- the human has committed the work, or the task is explicitly docs/planning-only and complete
+- the work has been committed, or the task is explicitly docs/planning-only and complete
 
 Do not keep a task active only because `task.json` still says `planning` or
 `in_progress`.
@@ -341,7 +342,8 @@ Do not collect a broad chat transcript and reorganize it later.
 
 Active task PRDs are the working record for requirements, interviews,
 checkpoints, and verification while work is in progress. Workspace journals are
-the completed-session record after human testing/commit via `record-session`.
+the completed-session record after validated work is committed and recorded via
+`record-session`.
 
 If the maintainer delegates future low-risk process choices to the agent,
 proceed with the documented recommended/default option. Still stop for
@@ -479,7 +481,7 @@ python3 ./.trellis/scripts/task.py list-archive    # List archived tasks
 3. **After development complete**:
    - Use `/trellis:finish-work` for completion checklist
    - After fix bug, use `/trellis:break-loop` for deep analysis
-   - Human commits after testing passes
+   - AI commits autonomously after the required checks pass
    - Use `add_session.py` to record progress
 
 ### [X] DON'T - Should Not Do
@@ -489,7 +491,8 @@ python3 ./.trellis/scripts/task.py list-archive    # List archived tasks
 3. **Don't** develop multiple unrelated tasks simultaneously
 4. **Don't** commit code with lint/test errors
 5. **Don't** forget to update spec docs after learning something
-6. [!] **Don't** execute `git commit` - AI should not commit code
+6. [!] **Don't** amend commits, use destructive git commands, or commit
+   unrelated user changes without explicit approval
 
 ---
 

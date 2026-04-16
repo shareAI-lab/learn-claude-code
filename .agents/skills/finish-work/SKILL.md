@@ -125,7 +125,7 @@ git diff --name-only
 
 ```
 Development Flow:
-  Write code -> Test -> $finish-work -> git commit -> $record-session
+  Write code -> Test -> $finish-work -> AI git commit -> $record-session
                           |                              |
                    Ensure completeness              Record progress
                    
@@ -138,6 +138,13 @@ Debug Flow:
 - `$finish-work` - Check work completeness (this skill)
 - `$record-session` - Record session and commits
 - `$break-loop` - Deep analysis after debugging
+
+AI commit policy:
+- AI may commit autonomously after this checklist passes.
+- Do not commit if lint/type/test checks required for the touched files failed
+  or were not run.
+- Do not include unrelated user changes in the commit.
+- Do not amend or use destructive git commands unless explicitly requested.
 
 ---
 
