@@ -21,7 +21,7 @@
   * 没有 compression timeline query/API。
   * 没有 raw transcript vs model-facing projection diff/view。
 
-## Requirements (Future)
+## Requirements
 
 * Add stable message IDs for persisted session message records.
 * Add a compression timeline data model that can represent:
@@ -36,17 +36,16 @@
   summarized, pruned, or still visible.
 * Keep frontend/web implementation out of scope until product UI is explicitly targeted.
 
-## Acceptance Criteria (Future)
+## Acceptance Criteria
 
-* [ ] Raw transcript can be loaded without applying compression filters.
-* [ ] Model-facing projection can be loaded or derived with source metadata.
-* [ ] Compression timeline can show event type, trigger, affected IDs, and summary.
-* [ ] UI can distinguish raw-hidden vs model-visible content.
-* [ ] Existing resume/compact tests continue to pass.
+* [x] Raw transcript can be loaded without applying compression filters.
+* [x] Model-facing projection can be loaded or derived with source metadata.
+* [x] Compression timeline can show event type, trigger, affected IDs, and summary.
+* [x] UI can distinguish raw-hidden vs model-visible content.
+* [x] Existing resume/compact tests continue to pass.
 
-## Out of Scope (Current)
+## Out of Scope
 
-* No implementation in this turn.
 * No UI component work now.
 * No API/server surface unless a future product UI task requires it.
 * No physical deletion of transcript records.
@@ -65,4 +64,30 @@ Candidate backend surfaces:
 
 ## Status
 
-Planning-only placeholder.
+Backend data-readiness implemented. UI/API remains deferred until a product UI
+task explicitly targets it.
+
+## Implementation Checkpoint
+
+State: terminal
+
+Verdict: APPROVE
+
+Implemented:
+
+* `build_compression_view(loaded, projection_mode=...)` backend read model.
+* Raw transcript message views with stable IDs, model-visible state, and hidden
+  event references.
+* Model-facing projection views with source metadata for raw, compact, and
+  collapse messages.
+* Compression timeline events for compact records, collapse records, and
+  runtime pressure evidence.
+* Explicit raw projection mode for full transcript inspection without filters.
+
+Verification:
+
+* Focused session tests cover raw/projection/timeline data.
+* Full validation required before commit:
+  - `pytest -q coding-deepgent/tests`
+  - `ruff check`
+  - `mypy`

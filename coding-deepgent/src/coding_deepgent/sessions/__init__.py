@@ -1,3 +1,10 @@
+from .compression_view import (
+    CompressionTimelineEvent,
+    CompressionView,
+    ProjectionMessageView,
+    RawTranscriptMessageView,
+    build_compression_view,
+)
 from .langgraph import thread_config_for_session, thread_id_for_session
 from .ports import SessionStore
 from .records import (
@@ -57,8 +64,13 @@ __all__ = [
     "TranscriptProjection",
     "TRANSCRIPT_EVENT_RECORD_TYPE",
     "JsonlSessionStore",
+    "CompressionTimelineEvent",
+    "CompressionView",
+    "ProjectionMessageView",
+    "RawTranscriptMessageView",
     "apply_resume_state",
     "build_recovery_brief",
+    "build_compression_view",
     "build_resume_context_message",
     "iso_timestamp_now",
     "list_recorded_sessions",

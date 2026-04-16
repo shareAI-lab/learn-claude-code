@@ -13,6 +13,7 @@ from coding_deepgent.sessions import (
     SessionMessage,
     SessionLoadError,
     TRANSCRIPT_EVENT_RECORD_TYPE,
+    build_compression_view,
     build_recovery_brief,
     render_recovery_brief,
     resume_session,
@@ -556,6 +557,100 @@ def test_load_session_collapsed_history_falls_back_to_raw_on_invalid_refs(
     assert loaded.collapsed_history == _projected_history(loaded.history)
     assert loaded.collapsed_history_source.mode == "raw"
     assert loaded.collapsed_history_source.reason == "no_valid_collapse"
+
+
+def test_compression_view_exposes_raw_projection_and_timeline(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="first")
+    store.append_message(context, role="assistant", content="second")
+    store.append_message(context, role="user", content="third")
+    store.append_compact(
+        context,
+        trigger="manual",
+        summary="First message compacted.",
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
+        metadata={"source": "manual"},
+    )
+    store.append_collapse(
+        context,
+        trigger="threshold_tokens",
+        summary="First two messages collapsed.",
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(1),
+        covered_message_ids=[message_id_for_index(0), message_id_for_index(1)],
+        metadata={"source": "runtime_pressure"},
+    )
+    store.append_evidence(
+        context,
+        kind="runtime_event",
+        summary="Live microcompact cleared older tool results.",
+        status="completed",
+        metadata={
+            "event_kind": "microcompact",
+            "source": "runtime_pressure",
+            "trigger": "time_gap",
+            "affected_tool_call_ids": ["call-1"],
+        },
+    )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+    view = build_compression_view(loaded)
+
+    assert view.projection_mode == "collapse"
+    assert [(message.message_id, message.model_visible) for message in view.raw_messages] == [
+        (message_id_for_index(0), False),
+        (message_id_for_index(1), False),
+        (message_id_for_index(2), True),
+    ]
+    assert view.raw_messages[0].hidden_by_event_ids == ("collapse-0",)
+    assert [message.source for message in view.model_projection] == [
+        "collapse_boundary",
+        "collapse_summary",
+        "raw",
+    ]
+    assert view.model_projection[0].covered_message_ids == (
+        message_id_for_index(0),
+        message_id_for_index(1),
+    )
+    timeline_by_type = {event.event_type: event for event in view.timeline}
+    assert timeline_by_type["compact"].affected_message_ids == (message_id_for_index(0),)
+    assert timeline_by_type["collapse"].affected_message_ids == (
+        message_id_for_index(0),
+        message_id_for_index(1),
+    )
+    assert timeline_by_type["microcompact"].affected_tool_call_ids == ("call-1",)
+    assert timeline_by_type["microcompact"].trigger == "time_gap"
+
+
+def test_compression_view_can_force_raw_projection(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="first")
+    store.append_collapse(
+        context,
+        trigger="threshold_tokens",
+        summary="First collapsed.",
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
+    )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+    view = build_compression_view(loaded, projection_mode="raw")
+
+    assert view.projection_mode == "raw"
+    assert view.raw_messages[0].model_visible
+    assert view.model_projection[0].source == "raw"
+    assert view.model_projection[0].message_id == message_id_for_index(0)
 
 
 def test_load_session_ignores_invalid_compact_records(tmp_path) -> None:

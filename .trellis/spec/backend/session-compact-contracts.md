@@ -117,6 +117,49 @@ class CompactedHistorySource:
     mode: Literal["raw", "compact"]
     reason: str
     compact_index: int | None = None
+
+class RawTranscriptMessageView:
+    message_id: str
+    role: str
+    content: str
+    model_visible: bool
+    hidden_by_event_ids: tuple[str, ...]
+
+class ProjectionMessageView:
+    role: str
+    content: Any
+    source: Literal[
+        "raw",
+        "compact_boundary",
+        "compact_summary",
+        "collapse_boundary",
+        "collapse_summary",
+    ]
+    message_id: str | None
+    event_id: str | None
+    covered_message_ids: tuple[str, ...]
+
+class CompressionTimelineEvent:
+    event_id: str
+    event_type: str
+    created_at: str
+    trigger: str | None
+    summary: str
+    affected_message_ids: tuple[str, ...]
+    affected_tool_call_ids: tuple[str, ...]
+    source: str | None
+
+class CompressionView:
+    raw_messages: tuple[RawTranscriptMessageView, ...]
+    model_projection: tuple[ProjectionMessageView, ...]
+    timeline: tuple[CompressionTimelineEvent, ...]
+    projection_mode: Literal["selected", "raw", "compact", "collapse"]
+
+def build_compression_view(
+    loaded: LoadedSession,
+    *,
+    projection_mode: Literal["selected", "raw", "compact", "collapse"] = "selected",
+) -> CompressionView: ...
 ```
 
 ### 3. Contracts
@@ -310,6 +353,32 @@ class CompactedHistorySource:
   transcript. Selected continuation should prefer a valid collapse projection
   over compact projection to avoid stacking duplicate synthetic summaries.
 
+#### Compression Visualization Read Model
+
+- `build_compression_view(loaded)` is the backend data-readiness seam for future
+  UI/API work. It must not mutate `LoadedSession` or persisted JSONL records.
+- `CompressionView.raw_messages` must expose every raw `SessionMessage` with:
+  - stable `message_id`
+  - role/content
+  - whether it is model-visible in the selected projection
+  - which compression event IDs hide/summarize it, if any
+- `CompressionView.model_projection` must expose the selected model-facing
+  projection with source metadata:
+  - raw messages use `source == "raw"` and carry `message_id`
+  - compact synthetic messages use `compact_boundary` / `compact_summary`
+  - collapse synthetic messages use `collapse_boundary` / `collapse_summary`
+  - synthetic messages carry `event_id` and `covered_message_ids`
+- `CompressionView.timeline` must merge available compression-related facts into
+  a stable chronological timeline:
+  - compact transcript events
+  - collapse transcript events
+  - runtime-pressure `runtime_event` evidence
+- Timeline entries must include event type, trigger when available, affected
+  message IDs when available, affected tool-call IDs when available, summary,
+  source, and bounded metadata.
+- The read model must support explicit `projection_mode == "raw"` so callers can
+  inspect the full transcript without compression filters.
+
 #### Load-Time Compacted History View
 
 - `JsonlSessionStore.load_session()` must derive `LoadedSession.compacted_history`
@@ -375,6 +444,9 @@ class CompactedHistorySource:
 | invalid collapse refs exist | invalid events are skipped; collapsed view falls back to raw projection if none are valid |
 | overlapping collapse records exist | newest non-overlapping valid records define the deterministic projection |
 | compact and collapse records both exist | selected continuation uses collapse projection without stacking compact and collapse summaries |
+| compression view selected projection hides raw messages | hidden raw messages have `model_visible == False` and `hidden_by_event_ids` |
+| compression view forced raw projection | all raw messages remain model-visible and projection entries use `source == "raw"` |
+| runtime pressure evidence includes affected tool IDs | timeline exposes `affected_tool_call_ids` when metadata contains them |
 | selected compacted view comes from compact record at index N | `compacted_history_source == compact/latest_valid_compact/N` |
 | selected compacted view falls back to raw history | `compacted_history_source == raw/<reason>/None` |
 | valid current session-memory artifact | recovery brief renders `Session memory:` with `[current]`; generated compact summary may receive assist text |
@@ -449,6 +521,8 @@ Required focused tests:
 - `coding-deepgent/tests/test_sessions.py::test_collapse_record_roundtrip_does_not_enter_history`
 - `coding-deepgent/tests/test_sessions.py::test_load_session_collapsed_history_uses_newest_non_overlapping_collapses`
 - `coding-deepgent/tests/test_sessions.py::test_load_session_collapsed_history_falls_back_to_raw_on_invalid_refs`
+- `coding-deepgent/tests/test_sessions.py::test_compression_view_exposes_raw_projection_and_timeline`
+- `coding-deepgent/tests/test_sessions.py::test_compression_view_can_force_raw_projection`
 - `coding-deepgent/tests/test_sessions.py::test_load_session_ignores_invalid_compact_records`
 - `coding-deepgent/tests/test_sessions.py::test_load_session_compacted_history_falls_back_to_raw_history_on_invalid_tail_range`
 - `coding-deepgent/tests/test_sessions.py::test_load_session_compacted_history_uses_newest_valid_compact_record`
@@ -467,6 +541,8 @@ Required assertion points:
 - compact transcript records are separated from `LoadedSession.history`
 - collapse transcript records are separated from `LoadedSession.history`
 - collapsed history view is derived at load time and kept separate from raw history
+- compression view exposes raw visibility, selected projection source metadata,
+  and timeline events
 - compacted history view is derived at load time and kept separate from raw history
 - persisted transcript `message_id` values remain contiguous append-order IDs
 - compacted continuation persists `start_message_id` / `end_message_id` and
