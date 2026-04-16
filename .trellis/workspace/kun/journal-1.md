@@ -291,3 +291,38 @@ Archived all remaining active Trellis tasks, completed the release validation / 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: Progressive context pressure pipeline and Trellis commit policy
+
+**Date**: 2026-04-16
+**Task**: Progressive context pressure pipeline and Trellis commit policy
+
+### Summary
+
+Enabled AI-managed commits in Trellis workflow, implemented progressive runtime pressure pipeline with Snip/MicroCompact/Collapse/AutoCompact, and captured context-engineering follow-up roadmap tasks.
+
+### Main Changes
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `08f0ebe` | (see git log) |
+| `b72f2f7` | (see git log) |
+| `a0f36a5` | (see git log) |
+| `1ad78c6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

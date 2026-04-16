@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
-- **Last Active**: 2026-04-15
+- **Total Sessions**: 7
+- **Last Active**: 2026-04-16
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~293 | Active |
+| `journal-1.md` | ~328 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits |
 |---|------|-------|---------|
+| 7 | 2026-04-16 | Progressive context pressure pipeline and Trellis commit policy | `08f0ebe`, `b72f2f7`, `a0f36a5`, `1ad78c6` |
 | 6 | 2026-04-15 | Archive active Trellis tasks and validate Approach A MVP cleanup | `27690e4` |
 | 5 | 2026-04-15 | Trellis review fixes and rollback verification | `cb9f8fe`, `9141539` |
 | 4 | 2026-04-15 | Trellis consolidation and guide foundation | `7fffb8c`, `dbb8ae9`, `d6d0f0f`, `4ef12ca`, `4241062` |
