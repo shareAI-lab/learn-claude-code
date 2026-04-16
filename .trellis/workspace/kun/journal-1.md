@@ -326,3 +326,43 @@ Enabled AI-managed commits in Trellis workflow, implemented progressive runtime 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Runtime pressure compression hardening
+
+**Date**: 2026-04-16
+**Task**: Runtime pressure compression hardening
+
+### Summary
+
+Implemented Stage 1 and Stage 2 of context compression: MicroCompact observability, time-based and token-budget pruning, AutoCompact circuit breaker/PTL retry, structured live compaction results, active-todo restoration, Pre/PostCompact hook context, and split Stage 3 on stable message IDs after full validation.
+
+### Main Changes
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2f62df2` | (see git log) |
+| `a5bba07` | (see git log) |
+| `11f3f46` | (see git log) |
+| `1725ff3` | (see git log) |
+| `3b5a236` | (see git log) |
+| `161fefb` | (see git log) |
+| `a01fde9` | (see git log) |
+| `8a05cd3` | (see git log) |
+| `c174f10` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

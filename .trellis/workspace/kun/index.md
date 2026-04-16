@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
+- **Total Sessions**: 8
 - **Last Active**: 2026-04-16
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~328 | Active |
+| `journal-1.md` | ~368 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits |
 |---|------|-------|---------|
+| 8 | 2026-04-16 | Runtime pressure compression hardening | `2f62df2`, `a5bba07`, `11f3f46`, `1725ff3`, `3b5a236`, `161fefb`, `a01fde9`, `8a05cd3`, `c174f10` |
 | 7 | 2026-04-16 | Progressive context pressure pipeline and Trellis commit policy | `08f0ebe`, `b72f2f7`, `a0f36a5`, `1ad78c6` |
 | 6 | 2026-04-15 | Archive active Trellis tasks and validate Approach A MVP cleanup | `27690e4` |
 | 5 | 2026-04-15 | Trellis review fixes and rollback verification | `cb9f8fe`, `9141539` |
