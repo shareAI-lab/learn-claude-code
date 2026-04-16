@@ -7,17 +7,23 @@ from langchain.agents.middleware import ModelRequest
 from langchain.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from coding_deepgent.compact import (
+    LIVE_COLLAPSE_BOUNDARY_PREFIX,
+    LIVE_COLLAPSE_SUMMARY_PREFIX,
     LIVE_COMPACT_BOUNDARY_PREFIX,
     LIVE_COMPACT_RESTORATION_PREFIX,
     LIVE_COMPACT_SUMMARY_PREFIX,
+    LIVE_SNIP_BOUNDARY_PREFIX,
     MICROCOMPACT_CLEARED_MESSAGE,
     RuntimePressureMiddleware,
+    collapse_live_messages_with_summary,
     compact_live_messages_with_summary,
     estimate_message_tokens,
     is_prompt_too_long_error,
+    maybe_collapse_messages,
     maybe_auto_compact_messages,
     microcompact_messages,
     reactive_compact_messages,
+    snip_messages,
 )
 from coding_deepgent.hooks import LocalHookRegistry
 from coding_deepgent.runtime import InMemoryEventSink, RuntimeContext
@@ -133,6 +139,26 @@ def test_microcompact_messages_skips_ineligible_tool_results() -> None:
     assert result[1].content == "x" * 500
 
 
+def test_snip_messages_hides_older_projection_and_preserves_tool_pair() -> None:
+    messages = [
+        HumanMessage(content="old request"),
+        _read_call("call-1"),
+        ToolMessage(content="result", tool_call_id="call-1"),
+    ]
+
+    result = snip_messages(
+        messages,
+        threshold_tokens=1,
+        keep_recent_messages=1,
+    )
+
+    assert str(result[0].content).startswith(LIVE_SNIP_BOUNDARY_PREFIX)
+    assert "hidden_messages=1" in str(result[0].content)
+    assert isinstance(result[1], AIMessage)
+    assert isinstance(result[2], ToolMessage)
+    assert messages[0].content == "old request"
+
+
 def test_runtime_pressure_middleware_rewrites_request_messages_before_model_call() -> None:
     registry = build_default_registry(include_discovery=True)
     middleware = RuntimePressureMiddleware(registry=registry, keep_recent_tool_results=1)
@@ -168,6 +194,25 @@ def test_runtime_pressure_middleware_rewrites_request_messages_before_model_call
     assert compacted[4].content == "y" * 500
 
 
+def test_collapse_live_messages_with_summary_preserves_tool_pair_in_tail() -> None:
+    messages = [
+        HumanMessage(content="old request"),
+        _read_call("call-1"),
+        ToolMessage(content="result", tool_call_id="call-1"),
+    ]
+
+    collapsed = collapse_live_messages_with_summary(
+        messages,
+        summary="Earlier work was collapsed.",
+        keep_recent_messages=1,
+    )
+
+    assert str(collapsed[0].content).startswith(LIVE_COLLAPSE_BOUNDARY_PREFIX)
+    assert str(collapsed[1].content).startswith(LIVE_COLLAPSE_SUMMARY_PREFIX)
+    assert isinstance(collapsed[2], AIMessage)
+    assert isinstance(collapsed[3], ToolMessage)
+
+
 def test_compact_live_messages_with_summary_preserves_tool_pair_in_tail() -> None:
     messages = [
         HumanMessage(content="old request"),
@@ -185,6 +230,45 @@ def test_compact_live_messages_with_summary_preserves_tool_pair_in_tail() -> Non
     assert str(compacted[1].content).startswith(LIVE_COMPACT_SUMMARY_PREFIX)
     assert isinstance(compacted[2], AIMessage)
     assert isinstance(compacted[3], ToolMessage)
+
+
+def test_maybe_collapse_messages_uses_summary_when_threshold_exceeded() -> None:
+    summarizer = FakeSummarizer("<summary>Generated collapse summary.</summary>")
+    messages = [
+        HumanMessage(content="x" * 5000),
+        HumanMessage(content="y" * 5000),
+    ]
+
+    collapsed = maybe_collapse_messages(
+        messages,
+        summarizer=summarizer,
+        threshold_tokens=10,
+        keep_recent_messages=1,
+    )
+
+    assert len(summarizer.requests) == 1
+    assert str(collapsed[0].content).startswith(LIVE_COLLAPSE_BOUNDARY_PREFIX)
+    assert "Generated collapse summary." in str(collapsed[1].content)
+    assert collapsed[2].content == "y" * 5000
+
+
+def test_maybe_collapse_messages_fails_open_on_summarizer_error() -> None:
+    def failing_summarizer(_messages):
+        raise RuntimeError("collapse unavailable")
+
+    messages = [
+        HumanMessage(content="x" * 5000),
+        HumanMessage(content="y" * 5000),
+    ]
+
+    collapsed = maybe_collapse_messages(
+        messages,
+        summarizer=failing_summarizer,
+        threshold_tokens=10,
+        keep_recent_messages=1,
+    )
+
+    assert collapsed == messages
 
 
 def test_maybe_auto_compact_messages_uses_summary_when_threshold_exceeded() -> None:
@@ -206,6 +290,66 @@ def test_maybe_auto_compact_messages_uses_summary_when_threshold_exceeded() -> N
     assert str(compacted[0].content).startswith(LIVE_COMPACT_BOUNDARY_PREFIX)
     assert "Generated compact summary." in str(compacted[1].content)
     assert compacted[2].content == "y" * 5000
+
+
+def test_runtime_pressure_middleware_runs_snip_microcollapse_autocompact_order(
+    tmp_path: Path,
+) -> None:
+    registry = build_default_registry(include_discovery=True)
+    summarizer = FakeSummarizer("<summary>Generated pressure summary.</summary>")
+    context = runtime_context(tmp_path)
+    middleware = RuntimePressureMiddleware(
+        registry=registry,
+        snip_threshold_tokens=10,
+        keep_recent_messages_after_snip=8,
+        keep_recent_tool_results=1,
+        collapse_threshold_tokens=10,
+        keep_recent_messages_after_collapse=2,
+        auto_compact_threshold_tokens=10,
+        keep_recent_messages=1,
+    )
+    captured: dict[str, object] = {}
+
+    def handler(request: ModelRequest):
+        captured["messages"] = request.messages
+        return SimpleNamespace(result="ok")
+
+    request = ModelRequest(
+        model=summarizer,
+        messages=[
+            HumanMessage(content="old context " * 1000),
+            HumanMessage(content="older context " * 1000),
+            _read_call("call-1"),
+            ToolMessage(content="x" * 500, tool_call_id="call-1"),
+            _read_call("call-2"),
+            ToolMessage(content="y" * 500, tool_call_id="call-2"),
+            _read_call("call-3"),
+            ToolMessage(content="z" * 500, tool_call_id="call-3"),
+            HumanMessage(content="tail one " * 5000),
+            HumanMessage(content="tail two " * 5000),
+        ],
+        system_message=SystemMessage(content="Base"),
+        tool_choice=None,
+        tools=[],
+        response_format=None,
+        state={"messages": []},
+        runtime=SimpleNamespace(context=context),
+        model_settings={},
+    )
+
+    middleware.wrap_model_call(request, handler)
+
+    assert [event.kind for event in context.event_sink.snapshot()] == [
+        "snip",
+        "microcompact",
+        "context_collapse",
+        "auto_compact",
+    ]
+    assert len(summarizer.requests) == 2
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    assert str(messages[0].content).startswith(LIVE_COMPACT_BOUNDARY_PREFIX)
+    assert "Generated pressure summary." in str(messages[1].content)
 
 
 def test_compact_live_messages_with_summary_restores_persisted_output_paths() -> None:

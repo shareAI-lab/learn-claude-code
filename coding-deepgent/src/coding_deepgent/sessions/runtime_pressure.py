@@ -5,7 +5,13 @@ from collections import Counter
 from .contributions import RecoveryBriefContribution, RecoveryBriefSection
 from .records import LoadedSession
 
-RUNTIME_PRESSURE_EVENT_KINDS = ("microcompact", "auto_compact", "reactive_compact")
+RUNTIME_PRESSURE_EVENT_KINDS = (
+    "snip",
+    "microcompact",
+    "context_collapse",
+    "auto_compact",
+    "reactive_compact",
+)
 
 
 def recovery_brief_contribution() -> RecoveryBriefContribution:

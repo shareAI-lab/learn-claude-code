@@ -21,11 +21,18 @@ from coding_deepgent.tool_system.capabilities import CapabilityRegistry
 MICROCOMPACT_CLEARED_MESSAGE = "[Old tool result content cleared]"
 DEFAULT_KEEP_RECENT_TOOL_RESULTS = 3
 DEFAULT_MICROCOMPACT_MIN_CONTENT_CHARS = 120
+LIVE_SNIP_BOUNDARY_PREFIX = "coding-deepgent live snip boundary"
+LIVE_COLLAPSE_BOUNDARY_PREFIX = "coding-deepgent live collapse boundary"
+LIVE_COLLAPSE_SUMMARY_PREFIX = "This session is being continued from a collapsed live context."
 LIVE_COMPACT_BOUNDARY_PREFIX = "coding-deepgent live compact boundary"
 LIVE_COMPACT_SUMMARY_PREFIX = "This session is being continued from a compacted live invocation."
 LIVE_COMPACT_RESTORATION_PREFIX = "Restored persisted tool outputs:"
 DEFAULT_AUTO_COMPACT_THRESHOLD_TOKENS = 8000
 DEFAULT_KEEP_RECENT_MESSAGES = 4
+DEFAULT_SNIP_THRESHOLD_TOKENS = None
+DEFAULT_KEEP_RECENT_MESSAGES_AFTER_SNIP = 12
+DEFAULT_COLLAPSE_THRESHOLD_TOKENS = 12000
+DEFAULT_KEEP_RECENT_MESSAGES_AFTER_COLLAPSE = 8
 
 
 def microcompact_messages(
@@ -69,6 +76,10 @@ class RuntimePressureMiddleware(AgentMiddleware):
     registry: CapabilityRegistry
     keep_recent_tool_results: int = DEFAULT_KEEP_RECENT_TOOL_RESULTS
     min_content_chars: int = DEFAULT_MICROCOMPACT_MIN_CONTENT_CHARS
+    snip_threshold_tokens: int | None = DEFAULT_SNIP_THRESHOLD_TOKENS
+    keep_recent_messages_after_snip: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_SNIP
+    collapse_threshold_tokens: int | None = DEFAULT_COLLAPSE_THRESHOLD_TOKENS
+    keep_recent_messages_after_collapse: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_COLLAPSE
     auto_compact_threshold_tokens: int | None = DEFAULT_AUTO_COMPACT_THRESHOLD_TOKENS
     keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES
 
@@ -77,13 +88,30 @@ class RuntimePressureMiddleware(AgentMiddleware):
         request: ModelRequest,
         handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
-        processed = microcompact_messages(
+        processed = snip_messages(
             request.messages,
+            threshold_tokens=self.snip_threshold_tokens,
+            keep_recent_messages=self.keep_recent_messages_after_snip,
+        )
+        if _is_snipped(processed):
+            _emit_runtime_pressure_event(
+                request,
+                kind="snip",
+                message="Runtime pressure middleware snipped older live history.",
+                metadata={
+                    "source": "runtime_pressure",
+                    "strategy": "snip",
+                    "hidden_messages": _snip_hidden_message_count(processed),
+                },
+            )
+        before_microcompact = processed
+        processed = microcompact_messages(
+            before_microcompact,
             registry=self.registry,
             keep_recent_tool_results=self.keep_recent_tool_results,
             min_content_chars=self.min_content_chars,
         )
-        if processed != list(request.messages):
+        if processed != list(before_microcompact):
             _emit_runtime_pressure_event(
                 request,
                 kind="microcompact",
@@ -95,6 +123,26 @@ class RuntimePressureMiddleware(AgentMiddleware):
                 },
             )
         session_memory_assist = _session_memory_assist_text(request.state, processed)
+        processed = maybe_collapse_messages(
+            processed,
+            summarizer=request.model,
+            threshold_tokens=self.collapse_threshold_tokens,
+            keep_recent_messages=self.keep_recent_messages_after_collapse,
+            assist_context=session_memory_assist,
+        )
+        if _is_collapsed(processed):
+            _emit_runtime_pressure_event(
+                request,
+                kind="context_collapse",
+                message="Runtime pressure middleware collapsed older live history.",
+                metadata={
+                    "source": "runtime_pressure",
+                    "strategy": "context_collapse",
+                    "collapsed_messages": _collapse_collapsed_message_count(processed),
+                    "used_session_memory_assist": session_memory_assist is not None,
+                    "restored_path_count": _restored_path_count(processed),
+                },
+            )
         processed = maybe_auto_compact_messages(
             processed,
             summarizer=request.model,
@@ -194,6 +242,135 @@ def _microcompacted_content(message: ToolMessage) -> str:
     return MICROCOMPACT_CLEARED_MESSAGE
 
 
+def snip_messages(
+    messages: Sequence[BaseMessage],
+    *,
+    threshold_tokens: int | None,
+    keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_SNIP,
+) -> list[BaseMessage]:
+    if threshold_tokens is None:
+        return list(messages)
+    if threshold_tokens < 1:
+        raise ValueError("threshold_tokens must be positive")
+    if keep_recent_messages < 0:
+        raise ValueError("keep_recent_messages must be non-negative")
+    clean_messages = [
+        message.model_copy(deep=True)
+        for message in messages
+        if not _is_live_pressure_artifact_message(message)
+    ]
+    if estimate_message_tokens(clean_messages) < threshold_tokens:
+        return list(messages)
+
+    keep_start = _adjust_keep_start_for_live_tool_pairs(
+        clean_messages,
+        max(0, len(clean_messages) - keep_recent_messages),
+    )
+    preserved_tail = clean_messages[keep_start:]
+    hidden_count = keep_start
+    if hidden_count <= 0:
+        return list(messages)
+    return [
+        SystemMessage(
+            content=(
+                f"{LIVE_SNIP_BOUNDARY_PREFIX}: "
+                f"original_messages={len(clean_messages)}; "
+                f"hidden_messages={hidden_count}; "
+                f"kept_messages={len(preserved_tail)}"
+            )
+        ),
+        *preserved_tail,
+    ]
+
+
+def maybe_collapse_messages(
+    messages: Sequence[BaseMessage],
+    *,
+    summarizer: Any,
+    threshold_tokens: int | None,
+    keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_COLLAPSE,
+    assist_context: str | None = None,
+) -> list[BaseMessage]:
+    if threshold_tokens is None:
+        return list(messages)
+    if threshold_tokens < 1:
+        raise ValueError("threshold_tokens must be positive")
+    if keep_recent_messages < 0:
+        raise ValueError("keep_recent_messages must be non-negative")
+    if estimate_message_tokens(messages) < threshold_tokens:
+        return list(messages)
+    try:
+        summary = generate_compact_summary(
+            _messages_as_compact_dicts(messages),
+            summarizer,
+            assist_context=assist_context,
+        )
+    except Exception:
+        return list(messages)
+    return collapse_live_messages_with_summary(
+        messages,
+        summary=summary,
+        keep_recent_messages=keep_recent_messages,
+    )
+
+
+def collapse_live_messages_with_summary(
+    messages: Sequence[BaseMessage],
+    *,
+    summary: str,
+    keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_COLLAPSE,
+) -> list[BaseMessage]:
+    if not messages:
+        raise ValueError("messages are required for collapse")
+    if keep_recent_messages < 0:
+        raise ValueError("keep_recent_messages must be non-negative")
+    if not summary.strip():
+        raise ValueError("summary is required for collapse")
+
+    clean_messages = [
+        message.model_copy(deep=True)
+        for message in messages
+        if not _is_live_pressure_artifact_message(message)
+    ]
+    keep_start = _adjust_keep_start_for_live_tool_pairs(
+        clean_messages,
+        max(0, len(clean_messages) - keep_recent_messages),
+    )
+    collapsed_source = clean_messages[:keep_start]
+    preserved_tail = clean_messages[keep_start:]
+    if not collapsed_source:
+        return list(messages)
+    restored_paths = _restored_persisted_output_paths(
+        compacted_messages=collapsed_source,
+        preserved_tail=preserved_tail,
+    )
+
+    collapsed_messages: list[BaseMessage] = [
+        SystemMessage(
+            content=(
+                f"{LIVE_COLLAPSE_BOUNDARY_PREFIX}: "
+                f"original_messages={len(clean_messages)}; "
+                f"collapsed_messages={len(collapsed_source)}; "
+                f"kept_messages={len(preserved_tail)}"
+            )
+        ),
+        HumanMessage(
+            content=f"{LIVE_COLLAPSE_SUMMARY_PREFIX}\n\nSummary:\n{summary.strip()}"
+        ),
+    ]
+    if restored_paths:
+        collapsed_messages.append(
+            SystemMessage(
+                content=(
+                    f"{LIVE_COMPACT_RESTORATION_PREFIX}\n"
+                    + "\n".join(f"- {path}" for path in restored_paths)
+                )
+            )
+        )
+    collapsed_messages.extend(preserved_tail)
+    return collapsed_messages
+
+
 def maybe_auto_compact_messages(
     messages: Sequence[BaseMessage],
     *,
@@ -241,7 +418,7 @@ def compact_live_messages_with_summary(
     clean_messages = [
         message.model_copy(deep=True)
         for message in messages
-        if not _is_live_compact_message(message)
+        if not _is_live_pressure_artifact_message(message)
     ]
     keep_start = _adjust_keep_start_for_live_tool_pairs(
         clean_messages,
@@ -343,6 +520,27 @@ def _is_live_compact_message(message: BaseMessage) -> bool:
     content = str(getattr(message, "content", ""))
     return content.startswith(LIVE_COMPACT_BOUNDARY_PREFIX) or content.startswith(
         LIVE_COMPACT_SUMMARY_PREFIX
+    )
+
+
+def _is_live_collapse_message(message: BaseMessage) -> bool:
+    content = str(getattr(message, "content", ""))
+    return content.startswith(LIVE_COLLAPSE_BOUNDARY_PREFIX) or content.startswith(
+        LIVE_COLLAPSE_SUMMARY_PREFIX
+    )
+
+
+def _is_live_snip_message(message: BaseMessage) -> bool:
+    content = str(getattr(message, "content", ""))
+    return content.startswith(LIVE_SNIP_BOUNDARY_PREFIX)
+
+
+def _is_live_pressure_artifact_message(message: BaseMessage) -> bool:
+    return (
+        _is_live_compact_message(message)
+        or _is_live_collapse_message(message)
+        or _is_live_snip_message(message)
+        or str(getattr(message, "content", "")).startswith(LIVE_COMPACT_RESTORATION_PREFIX)
     )
 
 
@@ -486,10 +684,46 @@ def _count_compacted_tool_results(messages: Sequence[BaseMessage]) -> int:
     )
 
 
+def _is_snipped(messages: Sequence[BaseMessage]) -> bool:
+    return bool(messages) and isinstance(messages[0], SystemMessage) and str(
+        messages[0].content
+    ).startswith(LIVE_SNIP_BOUNDARY_PREFIX)
+
+
+def _is_collapsed(messages: Sequence[BaseMessage]) -> bool:
+    return bool(messages) and isinstance(messages[0], SystemMessage) and str(
+        messages[0].content
+    ).startswith(LIVE_COLLAPSE_BOUNDARY_PREFIX)
+
+
 def _is_live_compacted(messages: Sequence[BaseMessage]) -> bool:
     return bool(messages) and isinstance(messages[0], SystemMessage) and str(
         messages[0].content
     ).startswith(LIVE_COMPACT_BOUNDARY_PREFIX)
+
+
+def _snip_hidden_message_count(messages: Sequence[BaseMessage]) -> int:
+    return _metadata_count_from_first_message(messages, "hidden_messages")
+
+
+def _collapse_collapsed_message_count(messages: Sequence[BaseMessage]) -> int:
+    return _metadata_count_from_first_message(messages, "collapsed_messages")
+
+
+def _metadata_count_from_first_message(
+    messages: Sequence[BaseMessage], field_name: str
+) -> int:
+    if not messages:
+        return 0
+    content = str(getattr(messages[0], "content", ""))
+    marker = f"{field_name}="
+    if marker not in content:
+        return 0
+    raw_value = content.split(marker, 1)[1].split(";", 1)[0].strip()
+    try:
+        return max(0, int(raw_value))
+    except ValueError:
+        return 0
 
 
 def _restored_path_count(messages: Sequence[BaseMessage]) -> int:

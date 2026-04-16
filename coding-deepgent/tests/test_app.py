@@ -119,7 +119,11 @@ def test_build_agent_wires_runtime_pressure_settings(monkeypatch) -> None:
         settings=providers.Object(
             Settings(
                 auto_compact_threshold_tokens=1234,
+                snip_threshold_tokens=2345,
+                collapse_threshold_tokens=3456,
                 keep_recent_tool_results=5,
+                keep_recent_messages_after_snip=7,
+                keep_recent_messages_after_collapse=8,
                 keep_recent_messages_after_compact=6,
             )
         ),
@@ -133,7 +137,11 @@ def test_build_agent_wires_runtime_pressure_settings(monkeypatch) -> None:
     middleware = cast(Sequence[object], captured["middleware"])
     runtime_pressure = cast(RuntimePressureMiddleware, middleware[2])
     assert runtime_pressure.auto_compact_threshold_tokens == 1234
+    assert runtime_pressure.snip_threshold_tokens == 2345
+    assert runtime_pressure.collapse_threshold_tokens == 3456
     assert runtime_pressure.keep_recent_tool_results == 5
+    assert runtime_pressure.keep_recent_messages_after_snip == 7
+    assert runtime_pressure.keep_recent_messages_after_collapse == 8
     assert runtime_pressure.keep_recent_messages == 6
 
 

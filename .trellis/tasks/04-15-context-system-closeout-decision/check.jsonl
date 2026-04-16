@@ -1,0 +1,6 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/spec/backend/runtime-pressure-contracts.md", "reason": "Runtime pressure contract to verify for Snip and summarizer Collapse"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "Review middleware implementation against LangChain-native rules"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Focused test and boundary review requirements"}
+{"file": "coding-deepgent/tests/test_runtime_pressure.py", "reason": "Focused tests for Snip Collapse MicroCompact AutoCompact ordering and behavior"}

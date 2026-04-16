@@ -82,6 +82,14 @@ class AppContainer(containers.DeclarativeContainer):
         RuntimePressureMiddleware,
         registry=tool_system.capability_registry,
         keep_recent_tool_results=settings.provided.keep_recent_tool_results,
+        snip_threshold_tokens=settings.provided.snip_threshold_tokens,
+        keep_recent_messages_after_snip=(
+            settings.provided.keep_recent_messages_after_snip
+        ),
+        collapse_threshold_tokens=settings.provided.collapse_threshold_tokens,
+        keep_recent_messages_after_collapse=(
+            settings.provided.keep_recent_messages_after_collapse
+        ),
         auto_compact_threshold_tokens=settings.provided.auto_compact_threshold_tokens,
         keep_recent_messages=settings.provided.keep_recent_messages_after_compact,
     )

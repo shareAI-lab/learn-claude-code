@@ -8,7 +8,9 @@ RUNTIME_EVIDENCE_KINDS = frozenset(
     {
         "hook_blocked",
         "permission_denied",
+        "snip",
         "microcompact",
+        "context_collapse",
         "auto_compact",
         "reactive_compact",
     }
@@ -57,7 +59,12 @@ def _safe_metadata(event: RuntimeEvent) -> dict[str, object]:
     blocked = event.metadata.get("blocked")
     if isinstance(blocked, bool):
         metadata["blocked"] = blocked
-    for key in ("cleared_tool_results", "restored_path_count"):
+    for key in (
+        "hidden_messages",
+        "cleared_tool_results",
+        "collapsed_messages",
+        "restored_path_count",
+    ):
         value = event.metadata.get(key)
         if isinstance(value, int) and value >= 0:
             metadata[key] = value
@@ -75,9 +82,15 @@ def _summary(event: RuntimeEvent, metadata: dict[str, object]) -> str:
         tool = metadata.get("tool", "unknown")
         policy_code = metadata.get("policy_code", "permission_denied")
         return f"Tool {tool} denied by {policy_code}."
+    if event.kind == "snip":
+        hidden = metadata.get("hidden_messages", 0)
+        return f"Live snip hid {hidden} older messages from the model call."
     if event.kind == "microcompact":
         cleared = metadata.get("cleared_tool_results", 0)
         return f"Live microcompact cleared {cleared} older tool results."
+    if event.kind == "context_collapse":
+        collapsed = metadata.get("collapsed_messages", 0)
+        return f"Live context collapse summarized {collapsed} older messages."
     if event.kind == "auto_compact":
         return "Live auto-compact summarized history."
     if event.kind == "reactive_compact":
@@ -90,7 +103,13 @@ def _status(event: RuntimeEvent) -> str:
         return "blocked"
     if event.kind == "permission_denied":
         return "denied"
-    if event.kind in {"microcompact", "auto_compact", "reactive_compact"}:
+    if event.kind in {
+        "snip",
+        "microcompact",
+        "context_collapse",
+        "auto_compact",
+        "reactive_compact",
+    }:
         return "completed"
     return "recorded"
 

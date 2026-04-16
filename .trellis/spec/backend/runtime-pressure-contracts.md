@@ -1,6 +1,119 @@
 # Runtime Pressure Contracts
 
-> Executable contracts for live microcompact, auto/reactive compact, restoration, and runtime pressure evidence.
+> Executable contracts for live snip, microcompact, context collapse, auto/reactive compact, restoration, and runtime pressure evidence.
+
+## Scenario: Progressive Live Pressure Pipeline
+
+### 1. Scope / Trigger
+
+- Trigger: changes touching `RuntimePressureMiddleware.wrap_model_call()` ordering
+  or any helper that rewrites live model-call messages.
+- Applies when `Snip`, `MicroCompact`, `Collapse`, and `AutoCompact` should run
+  as a staged model-call preparation pipeline.
+
+### 2. Signatures
+
+```python
+class RuntimePressureMiddleware(AgentMiddleware):
+    snip_threshold_tokens: int | None
+    collapse_threshold_tokens: int | None
+    auto_compact_threshold_tokens: int | None
+```
+
+### 3. Contracts
+
+- Runtime pressure handling must remain LangChain middleware-level request
+  rewriting through `wrap_model_call()`.
+- The live pressure order is:
+  1. `snip_messages`
+  2. `microcompact_messages`
+  3. `maybe_collapse_messages`
+  4. `maybe_auto_compact_messages`
+  5. model call
+- These live rewrites must not append, delete, or replace JSONL transcript
+  records. Only explicit session/manual compact paths may persist compact
+  records.
+- Each stage may emit bounded runtime events, but event metadata must not include
+  raw prompt contents or raw summaries.
+- Later stages operate on the current model-facing projection returned by earlier
+  stages.
+
+### 4. Validation & Error Matrix
+
+| Case | Expected behavior |
+|---|---|
+| all four thresholds are crossed | runtime events appear in order: `snip`, `microcompact`, `context_collapse`, `auto_compact` |
+| a stage does not cross threshold | stage is skipped without blocking later eligible stages |
+| live rewrite happens during recorded session | evidence records are bounded summaries only |
+
+### 5. Tests Required
+
+- `coding-deepgent/tests/test_runtime_pressure.py`
+- `coding-deepgent/tests/test_app.py`
+
+Required assertion points:
+
+- middleware pipeline order is stable
+- settings values are wired into `RuntimePressureMiddleware`
+- live rewrites do not depend on tutorial/reference modules
+
+## Scenario: Live Snip
+
+### 1. Scope / Trigger
+
+- Trigger: changes touching `snip_messages(...)`, snip thresholds, or live
+  model-facing projection trimming.
+- Applies when old messages should be hidden from the current model call before
+  heavier summarization or compaction is attempted.
+
+### 2. Signatures
+
+```python
+def snip_messages(
+    messages: Sequence[BaseMessage],
+    *,
+    threshold_tokens: int | None,
+    keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_SNIP,
+) -> list[BaseMessage]: ...
+```
+
+### 3. Contracts
+
+- `snip_messages(...)` must be deterministic and model-call local.
+- If `threshold_tokens is None`, messages must remain unchanged.
+- Default product settings may keep snip disabled with
+  `snip_threshold_tokens == None` because snip is a lossy projection-only stage.
+  Enable it only when a concrete pressure threshold is configured.
+- If estimated message tokens are below `threshold_tokens`, messages must remain
+  unchanged.
+- If the threshold is crossed, the model-facing projection becomes:
+  1. one live snip boundary `SystemMessage`
+  2. preserved recent tail messages
+- The snip boundary must expose bounded counts such as `hidden_messages` and
+  `kept_messages`, not hidden prompt contents.
+- If the preserved tail starts with a `ToolMessage`, the helper must include the
+  matching prior `AIMessage` tool call when present.
+- Existing live pressure artifact messages should not be stacked repeatedly.
+
+### 4. Validation & Error Matrix
+
+| Case | Expected behavior |
+|---|---|
+| estimated tokens below threshold | history unchanged |
+| threshold crossed | boundary + recent tail returned |
+| preserved tail starts with tool result | matching tool-call AI message is preserved |
+| `threshold_tokens < 1` | `ValueError` |
+| `keep_recent_messages < 0` | `ValueError` |
+
+### 5. Tests Required
+
+- `coding-deepgent/tests/test_runtime_pressure.py`
+
+Required assertion points:
+
+- older messages are hidden from model-facing projection
+- input messages are not mutated
+- tool-call/tool-result tail pairing is preserved
 
 ## Scenario: Live Microcompact
 
@@ -74,6 +187,91 @@ Required assertion points:
 - recent eligible tool results remain inline
 - ineligible tool results are not rewritten
 - app/container middleware chain includes runtime pressure middleware before tool guard
+
+## Scenario: Live Context Collapse
+
+### 1. Scope / Trigger
+
+- Trigger: changes touching `maybe_collapse_messages(...)`, collapse thresholds,
+  collapse summary artifacts, or summarizer use before auto-compact.
+- Applies when older live context should be summarized before the heavier
+  auto-compact stage.
+- This is a cross-layer contract because summarizer usage, message rewriting,
+  recent-tail preservation, restoration hints, settings, and runtime evidence
+  must agree.
+
+### 2. Signatures
+
+```python
+def maybe_collapse_messages(
+    messages: Sequence[BaseMessage],
+    *,
+    summarizer: Any,
+    threshold_tokens: int | None,
+    keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_COLLAPSE,
+    assist_context: str | None = None,
+) -> list[BaseMessage]: ...
+
+def collapse_live_messages_with_summary(
+    messages: Sequence[BaseMessage],
+    *,
+    summary: str,
+    keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_COLLAPSE,
+) -> list[BaseMessage]: ...
+```
+
+### 3. Contracts
+
+- Context collapse must remain middleware-level request rewriting. It must not
+  introduce a custom query runtime.
+- If `threshold_tokens is None`, messages must remain unchanged.
+- If estimated message tokens are below `threshold_tokens`, messages must remain
+  unchanged.
+- If the threshold is crossed, the helper may call the existing compact
+  summarizer seam through the provided model-like `.invoke()` path.
+- If current session-memory assist text is available, collapse may pass it to
+  the summarizer as bounded assist text.
+- Summarizer failure or invalid summary must fail open: the original
+  model-facing messages must be preserved so auto-compact and the model call can
+  still proceed.
+- `collapse_live_messages_with_summary(...)` must produce:
+  1. one live collapse boundary `SystemMessage`
+  2. one live collapse summary `HumanMessage`
+  3. optional restoration `SystemMessage` for collapsed-away persisted-output
+     paths
+  4. preserved recent tail messages
+- If the preserved tail starts with a `ToolMessage`, the helper must include the
+  matching prior `AIMessage` tool call when present.
+- Collapse summaries are live artifacts only and must not be persisted as
+  session compact records.
+
+### 4. Validation & Error Matrix
+
+| Case | Expected behavior |
+|---|---|
+| estimated tokens below threshold | history unchanged |
+| threshold crossed and summarizer succeeds | live collapse boundary + summary + preserved tail returned |
+| current session-memory artifact exists | summarizer request may receive bounded assist text |
+| compacted-away persisted output path exists | restoration message includes the path |
+| preserved tail starts with tool result | matching tool-call AI message is preserved |
+| summarizer raises or returns invalid summary | original history preserved |
+| `threshold_tokens < 1` | `ValueError` |
+| `keep_recent_messages < 0` | `ValueError` |
+
+### 5. Tests Required
+
+- `coding-deepgent/tests/test_runtime_pressure.py`
+- `coding-deepgent/tests/test_compact_summarizer.py`
+- `coding-deepgent/tests/test_app.py`
+
+Required assertion points:
+
+- threshold crossing triggers summarizer-backed context collapse
+- collapse fail-open preserves original messages
+- collapsed history shape includes boundary and summary messages
+- restoration message includes collapsed-away persisted-output paths when present
+- tool-call/tool-result tail pairing is preserved
+- collapse runs before auto-compact in the middleware pipeline
 
 ## Scenario: Live Auto-Compact And Restoration
 
@@ -199,8 +397,8 @@ Required assertion points:
 ### 2. Contracts
 
 - Recovery brief contributions may aggregate `runtime_event` evidence with
-  `event_kind in {"microcompact", "auto_compact", "reactive_compact"}` into a
-  bounded `Runtime pressure:` section.
+  `event_kind in {"snip", "microcompact", "context_collapse", "auto_compact",
+  "reactive_compact"}` into a bounded `Runtime pressure:` section.
 - The section must remain summary-only:
   - counts by event kind are allowed
   - raw compact payloads, raw summaries, and full prompt contents are not
@@ -225,13 +423,17 @@ Required assertion points:
 ### 2. Contracts
 
 - Runtime pressure middleware may emit structured `RuntimeEvent` records for:
+  - `snip`
   - `microcompact`
+  - `context_collapse`
   - `auto_compact`
   - `reactive_compact`
 - Event metadata must stay bounded and may include:
   - `source == "runtime_pressure"`
   - `strategy`
+  - `hidden_messages`
   - `cleared_tool_results`
+  - `collapsed_messages`
   - `restored_path_count`
   - `used_session_memory_assist`
 - Session evidence persistence for runtime pressure events must reuse the
@@ -244,7 +446,9 @@ Required assertion points:
 
 | Case | Expected behavior |
 |---|---|
+| snip happens during live request | `event_sink` receives `snip` event |
 | microcompact happens during live request | `event_sink` receives `microcompact` event |
+| context collapse happens during live request | `event_sink` receives `context_collapse` event |
 | auto-compact happens during live request | `event_sink` receives `auto_compact` event |
 | reactive compact retry happens | `event_sink` receives `reactive_compact` event |
 | active `session_context` exists | whitelisted runtime pressure events append `runtime_event` session evidence |

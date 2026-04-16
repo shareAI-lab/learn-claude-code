@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/runtime-pressure-contracts.md", "reason": "Runtime pressure contract to update for Snip and summarizer Collapse"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "Middleware must remain LangChain-native and avoid custom query loop"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Collapse summarizer failure must fail open per runtime pressure boundary"}
+{"file": "coding-deepgent/src/coding_deepgent/compact/runtime_pressure.py", "reason": "Primary implementation surface for model-call pressure pipeline"}
