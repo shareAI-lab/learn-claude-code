@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from coding_deepgent.sessions import (
+    COLLAPSE_EVENT_KIND,
     COMPACT_EVENT_KIND,
     EVIDENCE_RECORD_TYPE,
     JsonlSessionStore,
@@ -19,6 +20,7 @@ from coding_deepgent.sessions import (
 )
 from coding_deepgent.sessions.records import message_id_for_index
 from coding_deepgent.sessions.session_memory import SESSION_MEMORY_STATE_KEY
+from coding_deepgent.compact import COLLAPSE_BOUNDARY_PREFIX, COLLAPSE_SUMMARY_PREFIX
 
 
 def _history_summary(history: list[SessionMessage]) -> list[tuple[str, str, str]]:
@@ -451,6 +453,109 @@ def test_compact_record_roundtrip_does_not_enter_history(tmp_path) -> None:
     rendered = render_recovery_brief(brief)
     assert brief.recent_compacts[0].summary == "Older work was summarized."
     assert "[manual] Older work was summarized." in rendered
+
+
+def test_collapse_record_roundtrip_does_not_enter_history(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir, entrypoint="cli")
+    store.append_message(context, role="user", content="start")
+    store.append_message(context, role="assistant", content="continued")
+    store.append_collapse(
+        context,
+        trigger="threshold_tokens",
+        summary="Older work was collapsed.",
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
+        metadata={"source": "runtime_pressure"},
+    )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+    raw_records = [
+        json.loads(line)
+        for line in context.transcript_path.read_text(encoding="utf-8").splitlines()
+    ]
+
+    assert raw_records[-1]["record_type"] == TRANSCRIPT_EVENT_RECORD_TYPE
+    assert raw_records[-1]["event_kind"] == COLLAPSE_EVENT_KIND
+    assert _history_summary(loaded.history) == [
+        (message_id_for_index(0), "user", "start"),
+        (message_id_for_index(1), "assistant", "continued"),
+    ]
+    assert loaded.summary.collapse_count == 1
+    assert loaded.collapses[0].trigger == "threshold_tokens"
+    assert loaded.collapses[0].summary == "Older work was collapsed."
+    assert loaded.collapses[0].start_message_id == message_id_for_index(0)
+    assert loaded.collapses[0].end_message_id == message_id_for_index(0)
+    assert loaded.collapses[0].covered_message_ids == (message_id_for_index(0),)
+    assert loaded.collapses[0].metadata == {"source": "runtime_pressure"}
+
+
+def test_load_session_collapsed_history_uses_newest_non_overlapping_collapses(
+    tmp_path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="first")
+    store.append_message(context, role="assistant", content="second")
+    store.append_message(context, role="user", content="third")
+    store.append_collapse(
+        context,
+        trigger="threshold_tokens",
+        summary="older collapse",
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
+    )
+    store.append_collapse(
+        context,
+        trigger="threshold_tokens",
+        summary="newer collapse",
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(1),
+        covered_message_ids=[message_id_for_index(0), message_id_for_index(1)],
+    )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+
+    assert loaded.collapsed_history_source.mode == "collapse"
+    assert loaded.collapsed_history_source.collapse_index == 1
+    assert loaded.collapsed_history[0]["role"] == "system"
+    assert COLLAPSE_BOUNDARY_PREFIX in str(loaded.collapsed_history[0]["content"])
+    assert COLLAPSE_SUMMARY_PREFIX in str(loaded.collapsed_history[1]["content"])
+    assert "newer collapse" in str(loaded.collapsed_history[1]["content"])
+    assert "older collapse" not in str(loaded.collapsed_history[1]["content"])
+    assert loaded.collapsed_history[2] == {"role": "user", "content": "third"}
+
+
+def test_load_session_collapsed_history_falls_back_to_raw_on_invalid_refs(
+    tmp_path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir)
+    store.append_message(context, role="user", content="first")
+    store.append_collapse(
+        context,
+        trigger="threshold_tokens",
+        summary="invalid collapse",
+        start_message_id="msg-unknown",
+        end_message_id="msg-unknown",
+    )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+
+    assert loaded.collapsed_history == _projected_history(loaded.history)
+    assert loaded.collapsed_history_source.mode == "raw"
+    assert loaded.collapsed_history_source.reason == "no_valid_collapse"
 
 
 def test_load_session_ignores_invalid_compact_records(tmp_path) -> None:

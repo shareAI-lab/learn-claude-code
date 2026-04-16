@@ -100,6 +100,8 @@ class AppContainer(containers.DeclarativeContainer):
         keep_recent_messages_after_collapse=(
             settings.provided.keep_recent_messages_after_collapse
         ),
+        model_context_window_tokens=settings.provided.model_context_window_tokens,
+        collapse_trigger_ratio=settings.provided.collapse_trigger_ratio,
         auto_compact_threshold_tokens=settings.provided.auto_compact_threshold_tokens,
         auto_compact_max_failures=settings.provided.auto_compact_max_failures,
         auto_compact_ptl_retry_limit=settings.provided.auto_compact_ptl_retry_limit,

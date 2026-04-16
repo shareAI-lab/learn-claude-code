@@ -1,9 +1,14 @@
 from .budget import BudgetedText, TRUNCATION_MARKER, apply_tool_result_budget
 from .artifacts import (
+    COLLAPSE_BOUNDARY_PREFIX,
+    COLLAPSE_METADATA_KEY,
+    COLLAPSE_SUMMARY_PREFIX,
     COMPACT_BOUNDARY_PREFIX,
     COMPACT_METADATA_KEY,
     COMPACT_SUMMARY_PREFIX,
     CompactArtifact,
+    build_collapse_boundary_message,
+    build_collapse_summary_message,
     compact_metadata,
     compact_messages_with_summary,
     compact_record_from_messages,
@@ -39,6 +44,7 @@ from .runtime_pressure import (
     TimeBasedMicrocompactDecision,
     collapse_live_messages_with_result,
     collapse_live_messages_with_summary,
+    drain_collapse_projection_messages,
     compact_live_messages_with_result,
     compact_live_messages_with_summary,
     estimate_message_tokens,
@@ -73,6 +79,11 @@ from .tool_results import (
 
 __all__ = [
     "BudgetedText",
+    "build_collapse_boundary_message",
+    "build_collapse_summary_message",
+    "COLLAPSE_BOUNDARY_PREFIX",
+    "COLLAPSE_METADATA_KEY",
+    "COLLAPSE_SUMMARY_PREFIX",
     "COMPACT_BOUNDARY_PREFIX",
     "COMPACT_METADATA_KEY",
     "COMPACT_SUMMARY_PREFIX",
@@ -109,6 +120,7 @@ __all__ = [
     "build_large_tool_result_message",
     "collapse_live_messages_with_result",
     "collapse_live_messages_with_summary",
+    "drain_collapse_projection_messages",
     "compact_live_messages_with_result",
     "compact_live_messages_with_summary",
     "estimate_message_tokens",

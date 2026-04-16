@@ -263,3 +263,42 @@ Reason:
 * Created prerequisite task `04-16-stable-message-ids-compression-projection`.
 * Continuing directly into durable collapse replay would lock future
   compression timeline/projection work onto unstable implicit indexes.
+
+## Checkpoint: Stage 3 Collapse Store And Projection Closeout
+
+State: verifying
+
+Verdict: APPROVE
+
+Implemented:
+
+* `stable-message-ids-compression-projection`
+* `collapse-records`
+* `collapse-projection-replay`
+* `pressure-ratio-trigger`
+* `collapse-overflow-drain`
+* `spawn-pressure-guard`
+
+Verification:
+
+* Focused collapse/session/runtime/subagent/app tests passed:
+  `pytest -q coding-deepgent/tests/test_sessions.py coding-deepgent/tests/test_runtime_pressure.py coding-deepgent/tests/test_cli.py coding-deepgent/tests/test_subagents.py coding-deepgent/tests/test_app.py`
+* Final full-suite verification is required before commit:
+  `pytest -q coding-deepgent/tests`
+* Targeted `ruff check` and `mypy` are required before commit.
+
+Architecture:
+
+* Raw transcript remains the source of truth as `LoadedSession.history`.
+* Compact and collapse are append-only `transcript_event` projections over raw
+  messages.
+* Collapse replay uses stable `message_id` references only.
+* Runtime live collapse persistence uses a non-model-visible transcript
+  projection sidecar rather than leaking storage IDs into prompt messages.
+
+Decision: continue
+
+Reason:
+
+* Backend collapse foundation is now coherent enough for final validation and
+  scoped commit. Frontend/timeline remains in the separate visualization task.

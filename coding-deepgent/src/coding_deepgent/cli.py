@@ -17,6 +17,7 @@ from coding_deepgent.renderers.text import (
 )
 from coding_deepgent.rendering import extract_text
 from coding_deepgent.settings import build_openai_model
+from coding_deepgent.sessions.records import TranscriptProjection
 from coding_deepgent.sessions.session_memory import write_session_memory_artifact
 
 app = typer.Typer(
@@ -39,6 +40,7 @@ def run_once(
     history: list[dict[str, object]] | None = None,
     session_state: dict[str, object] | None = None,
     session_id: str | None = None,
+    transcript_projection: TranscriptProjection | None = None,
 ) -> str:
     return cli_service.run_once(
         prompt=prompt,
@@ -46,6 +48,7 @@ def run_once(
         history=history,
         session_state=session_state,
         session_id=session_id,
+        transcript_projection=transcript_projection,
         settings=build_cli_runtime().settings_loader(),
     )
 
@@ -60,10 +63,17 @@ def _run_prompt(
     history: list[dict[str, Any]] | None = None,
     session_state: dict[str, object] | None = None,
     session_id: str | None = None,
+    transcript_projection: TranscriptProjection | None = None,
 ) -> None:
     runtime = build_cli_runtime()
     try:
-        result = runtime.run_prompt(prompt, history, session_state, session_id)
+        result = runtime.run_prompt(
+            prompt,
+            history,
+            session_state,
+            session_id,
+            transcript_projection,
+        )
     except RuntimeError as exc:  # pragma: no cover
         raise ClickException(str(exc)) from exc
     _emit_text(extract_text(result))
@@ -176,6 +186,7 @@ def sessions_resume(
         raise ClickException("--compact-instructions requires --generate-compact-summary.")
 
     try:
+        transcript_projection = None
         if generate_compact_summary:
             history = cli_service.generated_compacted_continuation_history(
                 loaded,
@@ -183,14 +194,25 @@ def sessions_resume(
                 keep_last=compact_keep_last,
                 custom_instructions=compact_instructions,
             )
+            transcript_projection = cli_service.compacted_history_projection(
+                loaded,
+                history,
+            )
         elif compact_summary is not None:
             history = cli_service.compacted_continuation_history(
                 loaded,
                 summary=compact_summary,
                 keep_last=compact_keep_last,
             )
+            transcript_projection = cli_service.compacted_history_projection(
+                loaded,
+                history,
+            )
         else:
             history = cli_service.selected_continuation_history(loaded)
+            transcript_projection = cli_service.selected_continuation_projection(
+                loaded
+            )
     except (RuntimeError, ValueError) as exc:
         raise ClickException(str(exc)) from exc
 
@@ -199,6 +221,7 @@ def sessions_resume(
         history=history,
         session_state=loaded.state,
         session_id=loaded.summary.session_id,
+        transcript_projection=transcript_projection,
     )
 
 

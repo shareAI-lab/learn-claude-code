@@ -123,6 +123,9 @@ def test_build_agent_wires_runtime_pressure_settings(monkeypatch) -> None:
                 auto_compact_ptl_retry_limit=3,
                 snip_threshold_tokens=2345,
                 collapse_threshold_tokens=3456,
+                model_context_window_tokens=20000,
+                collapse_trigger_ratio=0.75,
+                subagent_spawn_guard_ratio=0.95,
                 keep_recent_tool_results=5,
                 microcompact_time_gap_minutes=60,
                 microcompact_min_saved_tokens=100,
@@ -149,6 +152,8 @@ def test_build_agent_wires_runtime_pressure_settings(monkeypatch) -> None:
     assert runtime_pressure.auto_compact_ptl_retry_limit == 3
     assert runtime_pressure.snip_threshold_tokens == 2345
     assert runtime_pressure.collapse_threshold_tokens == 3456
+    assert runtime_pressure.model_context_window_tokens == 20000
+    assert runtime_pressure.collapse_trigger_ratio == 0.75
     assert runtime_pressure.keep_recent_tool_results == 5
     assert runtime_pressure.microcompact_time_gap_minutes == 60
     assert runtime_pressure.microcompact_min_saved_tokens == 100

@@ -13,7 +13,7 @@ from coding_deepgent.containers import AppContainer
 from coding_deepgent.hooks.dispatcher import dispatch_runtime_hook
 from coding_deepgent.rendering import latest_assistant_text, normalize_messages
 from coding_deepgent.runtime import RuntimeInvocation
-from coding_deepgent.sessions.records import SessionContext
+from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
 
 
 def is_new_session(
@@ -37,6 +37,7 @@ def run_agent_loop(
     build_agent: Callable[..., Any],
     build_runtime_invocation: Callable[..., RuntimeInvocation],
     session_context: SessionContext | None = None,
+    transcript_projection: TranscriptProjection | None = None,
 ) -> str:
     active_container = container or build_container()
     normalized = normalize_messages(messages)
@@ -44,6 +45,7 @@ def run_agent_loop(
         container=active_container,
         session_id=session_id,
         session_context=session_context,
+        transcript_projection=transcript_projection,
     )
 
     if is_new_session(normalized, session_state):

@@ -79,11 +79,13 @@ def test_main_runs_one_integrated_prompt(monkeypatch, capsys) -> None:
         history=None,
         session_state=None,
         session_id=None,
+        transcript_projection=None,
     ) -> str:
         captured["prompt"] = prompt
         captured["history"] = history
         captured["session_state"] = session_state
         captured["session_id"] = session_id
+        captured["transcript_projection"] = transcript_projection
         return "done"
 
     monkeypatch.setattr(cli, "run_once", fake_run_once)
@@ -107,6 +109,7 @@ def test_main_runs_one_integrated_prompt(monkeypatch, capsys) -> None:
         "history": None,
         "session_state": None,
         "session_id": None,
+        "transcript_projection": None,
     }
     assert output == "done"
 
@@ -140,9 +143,9 @@ def _empty_history(session_id: str):
 
 
 def _unused_run_prompt(
-    prompt: str, history=None, session_state=None, session_id=None
+    prompt: str, history=None, session_state=None, session_id=None, transcript_projection=None
 ) -> str:
-    del prompt, history, session_state, session_id
+    del prompt, history, session_state, session_id, transcript_projection
     return "unused"
 
 
@@ -184,11 +187,13 @@ def test_sessions_resume_uses_recovery_brief_continuation_history(
         history=None,
         session_state=None,
         session_id=None,
+        transcript_projection=None,
     ) -> str:
         captured["prompt"] = prompt
         captured["history"] = history
         captured["session_state"] = session_state
         captured["session_id"] = session_id
+        captured["transcript_projection"] = transcript_projection
         return "resumed"
 
     runtime = cli_service.CliRuntime(
@@ -205,42 +210,41 @@ def test_sessions_resume_uses_recovery_brief_continuation_history(
     )
 
     assert result.exit_code == 0
-    assert captured == {
-        "prompt": "continue",
-        "history": [
-            {
-                "role": "system",
-                "content": (
-                    "Resumed session context. Use this brief as continuation "
-                    "context, not as a new user request.\n\n"
-                    "Session: session-1\n"
-                    "Messages: 1\n"
-                    "Updated: "
-                    f"{loaded.summary.updated_at}\n"
-                    "Active todos:\n"
-                    "- Continue work\n"
-                    "Session memory:\n"
-                    "- none\n"
-                    "Recent evidence:\n"
-                    "- [passed] verification: pytest passed\n"
-                    "Recent compacts:\n"
-                    "- none"
-                ),
-            },
-            {"role": "assistant", "content": "existing"},
-        ],
-        "session_state": {
-            "todos": [
-                {
-                    "content": "Continue work",
-                    "status": "in_progress",
-                    "activeForm": "Continuing",
-                }
-            ],
-            "rounds_since_update": 1,
+    assert captured["prompt"] == "continue"
+    assert captured["history"] == [
+        {
+            "role": "system",
+            "content": (
+                "Resumed session context. Use this brief as continuation "
+                "context, not as a new user request.\n\n"
+                "Session: session-1\n"
+                "Messages: 1\n"
+                "Updated: "
+                f"{loaded.summary.updated_at}\n"
+                "Active todos:\n"
+                "- Continue work\n"
+                "Session memory:\n"
+                "- none\n"
+                "Recent evidence:\n"
+                "- [passed] verification: pytest passed\n"
+                "Recent compacts:\n"
+                "- none"
+            ),
         },
-        "session_id": "session-1",
+        {"role": "assistant", "content": "existing"},
+    ]
+    assert captured["session_state"] == {
+        "todos": [
+            {
+                "content": "Continue work",
+                "status": "in_progress",
+                "activeForm": "Continuing",
+            }
+        ],
+        "rounds_since_update": 1,
     }
+    assert captured["session_id"] == "session-1"
+    assert captured["transcript_projection"] is not None
     assert "resumed" in result.stdout
 
 
@@ -255,11 +259,13 @@ def test_sessions_resume_session_memory_option_updates_state_before_run(
         history=None,
         session_state=None,
         session_id=None,
+        transcript_projection=None,
     ) -> str:
         captured["prompt"] = prompt
         captured["history"] = history
         captured["session_state"] = session_state
         captured["session_id"] = session_id
+        captured["transcript_projection"] = transcript_projection
         return "resumed"
 
     runtime = cli_service.CliRuntime(
@@ -335,7 +341,7 @@ def test_sessions_resume_rejects_blank_session_memory(
     called: list[str] = []
 
     def run_prompt(
-        prompt: str, history=None, session_state=None, session_id=None
+        prompt: str, history=None, session_state=None, session_id=None, transcript_projection=None
     ) -> str:
         del history, session_state, session_id
         called.append(prompt)
@@ -398,11 +404,13 @@ def test_sessions_resume_defaults_to_latest_compacted_continuation_when_availabl
         history=None,
         session_state=None,
         session_id=None,
+        transcript_projection=None,
     ) -> str:
         captured["prompt"] = prompt
         captured["history"] = history
         captured["session_state"] = session_state
         captured["session_id"] = session_id
+        captured["transcript_projection"] = transcript_projection
         return "resumed"
 
     runtime = cli_service.CliRuntime(
@@ -461,6 +469,36 @@ def test_selected_continuation_history_uses_loaded_compacted_history(
     assert history[1:] == loaded.compacted_history
 
 
+def test_selected_continuation_history_prefers_loaded_collapsed_history(
+    tmp_path: Path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    context = store.create_session(workdir=workdir, session_id="session-1")
+    store.append_message(context, role="user", content="first")
+    store.append_message(context, role="assistant", content="done")
+    store.append_collapse(
+        context,
+        trigger="threshold_tokens",
+        summary="Earlier work was collapsed.",
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
+    )
+    loaded = store.load_session(session_id="session-1", workdir=workdir)
+
+    history = cli_service.selected_continuation_history(loaded)
+    projection = cli_service.selected_continuation_projection(loaded)
+
+    assert history[0]["role"] == "system"
+    assert history[1:] == loaded.collapsed_history
+    assert projection.entries[0] == ()
+    assert projection.entries[1] == ()
+    assert projection.entries[2] == ()
+    assert projection.entries[3] == (message_id_for_index(1),)
+
+
 def test_selected_continuation_history_preserves_resume_compact_and_evidence_without_duplication(
     tmp_path: Path,
 ) -> None:
@@ -513,11 +551,13 @@ def test_sessions_resume_can_use_manual_compact_summary(
         history=None,
         session_state=None,
         session_id=None,
+        transcript_projection=None,
     ) -> str:
         captured["prompt"] = prompt
         captured["history"] = history
         captured["session_state"] = session_state
         captured["session_id"] = session_id
+        captured["transcript_projection"] = transcript_projection
         return "resumed"
 
     runtime = cli_service.CliRuntime(
@@ -575,11 +615,13 @@ def test_sessions_resume_can_generate_manual_compact_summary(
         history=None,
         session_state=None,
         session_id=None,
+        transcript_projection=None,
     ) -> str:
         captured["prompt"] = prompt
         captured["history"] = history
         captured["session_state"] = session_state
         captured["session_id"] = session_id
+        captured["transcript_projection"] = transcript_projection
         return "resumed"
 
     runtime = cli_service.CliRuntime(
@@ -635,11 +677,13 @@ def test_sessions_resume_generated_compact_summary_uses_session_memory_assist(
         history=None,
         session_state=None,
         session_id=None,
+        transcript_projection=None,
     ) -> str:
         captured["prompt"] = prompt
         captured["history"] = history
         captured["session_state"] = session_state
         captured["session_id"] = session_id
+        captured["transcript_projection"] = transcript_projection
         return "resumed"
 
     runtime = cli_service.CliRuntime(
@@ -762,7 +806,7 @@ def test_sessions_resume_rejects_manual_and_generated_compact_together(
     called: list[str] = []
 
     def run_prompt(
-        prompt: str, history=None, session_state=None, session_id=None
+        prompt: str, history=None, session_state=None, session_id=None, transcript_projection=None
     ) -> str:
         del history, session_state, session_id
         called.append(prompt)
@@ -802,7 +846,7 @@ def test_sessions_resume_rejects_compact_options_without_prompt(
     called: list[str] = []
 
     def run_prompt(
-        prompt: str, history=None, session_state=None, session_id=None
+        prompt: str, history=None, session_state=None, session_id=None, transcript_projection=None
     ) -> str:
         del history, session_state, session_id
         called.append(prompt)
@@ -839,7 +883,7 @@ def test_sessions_resume_rejects_compact_instructions_without_generation(
     called: list[str] = []
 
     def run_prompt(
-        prompt: str, history=None, session_state=None, session_id=None
+        prompt: str, history=None, session_state=None, session_id=None, transcript_projection=None
     ) -> str:
         del history, session_state, session_id
         called.append(prompt)

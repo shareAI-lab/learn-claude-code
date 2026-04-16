@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from pathlib import Path
@@ -18,6 +19,7 @@ from coding_deepgent.compact import (
     RuntimePressureMiddleware,
     collapse_live_messages_with_result,
     collapse_live_messages_with_summary,
+    drain_collapse_projection_messages,
     compact_live_messages_with_result,
     compact_live_messages_with_summary,
     estimate_message_tokens,
@@ -31,7 +33,13 @@ from coding_deepgent.compact import (
 )
 from coding_deepgent.hooks import HookResult, LocalHookRegistry
 from coding_deepgent.runtime import InMemoryEventSink, RuntimeContext
-from coding_deepgent.sessions import JsonlSessionStore, build_recovery_brief, render_recovery_brief
+from coding_deepgent.sessions import (
+    COLLAPSE_EVENT_KIND,
+    JsonlSessionStore,
+    TranscriptProjection,
+    build_recovery_brief,
+    render_recovery_brief,
+)
 from coding_deepgent.tool_system import build_default_registry
 
 
@@ -81,6 +89,7 @@ def runtime_context(
     session_store: JsonlSessionStore | None = None,
     entrypoint: str = "test",
     agent_name: str = "test-agent",
+    transcript_projection: TranscriptProjection | None = None,
 ) -> RuntimeContext:
     session_context = None
     if session_store is not None:
@@ -98,6 +107,7 @@ def runtime_context(
         event_sink=InMemoryEventSink(),
         hook_registry=LocalHookRegistry(),
         session_context=session_context,
+        transcript_projection=transcript_projection,
     )
 
 
@@ -754,6 +764,27 @@ def test_maybe_collapse_messages_uses_summary_when_threshold_exceeded() -> None:
     assert collapsed[2].content == "y" * 5000
 
 
+def test_maybe_collapse_messages_uses_pressure_ratio_when_configured() -> None:
+    summarizer = FakeSummarizer("<summary>Ratio collapse summary.</summary>")
+    messages = [
+        HumanMessage(content="x" * 5000),
+        HumanMessage(content="y" * 5000),
+    ]
+
+    collapsed = maybe_collapse_messages(
+        messages,
+        summarizer=summarizer,
+        threshold_tokens=None,
+        context_window_tokens=3000,
+        trigger_ratio=0.5,
+        keep_recent_messages=1,
+    )
+
+    assert len(summarizer.requests) == 1
+    assert str(collapsed[0].content).startswith(LIVE_COLLAPSE_BOUNDARY_PREFIX)
+    assert "Ratio collapse summary." in str(collapsed[1].content)
+
+
 def test_maybe_collapse_messages_fails_open_on_summarizer_error() -> None:
     def failing_summarizer(_messages):
         raise RuntimeError("collapse unavailable")
@@ -771,6 +802,127 @@ def test_maybe_collapse_messages_fails_open_on_summarizer_error() -> None:
     )
 
     assert collapsed == messages
+
+
+def test_runtime_pressure_middleware_persists_collapse_record_when_projection_exists(
+    tmp_path: Path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    context = runtime_context(
+        tmp_path,
+        session_store=store,
+        transcript_projection=TranscriptProjection(
+            entries=(("msg-000000",), ("msg-000001",))
+        ),
+    )
+    store.append_message(context.session_context, role="assistant", content="continue")
+    middleware = RuntimePressureMiddleware(
+        registry=build_default_registry(include_discovery=True),
+        collapse_threshold_tokens=10,
+        keep_recent_messages_after_collapse=1,
+        auto_compact_threshold_tokens=None,
+    )
+    request = ModelRequest(
+        model=FakeSummarizer("<summary>Generated collapse summary.</summary>"),
+        messages=[
+            HumanMessage(content="x" * 5000),
+            HumanMessage(content="y" * 5000),
+        ],
+        system_message=SystemMessage(content="Base"),
+        tool_choice=None,
+        tools=[],
+        response_format=None,
+        state={"messages": []},
+        runtime=SimpleNamespace(context=context),
+        model_settings={},
+    )
+
+    middleware.wrap_model_call(request, lambda active_request: SimpleNamespace(result="ok"))
+
+    raw_records = [
+        json.loads(line)
+        for line in context.session_context.transcript_path.read_text(encoding="utf-8").splitlines()
+    ]
+    collapse_records = [
+        record for record in raw_records if record.get("event_kind") == COLLAPSE_EVENT_KIND
+    ]
+    loaded = store.load_session(session_id="session-1", workdir=tmp_path)
+
+    assert len(collapse_records) == 1
+    assert loaded.summary.collapse_count == 1
+    assert loaded.collapses[0].summary == "Generated collapse summary."
+    assert loaded.collapses[0].start_message_id == "msg-000000"
+    assert loaded.collapses[0].end_message_id == "msg-000000"
+    assert loaded.collapses[0].covered_message_ids == ("msg-000000",)
+    assert loaded.collapses[0].metadata is not None
+    assert loaded.collapses[0].metadata["source"] == "runtime_pressure"
+
+
+def test_runtime_pressure_middleware_drains_collapse_projection_before_reactive_compact(
+    tmp_path: Path,
+) -> None:
+    middleware = RuntimePressureMiddleware(
+        registry=build_default_registry(include_discovery=True),
+        collapse_threshold_tokens=10,
+        keep_recent_messages_after_collapse=1,
+        auto_compact_threshold_tokens=None,
+    )
+    context = runtime_context(tmp_path)
+    calls: list[list[object]] = []
+    request = ModelRequest(
+        model=FakeSummarizer("<summary>Generated collapse summary.</summary>"),
+        messages=[
+            HumanMessage(content="x" * 5000),
+            HumanMessage(content="y" * 5000),
+        ],
+        system_message=SystemMessage(content="Base"),
+        tool_choice=None,
+        tools=[],
+        response_format=None,
+        state={"messages": []},
+        runtime=SimpleNamespace(context=context),
+        model_settings={},
+    )
+
+    def handler(active_request: ModelRequest):
+        calls.append(list(active_request.messages))
+        if len(calls) == 1:
+            raise RuntimeError("prompt too long for current context window")
+        return SimpleNamespace(result="ok")
+
+    middleware.wrap_model_call(request, handler)
+
+    assert len(calls) == 2
+    assert str(calls[0][0].content).startswith(LIVE_COLLAPSE_BOUNDARY_PREFIX)
+    assert str(calls[0][1].content).startswith(LIVE_COLLAPSE_SUMMARY_PREFIX)
+    assert str(calls[1][0].content).startswith(LIVE_COLLAPSE_BOUNDARY_PREFIX)
+    assert "overflow_drain" in str(calls[1][0].content)
+    assert all(
+        not str(message.content).startswith(LIVE_COLLAPSE_SUMMARY_PREFIX)
+        for message in calls[1]
+        if hasattr(message, "content")
+    )
+    assert [event.kind for event in context.event_sink.snapshot()] == [
+        "context_collapse",
+        "context_collapse",
+    ]
+
+
+def test_drain_collapse_projection_messages_removes_summary() -> None:
+    drained = drain_collapse_projection_messages(
+        collapse_live_messages_with_summary(
+            [
+                HumanMessage(content="old"),
+                HumanMessage(content="recent"),
+            ],
+            summary="Collapsed context.",
+            keep_recent_messages=1,
+        )
+    )
+
+    assert str(drained[0].content).startswith(LIVE_COLLAPSE_BOUNDARY_PREFIX)
+    assert "overflow_drain" in str(drained[0].content)
+    assert drained[1].content == "recent"
 
 
 def test_maybe_auto_compact_messages_uses_summary_when_threshold_exceeded() -> None:

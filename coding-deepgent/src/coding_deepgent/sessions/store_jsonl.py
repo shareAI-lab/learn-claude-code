@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from coding_deepgent.compact.artifacts import (
+    build_collapse_boundary_message,
+    build_collapse_summary_message,
     build_compact_boundary_message,
     build_compact_summary_message,
 )
@@ -17,6 +19,8 @@ from coding_deepgent.runtime import default_runtime_state
 from .contribution_registry import RUNTIME_STATE_CONTRIBUTIONS
 from .contributions import coerce_runtime_state_contributions
 from .records import (
+    COLLAPSE_EVENT_KIND,
+    CollapsedHistorySource,
     COMPACT_EVENT_KIND,
     EVIDENCE_RECORD_TYPE,
     LoadedSession,
@@ -27,6 +31,7 @@ from .records import (
     CompactedHistorySource,
     MessageReference,
     SessionContext,
+    SessionCollapse,
     SessionCompact,
     SessionEvidence,
     SessionLoadError,
@@ -154,6 +159,36 @@ class JsonlSessionStore:
         self._append_record(context.transcript_path, record)
         return context.transcript_path
 
+    def append_collapse(
+        self,
+        context: SessionContext,
+        *,
+        trigger: str,
+        summary: str,
+        start_message_id: str,
+        end_message_id: str,
+        covered_message_ids: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Path:
+        payload = MessageReference(
+            start_message_id=start_message_id,
+            end_message_id=end_message_id,
+            covered_message_ids=tuple(covered_message_ids)
+            if covered_message_ids is not None
+            else None,
+        ).as_payload()
+        payload["trigger"] = trigger.strip()
+        payload["summary"] = summary.strip()
+        if metadata is not None:
+            payload["metadata"] = json.loads(json.dumps(metadata))
+        record = make_transcript_event_record(
+            context,
+            event_kind=COLLAPSE_EVENT_KIND,
+            payload=payload,
+        )
+        self._append_record(context.transcript_path, record)
+        return context.transcript_path
+
     def load_session(
         self,
         *,
@@ -170,6 +205,7 @@ class JsonlSessionStore:
         first_prompt: str | None = None
         evidence: list[SessionEvidence] = []
         compacts: list[SessionCompact] = []
+        collapses: list[SessionCollapse] = []
 
         for record in self._iter_valid_records(context.transcript_path):
             if record.get("session_id") != session_id:
@@ -202,6 +238,10 @@ class JsonlSessionStore:
                 compact_item = self._coerce_compact(record)
                 if compact_item is not None:
                     compacts.append(compact_item)
+                    continue
+                collapse_item = self._coerce_collapse(record)
+                if collapse_item is not None:
+                    collapses.append(collapse_item)
 
         if not history:
             raise SessionLoadError(
@@ -218,6 +258,7 @@ class JsonlSessionStore:
             message_count=len(history),
             evidence_count=len(evidence),
             compact_count=len(compacts),
+            collapse_count=len(collapses),
         )
         state_factory = default_state_factory or default_runtime_state
         state = deepcopy(
@@ -226,15 +267,22 @@ class JsonlSessionStore:
         compacted_history, compacted_history_source = self._build_compacted_history(
             history, compacts
         )
+        collapsed_history, collapsed_history_source = self._build_collapsed_history(
+            history,
+            collapses,
+        )
         return LoadedSession(
             context=context,
             history=history,
             compacted_history=compacted_history,
             compacted_history_source=compacted_history_source,
+            collapsed_history=collapsed_history,
+            collapsed_history_source=collapsed_history_source,
             state=state,
             evidence=evidence,
             compacts=compacts,
             summary=summary,
+            collapses=collapses,
         )
 
     def list_sessions(self, *, workdir: Path) -> list[SessionSummary]:
@@ -390,7 +438,46 @@ class JsonlSessionStore:
         )
 
     def _coerce_compact(self, record: dict[str, Any]) -> SessionCompact | None:
-        if record.get("event_kind") != COMPACT_EVENT_KIND:
+        payload = self._coerce_transcript_reference_payload(
+            record,
+            event_kind=COMPACT_EVENT_KIND,
+        )
+        if payload is None:
+            return None
+        return SessionCompact(
+            trigger=payload["trigger"],
+            summary=payload["summary"],
+            created_at=payload["created_at"],
+            start_message_id=payload["start_message_id"],
+            end_message_id=payload["end_message_id"],
+            covered_message_ids=payload["covered_message_ids"],
+            metadata=payload["metadata"],
+        )
+
+    def _coerce_collapse(self, record: dict[str, Any]) -> SessionCollapse | None:
+        payload = self._coerce_transcript_reference_payload(
+            record,
+            event_kind=COLLAPSE_EVENT_KIND,
+        )
+        if payload is None:
+            return None
+        return SessionCollapse(
+            trigger=payload["trigger"],
+            summary=payload["summary"],
+            created_at=payload["created_at"],
+            start_message_id=payload["start_message_id"],
+            end_message_id=payload["end_message_id"],
+            covered_message_ids=payload["covered_message_ids"],
+            metadata=payload["metadata"],
+        )
+
+    def _coerce_transcript_reference_payload(
+        self,
+        record: dict[str, Any],
+        *,
+        event_kind: str,
+    ) -> dict[str, Any] | None:
+        if record.get("event_kind") != event_kind:
             return None
         payload = record.get("payload")
         created_at = record.get("timestamp")
@@ -415,22 +502,27 @@ class JsonlSessionStore:
         if covered_message_ids is not None and (
             not isinstance(covered_message_ids, list)
             or not covered_message_ids
-            or any(not isinstance(item, str) or not item.strip() for item in covered_message_ids)
+            or any(
+                not isinstance(item, str) or not item.strip()
+                for item in covered_message_ids
+            )
         ):
             return None
         if metadata is not None and not isinstance(metadata, dict):
             return None
-        return SessionCompact(
-            trigger=trigger.strip(),
-            summary=summary.strip(),
-            created_at=created_at,
-            start_message_id=start_message_id.strip(),
-            end_message_id=end_message_id.strip(),
-            covered_message_ids=tuple(item.strip() for item in covered_message_ids)
+        return {
+            "trigger": trigger.strip(),
+            "summary": summary.strip(),
+            "created_at": created_at,
+            "start_message_id": start_message_id.strip(),
+            "end_message_id": end_message_id.strip(),
+            "covered_message_ids": tuple(
+                item.strip() for item in covered_message_ids
+            )
             if isinstance(covered_message_ids, list)
             else None,
-            metadata=deepcopy(metadata) if isinstance(metadata, dict) else None,
-        )
+            "metadata": deepcopy(metadata) if isinstance(metadata, dict) else None,
+        }
 
     def _build_compacted_history(
         self,
@@ -491,4 +583,113 @@ class JsonlSessionStore:
             ),
             build_compact_summary_message(compact.summary),
             *preserved_tail,
+        ]
+
+    def _build_collapsed_history(
+        self,
+        history: list[SessionMessage],
+        collapses: list[SessionCollapse],
+    ) -> tuple[list[dict[str, Any]], CollapsedHistorySource]:
+        projected_history = [message.as_conversation_dict() for message in history]
+        if not collapses:
+            return projected_history, CollapsedHistorySource(
+                mode="raw",
+                reason="no_collapses",
+            )
+
+        selected: list[tuple[int, int, int, SessionCollapse]] = []
+        covered_indexes: set[int] = set()
+        id_to_index = {
+            message.message_id: index for index, message in enumerate(history)
+        }
+        for collapse_index in range(len(collapses) - 1, -1, -1):
+            collapse = collapses[collapse_index]
+            span = self._collapse_span(history, id_to_index, collapse)
+            if span is None:
+                continue
+            start_index, end_index = span
+            span_indexes = set(range(start_index, end_index + 1))
+            if covered_indexes & span_indexes:
+                continue
+            covered_indexes.update(span_indexes)
+            selected.append((start_index, end_index, collapse_index, collapse))
+
+        if not selected:
+            return projected_history, CollapsedHistorySource(
+                mode="raw",
+                reason="no_valid_collapse",
+            )
+
+        selected.sort(key=lambda item: item[0])
+        collapsed: list[dict[str, Any]] = []
+        cursor = 0
+        for start_index, end_index, _collapse_index, collapse in selected:
+            collapsed.extend(
+                message.as_conversation_dict() for message in history[cursor:start_index]
+            )
+            collapsed.extend(
+                self._collapse_projection_messages(
+                    history=history,
+                    collapse=collapse,
+                    start_index=start_index,
+                    end_index=end_index,
+                )
+            )
+            cursor = end_index + 1
+        collapsed.extend(message.as_conversation_dict() for message in history[cursor:])
+        latest_index = max(item[2] for item in selected)
+        return collapsed, CollapsedHistorySource(
+            mode="collapse",
+            reason="valid_collapses",
+            collapse_index=latest_index,
+        )
+
+    def _collapse_span(
+        self,
+        history: list[SessionMessage],
+        id_to_index: dict[str, int],
+        collapse: SessionCollapse,
+    ) -> tuple[int, int] | None:
+        start_index = id_to_index.get(collapse.start_message_id)
+        end_index = id_to_index.get(collapse.end_message_id)
+        if start_index is None or end_index is None or end_index < start_index:
+            return None
+        covered_slice = tuple(
+            message.message_id for message in history[start_index : end_index + 1]
+        )
+        if (
+            collapse.covered_message_ids is not None
+            and collapse.covered_message_ids != covered_slice
+        ):
+            return None
+        return start_index, end_index
+
+    def _collapse_projection_messages(
+        self,
+        *,
+        history: list[SessionMessage],
+        collapse: SessionCollapse,
+        start_index: int,
+        end_index: int,
+    ) -> list[dict[str, Any]]:
+        kept_message_count = len(history) - (end_index - start_index + 1)
+        covered_message_ids = [
+            message.message_id for message in history[start_index : end_index + 1]
+        ]
+        return [
+            build_collapse_boundary_message(
+                trigger=collapse.trigger,
+                original_message_count=len(history),
+                collapsed_message_count=len(covered_message_ids),
+                kept_message_count=kept_message_count,
+                start_message_id=collapse.start_message_id,
+                end_message_id=collapse.end_message_id,
+                covered_message_ids=covered_message_ids,
+                metadata=(
+                    deepcopy(collapse.metadata)
+                    if collapse.metadata is not None
+                    else None
+                ),
+            ),
+            build_collapse_summary_message(collapse.summary),
         ]

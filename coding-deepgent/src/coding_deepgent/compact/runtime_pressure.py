@@ -14,6 +14,8 @@ from coding_deepgent.hooks.dispatcher import dispatch_context_hook
 from coding_deepgent.hooks.events import HookEventName
 from coding_deepgent.runtime.events import RuntimeEvent
 from coding_deepgent.sessions.evidence_events import append_runtime_event_evidence
+from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
+from coding_deepgent.sessions.store_jsonl import JsonlSessionStore
 from coding_deepgent.sessions.session_memory import (
     compact_summary_assist_text,
     read_session_memory_artifact,
@@ -330,6 +332,8 @@ class RuntimePressureMiddleware(AgentMiddleware):
     snip_threshold_tokens: int | None = DEFAULT_SNIP_THRESHOLD_TOKENS
     keep_recent_messages_after_snip: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_SNIP
     collapse_threshold_tokens: int | None = DEFAULT_COLLAPSE_THRESHOLD_TOKENS
+    model_context_window_tokens: int | None = None
+    collapse_trigger_ratio: float | None = None
     keep_recent_messages_after_collapse: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_COLLAPSE
     auto_compact_threshold_tokens: int | None = DEFAULT_AUTO_COMPACT_THRESHOLD_TOKENS
     keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES
@@ -353,12 +357,18 @@ class RuntimePressureMiddleware(AgentMiddleware):
         request: ModelRequest,
         handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
+        current_projection = _runtime_transcript_projection(request)
         processed = snip_messages(
             request.messages,
             threshold_tokens=self.snip_threshold_tokens,
             keep_recent_messages=self.keep_recent_messages_after_snip,
         )
         if _is_snipped(processed):
+            current_projection = _projection_after_snip(
+                request.messages,
+                current_projection,
+                keep_recent_messages=self.keep_recent_messages_after_snip,
+            )
             _emit_runtime_pressure_event(
                 request,
                 kind="snip",
@@ -412,14 +422,32 @@ class RuntimePressureMiddleware(AgentMiddleware):
                     metadata=_microcompact_event_metadata(microcompact_result.stats),
                 )
         session_memory_assist = _session_memory_assist_text(request.state, processed)
+        collapse_source_messages = list(processed)
+        collapse_source_projection = current_projection
         processed = maybe_collapse_messages(
             processed,
             summarizer=request.model,
             threshold_tokens=self.collapse_threshold_tokens,
+            context_window_tokens=self.model_context_window_tokens,
+            trigger_ratio=self.collapse_trigger_ratio,
             keep_recent_messages=self.keep_recent_messages_after_collapse,
             assist_context=session_memory_assist,
         )
         if _is_collapsed(processed):
+            _append_collapse_record(
+                request,
+                source_messages=collapse_source_messages,
+                projection=collapse_source_projection,
+                collapsed_messages=processed,
+                threshold_tokens=self.collapse_threshold_tokens,
+                context_window_tokens=self.model_context_window_tokens,
+                trigger_ratio=self.collapse_trigger_ratio,
+                used_session_memory_assist=session_memory_assist is not None,
+            )
+            collapse_pressure = _pressure_metadata(
+                collapse_source_messages,
+                context_window_tokens=self.model_context_window_tokens,
+            )
             _emit_runtime_pressure_event(
                 request,
                 kind="context_collapse",
@@ -430,6 +458,7 @@ class RuntimePressureMiddleware(AgentMiddleware):
                     "collapsed_messages": _collapse_collapsed_message_count(processed),
                     "used_session_memory_assist": session_memory_assist is not None,
                     "restored_path_count": _restored_path_count(processed),
+                    **collapse_pressure,
                 },
             )
         if self._should_skip_auto_compact():
@@ -482,6 +511,28 @@ class RuntimePressureMiddleware(AgentMiddleware):
         except Exception as exc:
             if not is_prompt_too_long_error(exc):
                 raise
+            drained = drain_collapse_projection_messages(active_request.messages)
+            if drained != list(active_request.messages):
+                _emit_runtime_pressure_event(
+                    request,
+                    kind="context_collapse",
+                    message="Runtime pressure middleware drained collapse projection before reactive compact.",
+                    metadata={
+                        "source": "runtime_pressure",
+                        "strategy": "context_collapse",
+                        "trigger": "overflow_drain",
+                        "drained_summaries": _drained_collapse_summary_count(
+                            active_request.messages
+                        ),
+                    },
+                )
+                drained_request = active_request.override(messages=cast(list[Any], drained))
+                try:
+                    return handler(drained_request)
+                except Exception as drained_exc:
+                    if not is_prompt_too_long_error(drained_exc):
+                        raise
+                    active_request = drained_request
             compacted = reactive_compact_messages(
                 active_request.messages,
                 summarizer=request.model,
@@ -691,16 +742,29 @@ def maybe_collapse_messages(
     *,
     summarizer: Any,
     threshold_tokens: int | None,
+    context_window_tokens: int | None = None,
+    trigger_ratio: float | None = None,
     keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_COLLAPSE,
     assist_context: str | None = None,
 ) -> list[BaseMessage]:
-    if threshold_tokens is None:
+    if threshold_tokens is None and (
+        context_window_tokens is None or trigger_ratio is None
+    ):
         return list(messages)
-    if threshold_tokens < 1:
+    if threshold_tokens is not None and threshold_tokens < 1:
         raise ValueError("threshold_tokens must be positive")
+    if context_window_tokens is not None and context_window_tokens < 1:
+        raise ValueError("context_window_tokens must be positive")
+    if trigger_ratio is not None and not 0 <= trigger_ratio <= 1:
+        raise ValueError("trigger_ratio must be between 0 and 1")
     if keep_recent_messages < 0:
         raise ValueError("keep_recent_messages must be non-negative")
-    if estimate_message_tokens(messages) < threshold_tokens:
+    if not _collapse_pressure_exceeded(
+        messages,
+        threshold_tokens=threshold_tokens,
+        context_window_tokens=context_window_tokens,
+        trigger_ratio=trigger_ratio,
+    ):
         return list(messages)
     try:
         summary = generate_compact_summary(
@@ -794,6 +858,25 @@ def collapse_live_messages_with_result(
         original_token_estimate=estimate_message_tokens(clean_messages),
     )
     return _with_projected_token_estimate(result)
+
+
+def _collapse_pressure_exceeded(
+    messages: Sequence[BaseMessage],
+    *,
+    threshold_tokens: int | None,
+    context_window_tokens: int | None,
+    trigger_ratio: float | None,
+) -> bool:
+    estimated_tokens = estimate_message_tokens(messages)
+    if threshold_tokens is not None and estimated_tokens >= threshold_tokens:
+        return True
+    if (
+        context_window_tokens is not None
+        and trigger_ratio is not None
+        and estimated_tokens / context_window_tokens >= trigger_ratio
+    ):
+        return True
+    return False
 
 
 def maybe_auto_compact_messages(
@@ -988,6 +1071,39 @@ def reactive_compact_messages(
         keep_recent_messages=keep_recent_messages,
         state=state,
     )
+
+
+def drain_collapse_projection_messages(
+    messages: Sequence[BaseMessage],
+) -> list[BaseMessage]:
+    drained: list[BaseMessage] = []
+    index = 0
+    changed = False
+    while index < len(messages):
+        message = messages[index]
+        if (
+            isinstance(message, SystemMessage)
+            and str(message.content).startswith(LIVE_COLLAPSE_BOUNDARY_PREFIX)
+            and index + 1 < len(messages)
+            and isinstance(messages[index + 1], HumanMessage)
+            and str(messages[index + 1].content).startswith(
+                LIVE_COLLAPSE_SUMMARY_PREFIX
+            )
+        ):
+            drained.append(
+                SystemMessage(
+                    content=(
+                        f"{LIVE_COLLAPSE_BOUNDARY_PREFIX}: "
+                        "trigger=overflow_drain; drained_summaries=1"
+                    )
+                )
+            )
+            index += 2
+            changed = True
+            continue
+        drained.append(message)
+        index += 1
+    return drained if changed else list(messages)
 
 
 def estimate_message_tokens(messages: Sequence[BaseMessage]) -> int:
@@ -1372,3 +1488,152 @@ def _restored_path_count(messages: Sequence[BaseMessage]) -> int:
         ):
             return max(0, len(str(message.content).splitlines()) - 1)
     return 0
+
+
+def _runtime_transcript_projection(
+    request: ModelRequest,
+) -> TranscriptProjection | None:
+    context = getattr(request.runtime, "context", None)
+    projection = getattr(context, "transcript_projection", None)
+    return projection if isinstance(projection, TranscriptProjection) else None
+
+
+def _projection_after_snip(
+    messages: Sequence[BaseMessage],
+    projection: TranscriptProjection | None,
+    *,
+    keep_recent_messages: int,
+) -> TranscriptProjection | None:
+    if projection is None or len(projection.entries) != len(messages):
+        return projection
+    clean_pairs = [
+        (message, entry)
+        for message, entry in zip(messages, projection.entries, strict=True)
+        if not _is_live_pressure_artifact_message(message)
+    ]
+    clean_messages = [message for message, _entry in clean_pairs]
+    clean_entries = [entry for _message, entry in clean_pairs]
+    keep_start = _adjust_keep_start_for_live_tool_pairs(
+        clean_messages,
+        max(0, len(clean_messages) - keep_recent_messages),
+    )
+    if keep_start <= 0:
+        return projection
+    return TranscriptProjection(entries=((), *clean_entries[keep_start:]))
+
+
+def _append_collapse_record(
+    request: ModelRequest,
+    *,
+    source_messages: Sequence[BaseMessage],
+    projection: TranscriptProjection | None,
+    collapsed_messages: Sequence[BaseMessage],
+    threshold_tokens: int | None,
+    context_window_tokens: int | None,
+    trigger_ratio: float | None,
+    used_session_memory_assist: bool,
+) -> bool:
+    context = getattr(request.runtime, "context", None)
+    session_context = getattr(context, "session_context", None)
+    if not isinstance(session_context, SessionContext):
+        return False
+    if projection is None or len(projection.entries) != len(source_messages):
+        return False
+    collapsed_count = _collapse_collapsed_message_count(collapsed_messages)
+    if collapsed_count <= 0:
+        return False
+    covered_message_ids = _covered_projection_ids_for_prefix(
+        source_messages,
+        projection,
+        collapsed_count,
+    )
+    if not covered_message_ids:
+        return False
+    summary = _collapse_summary_text(collapsed_messages)
+    if summary is None:
+        return False
+    pressure_metadata = _pressure_metadata(
+        source_messages,
+        context_window_tokens=context_window_tokens,
+    )
+    JsonlSessionStore(session_context.store_dir).append_collapse(
+        session_context,
+        trigger="threshold_tokens",
+        summary=summary,
+        start_message_id=covered_message_ids[0],
+        end_message_id=covered_message_ids[-1],
+        covered_message_ids=list(covered_message_ids),
+        metadata={
+            "source": "runtime_pressure",
+            "strategy": "context_collapse",
+            "estimated_token_count": estimate_message_tokens(source_messages),
+            "threshold_tokens": threshold_tokens,
+            "context_window_tokens": context_window_tokens,
+            "trigger_ratio_percent": int(trigger_ratio * 100)
+            if trigger_ratio is not None
+            else None,
+            "entrypoint": getattr(context, "entrypoint", None),
+            "agent_name": getattr(context, "agent_name", None),
+            "used_session_memory_assist": used_session_memory_assist,
+            **pressure_metadata,
+        },
+    )
+    return True
+
+
+def _covered_projection_ids_for_prefix(
+    messages: Sequence[BaseMessage],
+    projection: TranscriptProjection,
+    collapsed_count: int,
+) -> tuple[str, ...]:
+    covered: list[str] = []
+    remaining = collapsed_count
+    for message, entry in zip(messages, projection.entries, strict=True):
+        if _is_live_pressure_artifact_message(message):
+            continue
+        covered.extend(entry)
+        remaining -= 1
+        if remaining <= 0:
+            break
+    return tuple(covered)
+
+
+def _collapse_summary_text(messages: Sequence[BaseMessage]) -> str | None:
+    if len(messages) < 2 or not isinstance(messages[1], HumanMessage):
+        return None
+    prefix = f"{LIVE_COLLAPSE_SUMMARY_PREFIX}\n\nSummary:\n"
+    content = str(messages[1].content)
+    if not content.startswith(prefix):
+        return None
+    summary = content[len(prefix) :].strip()
+    return summary or None
+
+
+def _pressure_metadata(
+    messages: Sequence[BaseMessage],
+    *,
+    context_window_tokens: int | None,
+) -> dict[str, int]:
+    estimated_tokens = estimate_message_tokens(messages)
+    metadata = {"estimated_token_count": estimated_tokens}
+    if context_window_tokens is not None and context_window_tokens > 0:
+        metadata["context_window_tokens"] = context_window_tokens
+        metadata["estimated_token_ratio_percent"] = int(
+            (estimated_tokens / context_window_tokens) * 100
+        )
+    return metadata
+
+
+def _drained_collapse_summary_count(messages: Sequence[BaseMessage]) -> int:
+    count = 0
+    for index, message in enumerate(messages[:-1]):
+        if (
+            isinstance(message, SystemMessage)
+            and str(message.content).startswith(LIVE_COLLAPSE_BOUNDARY_PREFIX)
+            and isinstance(messages[index + 1], HumanMessage)
+            and str(messages[index + 1].content).startswith(
+                LIVE_COLLAPSE_SUMMARY_PREFIX
+            )
+        ):
+            count += 1
+    return count

@@ -44,6 +44,18 @@ class SessionStore(Protocol):
         metadata: dict[str, Any] | None = None,
     ) -> Path: ...
 
+    def append_collapse(
+        self,
+        context: SessionContext,
+        *,
+        trigger: str,
+        summary: str,
+        start_message_id: str,
+        end_message_id: str,
+        covered_message_ids: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Path: ...
+
     def load_session(
         self,
         *,

@@ -9,7 +9,7 @@ from coding_deepgent.runtime.events import RuntimeEventSink
 from coding_deepgent.settings import Settings
 
 if TYPE_CHECKING:
-    from coding_deepgent.sessions.records import SessionContext
+    from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
 
 DEFAULT_SESSION_ID = "default"
 
@@ -35,6 +35,7 @@ def build_runtime_context(
     entrypoint: str | None = None,
     agent_name: str | None = None,
     session_context: SessionContext | None = None,
+    transcript_projection: TranscriptProjection | None = None,
 ) -> RuntimeContext:
     resolved_session_id = resolve_session_id(session_id)
     return RuntimeContext(
@@ -47,6 +48,9 @@ def build_runtime_context(
         event_sink=event_sink,
         hook_registry=hook_registry,
         session_context=session_context,
+        transcript_projection=transcript_projection,
+        model_context_window_tokens=settings.model_context_window_tokens,
+        subagent_spawn_guard_ratio=settings.subagent_spawn_guard_ratio,
     )
 
 
@@ -69,6 +73,7 @@ def build_runtime_invocation(
     entrypoint: str | None = None,
     agent_name: str | None = None,
     session_context: SessionContext | None = None,
+    transcript_projection: TranscriptProjection | None = None,
 ) -> RuntimeInvocation:
     resolved_session_id = resolve_session_id(session_id)
     return RuntimeInvocation(
@@ -80,6 +85,7 @@ def build_runtime_invocation(
             entrypoint=entrypoint,
             agent_name=agent_name,
             session_context=session_context,
+            transcript_projection=transcript_projection,
         ),
         config=build_runnable_config(session_id=resolved_session_id),
     )

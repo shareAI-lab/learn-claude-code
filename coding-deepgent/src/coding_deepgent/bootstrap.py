@@ -6,7 +6,7 @@ from typing import Any
 from dependency_injector import providers
 
 from coding_deepgent.containers import AppContainer
-from coding_deepgent.sessions.records import SessionContext
+from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
 
 
 def build_container(
@@ -37,8 +37,10 @@ def build_runtime_invocation(
     container: AppContainer,
     session_id: str | None = None,
     session_context: SessionContext | None = None,
+    transcript_projection: TranscriptProjection | None = None,
 ):
     return container.runtime.invocation(
         session_id=session_id,
         session_context=session_context,
+        transcript_projection=transcript_projection,
     )

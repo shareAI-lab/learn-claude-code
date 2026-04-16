@@ -80,6 +80,17 @@ def append_compact(
     metadata: dict[str, Any] | None = None,
 ) -> Path: ...
 
+def append_collapse(
+    context: SessionContext,
+    *,
+    trigger: str,
+    summary: str,
+    start_message_id: str,
+    end_message_id: str,
+    covered_message_ids: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> Path: ...
+
 class SessionMessage:
     message_id: str
     created_at: str
@@ -91,10 +102,13 @@ class LoadedSession:
     history: list[SessionMessage]
     compacted_history: list[dict[str, Any]]
     compacted_history_source: CompactedHistorySource
+    collapsed_history: list[dict[str, Any]]
+    collapsed_history_source: CollapsedHistorySource
     state: dict[str, Any]
     evidence: list[SessionEvidence]
     compacts: list[SessionCompact]
     summary: SessionSummary
+    collapses: list[SessionCollapse]
 
 class RuntimeContext:
     session_context: SessionContext | None = None
@@ -248,6 +262,54 @@ class CompactedHistorySource:
   append-order `msg-######` sequence from the existing raw message ledger, not
   from the count of synthetic compact projection messages.
 
+#### Collapse Transcript Records
+
+- Live collapse persistence uses the same append-only transcript-event ledger as
+  manual compact, but with `event_kind == "collapse"`.
+- Collapse records must be loaded into `LoadedSession.collapses`.
+- Collapse records must increment `SessionSummary.collapse_count`.
+- Collapse records must not appear in `LoadedSession.history`.
+- Collapse records must not replace or delete raw message, compact, state, or
+  evidence records.
+- Collapse records must reference raw transcript messages through stable message
+  IDs even though the collapse itself was decided from a live model-facing
+  projection.
+- When a recorded runtime invocation has transcript-projection lineage for the
+  current model-facing history, live collapse may persist a collapse
+  transcript-event record whose payload contains:
+  - `trigger`
+  - `summary`
+  - `start_message_id`
+  - `end_message_id`
+  - optional `covered_message_ids`
+  - optional bounded `metadata`
+- If a live collapse projection contains no recoverable raw message coverage,
+  the runtime must fail open and skip collapse-record persistence rather than
+  inventing implicit indexes.
+
+#### Load-Time Collapsed History View
+
+- `JsonlSessionStore.load_session()` must derive
+  `LoadedSession.collapsed_history` from raw `LoadedSession.history` plus valid
+  `LoadedSession.collapses`.
+- The collapsed view is a separate model-facing projection; raw transcript
+  remains complete in `LoadedSession.history`.
+- Collapse replay must use stable message references only:
+  - `start_message_id`
+  - `end_message_id`
+  - optional exact `covered_message_ids`
+- Invalid collapse references must not synthesize indexes or legacy fallbacks.
+  Invalid events are skipped and the projected raw history remains available.
+- Overlapping collapse records are deterministic: newer valid records win and
+  older overlapping records are skipped.
+- `LoadedSession.collapsed_history_source.mode` must be:
+  - `"collapse"` when at least one collapse event contributes to the selected
+    projection
+  - `"raw"` when no valid collapse projection exists
+- Compact and collapse coexist as projection event families over raw
+  transcript. Selected continuation should prefer a valid collapse projection
+  over compact projection to avoid stacking duplicate synthetic summaries.
+
 #### Load-Time Compacted History View
 
 - `JsonlSessionStore.load_session()` must derive `LoadedSession.compacted_history`
@@ -307,6 +369,12 @@ class CompactedHistorySource:
 | latest compact record is invalid but an earlier compact record is valid | `LoadedSession.compacted_history` uses the earlier valid compact record |
 | compact record exists and derived tail is valid | `LoadedSession.compacted_history` contains boundary + summary + preserved tail |
 | no compact record yields a valid derived tail | `LoadedSession.compacted_history` falls back to projected raw history |
+| live collapse runs during recorded session and raw projection lineage exists | one collapse transcript event is appended and loaded into `LoadedSession.collapses` |
+| live collapse runs without recoverable raw message coverage | model-facing collapse still succeeds; collapse record persistence is skipped |
+| valid collapse records exist | `LoadedSession.collapsed_history` contains collapse boundary + summary + preserved raw messages |
+| invalid collapse refs exist | invalid events are skipped; collapsed view falls back to raw projection if none are valid |
+| overlapping collapse records exist | newest non-overlapping valid records define the deterministic projection |
+| compact and collapse records both exist | selected continuation uses collapse projection without stacking compact and collapse summaries |
 | selected compacted view comes from compact record at index N | `compacted_history_source == compact/latest_valid_compact/N` |
 | selected compacted view falls back to raw history | `compacted_history_source == raw/<reason>/None` |
 | valid current session-memory artifact | recovery brief renders `Session memory:` with `[current]`; generated compact summary may receive assist text |
@@ -372,16 +440,21 @@ Required focused tests:
 - `coding-deepgent/tests/test_cli.py::test_run_once_records_new_and_resumed_session_transcript`
 - `coding-deepgent/tests/test_cli.py::test_run_once_records_compact_metadata_without_message_index_skew`
 - `coding-deepgent/tests/test_cli.py::test_selected_continuation_history_uses_loaded_compacted_history`
+- `coding-deepgent/tests/test_cli.py::test_selected_continuation_history_prefers_loaded_collapsed_history`
 - `coding-deepgent/tests/test_cli.py::test_sessions_resume_defaults_to_latest_compacted_continuation_when_available`
 - `coding-deepgent/tests/test_compact_artifacts.py`
 - `coding-deepgent/tests/test_compact_summarizer.py`
 - `coding-deepgent/tests/test_message_projection.py`
 - `coding-deepgent/tests/test_sessions.py::test_compact_record_roundtrip_does_not_enter_history`
+- `coding-deepgent/tests/test_sessions.py::test_collapse_record_roundtrip_does_not_enter_history`
+- `coding-deepgent/tests/test_sessions.py::test_load_session_collapsed_history_uses_newest_non_overlapping_collapses`
+- `coding-deepgent/tests/test_sessions.py::test_load_session_collapsed_history_falls_back_to_raw_on_invalid_refs`
 - `coding-deepgent/tests/test_sessions.py::test_load_session_ignores_invalid_compact_records`
 - `coding-deepgent/tests/test_sessions.py::test_load_session_compacted_history_falls_back_to_raw_history_on_invalid_tail_range`
 - `coding-deepgent/tests/test_sessions.py::test_load_session_compacted_history_uses_newest_valid_compact_record`
 - `coding-deepgent/tests/test_sessions.py::test_load_session_compacted_history_uses_latest_valid_compact_record`
 - `coding-deepgent/tests/test_sessions.py::test_recovery_brief_renders_verification_provenance_only`
+- `coding-deepgent/tests/test_runtime_pressure.py::test_runtime_pressure_middleware_persists_collapse_record_when_projection_exists`
 - `coding-deepgent/tests/test_memory.py::test_memory_quality_policy_rejects_transient_and_duplicate_entries`
 - `coding-deepgent/tests/test_memory_integration.py::test_save_memory_tool_rejects_transient_memory_via_create_agent_runtime`
 
@@ -392,6 +465,8 @@ Required assertion points:
 - `<analysis>` is absent from compact artifact summary text
 - compact summary artifact is not merged by `project_messages()`
 - compact transcript records are separated from `LoadedSession.history`
+- collapse transcript records are separated from `LoadedSession.history`
+- collapsed history view is derived at load time and kept separate from raw history
 - compacted history view is derived at load time and kept separate from raw history
 - persisted transcript `message_id` values remain contiguous append-order IDs
 - compacted continuation persists `start_message_id` / `end_message_id` and

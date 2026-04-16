@@ -5,6 +5,7 @@ from typing import Any, cast
 from types import SimpleNamespace
 
 import pytest
+from langchain.messages import HumanMessage
 from langgraph.store.memory import InMemoryStore
 from pydantic import ValidationError
 
@@ -150,6 +151,63 @@ def test_run_subagent_tool_schema_rejects_runtime_creep_fields() -> None:
         RunSubagentInput.model_validate(
             {"task": "x", "background": True, "runtime": runtime}
         )
+
+
+def test_run_subagent_pressure_guard_blocks_high_pressure() -> None:
+    runtime = SimpleNamespace(
+        store=InMemoryStore(),
+        state={"messages": [HumanMessage(content="x" * 5000)]},
+        context=RuntimeContext(
+            session_id="session-1",
+            workdir=Path.cwd(),
+            trusted_workdirs=(),
+            entrypoint="test",
+            agent_name="coding-deepgent",
+            skill_dir=Path.cwd() / "skills",
+            event_sink=InMemoryEventSink(),
+            hook_registry=LocalHookRegistry(),
+            model_context_window_tokens=1000,
+            subagent_spawn_guard_ratio=0.5,
+        ),
+    )
+
+    result = run_subagent_task(
+        task="inspect",
+        runtime=cast(Any, runtime),
+    )
+
+    assert result.content.startswith("Subagent spawn blocked")
+    assert runtime.context.event_sink.snapshot()[0].kind == "subagent_spawn_guard"
+
+
+def test_run_subagent_pressure_guard_records_evidence(tmp_path: Path) -> None:
+    session_store = JsonlSessionStore(tmp_path / "sessions-store")
+    runtime = runtime_with_recorded_session(
+        InMemoryStore(),
+        session_store=session_store,
+        workdir=tmp_path,
+    )
+    runtime.state = {"messages": [HumanMessage(content="x" * 5000)]}
+    runtime.context = RuntimeContext(
+        session_id=runtime.context.session_id,
+        workdir=runtime.context.workdir,
+        trusted_workdirs=runtime.context.trusted_workdirs,
+        entrypoint=runtime.context.entrypoint,
+        agent_name=runtime.context.agent_name,
+        skill_dir=runtime.context.skill_dir,
+        event_sink=runtime.context.event_sink,
+        hook_registry=runtime.context.hook_registry,
+        session_context=runtime.context.session_context,
+        model_context_window_tokens=1000,
+        subagent_spawn_guard_ratio=0.5,
+    )
+
+    output = cast(Any, run_subagent).func("inspect", runtime)
+    loaded = session_store.load_session(session_id="session-1", workdir=tmp_path)
+
+    assert output.startswith("Subagent spawn blocked")
+    assert loaded.evidence[0].kind == "runtime_event"
+    assert loaded.evidence[0].metadata["event_kind"] == "subagent_spawn_guard"
 
 
 def test_verifier_subagent_requires_plan_id() -> None:

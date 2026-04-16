@@ -15,6 +15,7 @@ from coding_deepgent.sessions.contributions import (
     compact_assist_text,
 )
 from coding_deepgent.sessions.records import (
+    CollapsedHistorySource,
     CompactedHistorySource,
     LoadedSession,
     SessionContext,
@@ -56,6 +57,12 @@ def _loaded_session(state: dict[str, Any] | None = None) -> LoadedSession:
             reason="no_compacts",
             compact_index=None,
         ),
+        collapsed_history=[{"role": "user", "content": "hello"}],
+        collapsed_history_source=CollapsedHistorySource(
+            mode="raw",
+            reason="no_collapses",
+            collapse_index=None,
+        ),
         state=state or {},
         evidence=[],
         compacts=[],
@@ -80,10 +87,13 @@ def _loaded_session_with_evidence(
         history=loaded.history,
         compacted_history=loaded.compacted_history,
         compacted_history_source=loaded.compacted_history_source,
+        collapsed_history=loaded.collapsed_history,
+        collapsed_history_source=loaded.collapsed_history_source,
         state=loaded.state,
         evidence=evidence,
         compacts=loaded.compacts,
         summary=loaded.summary,
+        collapses=loaded.collapses,
     )
 
 

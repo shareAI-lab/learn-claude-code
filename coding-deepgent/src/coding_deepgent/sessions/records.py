@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -12,6 +12,7 @@ TRANSCRIPT_EVENT_RECORD_TYPE = "transcript_event"
 STATE_SNAPSHOT_RECORD_TYPE = "state_snapshot"
 EVIDENCE_RECORD_TYPE = "evidence"
 COMPACT_EVENT_KIND = "compact"
+COLLAPSE_EVENT_KIND = "collapse"
 
 
 def iso_timestamp_now() -> str:
@@ -44,6 +45,7 @@ class SessionSummary:
     message_count: int
     evidence_count: int = 0
     compact_count: int = 0
+    collapse_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +77,19 @@ class SessionMessage:
 
 
 @dataclass(frozen=True, slots=True)
+class TranscriptProjection:
+    entries: tuple[tuple[str, ...], ...]
+
+    def covered_message_ids_for_prefix(self, count: int) -> tuple[str, ...]:
+        if count <= 0:
+            return ()
+        covered: list[str] = []
+        for entry in self.entries[:count]:
+            covered.extend(entry)
+        return tuple(covered)
+
+
+@dataclass(frozen=True, slots=True)
 class MessageReference:
     start_message_id: str
     end_message_id: str
@@ -102,10 +117,28 @@ class SessionCompact:
 
 
 @dataclass(frozen=True, slots=True)
+class SessionCollapse:
+    trigger: str
+    summary: str
+    created_at: str
+    start_message_id: str
+    end_message_id: str
+    covered_message_ids: tuple[str, ...] | None = None
+    metadata: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class CompactedHistorySource:
     mode: Literal["raw", "compact"]
     reason: str
     compact_index: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CollapsedHistorySource:
+    mode: Literal["raw", "collapse"]
+    reason: str
+    collapse_index: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,10 +147,13 @@ class LoadedSession:
     history: list[SessionMessage]
     compacted_history: list[dict[str, Any]]
     compacted_history_source: CompactedHistorySource
+    collapsed_history: list[dict[str, Any]]
+    collapsed_history_source: CollapsedHistorySource
     state: dict[str, Any]
     evidence: list[SessionEvidence]
     compacts: list[SessionCompact]
     summary: SessionSummary
+    collapses: list[SessionCollapse] = field(default_factory=list)
 
 
 class SessionLoadError(RuntimeError):

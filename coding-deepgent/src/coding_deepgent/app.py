@@ -10,7 +10,7 @@ from coding_deepgent import bootstrap
 from coding_deepgent.containers import AppContainer
 from coding_deepgent.settings import build_openai_model, load_settings
 from coding_deepgent.runtime import RuntimeInvocation, default_runtime_state
-from coding_deepgent.sessions.records import SessionContext
+from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
 
 
 def build_container() -> AppContainer:
@@ -33,12 +33,14 @@ def build_runtime_invocation(
     container: AppContainer | None = None,
     session_id: str | None = None,
     session_context: SessionContext | None = None,
+    transcript_projection: TranscriptProjection | None = None,
 ) -> RuntimeInvocation:
     active_container = container or build_container()
     return bootstrap.build_runtime_invocation(
         container=active_container,
         session_id=session_id,
         session_context=session_context,
+        transcript_projection=transcript_projection,
     )
 
 
@@ -49,6 +51,7 @@ def agent_loop(
     session_state: MutableMapping[str, Any] | None = None,
     session_id: str | None = None,
     session_context: SessionContext | None = None,
+    transcript_projection: TranscriptProjection | None = None,
 ) -> str:
     active_session_state = (
         session_state if session_state is not None else default_runtime_state()
@@ -62,4 +65,5 @@ def agent_loop(
         build_agent=build_agent,
         build_runtime_invocation=build_runtime_invocation,
         session_context=session_context,
+        transcript_projection=transcript_projection,
     )

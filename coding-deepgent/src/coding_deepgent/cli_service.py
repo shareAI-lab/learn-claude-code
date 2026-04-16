@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from coding_deepgent.compact import (
+    compact_metadata,
     compact_messages_with_summary,
     generate_compact_summary,
 )
@@ -16,6 +17,7 @@ from coding_deepgent.sessions import (
     LoadedSession,
     SessionLoadError,
     SessionMessage,
+    TranscriptProjection,
     build_recovery_brief,
     build_resume_context_message,
     render_recovery_brief,
@@ -56,7 +58,14 @@ class CliRuntime:
     list_sessions: Callable[[], Sequence[SessionSummaryView]]
     load_session: Callable[[str], LoadedSession]
     run_prompt: Callable[
-        [str, list[dict[str, Any]] | None, dict[str, Any] | None, str | None], str
+        [
+            str,
+            list[dict[str, Any]] | None,
+            dict[str, Any] | None,
+            str | None,
+            TranscriptProjection | None,
+        ],
+        str,
     ]
     doctor_checks: Callable[[], Sequence[DoctorCheck]]
 
@@ -120,6 +129,7 @@ def run_once(
     history: list[dict[str, Any]] | None = None,
     session_state: dict[str, Any] | None = None,
     session_id: str | None = None,
+    transcript_projection: TranscriptProjection | None = None,
 ) -> str:
     return run_prompt_with_recording(
         settings=settings,
@@ -128,6 +138,7 @@ def run_once(
         history=history,
         session_state=session_state,
         session_id=session_id,
+        transcript_projection=transcript_projection,
     )
 
 
@@ -139,17 +150,83 @@ def _conversation_messages(messages: Sequence[SessionMessage]) -> list[dict[str,
     return [message.as_conversation_dict() for message in messages]
 
 
-def _compact_reference_ids(
-    messages: Sequence[SessionMessage], *, keep_last: int
-) -> tuple[str, str, list[str] | None] | tuple[None, None, None]:
-    keep_start = max(0, len(messages) - keep_last)
-    covered_messages = list(messages[:keep_start])
-    if not covered_messages:
-        return None, None, None
-    return (
-        covered_messages[0].message_id,
-        covered_messages[-1].message_id,
-        [message.message_id for message in covered_messages],
+def _project_transcript_projection(
+    messages: list[dict[str, Any]],
+    entry_ids: list[tuple[str, ...]],
+) -> TranscriptProjection:
+    projected_messages: list[dict[str, Any]] = []
+    projected_ids: list[tuple[str, ...]] = []
+    for message, ids in zip(messages, entry_ids, strict=True):
+        normalized = {"role": message.get("role", "user"), "content": message.get("content", "")}
+        if "metadata" in message:
+            normalized["metadata"] = message["metadata"]
+        if projected_messages and projected_messages[-1].get("role") == normalized.get("role") and isinstance(projected_messages[-1].get("content"), str) and isinstance(normalized.get("content"), str) and set(projected_messages[-1].keys()) == {"role", "content"} and set(normalized.keys()) == {"role", "content"}:
+            projected_messages[-1]["content"] = (
+                f"{projected_messages[-1]['content']}\n\n{normalized['content']}"
+            )
+            projected_ids[-1] = (*projected_ids[-1], *ids)
+            continue
+        projected_messages.append(normalized)
+        projected_ids.append(ids)
+    return TranscriptProjection(entries=tuple(projected_ids))
+
+
+def continuation_projection(loaded: LoadedSession) -> TranscriptProjection:
+    messages = continuation_history(loaded)
+    return _project_transcript_projection(
+        messages,
+        [()] + [(message.message_id,) for message in loaded.history],
+    )
+
+
+def selected_continuation_projection(loaded: LoadedSession) -> TranscriptProjection:
+    if loaded.collapsed_history_source.mode == "collapse":
+        return _collapsed_projection(loaded, selected_continuation_history(loaded))
+    if loaded.compacted_history_source.mode != "compact":
+        return continuation_projection(loaded)
+    compact = loaded.compacts[loaded.compacted_history_source.compact_index or 0]
+    return _compacted_projection_from_end_message_id(
+        loaded,
+        end_message_id=compact.end_message_id,
+        messages=selected_continuation_history(loaded),
+    )
+
+
+def compacted_history_projection(
+    loaded: LoadedSession,
+    history: list[dict[str, Any]],
+) -> TranscriptProjection:
+    if len(history) < 3:
+        return continuation_projection(loaded)
+    boundary = compact_metadata(history[1])
+    if boundary is None:
+        return continuation_projection(loaded)
+    end_message_id = boundary.get("end_message_id")
+    if not isinstance(end_message_id, str) or not end_message_id.strip():
+        return continuation_projection(loaded)
+    return _compacted_projection_from_end_message_id(
+        loaded,
+        end_message_id=end_message_id.strip(),
+        messages=history,
+    )
+
+
+def _compacted_projection_from_end_message_id(
+    loaded: LoadedSession,
+    *,
+    end_message_id: str,
+    messages: list[dict[str, Any]],
+) -> TranscriptProjection:
+    message_index_by_id = {
+        message.message_id: index for index, message in enumerate(loaded.history)
+    }
+    end_index = message_index_by_id.get(end_message_id, -1)
+    tail_entries = [
+        (message.message_id,) for message in loaded.history[end_index + 1 :]
+    ]
+    return _project_transcript_projection(
+        messages,
+        [(), (), *([()] if len(messages) > 2 else []), *tail_entries],
     )
 
 
@@ -161,10 +238,65 @@ def continuation_history(loaded: LoadedSession) -> list[dict[str, Any]]:
 
 
 def selected_continuation_history(loaded: LoadedSession) -> list[dict[str, Any]]:
+    if loaded.collapsed_history_source.mode == "collapse":
+        return [
+            build_resume_context_message(loaded),
+            *[dict(message) for message in loaded.collapsed_history],
+        ]
     return [
         build_resume_context_message(loaded),
         *[dict(message) for message in loaded.compacted_history],
     ]
+
+
+def _collapsed_projection(
+    loaded: LoadedSession,
+    messages: list[dict[str, Any]],
+) -> TranscriptProjection:
+    selected = _selected_collapse_spans(loaded)
+    if not selected:
+        return continuation_projection(loaded)
+    entries: list[tuple[str, ...]] = []
+    cursor = 0
+    for start_index, end_index, _collapse_index in selected:
+        entries.extend(
+            (message.message_id,) for message in loaded.history[cursor:start_index]
+        )
+        entries.extend(((), ()))
+        cursor = end_index + 1
+    entries.extend((message.message_id,) for message in loaded.history[cursor:])
+    return _project_transcript_projection(messages, [(), *entries])
+
+
+def _selected_collapse_spans(
+    loaded: LoadedSession,
+) -> list[tuple[int, int, int]]:
+    id_to_index = {
+        message.message_id: index for index, message in enumerate(loaded.history)
+    }
+    selected: list[tuple[int, int, int]] = []
+    covered_indexes: set[int] = set()
+    for collapse_index in range(len(loaded.collapses) - 1, -1, -1):
+        collapse = loaded.collapses[collapse_index]
+        start_index = id_to_index.get(collapse.start_message_id)
+        end_index = id_to_index.get(collapse.end_message_id)
+        if start_index is None or end_index is None or end_index < start_index:
+            continue
+        covered_slice = tuple(
+            message.message_id
+            for message in loaded.history[start_index : end_index + 1]
+        )
+        if (
+            collapse.covered_message_ids is not None
+            and collapse.covered_message_ids != covered_slice
+        ):
+            continue
+        span_indexes = set(range(start_index, end_index + 1))
+        if covered_indexes & span_indexes:
+            continue
+        covered_indexes.update(span_indexes)
+        selected.append((start_index, end_index, collapse_index))
+    return sorted(selected, key=lambda item: item[0])
 
 
 def compacted_continuation_history(
@@ -173,22 +305,47 @@ def compacted_continuation_history(
     summary: str,
     keep_last: int = 4,
 ) -> list[dict[str, Any]]:
-    start_message_id, end_message_id, covered_message_ids = _compact_reference_ids(
-        loaded.history,
-        keep_last=keep_last,
-    )
     artifact = compact_messages_with_summary(
         _conversation_messages(loaded.history),
         summary=summary,
         keep_last=keep_last,
-        start_message_id=start_message_id,
-        end_message_id=end_message_id,
-        covered_message_ids=covered_message_ids,
     )
+    covered_messages = list(loaded.history[: artifact.summarized_message_count])
+    if covered_messages:
+        artifact.messages[0]["metadata"]["coding_deepgent_compact"]["start_message_id"] = covered_messages[0].message_id
+        artifact.messages[0]["metadata"]["coding_deepgent_compact"]["end_message_id"] = covered_messages[-1].message_id
+        artifact.messages[0]["metadata"]["coding_deepgent_compact"]["covered_message_ids"] = [
+            message.message_id for message in covered_messages
+        ]
     return [
         build_resume_context_message(loaded),
         *artifact.messages,
     ]
+
+
+def compacted_continuation_projection(
+    loaded: LoadedSession,
+    *,
+    summary: str,
+    keep_last: int = 4,
+) -> TranscriptProjection:
+    artifact = compact_messages_with_summary(
+        _conversation_messages(loaded.history),
+        summary=summary,
+        keep_last=keep_last,
+    )
+    tail_entries = [
+        (message.message_id,)
+        for message in loaded.history[artifact.summarized_message_count :]
+    ]
+    messages = [
+        build_resume_context_message(loaded),
+        *artifact.messages,
+    ]
+    return _project_transcript_projection(
+        messages,
+        [(), (), (), *tail_entries],
+    )
 
 
 def generated_compacted_continuation_history(
@@ -239,13 +396,14 @@ def build_cli_runtime(
         load_session=lambda session_id: load_session(
             active_settings_loader(), session_id
         ),
-        run_prompt=lambda prompt, history, session_state, session_id: run_once(
+        run_prompt=lambda prompt, history, session_state, session_id, transcript_projection: run_once(
             settings=active_settings_loader(),
             prompt=prompt,
             run_agent=run_agent,
             history=history,
             session_state=session_state,
             session_id=session_id,
+            transcript_projection=transcript_projection,
         ),
         doctor_checks=lambda: doctor_checks(active_settings_loader()),
     )

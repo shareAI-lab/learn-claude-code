@@ -13,6 +13,7 @@ RUNTIME_EVIDENCE_KINDS = frozenset(
         "context_collapse",
         "auto_compact",
         "reactive_compact",
+        "subagent_spawn_guard",
     }
 )
 
@@ -73,6 +74,10 @@ def _safe_metadata(event: RuntimeEvent) -> dict[str, object]:
         "max_failures",
         "collapsed_messages",
         "restored_path_count",
+        "estimated_token_count",
+        "context_window_tokens",
+        "estimated_token_ratio_percent",
+        "drained_summaries",
     ):
         value = event.metadata.get(key)
         if isinstance(value, int) and value >= 0:
@@ -106,6 +111,8 @@ def _summary(event: RuntimeEvent, metadata: dict[str, object]) -> str:
         return "Live auto-compact summarized history."
     if event.kind == "reactive_compact":
         return "Reactive compact retried after prompt-too-long."
+    if event.kind == "subagent_spawn_guard":
+        return "Subagent spawn blocked by context pressure guard."
     return event.message
 
 
@@ -120,6 +127,7 @@ def _status(event: RuntimeEvent) -> str:
         "context_collapse",
         "auto_compact",
         "reactive_compact",
+        "subagent_spawn_guard",
     }:
         return "completed"
     return "recorded"

@@ -10,6 +10,11 @@ COMPACT_SUMMARY_PREFIX = (
     "This session is being continued from a compacted conversation."
 )
 COMPACT_METADATA_KEY = "coding_deepgent_compact"
+COLLAPSE_BOUNDARY_PREFIX = "coding-deepgent collapse boundary"
+COLLAPSE_SUMMARY_PREFIX = (
+    "This session is being continued from a collapsed conversation."
+)
+COLLAPSE_METADATA_KEY = "coding_deepgent_collapse"
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +143,65 @@ def build_compact_summary_message(summary: str) -> dict[str, Any]:
             {
                 "type": "text",
                 "text": f"{COMPACT_SUMMARY_PREFIX}\n\nSummary:\n{summary}",
+            }
+        ],
+    }
+
+
+def build_collapse_boundary_message(
+    *,
+    trigger: str,
+    original_message_count: int,
+    collapsed_message_count: int,
+    kept_message_count: int,
+    start_message_id: str,
+    end_message_id: str,
+    covered_message_ids: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    collapse_metadata_payload: dict[str, Any] = {
+        "kind": "boundary",
+        "trigger": trigger,
+        "original_message_count": original_message_count,
+        "collapsed_message_count": collapsed_message_count,
+        "kept_message_count": kept_message_count,
+        "start_message_id": start_message_id,
+        "end_message_id": end_message_id,
+    }
+    if covered_message_ids:
+        collapse_metadata_payload["covered_message_ids"] = list(covered_message_ids)
+    if metadata is not None:
+        collapse_metadata_payload["metadata"] = deepcopy(metadata)
+    return {
+        "role": "system",
+        "metadata": {COLLAPSE_METADATA_KEY: collapse_metadata_payload},
+        "content": [
+            {
+                "type": "text",
+                "text": (
+                    f"{COLLAPSE_BOUNDARY_PREFIX}: trigger={trigger}; "
+                    f"original_messages={original_message_count}; "
+                    f"collapsed_messages={collapsed_message_count}; "
+                    f"kept_messages={kept_message_count}"
+                ),
+            }
+        ],
+    }
+
+
+def build_collapse_summary_message(summary: str) -> dict[str, Any]:
+    return {
+        "role": "user",
+        "metadata": {
+            COLLAPSE_METADATA_KEY: {
+                "kind": "summary",
+                "summary": summary,
+            }
+        },
+        "content": [
+            {
+                "type": "text",
+                "text": f"{COLLAPSE_SUMMARY_PREFIX}\n\nSummary:\n{summary}",
             }
         ],
     }

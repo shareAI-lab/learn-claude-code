@@ -7,11 +7,14 @@ from typing import Any, cast
 
 from langchain.agents import create_agent
 from langchain.tools import ToolRuntime, tool
+from langchain_core.messages import BaseMessage
 from langchain_core.tools import BaseTool
 
+from coding_deepgent.compact.runtime_pressure import estimate_message_tokens
 from coding_deepgent.filesystem import glob_search, grep_search, read_file
 from coding_deepgent.rendering import latest_assistant_text
-from coding_deepgent.runtime import RuntimeContext, RuntimeInvocation
+from coding_deepgent.runtime import RuntimeContext, RuntimeEvent, RuntimeInvocation
+from coding_deepgent.sessions.evidence_events import append_runtime_event_evidence
 from coding_deepgent.sessions.records import SessionContext
 from coding_deepgent.sessions.store_jsonl import JsonlSessionStore
 from coding_deepgent.settings import build_openai_model
@@ -324,6 +327,13 @@ def run_subagent_task(
     child_agent_factory: ChildAgentFactory | None = None,
 ) -> SubagentResult:
     allowlist = child_tool_allowlist(agent_type)
+    guard_message = _subagent_spawn_pressure_guard(runtime)
+    if guard_message is not None:
+        return SubagentResult(
+            content=guard_message,
+            agent_type=agent_type,
+            tool_allowlist=allowlist,
+        )
     if agent_type == "verifier":
         if runtime is None or runtime.store is None:
             raise RuntimeError("Verifier subagent requires task store")
@@ -363,6 +373,53 @@ def run_subagent_task(
     return SubagentResult(
         content=content, agent_type=agent_type, tool_allowlist=allowlist
     )
+
+
+def _subagent_spawn_pressure_guard(runtime: ToolRuntime | None) -> str | None:
+    if runtime is None:
+        return None
+    context = getattr(runtime, "context", None)
+    if not isinstance(context, RuntimeContext):
+        return None
+    context_window = context.model_context_window_tokens
+    guard_ratio = context.subagent_spawn_guard_ratio
+    if context_window is None or guard_ratio is None or context_window < 1:
+        return None
+    state = getattr(runtime, "state", None)
+    if not isinstance(state, dict):
+        return None
+    messages = state.get("messages")
+    if not isinstance(messages, list) or not all(
+        isinstance(message, BaseMessage) for message in messages
+    ):
+        return None
+    estimated_tokens = estimate_message_tokens(messages)
+    ratio = estimated_tokens / context_window
+    if ratio < guard_ratio:
+        return None
+    ratio_percent = int(ratio * 100)
+    guard_percent = int(guard_ratio * 100)
+    message = (
+        "Subagent spawn blocked: current context pressure is "
+        f"{ratio_percent}% of the configured model window, above the "
+        f"{guard_percent}% guard threshold. Collapse or compact context first."
+    )
+    event = RuntimeEvent(
+        kind="subagent_spawn_guard",
+        message=message,
+        session_id=context.session_id,
+        metadata={
+            "source": "runtime_pressure",
+            "strategy": "spawn_guard",
+            "estimated_token_count": estimated_tokens,
+            "context_window_tokens": context_window,
+            "estimated_token_ratio_percent": ratio_percent,
+            "trigger": "pressure_ratio",
+        },
+    )
+    context.event_sink.emit(event)
+    append_runtime_event_evidence(context=context, event=event)
+    return message
 
 
 @tool(

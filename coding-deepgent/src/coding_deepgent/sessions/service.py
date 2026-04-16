@@ -7,7 +7,11 @@ from typing import Any
 from coding_deepgent.compact import compact_record_from_messages
 from coding_deepgent.runtime import default_runtime_state
 from coding_deepgent.settings import Settings
-from coding_deepgent.sessions.records import LoadedSession, SessionSummary
+from coding_deepgent.sessions.records import (
+    LoadedSession,
+    SessionSummary,
+    TranscriptProjection,
+)
 from coding_deepgent.sessions.store_jsonl import JsonlSessionStore
 
 
@@ -46,6 +50,7 @@ def run_prompt_with_recording(
     history: list[dict[str, Any]] | None = None,
     session_state: dict[str, Any] | None = None,
     session_id: str | None = None,
+    transcript_projection: TranscriptProjection | None = None,
 ) -> str:
     store = recorded_session_store(settings)
     context = None
@@ -86,6 +91,10 @@ def run_prompt_with_recording(
         run_agent, "session_context"
     ):
         run_agent_kwargs["session_context"] = context
+    if transcript_projection is not None and _supports_keyword_argument(
+        run_agent, "transcript_projection"
+    ):
+        run_agent_kwargs["transcript_projection"] = transcript_projection
     result = run_agent(transcript, **run_agent_kwargs)
 
     if context is not None:

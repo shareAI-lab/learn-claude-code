@@ -8,7 +8,7 @@ from coding_deepgent.hooks.registry import LocalHookRegistry
 from coding_deepgent.runtime.events import RuntimeEventSink
 
 if TYPE_CHECKING:
-    from coding_deepgent.sessions.records import SessionContext
+    from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,3 +22,6 @@ class RuntimeContext:
     event_sink: RuntimeEventSink
     hook_registry: LocalHookRegistry = field(default_factory=LocalHookRegistry)
     session_context: SessionContext | None = None
+    transcript_projection: TranscriptProjection | None = None
+    model_context_window_tokens: int | None = None
+    subagent_spawn_guard_ratio: float | None = None

@@ -319,6 +319,8 @@ def maybe_collapse_messages(
     *,
     summarizer: Any,
     threshold_tokens: int | None,
+    context_window_tokens: int | None = None,
+    trigger_ratio: float | None = None,
     keep_recent_messages: int = DEFAULT_KEEP_RECENT_MESSAGES_AFTER_COLLAPSE,
     assist_context: str | None = None,
 ) -> list[BaseMessage]: ...
@@ -357,10 +359,16 @@ def collapse_live_messages_with_result(
 - Context collapse must remain middleware-level request rewriting. It must not
   introduce a custom query runtime.
 - If `threshold_tokens is None`, messages must remain unchanged.
-- If estimated message tokens are below `threshold_tokens`, messages must remain
-  unchanged.
+- If `threshold_tokens is None` and no ratio trigger is configured, messages
+  must remain unchanged.
+- If estimated message tokens are below `threshold_tokens` and below configured
+  `estimated_tokens / context_window_tokens >= trigger_ratio`, messages must
+  remain unchanged.
 - If the threshold is crossed, the helper may call the existing compact
   summarizer seam through the provided model-like `.invoke()` path.
+- Ratio-triggered collapse uses deterministic local token estimates and
+  configured `model_context_window_tokens`; it is not provider billing/tokenizer
+  accounting.
 - If current session-memory assist text is available, collapse may pass it to
   the summarizer as bounded assist text.
 - Summarizer failure or invalid summary must fail open: the original
@@ -374,8 +382,19 @@ def collapse_live_messages_with_result(
   4. preserved recent tail messages
 - If the preserved tail starts with a `ToolMessage`, the helper must include the
   matching prior `AIMessage` tool call when present.
-- Collapse summaries are live artifacts only and must not be persisted as
-  session compact records.
+- Collapse summaries remain live model-facing artifacts and must not be
+  persisted as session compact records.
+- When the runtime has both:
+  - an active `session_context`, and
+  - a non-model-visible transcript-projection lineage for the current request,
+  a successful live collapse may persist a separate `transcript_event` collapse
+  record to the session ledger.
+- Collapse-record persistence must:
+  - reference raw transcript coverage through stable `message_id` fields
+  - skip persistence rather than invent coverage when the current live
+    projection cannot be mapped back to raw transcript messages
+  - keep bounded metadata only, such as trigger, estimated token count,
+    entrypoint, agent name, and whether session-memory assist was used
 - `collapse_live_messages_with_result(...)` must own boundary, summary,
   restoration messages, preserved tail, trigger, and token estimates.
 - `collapse_live_messages_with_summary(...)` must remain a compatibility wrapper
@@ -389,11 +408,15 @@ def collapse_live_messages_with_result(
 |---|---|
 | estimated tokens below threshold | history unchanged |
 | threshold crossed and summarizer succeeds | live collapse boundary + summary + preserved tail returned |
+| ratio trigger crossed and token threshold is unset | live collapse boundary + summary + preserved tail returned |
+| threshold crossed during recorded session with transcript projection lineage | live collapse boundary + summary returned and one collapse transcript event is appended |
 | current session-memory artifact exists | summarizer request may receive bounded assist text |
 | compacted-away persisted output path exists | restoration message includes the path |
 | preserved tail starts with tool result | matching tool-call AI message is preserved |
 | summarizer raises or returns invalid summary | original history preserved |
 | `threshold_tokens < 1` | `ValueError` |
+| `context_window_tokens < 1` | `ValueError` |
+| `trigger_ratio` outside `[0, 1]` | `ValueError` |
 | `keep_recent_messages < 0` | `ValueError` |
 
 ### 5. Tests Required
@@ -401,10 +424,14 @@ def collapse_live_messages_with_result(
 - `coding-deepgent/tests/test_runtime_pressure.py`
 - `coding-deepgent/tests/test_compact_summarizer.py`
 - `coding-deepgent/tests/test_app.py`
+- `coding-deepgent/tests/test_sessions.py`
 
 Required assertion points:
 
 - threshold crossing triggers summarizer-backed context collapse
+- ratio crossing can trigger summarizer-backed context collapse
+- recorded live collapse can persist a collapse transcript event when raw
+  projection lineage is available
 - collapse fail-open preserves original messages
 - collapsed history shape includes boundary and summary messages
 - structured collapse result render order is stable and exposes bounded
@@ -561,8 +588,12 @@ def reactive_compact_messages(
 - Restoration messages may only include persisted-output paths that were
   compacted away and are not already present in the preserved tail.
 - If the model call still fails with a prompt-too-long style error after the
-  proactive path, runtime pressure middleware may perform one reactive compact
-  retry using the same summarizer seam.
+- proactive path, runtime pressure middleware may first drain existing collapse
+  summaries once, then perform one reactive compact retry using the same
+  summarizer seam if the drained request still fails.
+- Collapse drain removes bounded collapse summary text from the model-facing
+  projection only. It must not delete or rewrite persisted raw transcript or
+  collapse records.
 - Reactive compact must only retry once per intercepted model call in this
   stage. Non prompt-too-long failures must be re-raised unchanged.
 
@@ -589,6 +620,7 @@ def reactive_compact_messages(
 | preserved tail starts with tool result | matching tool-call AI message is preserved |
 | summarizer raises or returns invalid summary | original history preserved |
 | handler raises prompt-too-long style error | one reactive compact retry is attempted |
+| handler raises prompt-too-long after collapse projection exists | one collapse drain retry is attempted before reactive compact |
 | handler raises non prompt-too-long error | error is re-raised without retry |
 | `threshold_tokens < 1` | `ValueError` |
 | `keep_recent_messages < 0` | `ValueError` |
@@ -620,6 +652,45 @@ Required assertion points:
 - exhausted prompt-too-long summarizer retries fail open and can trip the
   failure circuit breaker
 - prompt-too-long fallback retries only once
+- collapse projection drain runs before reactive compact on prompt-too-long
+
+## Scenario: Subagent Spawn Pressure Guard
+
+### 1. Scope / Trigger
+
+- Trigger: changes touching `run_subagent`, verifier child execution, runtime
+  context pressure settings, or subagent evidence.
+- Applies when high context pressure should block spawning child agents until
+  the parent context is collapsed or compacted.
+
+### 2. Contracts
+
+- Spawn guard is disabled unless both `model_context_window_tokens` and
+  `subagent_spawn_guard_ratio` are configured on `RuntimeContext`.
+- The guard uses deterministic local token estimates over the current runtime
+  state's model messages.
+- If `estimated_tokens / model_context_window_tokens` is below the guard ratio,
+  subagent execution proceeds unchanged.
+- If the ratio is at or above the guard ratio, `run_subagent` returns a bounded
+  model-visible warning and does not execute the child agent.
+- The guard emits a bounded `subagent_spawn_guard` runtime event and, when an
+  active `session_context` exists, appends bounded session evidence.
+- Guard metadata may include only bounded pressure fields such as
+  `estimated_token_count`, `context_window_tokens`, and
+  `estimated_token_ratio_percent`.
+
+### 3. Validation & Error Matrix
+
+| Case | Expected behavior |
+|---|---|
+| guard settings unset | subagent execution proceeds unchanged |
+| pressure below guard ratio | subagent execution proceeds unchanged |
+| pressure at or above guard ratio | bounded block message is returned and child agent is not executed |
+| recorded session exists | bounded `runtime_event` evidence is appended |
+
+### 4. Tests Required
+
+- `coding-deepgent/tests/test_subagents.py`
 
 ## Scenario: Runtime Pressure Recovery Summary
 
@@ -664,6 +735,7 @@ Required assertion points:
   - `context_collapse`
   - `auto_compact`
   - `reactive_compact`
+  - `subagent_spawn_guard`
 - Event metadata must stay bounded and may include:
   - `source == "runtime_pressure"`
   - `strategy`
@@ -681,6 +753,10 @@ Required assertion points:
   - `collapsed_messages`
   - `restored_path_count`
   - `used_session_memory_assist`
+  - `estimated_token_count`
+  - `context_window_tokens`
+  - `estimated_token_ratio_percent`
+  - `drained_summaries`
 - Session evidence persistence for runtime pressure events must reuse the
   existing `append_runtime_event_evidence(...)` seam rather than introducing a
   second compact-specific ledger.
@@ -696,6 +772,7 @@ Required assertion points:
 | context collapse happens during live request | `event_sink` receives `context_collapse` event |
 | auto-compact happens during live request | `event_sink` receives `auto_compact` event |
 | reactive compact retry happens | `event_sink` receives `reactive_compact` event |
+| subagent spawn guard blocks | `event_sink` receives `subagent_spawn_guard` event |
 | active `session_context` exists | whitelisted runtime pressure events append `runtime_event` session evidence |
 | no `session_context` exists | events may still reach `event_sink`, but evidence is not appended |
 

@@ -1,17 +1,21 @@
 from .langgraph import thread_config_for_session, thread_id_for_session
 from .ports import SessionStore
 from .records import (
+    COLLAPSE_EVENT_KIND,
+    CollapsedHistorySource,
     COMPACT_EVENT_KIND,
     CompactedHistorySource,
     EVIDENCE_RECORD_TYPE,
     LoadedSession,
     MessageReference,
+    SessionCollapse,
     SessionCompact,
     SessionContext,
     SessionEvidence,
     SessionLoadError,
     SessionMessage,
     SessionSummary,
+    TranscriptProjection,
     TRANSCRIPT_EVENT_RECORD_TYPE,
     iso_timestamp_now,
 )
@@ -35,11 +39,14 @@ from .store_jsonl import (
 
 __all__ = [
     "LoadedSession",
+    "COLLAPSE_EVENT_KIND",
+    "CollapsedHistorySource",
     "COMPACT_EVENT_KIND",
     "CompactedHistorySource",
     "EVIDENCE_RECORD_TYPE",
     "MessageReference",
     "RecoveryBrief",
+    "SessionCollapse",
     "SessionContext",
     "SessionCompact",
     "SessionEvidence",
@@ -47,6 +54,7 @@ __all__ = [
     "SessionMessage",
     "SessionStore",
     "SessionSummary",
+    "TranscriptProjection",
     "TRANSCRIPT_EVENT_RECORD_TYPE",
     "JsonlSessionStore",
     "apply_resume_state",

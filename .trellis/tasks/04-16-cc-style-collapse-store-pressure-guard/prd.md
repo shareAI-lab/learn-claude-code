@@ -96,21 +96,20 @@ Required future behavior:
 * Retry once with drained collapse projection.
 * If still too long, fall through to existing reactive compact.
 
-## Acceptance Criteria (Future)
+## Acceptance Criteria
 
-* [ ] Collapse records persist separately from raw messages.
-* [ ] Loading a session can derive raw history and collapse-projected history separately.
-* [ ] Collapse replay is deterministic and tested across resume.
-* [ ] Pressure ratio trigger can fire before AutoCompact.
-* [ ] Collapse can avoid AutoCompact when it reduces pressure below threshold.
-* [ ] Spawn guard blocks or warns according to configured pressure threshold.
-* [ ] Prompt-too-long path drains collapse projection before reactive compact.
+* [x] Collapse records persist separately from raw messages.
+* [x] Loading a session can derive raw history and collapse-projected history separately.
+* [x] Collapse replay is deterministic and tested across resume.
+* [x] Pressure ratio trigger can fire before AutoCompact.
+* [x] Collapse can avoid AutoCompact when it reduces pressure below threshold.
+* [x] Spawn guard blocks or warns according to configured pressure threshold.
+* [x] Prompt-too-long path drains collapse projection before reactive compact.
 * [ ] Frontend/timeline surfaces can explain collapse events and affected messages.
-* [ ] Existing compact/session/runtime pressure tests continue to pass.
+* [x] Existing compact/session/runtime pressure tests continue to pass.
 
-## Out of Scope (Current)
+## Out of Scope
 
-* No implementation in this turn.
 * No frontend UI work in this task.
 * No physical deletion of raw transcript records.
 * No claim that exact cc 90%/95% constants are source-verified in this checkout.
@@ -140,4 +139,32 @@ Source references:
 
 ## Status
 
-Planning-only placeholder. Ready for future staged implementation.
+Backend mainline implemented. Frontend/timeline explanation remains in
+`04-16-context-compression-visualization-readiness`.
+
+## Implementation Checkpoint
+
+State: terminal
+
+Verdict: APPROVE
+
+Implemented:
+
+* Collapse records as `transcript_event` payloads in the append-only session ledger.
+* `LoadedSession.collapses`, `SessionSummary.collapse_count`, and
+  `LoadedSession.collapsed_history`.
+* Deterministic collapse replay from raw `SessionMessage` history plus stable
+  message references.
+* Selected continuation prefers valid collapse projection over compact
+  projection without stacking summaries.
+* Ratio-triggered collapse via configured `model_context_window_tokens` and
+  `collapse_trigger_ratio`, with token-threshold fallback preserved.
+* Prompt-too-long overflow drain before reactive compact.
+* Subagent spawn pressure guard with bounded runtime event/evidence.
+
+Verification:
+
+* `pytest -q coding-deepgent/tests/test_sessions.py coding-deepgent/tests/test_runtime_pressure.py coding-deepgent/tests/test_cli.py coding-deepgent/tests/test_subagents.py coding-deepgent/tests/test_app.py` -> 116 passed
+* `ruff check coding-deepgent/src/coding_deepgent coding-deepgent/tests/test_sessions.py coding-deepgent/tests/test_runtime_pressure.py coding-deepgent/tests/test_cli.py coding-deepgent/tests/test_subagents.py coding-deepgent/tests/test_app.py` -> passed
+* `mypy coding-deepgent/src/coding_deepgent` -> passed
+* `pytest -q coding-deepgent/tests` -> 292 passed
