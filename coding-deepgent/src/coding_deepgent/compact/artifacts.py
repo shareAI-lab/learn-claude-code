@@ -19,6 +19,9 @@ class CompactArtifact:
     original_message_count: int
     summarized_message_count: int
     kept_message_count: int
+    start_message_id: str | None
+    end_message_id: str | None
+    covered_message_ids: tuple[str, ...] | None
     messages: list[dict[str, Any]]
 
 
@@ -27,6 +30,10 @@ def compact_messages_with_summary(
     *,
     summary: str,
     keep_last: int = 4,
+    start_message_id: str | None = None,
+    end_message_id: str | None = None,
+    covered_message_ids: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> CompactArtifact:
     if not messages:
         raise ValueError("messages are required for compaction")
@@ -52,6 +59,10 @@ def compact_messages_with_summary(
             original_message_count=len(clean_messages),
             summarized_message_count=keep_start,
             kept_message_count=len(kept_messages),
+            start_message_id=start_message_id,
+            end_message_id=end_message_id,
+            covered_message_ids=covered_message_ids,
+            metadata=metadata,
         ),
         build_compact_summary_message(formatted_summary),
         *kept_messages,
@@ -62,28 +73,44 @@ def compact_messages_with_summary(
         original_message_count=len(clean_messages),
         summarized_message_count=keep_start,
         kept_message_count=len(kept_messages),
+        start_message_id=start_message_id,
+        end_message_id=end_message_id,
+        covered_message_ids=tuple(covered_message_ids)
+        if covered_message_ids is not None
+        else None,
         messages=artifact_messages,
     )
 
 
 def build_compact_boundary_message(
     *,
-    trigger: Literal["manual"],
+    trigger: str,
     original_message_count: int,
     summarized_message_count: int,
     kept_message_count: int,
+    start_message_id: str | None = None,
+    end_message_id: str | None = None,
+    covered_message_ids: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    compact_metadata_payload: dict[str, Any] = {
+        "kind": "boundary",
+        "trigger": trigger,
+        "original_message_count": original_message_count,
+        "summarized_message_count": summarized_message_count,
+        "kept_message_count": kept_message_count,
+    }
+    if start_message_id is not None:
+        compact_metadata_payload["start_message_id"] = start_message_id
+    if end_message_id is not None:
+        compact_metadata_payload["end_message_id"] = end_message_id
+    if covered_message_ids:
+        compact_metadata_payload["covered_message_ids"] = list(covered_message_ids)
+    if metadata is not None:
+        compact_metadata_payload["metadata"] = deepcopy(metadata)
     return {
         "role": "system",
-        "metadata": {
-            COMPACT_METADATA_KEY: {
-                "kind": "boundary",
-                "trigger": trigger,
-                "original_message_count": original_message_count,
-                "summarized_message_count": summarized_message_count,
-                "kept_message_count": kept_message_count,
-            }
-        },
+        "metadata": {COMPACT_METADATA_KEY: compact_metadata_payload},
         "content": [
             {
                 "type": "text",
@@ -159,12 +186,31 @@ def compact_record_from_messages(messages: list[dict[str, Any]]) -> dict[str, An
     summary_text = summary.get("summary")
     if not isinstance(summary_text, str) or not summary_text.strip():
         return None
+    start_message_id = boundary.get("start_message_id")
+    end_message_id = boundary.get("end_message_id")
+    covered_message_ids = boundary.get("covered_message_ids")
+    metadata = boundary.get("metadata")
+    if not isinstance(start_message_id, str) or not start_message_id.strip():
+        return None
+    if not isinstance(end_message_id, str) or not end_message_id.strip():
+        return None
+    if covered_message_ids is not None and (
+        not isinstance(covered_message_ids, list)
+        or not covered_message_ids
+        or any(not isinstance(item, str) or not item.strip() for item in covered_message_ids)
+    ):
+        return None
+    if metadata is not None and not isinstance(metadata, dict):
+        return None
     return {
         "trigger": str(boundary.get("trigger", "manual")),
         "summary": summary_text.strip(),
-        "original_message_count": _int_field(boundary, "original_message_count"),
-        "summarized_message_count": _int_field(boundary, "summarized_message_count"),
-        "kept_message_count": _int_field(boundary, "kept_message_count"),
+        "start_message_id": start_message_id.strip(),
+        "end_message_id": end_message_id.strip(),
+        "covered_message_ids": [item.strip() for item in covered_message_ids]
+        if isinstance(covered_message_ids, list)
+        else None,
+        "metadata": deepcopy(metadata) if isinstance(metadata, dict) else None,
     }
 
 
@@ -190,12 +236,6 @@ def _adjust_keep_start_for_tool_pairs(
         if not missing_tool_uses:
             break
     return adjusted
-
-
-def _int_field(metadata: dict[str, Any], key: str) -> int:
-    value = metadata.get(key)
-    return value if isinstance(value, int) else 0
-
 
 def _tool_result_ids(messages: list[dict[str, Any]]) -> set[str]:
     ids: set[str] = set()

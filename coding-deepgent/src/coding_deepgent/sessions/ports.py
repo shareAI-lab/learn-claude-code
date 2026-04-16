@@ -22,7 +22,6 @@ class SessionStore(Protocol):
         *,
         role: str,
         content: str,
-        message_index: int | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Path: ...
 
@@ -39,9 +38,9 @@ class SessionStore(Protocol):
         *,
         trigger: str,
         summary: str,
-        original_message_count: int,
-        summarized_message_count: int,
-        kept_message_count: int,
+        start_message_id: str,
+        end_message_id: str,
+        covered_message_ids: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Path: ...
 

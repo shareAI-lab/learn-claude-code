@@ -15,6 +15,7 @@ from coding_deepgent.settings import Settings, load_settings
 from coding_deepgent.sessions import (
     LoadedSession,
     SessionLoadError,
+    SessionMessage,
     build_recovery_brief,
     build_resume_context_message,
     render_recovery_brief,
@@ -134,10 +135,28 @@ def recovery_brief_text(loaded: LoadedSession) -> str:
     return render_recovery_brief(build_recovery_brief(loaded))
 
 
+def _conversation_messages(messages: Sequence[SessionMessage]) -> list[dict[str, Any]]:
+    return [message.as_conversation_dict() for message in messages]
+
+
+def _compact_reference_ids(
+    messages: Sequence[SessionMessage], *, keep_last: int
+) -> tuple[str, str, list[str] | None] | tuple[None, None, None]:
+    keep_start = max(0, len(messages) - keep_last)
+    covered_messages = list(messages[:keep_start])
+    if not covered_messages:
+        return None, None, None
+    return (
+        covered_messages[0].message_id,
+        covered_messages[-1].message_id,
+        [message.message_id for message in covered_messages],
+    )
+
+
 def continuation_history(loaded: LoadedSession) -> list[dict[str, Any]]:
     return [
         build_resume_context_message(loaded),
-        *(dict(message) for message in loaded.history),
+        *_conversation_messages(loaded.history),
     ]
 
 
@@ -154,10 +173,17 @@ def compacted_continuation_history(
     summary: str,
     keep_last: int = 4,
 ) -> list[dict[str, Any]]:
+    start_message_id, end_message_id, covered_message_ids = _compact_reference_ids(
+        loaded.history,
+        keep_last=keep_last,
+    )
     artifact = compact_messages_with_summary(
-        [dict(message) for message in loaded.history],
+        _conversation_messages(loaded.history),
         summary=summary,
         keep_last=keep_last,
+        start_message_id=start_message_id,
+        end_message_id=end_message_id,
+        covered_message_ids=covered_message_ids,
     )
     return [
         build_resume_context_message(loaded),
@@ -173,7 +199,7 @@ def generated_compacted_continuation_history(
     custom_instructions: str | None = None,
 ) -> list[dict[str, Any]]:
     summary = generate_compact_summary(
-        [dict(message) for message in loaded.history],
+        _conversation_messages(loaded.history),
         summarizer,
         custom_instructions=custom_instructions,
         assist_context=compact_assist_text(loaded, COMPACT_ASSIST_CONTRIBUTIONS),

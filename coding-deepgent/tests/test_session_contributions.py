@@ -19,6 +19,7 @@ from coding_deepgent.sessions.records import (
     LoadedSession,
     SessionContext,
     SessionEvidence,
+    SessionMessage,
     SessionSummary,
 )
 from coding_deepgent.sessions.runtime_pressure import (
@@ -41,7 +42,14 @@ def _loaded_session(state: dict[str, Any] | None = None) -> LoadedSession:
             store_dir=Path("/tmp/store"),
             transcript_path=Path("/tmp/store/session-1.jsonl"),
         ),
-        history=[{"role": "user", "content": "hello"}],
+        history=[
+            SessionMessage(
+                message_id="msg-000000",
+                created_at="2026-04-15T00:00:00Z",
+                role="user",
+                content="hello",
+            )
+        ],
         compacted_history=[{"role": "user", "content": "hello"}],
         compacted_history_source=CompactedHistorySource(
             mode="raw",

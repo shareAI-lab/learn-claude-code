@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -13,7 +13,7 @@ from .contributions import (
     RecoveryBriefSection,
     RuntimeStateContribution,
 )
-from .records import LoadedSession, iso_timestamp_now
+from .records import LoadedSession, SessionMessage, iso_timestamp_now
 
 SESSION_MEMORY_STATE_KEY = "session_memory"
 DEFAULT_SESSION_MEMORY_UPDATE_MESSAGE_DELTA = 4
@@ -146,7 +146,9 @@ def should_refresh_session_memory(
     )
 
 
-def session_memory_metrics(messages: list[dict[str, Any]]) -> SessionMemoryMetrics:
+def session_memory_metrics(
+    messages: Sequence[dict[str, Any] | SessionMessage],
+) -> SessionMemoryMetrics:
     return SessionMemoryMetrics(
         message_count=len(messages),
         estimated_token_count=sum(_estimated_message_tokens(message) for message in messages),
@@ -154,15 +156,18 @@ def session_memory_metrics(messages: list[dict[str, Any]]) -> SessionMemoryMetri
     )
 
 
-def _estimated_message_tokens(message: dict[str, Any]) -> int:
+def _estimated_message_tokens(message: dict[str, Any] | SessionMessage) -> int:
     text = _message_text(message)
     if not text:
         return 0
     return max(1, (len(text) + 3) // 4)
 
 
-def _message_text(message: dict[str, Any]) -> str:
-    content = message.get("content", "")
+def _message_text(message: dict[str, Any] | SessionMessage) -> str:
+    if isinstance(message, SessionMessage):
+        content = message.content
+    else:
+        content = message.get("content", "")
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -179,8 +184,13 @@ def _message_text(message: dict[str, Any]) -> str:
     return str(content)
 
 
-def _message_tool_call_count(message: dict[str, Any]) -> int:
-    content = message.get("content", "")
+def _message_tool_call_count(message: dict[str, Any] | SessionMessage) -> int:
+    if isinstance(message, SessionMessage):
+        content = message.content
+        tool_calls: Any = None
+    else:
+        content = message.get("content", "")
+        tool_calls = message.get("tool_calls")
     count = 0
     if isinstance(content, list):
         count += sum(
@@ -188,7 +198,6 @@ def _message_tool_call_count(message: dict[str, Any]) -> int:
             for block in content
             if isinstance(block, dict) and block.get("type") == "tool_use"
         )
-    tool_calls = message.get("tool_calls")
     if isinstance(tool_calls, list):
         count += len(tool_calls)
     return count
@@ -251,7 +260,7 @@ def compact_summary_update_contribution() -> CompactSummaryUpdateContribution:
 def update_session_memory_from_summary(
     state: MutableMapping[str, Any],
     *,
-    messages: list[dict[str, Any]],
+    messages: Sequence[dict[str, Any] | SessionMessage],
     summary: str,
     source: str,
 ) -> bool:

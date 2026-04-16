@@ -8,28 +8,35 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from coding_deepgent.compact import compact_messages_with_summary
+from coding_deepgent.compact.artifacts import (
+    build_compact_boundary_message,
+    build_compact_summary_message,
+)
 from coding_deepgent.runtime import default_runtime_state
 
 from .contribution_registry import RUNTIME_STATE_CONTRIBUTIONS
 from .contributions import coerce_runtime_state_contributions
 from .records import (
-    COMPACT_RECORD_TYPE,
+    COMPACT_EVENT_KIND,
     EVIDENCE_RECORD_TYPE,
     LoadedSession,
     MESSAGE_RECORD_TYPE,
+    TRANSCRIPT_EVENT_RECORD_TYPE,
     SESSION_RECORD_VERSION,
     STATE_SNAPSHOT_RECORD_TYPE,
     CompactedHistorySource,
+    MessageReference,
     SessionContext,
     SessionCompact,
     SessionEvidence,
     SessionLoadError,
+    SessionMessage,
     SessionSummary,
-    make_compact_record,
     make_evidence_record,
     make_message_record,
     make_state_snapshot_record,
+    make_transcript_event_record,
+    message_id_for_index,
 )
 
 
@@ -70,14 +77,13 @@ class JsonlSessionStore:
         *,
         role: str,
         content: str,
-        message_index: int | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Path:
         record = make_message_record(
             context,
+            message_id=self._next_message_id(context),
             role=role,
             content=content,
-            message_index=message_index,
             metadata=metadata,
         )
         self._append_record(context.transcript_path, record)
@@ -124,22 +130,26 @@ class JsonlSessionStore:
         *,
         trigger: str,
         summary: str,
-        original_message_count: int,
-        summarized_message_count: int,
-        kept_message_count: int,
+        start_message_id: str,
+        end_message_id: str,
+        covered_message_ids: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Path:
-        serializable_metadata = (
-            json.loads(json.dumps(metadata)) if metadata is not None else None
-        )
-        record = make_compact_record(
+        payload = MessageReference(
+            start_message_id=start_message_id,
+            end_message_id=end_message_id,
+            covered_message_ids=tuple(covered_message_ids)
+            if covered_message_ids is not None
+            else None,
+        ).as_payload()
+        payload["trigger"] = trigger.strip()
+        payload["summary"] = summary.strip()
+        if metadata is not None:
+            payload["metadata"] = json.loads(json.dumps(metadata))
+        record = make_transcript_event_record(
             context,
-            trigger=trigger,
-            summary=summary,
-            original_message_count=original_message_count,
-            summarized_message_count=summarized_message_count,
-            kept_message_count=kept_message_count,
-            metadata=serializable_metadata,
+            event_kind=COMPACT_EVENT_KIND,
+            payload=payload,
         )
         self._append_record(context.transcript_path, record)
         return context.transcript_path
@@ -153,7 +163,7 @@ class JsonlSessionStore:
     ) -> LoadedSession:
         normalized_workdir = workdir.expanduser().resolve()
         context = self._context_for(workdir=normalized_workdir, session_id=session_id)
-        history: list[dict[str, str]] = []
+        history: list[SessionMessage] = []
         last_valid_state: dict[str, Any] | None = None
         created_at: str | None = None
         updated_at: str | None = None
@@ -164,7 +174,8 @@ class JsonlSessionStore:
         for record in self._iter_valid_records(context.transcript_path):
             if record.get("session_id") != session_id:
                 continue
-            if record.get("cwd") != str(normalized_workdir):
+            record_cwd = record.get("cwd")
+            if isinstance(record_cwd, str) and record_cwd != str(normalized_workdir):
                 continue
 
             timestamp = record.get("timestamp")
@@ -174,13 +185,11 @@ class JsonlSessionStore:
 
             record_type = record.get("record_type")
             if record_type == MESSAGE_RECORD_TYPE:
-                role = record.get("role")
-                content = record.get("content")
-                if not isinstance(role, str) or not isinstance(content, str):
-                    continue
-                history.append({"role": role, "content": content})
-                if first_prompt is None and role == "user":
-                    first_prompt = content
+                message = self._coerce_message(record)
+                if message is not None:
+                    history.append(message)
+                    if first_prompt is None and message.role == "user":
+                        first_prompt = message.content
             elif record_type == STATE_SNAPSHOT_RECORD_TYPE:
                 state = self._coerce_state_snapshot(record.get("state"))
                 if state is not None:
@@ -189,7 +198,7 @@ class JsonlSessionStore:
                 evidence_item = self._coerce_evidence(record)
                 if evidence_item is not None:
                     evidence.append(evidence_item)
-            elif record_type == COMPACT_RECORD_TYPE:
+            elif record_type == TRANSCRIPT_EVENT_RECORD_TYPE:
                 compact_item = self._coerce_compact(record)
                 if compact_item is not None:
                     compacts.append(compact_item)
@@ -257,6 +266,15 @@ class JsonlSessionStore:
             handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True))
             handle.write("\n")
 
+    def _next_message_id(self, context: SessionContext) -> str:
+        message_count = sum(
+            1
+            for record in self._iter_valid_records(context.transcript_path)
+            if record.get("session_id") == context.session_id
+            and record.get("record_type") == MESSAGE_RECORD_TYPE
+        )
+        return message_id_for_index(message_count)
+
     def _context_for(
         self,
         *,
@@ -319,6 +337,30 @@ class JsonlSessionStore:
         )
         return coerced
 
+    def _coerce_message(self, record: dict[str, Any]) -> SessionMessage | None:
+        message_id = record.get("message_id")
+        role = record.get("role")
+        content = record.get("content")
+        created_at = record.get("timestamp")
+        metadata = record.get("metadata")
+        if not isinstance(message_id, str) or not message_id.strip():
+            return None
+        if not isinstance(role, str) or not role.strip():
+            return None
+        if not isinstance(content, str):
+            return None
+        if not isinstance(created_at, str) or not created_at.strip():
+            return None
+        if metadata is not None and not isinstance(metadata, dict):
+            return None
+        return SessionMessage(
+            message_id=message_id.strip(),
+            created_at=created_at,
+            role=role.strip(),
+            content=content,
+            metadata=deepcopy(metadata) if isinstance(metadata, dict) else None,
+        )
+
     def _coerce_evidence(self, record: dict[str, Any]) -> SessionEvidence | None:
         kind = record.get("kind")
         summary = record.get("summary")
@@ -348,24 +390,33 @@ class JsonlSessionStore:
         )
 
     def _coerce_compact(self, record: dict[str, Any]) -> SessionCompact | None:
-        trigger = record.get("trigger")
-        summary = record.get("summary")
+        if record.get("event_kind") != COMPACT_EVENT_KIND:
+            return None
+        payload = record.get("payload")
         created_at = record.get("timestamp")
-        original_message_count = record.get("original_message_count")
-        summarized_message_count = record.get("summarized_message_count")
-        kept_message_count = record.get("kept_message_count")
-        metadata = record.get("metadata")
+        if not isinstance(payload, dict):
+            return None
+        trigger = payload.get("trigger")
+        summary = payload.get("summary")
+        start_message_id = payload.get("start_message_id")
+        end_message_id = payload.get("end_message_id")
+        covered_message_ids = payload.get("covered_message_ids")
+        metadata = payload.get("metadata")
         if not isinstance(trigger, str) or not trigger.strip():
             return None
         if not isinstance(summary, str) or not summary.strip():
             return None
         if not isinstance(created_at, str) or not created_at.strip():
             return None
-        if not isinstance(original_message_count, int) or original_message_count < 0:
+        if not isinstance(start_message_id, str) or not start_message_id.strip():
             return None
-        if not isinstance(summarized_message_count, int) or summarized_message_count < 0:
+        if not isinstance(end_message_id, str) or not end_message_id.strip():
             return None
-        if not isinstance(kept_message_count, int) or kept_message_count < 0:
+        if covered_message_ids is not None and (
+            not isinstance(covered_message_ids, list)
+            or not covered_message_ids
+            or any(not isinstance(item, str) or not item.strip() for item in covered_message_ids)
+        ):
             return None
         if metadata is not None and not isinstance(metadata, dict):
             return None
@@ -373,48 +424,71 @@ class JsonlSessionStore:
             trigger=trigger.strip(),
             summary=summary.strip(),
             created_at=created_at,
-            original_message_count=original_message_count,
-            summarized_message_count=summarized_message_count,
-            kept_message_count=kept_message_count,
+            start_message_id=start_message_id.strip(),
+            end_message_id=end_message_id.strip(),
+            covered_message_ids=tuple(item.strip() for item in covered_message_ids)
+            if isinstance(covered_message_ids, list)
+            else None,
             metadata=deepcopy(metadata) if isinstance(metadata, dict) else None,
         )
 
     def _build_compacted_history(
         self,
-        history: list[dict[str, str]],
+        history: list[SessionMessage],
         compacts: list[SessionCompact],
     ) -> tuple[list[dict[str, Any]], CompactedHistorySource]:
-        raw_history = [dict(message) for message in history]
+        projected_history = [message.as_conversation_dict() for message in history]
         if not compacts:
-            return raw_history, CompactedHistorySource(
+            return projected_history, CompactedHistorySource(
                 mode="raw", reason="no_compacts"
             )
 
         for index in range(len(compacts) - 1, -1, -1):
             compact = compacts[index]
-            compacted = self._build_history_for_compact(raw_history, compact)
+            compacted = self._build_history_for_compact(history, compact)
             if compacted is not None:
                 return compacted, CompactedHistorySource(
                     mode="compact",
                     reason="latest_valid_compact",
                     compact_index=index,
                 )
-        return raw_history, CompactedHistorySource(
+        return projected_history, CompactedHistorySource(
             mode="raw", reason="no_valid_compact"
         )
 
     def _build_history_for_compact(
         self,
-        raw_history: list[dict[str, Any]],
+        raw_history: list[SessionMessage],
         compact: SessionCompact,
     ) -> list[dict[str, Any]] | None:
-        keep_from = compact.original_message_count - compact.kept_message_count
-        keep_from = min(len(raw_history), max(0, keep_from))
-        preserved_tail = [dict(message) for message in raw_history[keep_from:]]
-        if not preserved_tail:
+        id_to_index = {
+            message.message_id: index for index, message in enumerate(raw_history)
+        }
+        start_index = id_to_index.get(compact.start_message_id)
+        end_index = id_to_index.get(compact.end_message_id)
+        if start_index is None or end_index is None or start_index != 0 or end_index < start_index:
             return None
-        return compact_messages_with_summary(
-            preserved_tail,
-            summary=compact.summary,
-            keep_last=len(preserved_tail),
-        ).messages
+        covered_slice = tuple(
+            message.message_id for message in raw_history[start_index : end_index + 1]
+        )
+        if compact.covered_message_ids is not None and compact.covered_message_ids != covered_slice:
+            return None
+        preserved_tail = [
+            message.as_conversation_dict() for message in raw_history[end_index + 1 :]
+        ]
+        return [
+            build_compact_boundary_message(
+                trigger=compact.trigger,
+                original_message_count=len(raw_history),
+                summarized_message_count=end_index + 1,
+                kept_message_count=len(preserved_tail),
+                start_message_id=compact.start_message_id,
+                end_message_id=compact.end_message_id,
+                covered_message_ids=list(compact.covered_message_ids)
+                if compact.covered_message_ids is not None
+                else None,
+                metadata=deepcopy(compact.metadata) if compact.metadata is not None else None,
+            ),
+            build_compact_summary_message(compact.summary),
+            *preserved_tail,
+        ]

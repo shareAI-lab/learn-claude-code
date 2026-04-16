@@ -9,11 +9,28 @@ from typer.testing import CliRunner
 from coding_deepgent import cli
 from coding_deepgent import cli_service
 from coding_deepgent.compact import COMPACT_BOUNDARY_PREFIX, COMPACT_SUMMARY_PREFIX
-from coding_deepgent.sessions import JsonlSessionStore
+from coding_deepgent.sessions import JsonlSessionStore, SessionMessage
+from coding_deepgent.sessions.records import message_id_for_index
 from coding_deepgent.sessions.session_memory import SESSION_MEMORY_STATE_KEY
 from coding_deepgent.settings import Settings, load_settings
 
 runner = CliRunner()
+
+
+def _history_summary(history: list[SessionMessage]) -> list[tuple[str, str, str]]:
+    return [(item.message_id, item.role, item.content) for item in history]
+
+
+def _session_messages(*messages: tuple[str, str]) -> list[SessionMessage]:
+    return [
+        SessionMessage(
+            message_id=message_id_for_index(index),
+            created_at=f"2026-04-16T00:00:0{index}Z",
+            role=role,
+            content=content,
+        )
+        for index, (role, content) in enumerate(messages)
+    ]
 
 
 class FakeCompactSummarizer:
@@ -358,20 +375,18 @@ def test_sessions_resume_defaults_to_latest_compacted_continuation_when_availabl
     workdir = tmp_path / "workdir"
     workdir.mkdir()
     context = store.create_session(workdir=workdir, session_id="session-1")
-    store.append_message(context, role="user", content="first", message_index=0)
-    store.append_message(context, role="assistant", content="done", message_index=1)
+    store.append_message(context, role="user", content="first")
+    store.append_message(context, role="assistant", content="done")
     store.append_compact(
         context,
         trigger="manual",
         summary="Earlier work was summarized.",
-        original_message_count=2,
-        summarized_message_count=1,
-        kept_message_count=1,
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
     )
-    store.append_message(context, role="user", content="after compact", message_index=2)
-    store.append_message(
-        context, role="assistant", content="after compact answer", message_index=3
-    )
+    store.append_message(context, role="user", content="after compact")
+    store.append_message(context, role="assistant", content="after compact answer")
     store.append_state_snapshot(
         context,
         state={"todos": [], "rounds_since_update": 0},
@@ -427,17 +442,17 @@ def test_selected_continuation_history_uses_loaded_compacted_history(
     workdir = tmp_path / "workdir"
     workdir.mkdir()
     context = store.create_session(workdir=workdir, session_id="session-1")
-    store.append_message(context, role="user", content="first", message_index=0)
-    store.append_message(context, role="assistant", content="done", message_index=1)
+    store.append_message(context, role="user", content="first")
+    store.append_message(context, role="assistant", content="done")
     store.append_compact(
         context,
         trigger="manual",
         summary="Earlier work was summarized.",
-        original_message_count=2,
-        summarized_message_count=1,
-        kept_message_count=1,
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
     )
-    store.append_message(context, role="user", content="after compact", message_index=2)
+    store.append_message(context, role="user", content="after compact")
     loaded = store.load_session(session_id="session-1", workdir=workdir)
 
     history = cli_service.selected_continuation_history(loaded)
@@ -453,7 +468,7 @@ def test_selected_continuation_history_preserves_resume_compact_and_evidence_wit
     workdir = tmp_path / "workdir"
     workdir.mkdir()
     context = store.create_session(workdir=workdir, session_id="session-1")
-    store.append_message(context, role="user", content="existing", message_index=0)
+    store.append_message(context, role="user", content="existing")
     store.append_evidence(
         context,
         kind="verification",
@@ -465,11 +480,11 @@ def test_selected_continuation_history_preserves_resume_compact_and_evidence_wit
         context,
         trigger="manual",
         summary="Earlier work was summarized.",
-        original_message_count=2,
-        summarized_message_count=1,
-        kept_message_count=1,
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
     )
-    store.append_message(context, role="assistant", content="after compact", message_index=1)
+    store.append_message(context, role="assistant", content="after compact")
 
     loaded = store.load_session(session_id="session-1", workdir=workdir)
     history = cli_service.selected_continuation_history(loaded)
@@ -716,13 +731,13 @@ def test_generated_compacted_continuation_history_refreshes_stale_enough_memory(
     }
     loaded = replace(
         loaded,
-        history=[
-            {"role": "user", "content": "one"},
-            {"role": "assistant", "content": "two"},
-            {"role": "user", "content": "three"},
-            {"role": "assistant", "content": "four"},
-            {"role": "user", "content": "five"},
-        ],
+        history=_session_messages(
+            ("user", "one"),
+            ("assistant", "two"),
+            ("user", "three"),
+            ("assistant", "four"),
+            ("user", "five"),
+        ),
         summary=replace(loaded.summary, message_count=5),
     )
     summarizer = FakeCompactSummarizer("<summary>Generated compact summary.</summary>")
@@ -887,9 +902,9 @@ def test_sessions_resume_without_prompt_shows_recovery_brief(
         context,
         trigger="manual",
         summary="Earlier work was summarized.",
-        original_message_count=2,
-        summarized_message_count=1,
-        kept_message_count=1,
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
     )
     loaded = store.load_session(session_id="session-brief", workdir=workdir)
 
@@ -949,9 +964,9 @@ def test_run_once_records_new_and_resumed_session_transcript(
     store = JsonlSessionStore(settings.session_dir)
     [summary] = store.list_sessions(workdir=tmp_path)
     loaded = store.load_session(session_id=summary.session_id, workdir=tmp_path)
-    assert loaded.history == [
-        {"role": "user", "content": "first"},
-        {"role": "assistant", "content": "done"},
+    assert _history_summary(loaded.history) == [
+        (message_id_for_index(0), "user", "first"),
+        (message_id_for_index(1), "assistant", "done"),
     ]
     assert loaded.summary.evidence_count == 1
 
@@ -975,14 +990,19 @@ def test_run_once_records_new_and_resumed_session_transcript(
     message_records = [
         record for record in raw_records if record.get("record_type") == "message"
     ]
-    assert resumed.history == [
-        {"role": "user", "content": "first"},
-        {"role": "assistant", "content": "done"},
-        {"role": "user", "content": "second"},
-        {"role": "assistant", "content": "done"},
+    assert _history_summary(resumed.history) == [
+        (message_id_for_index(0), "user", "first"),
+        (message_id_for_index(1), "assistant", "done"),
+        (message_id_for_index(2), "user", "second"),
+        (message_id_for_index(3), "assistant", "done"),
     ]
     assert resumed.summary.evidence_count == 2
-    assert [record["message_index"] for record in message_records] == [0, 1, 2, 3]
+    assert [record["message_id"] for record in message_records] == [
+        message_id_for_index(0),
+        message_id_for_index(1),
+        message_id_for_index(2),
+        message_id_for_index(3),
+    ]
 
 
 def test_run_once_passes_recording_session_context_to_agent(
@@ -1073,18 +1093,23 @@ def test_run_once_records_compact_metadata_without_message_index_skew(
         record for record in raw_records if record.get("record_type") == "message"
     ]
 
-    assert resumed.history == [
-        {"role": "user", "content": "first"},
-        {"role": "assistant", "content": "done"},
-        {"role": "user", "content": "second"},
-        {"role": "assistant", "content": "done"},
+    assert _history_summary(resumed.history) == [
+        (message_id_for_index(0), "user", "first"),
+        (message_id_for_index(1), "assistant", "done"),
+        (message_id_for_index(2), "user", "second"),
+        (message_id_for_index(3), "assistant", "done"),
     ]
     assert resumed.summary.compact_count == 1
     assert resumed.compacts[0].summary == "Earlier work was summarized."
-    assert resumed.compacts[0].original_message_count == 2
-    assert resumed.compacts[0].summarized_message_count == 1
-    assert resumed.compacts[0].kept_message_count == 1
-    assert [record["message_index"] for record in message_records] == [0, 1, 2, 3]
+    assert resumed.compacts[0].start_message_id == message_id_for_index(0)
+    assert resumed.compacts[0].end_message_id == message_id_for_index(0)
+    assert resumed.compacts[0].covered_message_ids == (message_id_for_index(0),)
+    assert [record["message_id"] for record in message_records] == [
+        message_id_for_index(0),
+        message_id_for_index(1),
+        message_id_for_index(2),
+        message_id_for_index(3),
+    ]
 
 
 def test_doctor_reports_dependencies_without_secrets(monkeypatch) -> None:

@@ -1,15 +1,18 @@
 from .langgraph import thread_config_for_session, thread_id_for_session
 from .ports import SessionStore
 from .records import (
-    COMPACT_RECORD_TYPE,
+    COMPACT_EVENT_KIND,
     CompactedHistorySource,
     EVIDENCE_RECORD_TYPE,
     LoadedSession,
+    MessageReference,
     SessionCompact,
     SessionContext,
     SessionEvidence,
     SessionLoadError,
+    SessionMessage,
     SessionSummary,
+    TRANSCRIPT_EVENT_RECORD_TYPE,
     iso_timestamp_now,
 )
 from .resume import (
@@ -32,16 +35,19 @@ from .store_jsonl import (
 
 __all__ = [
     "LoadedSession",
-    "COMPACT_RECORD_TYPE",
+    "COMPACT_EVENT_KIND",
     "CompactedHistorySource",
     "EVIDENCE_RECORD_TYPE",
+    "MessageReference",
     "RecoveryBrief",
     "SessionContext",
     "SessionCompact",
     "SessionEvidence",
     "SessionLoadError",
+    "SessionMessage",
     "SessionStore",
     "SessionSummary",
+    "TRANSCRIPT_EVENT_RECORD_TYPE",
     "JsonlSessionStore",
     "apply_resume_state",
     "build_recovery_brief",

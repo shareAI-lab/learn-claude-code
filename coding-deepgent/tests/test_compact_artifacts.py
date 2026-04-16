@@ -8,6 +8,7 @@ from coding_deepgent.compact import (
     COMPACT_BOUNDARY_PREFIX,
     COMPACT_METADATA_KEY,
     COMPACT_SUMMARY_PREFIX,
+    compact_record_from_messages,
     compact_messages_with_summary,
     format_compact_summary,
     project_messages,
@@ -56,6 +57,31 @@ def test_compact_messages_builds_boundary_summary_and_preserved_tail() -> None:
         "summary": "Earlier work established the compact boundary.",
     }
     assert artifact.messages[2:] == messages[-2:]
+
+
+def test_compact_record_from_messages_uses_message_references() -> None:
+    artifact = compact_messages_with_summary(
+        [
+            {"role": "user", "content": "old request"},
+            {"role": "assistant", "content": "old answer"},
+            {"role": "user", "content": "recent request"},
+        ],
+        summary="Earlier work established the compact boundary.",
+        keep_last=1,
+        start_message_id="msg-000000",
+        end_message_id="msg-000001",
+        covered_message_ids=["msg-000000", "msg-000001"],
+        metadata={"source": "test"},
+    )
+
+    assert compact_record_from_messages(artifact.messages) == {
+        "trigger": "manual",
+        "summary": "Earlier work established the compact boundary.",
+        "start_message_id": "msg-000000",
+        "end_message_id": "msg-000001",
+        "covered_message_ids": ["msg-000000", "msg-000001"],
+        "metadata": {"source": "test"},
+    }
 
 
 def test_compact_summary_strips_analysis_and_unwraps_summary() -> None:

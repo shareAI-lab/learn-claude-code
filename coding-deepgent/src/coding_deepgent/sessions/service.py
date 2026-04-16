@@ -4,14 +4,10 @@ from collections.abc import Callable, Sequence
 from inspect import Parameter, signature
 from typing import Any
 
-from coding_deepgent.compact import (
-    compact_record_from_messages,
-    is_compact_artifact_message,
-)
+from coding_deepgent.compact import compact_record_from_messages
 from coding_deepgent.runtime import default_runtime_state
 from coding_deepgent.settings import Settings
 from coding_deepgent.sessions.records import LoadedSession, SessionSummary
-from coding_deepgent.sessions.resume import is_resume_context_message
 from coding_deepgent.sessions.store_jsonl import JsonlSessionStore
 
 
@@ -27,18 +23,6 @@ def load_recorded_session(settings: Settings, session_id: str) -> LoadedSession:
     return recorded_session_store(settings).load_session(
         session_id=session_id,
         workdir=settings.workdir,
-    )
-
-
-def _recorded_message_count(history: Sequence[dict[str, Any]]) -> int:
-    compact_record = compact_record_from_messages(list(history))
-    if compact_record is not None:
-        return int(compact_record["original_message_count"])
-    return sum(
-        1
-        for message in history
-        if not is_resume_context_message(message)
-        and not is_compact_artifact_message(message)
     )
 
 
@@ -68,7 +52,6 @@ def run_prompt_with_recording(
     active_session_id = session_id
     active_state = session_state if session_state is not None else default_runtime_state()
     transcript = history if history is not None else []
-    recorded_message_count = _recorded_message_count(transcript)
 
     if session_id is not None:
         context = store.create_session(
@@ -92,7 +75,6 @@ def run_prompt_with_recording(
             context,
             role="user",
             content=prompt,
-            message_index=recorded_message_count,
         )
 
     transcript.append({"role": "user", "content": prompt})
@@ -111,7 +93,6 @@ def run_prompt_with_recording(
             context,
             role="assistant",
             content=result,
-            message_index=recorded_message_count + 1,
         )
         store.append_state_snapshot(context, state=active_state)
         store.append_evidence(

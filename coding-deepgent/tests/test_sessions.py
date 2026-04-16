@@ -1,20 +1,32 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 
 from coding_deepgent.sessions import (
-    COMPACT_RECORD_TYPE,
+    COMPACT_EVENT_KIND,
     EVIDENCE_RECORD_TYPE,
     JsonlSessionStore,
+    SessionMessage,
     SessionLoadError,
+    TRANSCRIPT_EVENT_RECORD_TYPE,
     build_recovery_brief,
     render_recovery_brief,
     resume_session,
     thread_config_for_session,
 )
+from coding_deepgent.sessions.records import message_id_for_index
 from coding_deepgent.sessions.session_memory import SESSION_MEMORY_STATE_KEY
+
+
+def _history_summary(history: list[SessionMessage]) -> list[tuple[str, str, str]]:
+    return [(item.message_id, item.role, item.content) for item in history]
+
+
+def _projected_history(history: list[SessionMessage]) -> list[dict[str, Any]]:
+    return [item.as_conversation_dict() for item in history]
 
 
 def test_jsonl_session_roundtrip_preserves_history_state_and_summary(tmp_path) -> None:
@@ -23,9 +35,9 @@ def test_jsonl_session_roundtrip_preserves_history_state_and_summary(tmp_path) -
     workdir.mkdir()
 
     context = store.create_session(workdir=workdir, entrypoint="cli")
-    store.append_message(context, role="user", content="plan this", message_index=0)
+    store.append_message(context, role="user", content="plan this")
     store.append_state_snapshot(context, state={"todos": [], "rounds_since_update": 0})
-    store.append_message(context, role="assistant", content="planned", message_index=1)
+    store.append_message(context, role="assistant", content="planned")
     store.append_state_snapshot(
         context,
         state={
@@ -54,12 +66,13 @@ def test_jsonl_session_roundtrip_preserves_history_state_and_summary(tmp_path) -
     assert raw_records[0]["record_type"] == "message"
     assert raw_records[1]["record_type"] == "state_snapshot"
     assert raw_records[0]["session_id"] == context.session_id
-    assert raw_records[0]["cwd"] == str(workdir.resolve())
-    assert loaded.history == [
-        {"role": "user", "content": "plan this"},
-        {"role": "assistant", "content": "planned"},
+    assert raw_records[0]["message_id"] == message_id_for_index(0)
+    assert raw_records[2]["message_id"] == message_id_for_index(1)
+    assert _history_summary(loaded.history) == [
+        (message_id_for_index(0), "user", "plan this"),
+        (message_id_for_index(1), "assistant", "planned"),
     ]
-    assert loaded.compacted_history == loaded.history
+    assert loaded.compacted_history == _projected_history(loaded.history)
     assert loaded.compacted_history_source.mode == "raw"
     assert loaded.compacted_history_source.reason == "no_compacts"
     assert loaded.compacted_history_source.compact_index is None
@@ -83,7 +96,7 @@ def test_jsonl_session_roundtrip_preserves_session_memory_artifact(tmp_path) -> 
     workdir.mkdir()
 
     context = store.create_session(workdir=workdir, entrypoint="cli")
-    store.append_message(context, role="user", content="plan this", message_index=0)
+    store.append_message(context, role="user", content="plan this")
     store.append_state_snapshot(
         context,
         state={
@@ -199,7 +212,9 @@ def test_load_session_ignores_corrupt_unknown_and_invalid_later_snapshots(
 
     loaded = store.load_session(session_id=context.session_id, workdir=workdir)
 
-    assert loaded.history == [{"role": "user", "content": "resume me"}]
+    assert _history_summary(loaded.history) == [
+        (message_id_for_index(0), "user", "resume me")
+    ]
     assert loaded.state == {
         "todos": [
             {"content": "Inspect", "status": "in_progress", "activeForm": "Inspecting"}
@@ -394,17 +409,17 @@ def test_compact_record_roundtrip_does_not_enter_history(tmp_path) -> None:
     workdir.mkdir()
 
     context = store.create_session(workdir=workdir, entrypoint="cli")
-    store.append_message(context, role="user", content="start", message_index=0)
+    store.append_message(context, role="user", content="start")
     store.append_compact(
         context,
         trigger="manual",
         summary="Older work was summarized.",
-        original_message_count=2,
-        summarized_message_count=1,
-        kept_message_count=1,
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
         metadata={"source": "test"},
     )
-    store.append_message(context, role="assistant", content="continued", message_index=1)
+    store.append_message(context, role="assistant", content="continued")
 
     loaded = store.load_session(session_id=context.session_id, workdir=workdir)
     raw_records = [
@@ -412,10 +427,11 @@ def test_compact_record_roundtrip_does_not_enter_history(tmp_path) -> None:
         for line in context.transcript_path.read_text(encoding="utf-8").splitlines()
     ]
 
-    assert raw_records[1]["record_type"] == COMPACT_RECORD_TYPE
-    assert loaded.history == [
-        {"role": "user", "content": "start"},
-        {"role": "assistant", "content": "continued"},
+    assert raw_records[1]["record_type"] == TRANSCRIPT_EVENT_RECORD_TYPE
+    assert raw_records[1]["event_kind"] == COMPACT_EVENT_KIND
+    assert _history_summary(loaded.history) == [
+        (message_id_for_index(0), "user", "start"),
+        (message_id_for_index(1), "assistant", "continued"),
     ]
     assert loaded.compacted_history[0]["role"] == "system"
     assert loaded.compacted_history[1]["role"] == "user"
@@ -427,9 +443,9 @@ def test_compact_record_roundtrip_does_not_enter_history(tmp_path) -> None:
     assert loaded.summary.compact_count == 1
     assert loaded.compacts[0].trigger == "manual"
     assert loaded.compacts[0].summary == "Older work was summarized."
-    assert loaded.compacts[0].original_message_count == 2
-    assert loaded.compacts[0].summarized_message_count == 1
-    assert loaded.compacts[0].kept_message_count == 1
+    assert loaded.compacts[0].start_message_id == message_id_for_index(0)
+    assert loaded.compacts[0].end_message_id == message_id_for_index(0)
+    assert loaded.compacts[0].covered_message_ids == (message_id_for_index(0),)
     assert loaded.compacts[0].metadata == {"source": "test"}
     brief = build_recovery_brief(loaded)
     rendered = render_recovery_brief(brief)
@@ -448,16 +464,17 @@ def test_load_session_ignores_invalid_compact_records(tmp_path) -> None:
         handle.write(
             json.dumps(
                 {
-                    "record_type": "compact",
+                    "record_type": TRANSCRIPT_EVENT_RECORD_TYPE,
                     "version": 1,
                     "session_id": context.session_id,
                     "timestamp": "2026-04-13T00:00:00Z",
-                    "cwd": str(workdir.resolve()),
-                    "trigger": "",
-                    "summary": "bad",
-                    "original_message_count": 1,
-                    "summarized_message_count": 1,
-                    "kept_message_count": 0,
+                    "event_kind": COMPACT_EVENT_KIND,
+                    "payload": {
+                        "trigger": "",
+                        "summary": "bad",
+                        "start_message_id": message_id_for_index(0),
+                        "end_message_id": message_id_for_index(0),
+                    },
                 }
             )
             + "\n"
@@ -465,16 +482,17 @@ def test_load_session_ignores_invalid_compact_records(tmp_path) -> None:
         handle.write(
             json.dumps(
                 {
-                    "record_type": "compact",
+                    "record_type": TRANSCRIPT_EVENT_RECORD_TYPE,
                     "version": 1,
                     "session_id": "other",
                     "timestamp": "2026-04-13T00:00:01Z",
-                    "cwd": str(workdir.resolve()),
-                    "trigger": "manual",
-                    "summary": "foreign",
-                    "original_message_count": 1,
-                    "summarized_message_count": 1,
-                    "kept_message_count": 0,
+                    "event_kind": COMPACT_EVENT_KIND,
+                    "payload": {
+                        "trigger": "manual",
+                        "summary": "foreign",
+                        "start_message_id": message_id_for_index(0),
+                        "end_message_id": message_id_for_index(0),
+                    },
                 }
             )
             + "\n"
@@ -498,9 +516,9 @@ def test_recovery_brief_limits_recent_compacts_in_original_order(tmp_path) -> No
             context,
             trigger="manual",
             summary=f"compact-{index}",
-            original_message_count=index + 1,
-            summarized_message_count=index,
-            kept_message_count=1,
+            start_message_id=message_id_for_index(0),
+            end_message_id=message_id_for_index(0),
+            covered_message_ids=[message_id_for_index(0)],
         )
 
     loaded = store.load_session(session_id=context.session_id, workdir=workdir)
@@ -529,18 +547,18 @@ def test_load_session_compacted_history_falls_back_to_raw_history_on_invalid_tai
         context,
         trigger="manual",
         summary="summary",
-        original_message_count=99,
-        summarized_message_count=98,
-        kept_message_count=1,
+        start_message_id="msg-unknown",
+        end_message_id="msg-unknown",
+        covered_message_ids=["msg-unknown"],
     )
 
     loaded = store.load_session(session_id=context.session_id, workdir=workdir)
 
-    assert loaded.history == [
-        {"role": "user", "content": "first"},
-        {"role": "assistant", "content": "second"},
+    assert _history_summary(loaded.history) == [
+        (message_id_for_index(0), "user", "first"),
+        (message_id_for_index(1), "assistant", "second"),
     ]
-    assert loaded.compacted_history == loaded.history
+    assert loaded.compacted_history == _projected_history(loaded.history)
     assert loaded.compacted_history_source.mode == "raw"
     assert loaded.compacted_history_source.reason == "no_valid_compact"
     assert loaded.compacted_history_source.compact_index is None
@@ -554,23 +572,23 @@ def test_load_session_compacted_history_uses_latest_valid_compact_record(
     workdir.mkdir()
 
     context = store.create_session(workdir=workdir)
-    store.append_message(context, role="user", content="first", message_index=0)
-    store.append_message(context, role="assistant", content="second", message_index=1)
+    store.append_message(context, role="user", content="first")
+    store.append_message(context, role="assistant", content="second")
     store.append_compact(
         context,
         trigger="manual",
         summary="valid compact",
-        original_message_count=2,
-        summarized_message_count=1,
-        kept_message_count=1,
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
     )
     store.append_compact(
         context,
         trigger="manual",
         summary="invalid compact",
-        original_message_count=99,
-        summarized_message_count=98,
-        kept_message_count=1,
+        start_message_id="msg-unknown",
+        end_message_id="msg-unknown",
+        covered_message_ids=["msg-unknown"],
     )
 
     loaded = store.load_session(session_id=context.session_id, workdir=workdir)
@@ -591,32 +609,32 @@ def test_load_session_compacted_history_uses_newest_valid_compact_record(
     workdir.mkdir()
 
     context = store.create_session(workdir=workdir)
-    store.append_message(context, role="user", content="first", message_index=0)
-    store.append_message(context, role="assistant", content="second", message_index=1)
-    store.append_message(context, role="user", content="third", message_index=2)
+    store.append_message(context, role="user", content="first")
+    store.append_message(context, role="assistant", content="second")
+    store.append_message(context, role="user", content="third")
     store.append_compact(
         context,
         trigger="manual",
         summary="older compact",
-        original_message_count=3,
-        summarized_message_count=1,
-        kept_message_count=2,
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
     )
     store.append_compact(
         context,
         trigger="manual",
         summary="newer compact",
-        original_message_count=3,
-        summarized_message_count=2,
-        kept_message_count=1,
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(1),
+        covered_message_ids=[message_id_for_index(0), message_id_for_index(1)],
     )
 
     loaded = store.load_session(session_id=context.session_id, workdir=workdir)
 
-    assert loaded.history == [
-        {"role": "user", "content": "first"},
-        {"role": "assistant", "content": "second"},
-        {"role": "user", "content": "third"},
+    assert _history_summary(loaded.history) == [
+        (message_id_for_index(0), "user", "first"),
+        (message_id_for_index(1), "assistant", "second"),
+        (message_id_for_index(2), "user", "third"),
     ]
     assert "newer compact" in str(loaded.compacted_history[1]["content"])
     assert "older compact" not in str(loaded.compacted_history[1]["content"])
@@ -731,7 +749,9 @@ def test_load_session_without_snapshot_falls_back_to_default_state(tmp_path) -> 
 
     loaded = store.load_session(session_id=context.session_id, workdir=workdir)
 
-    assert loaded.history == [{"role": "user", "content": "hello"}]
+    assert _history_summary(loaded.history) == [
+        (message_id_for_index(0), "user", "hello")
+    ]
     assert loaded.state == {"todos": [], "rounds_since_update": 0}
 
 
@@ -762,7 +782,9 @@ def test_resume_session_restores_runtime_state(tmp_path) -> None:
         runtime_state=runtime_state,
     )
 
-    assert loaded.history == [{"role": "user", "content": "continue"}]
+    assert _history_summary(loaded.history) == [
+        (message_id_for_index(0), "user", "continue")
+    ]
     assert runtime_state == {
         "todos": [
             {"content": "Ship it", "status": "pending", "activeForm": "Shipping"}

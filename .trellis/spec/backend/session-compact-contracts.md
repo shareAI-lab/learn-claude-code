@@ -74,14 +74,21 @@ def append_compact(
     *,
     trigger: str,
     summary: str,
-    original_message_count: int,
-    summarized_message_count: int,
-    kept_message_count: int,
+    start_message_id: str,
+    end_message_id: str,
+    covered_message_ids: list[str] | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> Path: ...
 
+class SessionMessage:
+    message_id: str
+    created_at: str
+    role: str
+    content: str
+    metadata: dict[str, Any] | None = None
+
 class LoadedSession:
-    history: list[dict[str, str]]
+    history: list[SessionMessage]
     compacted_history: list[dict[str, Any]]
     compacted_history_source: CompactedHistorySource
     state: dict[str, Any]
@@ -106,7 +113,11 @@ class CompactedHistorySource:
   1. one system resume context message from `build_resume_context_message(loaded)`
   2. all `loaded.history` messages in original order
 - The resume context message content starts with `RESUME_CONTEXT_MESSAGE_PREFIX`.
-- `sessions.service.run_prompt_with_recording()` must not count synthetic resume context messages when assigning persisted `message_index` values.
+- Persisted raw message records must carry stable deterministic `message_id`
+  values, and `LoadedSession.history` must preserve those IDs through load.
+- `continuation_history()` must project `SessionMessage` into model-visible
+  `{"role", "content"}` dictionaries instead of leaking storage fields into the
+  runtime message list.
 - When `run_prompt_with_recording()` creates or resumes a recorded session and
   the agent callable accepts `session_context`, it must pass the active
   `SessionContext` into runtime invocation context so tools can append bounded
@@ -198,52 +209,63 @@ class CompactedHistorySource:
 
 #### Compact Transcript Records
 
-- Compact events are persisted as append-only JSONL records with `record_type == "compact"`.
+- Compact events are persisted as append-only JSONL records with
+  `record_type == "transcript_event"` and `event_kind == "compact"`.
 - Compact records must be loaded into `LoadedSession.compacts`.
 - Compact records must increment `SessionSummary.compact_count`.
 - Compact records must not appear in `LoadedSession.history`.
 - Compact records must not replace or delete any message/state/evidence record.
-- `LoadedSession.history` is the raw/full user-assistant transcript view.
+- `LoadedSession.history` is the raw/full typed `SessionMessage` transcript view.
 - `LoadedSession.compacted_history` is the load-time virtual compacted view.
-- `LoadedSession.compacted_history_source` explains whether the compacted view came from raw fallback or a compact record.
-- If no valid compact-derived view exists, `compacted_history` must fall back to `history`.
+- `LoadedSession.compacted_history_source` explains whether the compacted view
+  came from projected raw history or a compact record.
+- If no valid compact-derived view exists, `compacted_history` must fall back
+  to the projected raw history view.
 - Required compact record fields:
 
 ```json
 {
-  "record_type": "compact",
+  "record_type": "transcript_event",
   "version": 1,
   "session_id": "...",
   "timestamp": "...",
-  "cwd": "...",
-  "trigger": "manual",
-  "summary": "...",
-  "original_message_count": 2,
-  "summarized_message_count": 1,
-  "kept_message_count": 1
+  "event_kind": "compact",
+  "payload": {
+    "trigger": "manual",
+    "summary": "...",
+    "start_message_id": "msg-000000",
+    "end_message_id": "msg-000001",
+    "covered_message_ids": ["msg-000000", "msg-000001"],
+    "metadata": {"source": "generated"}
+  }
 }
 ```
 
-- When continuation history contains synthetic compact artifacts, `run_prompt_with_recording()` must append one compact record before recording the continuation prompt.
-- The next persisted message index after compacted continuation must use `original_message_count` from the compact metadata, not the count of preserved synthetic history messages.
+- When continuation history contains synthetic compact artifacts,
+  `run_prompt_with_recording()` must append one compact transcript event before
+  recording the continuation prompt.
+- Persisted raw message IDs after compacted continuation must continue the next
+  append-order `msg-######` sequence from the existing raw message ledger, not
+  from the count of synthetic compact projection messages.
 
 #### Load-Time Compacted History View
 
-- `JsonlSessionStore.load_session()` must derive `LoadedSession.compacted_history` from the newest compact record that yields a valid compact-derived view.
+- `JsonlSessionStore.load_session()` must derive `LoadedSession.compacted_history`
+  from the newest compact record that yields a valid compact-derived view.
 - The compacted view must be:
   1. compact boundary message
   2. compact summary message
   3. preserved tail messages
-- Tail start is derived as:
-
-```python
-keep_from = original_message_count - kept_message_count
-```
-
-- Tail derivation is clamped to `[0, len(raw_history)]`.
+- For the current manual-compact path, the compact event covers a contiguous
+  prefix of the raw transcript:
+  - `start_message_id` must resolve to the first raw message in the session
+  - `end_message_id` must resolve to the last summarized raw message
+  - when `covered_message_ids` is present, it must match that covered prefix
 - Compact records must be scanned from newest to oldest.
-- If the latest compact record's derived tail is empty or invalid, the loader must try the next earlier compact record.
-- If no compact record yields a valid compact-derived view, `compacted_history` must fall back to the raw history.
+- If the latest compact record's message references are invalid, the loader
+  must try the next earlier compact record.
+- If no compact record yields a valid compact-derived view,
+  `compacted_history` must fall back to the projected raw history.
 - `compacted_history_source.mode` must be:
   - `"compact"` when a compact record produces the selected view
   - `"raw"` when no compact view is selected
@@ -279,12 +301,12 @@ keep_from = original_message_count - kept_message_count
 | summarizer returns only `<analysis>` or blank text | `ValueError("compact summarizer returned an empty summary")` |
 | compact tail starts with `tool_result` | include matching previous `tool_use` message when present |
 | resume context history is recorded to transcript | synthetic resume context is not persisted as a message record |
-| compacted history is recorded to transcript | synthetic compact artifacts are not persisted as message records; one compact record is appended |
-| compacted history preserves only recent tail | next real message index starts at compact `original_message_count` |
+| compacted history is recorded to transcript | synthetic compact artifacts are not persisted as message records; one compact transcript event is appended |
+| compacted continuation appends new raw messages | next real message ID continues the append-order `msg-######` sequence |
 | multiple valid compact records exist | `LoadedSession.compacted_history` uses the newest valid compact record |
 | latest compact record is invalid but an earlier compact record is valid | `LoadedSession.compacted_history` uses the earlier valid compact record |
 | compact record exists and derived tail is valid | `LoadedSession.compacted_history` contains boundary + summary + preserved tail |
-| no compact record yields a valid derived tail | `LoadedSession.compacted_history` falls back to raw history |
+| no compact record yields a valid derived tail | `LoadedSession.compacted_history` falls back to projected raw history |
 | selected compacted view comes from compact record at index N | `compacted_history_source == compact/latest_valid_compact/N` |
 | selected compacted view falls back to raw history | `compacted_history_source == raw/<reason>/None` |
 | valid current session-memory artifact | recovery brief renders `Session memory:` with `[current]`; generated compact summary may receive assist text |
@@ -371,8 +393,9 @@ Required assertion points:
 - compact summary artifact is not merged by `project_messages()`
 - compact transcript records are separated from `LoadedSession.history`
 - compacted history view is derived at load time and kept separate from raw history
-- persisted transcript `message_index` values remain contiguous for real persisted messages only
-- compacted continuation uses compact `original_message_count` as the next real message index baseline
+- persisted transcript `message_id` values remain contiguous append-order IDs
+- compacted continuation persists `start_message_id` / `end_message_id` and
+  optional `covered_message_ids` into the compact transcript event payload
 - rejected compact CLI combinations do not call `run_prompt`
 - rejected memory writes do not mutate LangGraph store
 
@@ -430,4 +453,3 @@ if generate_compact_summary:
 Why correct:
 - Model construction and summarization happen only after explicit user opt-in.
 - No automatic transcript or state mutation is introduced.
-
