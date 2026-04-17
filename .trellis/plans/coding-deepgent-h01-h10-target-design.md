@@ -358,19 +358,19 @@ Partial and strong. Next target is audit: confirm runtime invocation actually us
 
 Implemented / partial:
 
-- `MemoryRecord`
-- `SaveMemoryInput`
-- namespace: project/user/local
-- store-backed save/list/recall
-- `save_memory` tool
-- `MemoryContextMiddleware`
+- four long-term memory types: user / feedback / project / reference
+- structured save/list/delete long-term memory tools
+- bounded store-backed recall and render
+- feedback rules can directly affect a few high-value actions
+- long-term memory appears in recovery/resume as its own section
+- current-session memory appears in recovery/resume as a separate section
 
 Missing:
 
-- No explicit "do not save derivable facts" enforcement beyond tool description.
-- No memory freshness or richer relevance.
-- No side-agent memory writing.
-- No session memory compact integration.
+- no durable long-term memory backend yet
+- no auto-suggested memory extraction from conversation
+- no subagent/private memory boundary yet
+- no richer freshness/relevance scoring beyond bounded deterministic recall
 
 ### Target design
 
@@ -378,7 +378,7 @@ Memory stores durable, reusable, non-derivable knowledge and preferences.
 
 Do:
 
-- Keep namespaces explicit.
+- Keep long-term memory and current-session memory visibly separate.
 - Add validation/review around memory quality before auto-extraction.
 - Keep memory separate from todo/task/session state.
 - Use LangGraph store seam.
@@ -399,7 +399,18 @@ Do not:
 
 ### Status
 
-Partial foundation. Next target is memory quality policy and tests.
+Integrated memory closeout in progress: long-term memory and current-session
+memory are now two explicit product layers.
+
+### Future Functional Roadmap
+
+Later memory work should be framed in terms of what the user will gain:
+
+- memory survives restart and can still be reviewed/edited later
+- the system can suggest when a user correction or project fact is worth saving
+- sub-tasks or child agents can continue with their own remembered context
+- outdated or low-value remembered items can be cleaned up automatically
+- the system can find the most relevant remembered item faster when the history grows
 
 ## H08 — TodoWrite as Short-Term Planning Contract
 

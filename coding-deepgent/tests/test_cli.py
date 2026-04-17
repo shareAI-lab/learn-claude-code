@@ -223,7 +223,9 @@ def test_sessions_resume_uses_recovery_brief_continuation_history(
                 f"{loaded.summary.updated_at}\n"
                 "Active todos:\n"
                 "- Continue work\n"
-                "Session memory:\n"
+                "Long-term memory:\n"
+                "- none\n"
+                "Current-session memory:\n"
                 "- none\n"
                 "Recent evidence:\n"
                 "- [passed] verification: pytest passed\n"
@@ -300,7 +302,7 @@ def test_sessions_resume_session_memory_option_updates_state_before_run(
     assert artifact["updated_at"]
     history = captured["history"]
     assert isinstance(history, list)
-    assert "Session memory:" in str(history[0]["content"])
+    assert "Current-session memory:" in str(history[0]["content"])
     assert "Current focus is deterministic assist." in str(history[0]["content"])
     assert captured["session_id"] == "session-1"
 

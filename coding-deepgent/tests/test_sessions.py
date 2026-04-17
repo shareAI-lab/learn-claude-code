@@ -21,6 +21,7 @@ from coding_deepgent.sessions import (
 )
 from coding_deepgent.sessions.records import message_id_for_index
 from coding_deepgent.sessions.session_memory import SESSION_MEMORY_STATE_KEY
+from coding_deepgent.memory import LONG_TERM_MEMORY_STATE_KEY
 from coding_deepgent.compact import COLLAPSE_BOUNDARY_PREFIX, COLLAPSE_SUMMARY_PREFIX
 
 
@@ -371,7 +372,7 @@ def test_recovery_brief_renders_session_memory_status(tmp_path) -> None:
         )
     )
 
-    assert "Session memory:" in rendered
+    assert "Current-session memory:" in rendered
     assert "[current] Current repo focus is deterministic assist." in rendered
 
 
@@ -404,6 +405,47 @@ def test_recovery_brief_marks_stale_session_memory_status(tmp_path) -> None:
     )
 
     assert "[stale] Current repo focus is deterministic assist." in rendered
+
+
+def test_recovery_brief_renders_long_term_memory_snapshot(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir, entrypoint="cli")
+    store.append_message(context, role="user", content="resume")
+    store.append_state_snapshot(
+        context,
+        state={
+            "todos": [],
+            "rounds_since_update": 0,
+            LONG_TERM_MEMORY_STATE_KEY: {
+                "entries": [
+                    {
+                        "key": "fb-1",
+                        "type": "feedback",
+                        "summary": "Run lint before commit",
+                    },
+                    {
+                        "key": "proj-1",
+                        "type": "project",
+                        "summary": "Use JWT for auth",
+                    },
+                ],
+                "updated_at": "2026-04-18T00:00:00Z",
+            },
+        },
+    )
+
+    rendered = render_recovery_brief(
+        build_recovery_brief(
+            store.load_session(session_id=context.session_id, workdir=workdir)
+        )
+    )
+
+    assert "Long-term memory:" in rendered
+    assert "[feedback] Run lint before commit (key=fb-1)" in rendered
+    assert "[project] Use JWT for auth (key=proj-1)" in rendered
 
 
 def test_compact_record_roundtrip_does_not_enter_history(tmp_path) -> None:
@@ -493,6 +535,50 @@ def test_collapse_record_roundtrip_does_not_enter_history(tmp_path) -> None:
     assert loaded.collapses[0].end_message_id == message_id_for_index(0)
     assert loaded.collapses[0].covered_message_ids == (message_id_for_index(0),)
     assert loaded.collapses[0].metadata == {"source": "runtime_pressure"}
+
+
+def test_sidechain_message_roundtrip_stays_out_of_parent_history(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+
+    context = store.create_session(workdir=workdir, entrypoint="cli")
+    store.append_message(context, role="user", content="parent prompt")
+    store.append_sidechain_message(
+        context,
+        agent_type="general",
+        role="user",
+        content="Inspect the repository",
+        subagent_thread_id="session-1:general",
+        parent_message_id=message_id_for_index(0),
+        parent_thread_id="session-1",
+    )
+    store.append_sidechain_message(
+        context,
+        agent_type="general",
+        role="assistant",
+        content="Found the relevant files.",
+        subagent_thread_id="session-1:general",
+        parent_message_id=message_id_for_index(0),
+        parent_thread_id="session-1",
+    )
+
+    loaded = store.load_session(session_id=context.session_id, workdir=workdir)
+
+    assert _history_summary(loaded.history) == [
+        (message_id_for_index(0), "user", "parent prompt")
+    ]
+    assert loaded.compacted_history == _projected_history(loaded.history)
+    assert loaded.collapsed_history == _projected_history(loaded.history)
+    assert len(loaded.sidechain_messages) == 2
+    assert loaded.sidechain_messages[0].agent_type == "general"
+    assert loaded.sidechain_messages[0].role == "user"
+    assert loaded.sidechain_messages[0].content == "Inspect the repository"
+    assert loaded.sidechain_messages[0].parent_message_id == message_id_for_index(0)
+    assert loaded.sidechain_messages[0].parent_thread_id == "session-1"
+    assert loaded.sidechain_messages[0].subagent_thread_id == "session-1:general"
+    assert loaded.sidechain_messages[1].role == "assistant"
+    assert loaded.sidechain_messages[1].content == "Found the relevant files."
 
 
 def test_load_session_collapsed_history_uses_newest_non_overlapping_collapses(

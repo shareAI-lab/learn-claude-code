@@ -14,14 +14,20 @@ def test_prompt_context_injects_recalled_memory_as_distinct_section() -> None:
         entrypoint="coding-deepgent",
         memories=[
             MemoryRecord(
-                content="Prefer LangChain stores for memory", namespace="project"
+                type="feedback",
+                rule="Run lint before commit",
+                why="The repo requires clean validation before code submission",
+                how_to_apply="Before any commit-like completion step, run lint first",
             )
         ],
     )
 
-    assert (
-        context.memory_context
-        == "Relevant long-term memory:\n- [project] Prefer LangChain stores for memory"
+    assert context.memory_context == (
+        "Relevant long-term memory:\n"
+        "Feedback memory:\n"
+        "- Rule: Run lint before commit\n"
+        "  Why: The repo requires clean validation before code submission\n"
+        "  How to apply: Before any commit-like completion step, run lint first"
     )
     assert context.memory_context in context.system_prompt
     assert context.default_system_prompt[0].startswith("You are coding-deepgent")

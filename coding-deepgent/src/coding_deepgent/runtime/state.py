@@ -15,6 +15,7 @@ class RuntimeTodoState(TypedDict):
 class RuntimeState(AgentState):
     todos: NotRequired[list[RuntimeTodoState]]
     rounds_since_update: NotRequired[int]
+    long_term_memory: NotRequired[dict[str, Any]]
     session_memory: NotRequired[dict[str, Any]]
 
 

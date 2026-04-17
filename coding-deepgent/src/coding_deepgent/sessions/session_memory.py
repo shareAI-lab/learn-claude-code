@@ -227,7 +227,7 @@ def recovery_brief_contribution() -> RecoveryBriefContribution:
                 ),
             )
         )
-        return RecoveryBriefSection(title="Session memory:", lines=lines)
+        return RecoveryBriefSection(title="Current-session memory:", lines=lines)
 
     return RecoveryBriefContribution(name=SESSION_MEMORY_STATE_KEY, render=render)
 

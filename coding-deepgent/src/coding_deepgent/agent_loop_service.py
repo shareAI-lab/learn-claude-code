@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, MutableMapping
-from typing import Any
+from typing import Any, cast
 
 from coding_deepgent.agent_runtime_service import (
     invoke_agent,
@@ -9,10 +9,17 @@ from coding_deepgent.agent_runtime_service import (
     session_payload,
     update_session_state,
 )
+from coding_deepgent.compact import project_messages_with_stats
 from coding_deepgent.containers import AppContainer
 from coding_deepgent.hooks.dispatcher import dispatch_runtime_hook
-from coding_deepgent.rendering import latest_assistant_text, normalize_messages
-from coding_deepgent.runtime import RuntimeInvocation
+from coding_deepgent.memory import (
+    build_long_term_memory_snapshot,
+    write_long_term_memory_snapshot,
+)
+from coding_deepgent.memory.store import MemoryStore
+from coding_deepgent.rendering import latest_assistant_text
+from coding_deepgent.runtime import RuntimeEvent, RuntimeInvocation
+from coding_deepgent.sessions.evidence_events import append_runtime_event_evidence
 from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
 
 
@@ -40,13 +47,26 @@ def run_agent_loop(
     transcript_projection: TranscriptProjection | None = None,
 ) -> str:
     active_container = container or build_container()
-    normalized = normalize_messages(messages)
     invocation = build_runtime_invocation(
         container=active_container,
         session_id=session_id,
         session_context=session_context,
         transcript_projection=transcript_projection,
     )
+    projection_result = project_messages_with_stats(messages)
+    normalized = projection_result.messages
+    if projection_result.repair_stats.orphan_tombstoned:
+        _emit_agent_event(
+            invocation,
+            kind="orphan_tombstoned",
+            message="Projection repair tombstoned orphaned tool result material.",
+            metadata={
+                "source": "message_projection",
+                "reason": projection_result.repair_stats.reason or "unknown",
+                "tombstoned_count": projection_result.repair_stats.orphan_tombstoned,
+                "message_count": len(normalized),
+            },
+        )
 
     if is_new_session(normalized, session_state):
         dispatch_runtime_hook(
@@ -73,13 +93,58 @@ def run_agent_loop(
         messages.append({"role": "assistant", "content": final_text})
         return final_text
 
-    result = invoke_agent(
-        resolve_compiled_agent(active_container, build_agent),
-        {"messages": normalized, **session_payload(session_state)},
-        invocation,
-    )
+    try:
+        result = invoke_agent(
+            resolve_compiled_agent(active_container, build_agent),
+            {"messages": normalized, **session_payload(session_state)},
+            invocation,
+        )
+    except Exception as exc:
+        _emit_agent_event(
+            invocation,
+            kind="query_error",
+            message="Agent query failed during invoke.",
+            metadata={
+                "source": "agent_loop",
+                "phase": "agent_invoke",
+                "error_class": type(exc).__name__,
+                "retry_count": 0,
+            },
+        )
+        raise
     update_session_state(session_state, result)
+    write_long_term_memory_snapshot(
+        session_state,
+        build_long_term_memory_snapshot(_runtime_store(active_container)),
+    )
     final_text = latest_assistant_text(result)
     if final_text:
         messages.append({"role": "assistant", "content": final_text})
     return final_text
+
+
+def _emit_agent_event(
+    invocation: RuntimeInvocation,
+    *,
+    kind: str,
+    message: str,
+    metadata: dict[str, object],
+) -> None:
+    event = RuntimeEvent(
+        kind=kind,
+        message=message,
+        session_id=invocation.context.session_id,
+        metadata=metadata,
+    )
+    invocation.context.event_sink.emit(event)
+    append_runtime_event_evidence(context=invocation.context, event=event)
+
+
+def _runtime_store(active_container: object) -> MemoryStore | None:
+    runtime = getattr(active_container, "runtime", None)
+    if runtime is None:
+        return None
+    store_provider = getattr(runtime, "store", None)
+    if callable(store_provider):
+        return cast(MemoryStore | None, store_provider())
+    return None

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, MutableMapping
 from dataclasses import dataclass
+from typing import Any, cast
 
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain.messages import SystemMessage
@@ -11,13 +12,18 @@ from coding_deepgent.context_payloads import (
     merge_system_message_content,
 )
 from coding_deepgent.memory.recall import recall_memories, render_memories
-from coding_deepgent.memory.schemas import MemoryNamespace
+from coding_deepgent.memory.schemas import MemoryType
+from coding_deepgent.memory.state_snapshot import (
+    build_long_term_memory_snapshot,
+    write_long_term_memory_snapshot,
+)
 
 
 @dataclass(frozen=True, slots=True)
 class MemoryContextMiddleware(AgentMiddleware):
-    namespace: MemoryNamespace = "project"
+    memory_type: MemoryType | None = None
     limit: int = 5
+    snapshot_limit: int = 12
 
     def wrap_model_call(
         self,
@@ -25,13 +31,18 @@ class MemoryContextMiddleware(AgentMiddleware):
         handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
         store = getattr(request.runtime, "store", None)
+        if hasattr(request.state, "__setitem__"):
+            write_long_term_memory_snapshot(
+                cast(MutableMapping[str, Any], request.state),
+                build_long_term_memory_snapshot(store, limit=self.snapshot_limit),
+            )
         query = " ".join(
             str(message.content)
             for message in request.messages[-3:]
             if hasattr(message, "content")
         )
         memories = recall_memories(
-            store, namespace=self.namespace, query=query, limit=self.limit
+            store, memory_type=self.memory_type, query=query, limit=self.limit
         )
         rendered = render_memories(memories)
         if not rendered:
@@ -43,7 +54,11 @@ class MemoryContextMiddleware(AgentMiddleware):
         payloads = [
             ContextPayload(
                 kind="memory",
-                source=f"memory.{self.namespace}",
+                source=(
+                    f"memory.{self.memory_type}"
+                    if self.memory_type is not None
+                    else "memory.long_term"
+                ),
                 priority=200,
                 text=rendered,
             )

@@ -44,6 +44,8 @@ def session_payload(session_state: MutableMapping[str, Any]) -> dict[str, Any]:
         "todos": session_state.get("todos", []),
         "rounds_since_update": session_state.get("rounds_since_update", 0),
     }
+    if "long_term_memory" in session_state:
+        payload["long_term_memory"] = session_state["long_term_memory"]
     if "session_memory" in session_state:
         payload["session_memory"] = session_state["session_memory"]
     return payload
@@ -61,3 +63,5 @@ def update_session_state(
     )
     if "session_memory" in result:
         session_state["session_memory"] = result["session_memory"]
+    if "long_term_memory" in result:
+        session_state["long_term_memory"] = result["long_term_memory"]

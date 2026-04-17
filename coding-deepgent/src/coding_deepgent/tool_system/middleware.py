@@ -11,6 +11,7 @@ from langgraph.types import Command
 from coding_deepgent.compact import maybe_persist_large_tool_result
 from coding_deepgent.hooks.dispatcher import dispatch_context_hook
 from coding_deepgent.hooks.events import HookEventName
+from coding_deepgent.memory import evaluate_feedback_enforcement
 from coding_deepgent.runtime import RuntimeEvent
 from coding_deepgent.sessions.evidence_events import append_runtime_event_evidence
 
@@ -38,6 +39,41 @@ class ToolGuardMiddleware(AgentMiddleware):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], ToolMessage | Command[Any]],
     ) -> ToolMessage | Command[Any]:
+        feedback_decision = evaluate_feedback_enforcement(
+            store=getattr(request.runtime, "store", None),
+            tool_name=str(request.tool_call["name"]),
+            args=dict(request.tool_call.get("args", {})),
+        )
+        if feedback_decision.blocked:
+            feedback_result = ToolMessage(
+                content=feedback_decision.message,
+                tool_call_id=str(request.tool_call.get("id") or ""),
+                status="error",
+            )
+            feedback_policy = ToolPolicyDecision(
+                allowed=False,
+                code=ToolPolicyCode.PERMISSION_DENIED,
+                message=feedback_decision.message,
+                behavior="deny",
+            )
+            self._emit(
+                request=request,
+                phase="feedback_blocked",
+                decision=feedback_policy,
+                result=feedback_result,
+            )
+            self._dispatch_hook(
+                request=request,
+                event="PermissionDenied",
+                data={
+                    "tool": str(request.tool_call["name"]),
+                    "policy_code": "feedback_blocked",
+                    "message": feedback_decision.message,
+                    "matched_rule": feedback_decision.matched_rule or "",
+                },
+            )
+            return feedback_result
+
         decision = self.policy.evaluate(request.tool_call)
         tool_call_id = request.tool_call.get("id")
 
@@ -79,7 +115,21 @@ class ToolGuardMiddleware(AgentMiddleware):
             )
 
         self._emit(request=request, phase="allowed", decision=decision)
-        result = handler(request)
+        try:
+            result = handler(request)
+        except Exception as exc:
+            failure = ToolMessage(
+                content=_bounded_tool_failure_message(exc),
+                tool_call_id=str(tool_call_id or ""),
+                status="error",
+            )
+            self._emit(
+                request=request,
+                phase="failed",
+                decision=decision,
+                result=failure,
+            )
+            return failure
         result = self._process_tool_result(request=request, result=result)
         self._emit(
             request=request,
@@ -206,3 +256,11 @@ def _send_event(
             method(event)
             return None
     return None
+
+
+def _bounded_tool_failure_message(error: Exception) -> str:
+    detail = " ".join(str(error).split()).strip()
+    if detail:
+        detail = detail[:240]
+        return f"Error: {type(error).__name__}: {detail}"
+    return f"Error: {type(error).__name__}"

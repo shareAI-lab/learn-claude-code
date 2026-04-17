@@ -6,7 +6,7 @@ from typing import Any
 from dependency_injector import containers, providers
 
 from coding_deepgent.filesystem import glob_search, grep_search
-from coding_deepgent.memory import save_memory
+from coding_deepgent.memory import delete_memory, list_memory, save_memory
 from coding_deepgent.permissions import PermissionManager
 from coding_deepgent.permissions.rules import PermissionRuleSpec, expand_rule_specs
 from coding_deepgent.skills import load_skill
@@ -58,7 +58,9 @@ def _permission_rules(
 class ToolSystemContainer(containers.DeclarativeContainer):
     filesystem_tools: Any = providers.Dependency(default=providers.Object([]))
     todo_tools: Any = providers.Dependency(default=providers.Object([]))
-    memory_tools: Any = providers.Dependency(default=providers.Object([save_memory]))
+    memory_tools: Any = providers.Dependency(
+        default=providers.Object([save_memory, list_memory, delete_memory])
+    )
     skill_tools: Any = providers.Dependency(default=providers.Object([load_skill]))
     task_tools: Any = providers.Dependency(
         default=providers.Object(
@@ -110,7 +112,7 @@ class ToolSystemContainer(containers.DeclarativeContainer):
         extension_capabilities=extension_capabilities,
     )
     tools: Any = providers.Callable(
-        lambda registry: registry.main_tools(),
+        lambda registry: registry.project("main").tools(),
         capability_registry,
     )
     permission_manager: Any = providers.Factory(
