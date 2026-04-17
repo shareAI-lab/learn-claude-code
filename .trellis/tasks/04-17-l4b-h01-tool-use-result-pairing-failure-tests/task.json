@@ -1,0 +1,44 @@
+{
+  "id": "l4b-h01-tool-use-result-pairing-failure-tests",
+  "name": "l4b-h01-tool-use-result-pairing-failure-tests",
+  "title": "L4-b H01 tool use result pairing failure tests",
+  "description": "H01 child 5: tool_use/tool_result pairing and protocol-correct failure tests.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-17",
+  "completedAt": "2026-04-18",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-17-cc-core-topology-closeout-plan",
+  "relatedFiles": [],
+  "notes": "Completed H01 child 5: added focused protocol-failure tests for unknown tool, permission denial, hook block, and tool exception handling; ensured tool exceptions collapse to bounded ToolMessage errors; and added id-based pairing tests proving projection/extension tool names do not break tool_use/tool_result pairing.",
+  "meta": {}
+}

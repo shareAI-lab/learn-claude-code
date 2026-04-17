@@ -1,0 +1,44 @@
+{
+  "id": "l2a-h11-h12-agent-definition-general-runtime",
+  "name": "l2a-h11-h12-agent-definition-general-runtime",
+  "title": "L2-a H11 H12 agent definition and general runtime",
+  "description": "H11/H12-A AgentDefinition schema, general+verifier catalog, real read-only general child runtime, structured result envelope, fallback text scan.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-17",
+  "completedAt": "2026-04-17",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-17-cc-core-topology-closeout-plan",
+  "relatedFiles": [],
+  "notes": "Completed H11/H12-A: added AgentDefinition catalog for general/verifier, replaced general stub with real read-only child create_agent invocation, routed verifier through definitions, returned structured result envelopes with local usage/duration/tool-count metrics, and added fallback final-text extraction.",
+  "meta": {}
+}

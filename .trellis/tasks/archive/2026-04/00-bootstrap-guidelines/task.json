@@ -25,6 +25,6 @@
   "relatedFiles": [
     ".trellis/spec/backend/"
   ],
-  "notes": "Completed through the Trellis backend spec bootstrap now living under .trellis/spec/backend/ with concrete examples and anti-pattern guidance.",
+  "notes": "Completed through the Trellis backend spec bootstrap now living under .trellis/spec/backend/ with concrete examples and anti-pattern guidance. Reconfirmed on 2026-04-17 during L1-a ledger cleanup: backend spec docs are Active and the duplicate active bootstrap task was removed from the active ledger.",
   "meta": {}
 }

@@ -1,0 +1,44 @@
+{
+  "id": "l5b-deferred-boundary-adr-refresh",
+  "name": "l5b-deferred-boundary-adr-refresh",
+  "title": "L5-b deferred boundary ADR refresh",
+  "description": "Refresh deferred boundary ADR for H11/H12, H13/H14/H21/H22, and H19 deferred items after closeout implementation.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-17",
+  "completedAt": "2026-04-18",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-17-cc-core-topology-closeout-plan",
+  "relatedFiles": [],
+  "notes": "Completed docs-only ADR refresh. Added .trellis/plans/coding-deepgent-deferred-boundary-refresh-adr.md to supersede the old Stage 29 deferred note for H11/H12/H19/H01-adjacent boundaries, clarified why mailbox/coordinator/background/fork-cache parity/analytics/Perfetto/ToolSearch remain deferred, and updated project-handoff to point at the current topology tail.",
+  "meta": {}
+}

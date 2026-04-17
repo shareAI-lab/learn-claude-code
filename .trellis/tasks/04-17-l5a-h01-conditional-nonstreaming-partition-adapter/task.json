@@ -1,0 +1,44 @@
+{
+  "id": "l5a-h01-conditional-nonstreaming-partition-adapter",
+  "name": "l5a-h01-conditional-nonstreaming-partition-adapter",
+  "title": "L5-a H01 conditional non-streaming partition adapter",
+  "description": "Conditional H01 follow-up: implement non-streaming concurrency partition adapter only if L4-a proves LangChain behavior is insufficient; otherwise update specs only.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P3",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-17",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-17-cc-core-topology-closeout-plan",
+  "relatedFiles": [],
+  "notes": "Conditional only. L4-a research found that LangChain ToolNode already provides non-streaming parallel tool execution with preserved output order. Do not implement this adapter unless L4-b/L4-c expose a concrete capability-aware partitioning failure that current LangChain behavior cannot satisfy.",
+  "meta": {}
+}

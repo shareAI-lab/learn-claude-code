@@ -1,0 +1,4 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": ".trellis/plans/coding-deepgent-h01-tool-module-alignment-plan.md", "reason": "H01 projection source plan"}
+{"file": ".trellis/spec/backend/tool-capability-contracts.md", "reason": "Role-based tool projection contract"}

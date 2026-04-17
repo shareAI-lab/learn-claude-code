@@ -1,0 +1,5 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": ".trellis/spec/backend/tool-capability-contracts.md", "reason": "Five-factor tool capability metadata contract"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "LangChain-native tool/schema rules"}
+{"file": ".trellis/plans/coding-deepgent-h01-tool-module-alignment-plan.md", "reason": "H01 child 1 audit source plan"}

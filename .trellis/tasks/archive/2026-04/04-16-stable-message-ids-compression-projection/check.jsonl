@@ -1,0 +1,5 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Validate focused tests plus static checks for the touched session/compact surfaces."}
+{"file": ".trellis/spec/backend/session-compact-contracts.md", "reason": "Review the new message/event schema and compact replay behavior against the updated contract."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check message persistence, load, replay, and CLI projection boundaries stay aligned after the schema migration."}

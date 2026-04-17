@@ -1,0 +1,5 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": ".trellis/spec/backend/task-workflow-contracts.md", "reason": "Subagent and verifier runtime contracts"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "LangChain-native child create_agent boundary"}
+{"file": ".trellis/tasks/04-16-cc-highlight-alignment-discussion/h11-h12-alignment-research.md", "reason": "H11/H12 source-backed gap matrix"}

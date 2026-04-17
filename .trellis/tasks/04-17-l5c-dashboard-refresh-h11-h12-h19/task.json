@@ -1,0 +1,44 @@
+{
+  "id": "l5c-dashboard-refresh-h11-h12-h19",
+  "name": "l5c-dashboard-refresh-h11-h12-h19",
+  "title": "L5-c dashboard refresh for H11 H12 H19",
+  "description": "Refresh canonical roadmap dashboard rows for H11/H12 and H19 after closeout work lands.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-17",
+  "completedAt": "2026-04-18",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-17-cc-core-topology-closeout-plan",
+  "relatedFiles": [],
+  "notes": "Completed docs-only dashboard refresh. Canonical roadmap rows for H01, H11, H12, and H19 now reflect the completed topology closeout work, and remaining deferred/full-lifecycle scope is pushed into the refreshed deferred-boundary ADR instead of looking accidentally missing.",
+  "meta": {}
+}

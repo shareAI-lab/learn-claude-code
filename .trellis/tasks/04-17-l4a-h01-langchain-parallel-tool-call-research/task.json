@@ -1,0 +1,44 @@
+{
+  "id": "l4a-h01-langchain-parallel-tool-call-research",
+  "name": "l4a-h01-langchain-parallel-tool-call-research",
+  "title": "L4-a H01 LangChain parallel tool-call research spike",
+  "description": "H01 child 4: research-only spike to verify LangChain parallel tool-call behavior and whether local partition adapter is needed.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-17",
+  "completedAt": "2026-04-18",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-17-cc-core-topology-closeout-plan",
+  "relatedFiles": [],
+  "notes": "Completed research spike. Official LangChain docs plus local langchain 1.2.12 / ToolNode source show that non-streaming multi-tool execution already runs in parallel and preserves input order. Recommendation: downgrade L5-a from implementation to conditional/spec-only follow-up unless L4-b/L4-c expose a concrete capability-aware partitioning failure.",
+  "meta": {}
+}

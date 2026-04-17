@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/project-infrastructure-foundation-contracts.md", "reason": "Memory module boundary and owning surfaces for long-term memory, session memory, and recovery visibility."}
+{"file": ".trellis/spec/backend/session-compact-contracts.md", "reason": "Memory quality, session-memory continuity, and recovery/resume contracts touched by the integrated memory closeout."}

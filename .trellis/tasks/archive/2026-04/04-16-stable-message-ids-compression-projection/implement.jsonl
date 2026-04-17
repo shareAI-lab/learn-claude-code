@@ -1,0 +1,8 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Cross-layer runtime/session changes need focused tests, ruff, and mypy on touched product files."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Session loader/schema refactor must fail explicitly on invalid domain records instead of permissive fallback."}
+{"file": "coding-deepgent/src/coding_deepgent/sessions/records.py", "reason": "Defines session domain dataclasses and record schemas that must move to SessionMessage and transcript events."}
+{"file": "coding-deepgent/src/coding_deepgent/sessions/store_jsonl.py", "reason": "Primary load/append seam for raw messages and transcript events."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Message/event ledger schema crosses persistence, load, compaction replay, and CLI continuation boundaries."}
+{"file": ".trellis/spec/backend/session-compact-contracts.md", "reason": "Owns session ledger, compact persistence, and resume/load contracts that this refactor changes."}

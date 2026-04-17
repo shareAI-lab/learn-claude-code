@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/tool-capability-contracts.md", "reason": "Role-based tool projection contract"}
+{"file": ".trellis/plans/coding-deepgent-h01-tool-module-alignment-plan.md", "reason": "H01 projection source plan"}

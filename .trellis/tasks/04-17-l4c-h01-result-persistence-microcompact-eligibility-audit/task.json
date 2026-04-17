@@ -1,0 +1,44 @@
+{
+  "id": "l4c-h01-result-persistence-microcompact-eligibility-audit",
+  "name": "l4c-h01-result-persistence-microcompact-eligibility-audit",
+  "title": "L4-c H01 result persistence microcompact eligibility audit",
+  "description": "H01 child 6: lightweight audit of result persistence and microcompact eligibility against tool capability contracts.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-17",
+  "completedAt": "2026-04-18",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-17-cc-core-topology-closeout-plan",
+  "relatedFiles": [],
+  "notes": "Completed lightweight audit. Current persist_large_output and microcompact_eligible opt-ins remain valid for bash/read_file/glob/grep because persisted-output paths preserve recoverability even when replay is unsafe. No capability metadata changes were required; audit findings are recorded under audit.md and tool-result storage contracts were clarified.",
+  "meta": {}
+}

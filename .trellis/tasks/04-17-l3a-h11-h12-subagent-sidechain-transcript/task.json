@@ -1,0 +1,44 @@
+{
+  "id": "l3a-h11-h12-subagent-sidechain-transcript",
+  "name": "l3a-h11-h12-subagent-sidechain-transcript",
+  "title": "L3-a H11 H12 subagent sidechain transcript",
+  "description": "H11/H12-B persist subagent sidechain transcript into parent session JSONL with parent_message_id and subagent_thread_id linkage.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-17",
+  "completedAt": "2026-04-18",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-17-cc-core-topology-closeout-plan",
+  "relatedFiles": [],
+  "notes": "Completed H11/H12-B: persisted bounded subagent sidechain transcript entries into the parent session JSONL with parent_message_id / parent_thread_id / subagent_thread_id linkage, loaded them through LoadedSession.sidechain_messages, and kept main resume/compact/collapse projections unchanged.",
+  "meta": {}
+}

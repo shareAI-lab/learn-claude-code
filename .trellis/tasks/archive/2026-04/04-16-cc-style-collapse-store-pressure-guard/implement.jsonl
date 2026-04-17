@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/runtime-pressure-contracts.md", "reason": "Owns live collapse middleware behavior, runtime evidence, and new persistence boundary for collapse records."}
+{"file": ".trellis/spec/backend/session-compact-contracts.md", "reason": "Owns append-only transcript event ledger and loaded session transcript event surfaces used by collapse records."}

@@ -1,0 +1,44 @@
+{
+  "id": "opencode-style-auto-tool-output-prune",
+  "name": "opencode-style-auto-tool-output-prune",
+  "title": "opencode-style auto tool output prune",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-15",
+  "completedAt": "2026-04-17",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-16-context-compression-staged-implementation-plan",
+  "relatedFiles": [],
+  "notes": "Superseded by Stage 1 time-based microcompact + token-budget tool-output prune under parent plan 04-16-context-compression-staged-implementation-plan. opencode-specific semantics not needed; functional equivalent shipped. Closing as completed to avoid ledger drift.",
+  "meta": {}
+}

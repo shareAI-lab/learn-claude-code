@@ -1,0 +1,4 @@
+{"file": ".cursor/commands/trellis-finish-work.md", "reason": "Finish work checklist"}
+{"file": ".cursor/commands/trellis-check-backend.md", "reason": "Backend check spec"}
+{"file": ".trellis/spec/backend/runtime-pressure-contracts.md", "reason": "Review live collapse persistence and runtime projection sidecar alignment."}
+{"file": ".trellis/spec/backend/session-compact-contracts.md", "reason": "Review collapse transcript-event loading and raw history separation."}

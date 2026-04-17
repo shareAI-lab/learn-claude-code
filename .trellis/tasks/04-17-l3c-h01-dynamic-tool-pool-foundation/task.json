@@ -1,0 +1,44 @@
+{
+  "id": "l3c-h01-dynamic-tool-pool-foundation",
+  "name": "l3c-h01-dynamic-tool-pool-foundation",
+  "title": "L3-c H01 dynamic tool pool foundation",
+  "description": "H01 child 3: dynamic tool pool projection and validation foundation without hot-swap runtime.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-17",
+  "completedAt": "2026-04-18",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-17-cc-core-topology-closeout-plan",
+  "relatedFiles": [],
+  "notes": "Completed H01 child 3: added explicit ToolPoolProjection seam and registry.project(...) API for main/child/extension/deferred surfaces, validated projection states deterministically, and preserved startup simplicity without tool hot-swap or ToolSearch runtime.",
+  "meta": {}
+}
