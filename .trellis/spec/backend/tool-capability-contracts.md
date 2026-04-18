@@ -70,6 +70,22 @@ class ToolPoolProjection:
     def names(self) -> list[str]: ...
     def tools(self) -> list[BaseTool]: ...
     def metadata(self) -> dict[str, ToolCapability]: ...
+
+class ToolSearchInput(BaseModel):
+    query: str
+    max_results: int = 5
+
+def ToolSearch(query: str, runtime: ToolRuntime, max_results: int = 5) -> str: ...
+
+class InvokeDeferredToolInput(BaseModel):
+    tool_name: str
+    arguments: dict[str, Any]
+
+def invoke_deferred_tool(
+    tool_name: str,
+    arguments: dict[str, Any],
+    runtime: ToolRuntime,
+) -> str: ...
 ```
 
 Required five-factor protocol for every registered tool:
@@ -171,17 +187,28 @@ Where:
 - `exposure="main"` and `exposure="extension"` are model-facing main tools.
 - `exposure="child_only"` is allowed only for bounded child-agent or verifier
   surfaces.
-- `exposure="deferred"` is reserved for future ToolSearch/schema-discovery
-  surfaces and must not enter main/child projections until that runtime is
-  explicitly implemented.
+- `exposure="deferred"` is the local deferred-discovery surface. Deferred tools
+  must not enter the initial main/child projections directly.
+- `ToolSearch` and `invoke_deferred_tool` are the main-surface bridge tools for
+  deferred discovery/execution.
 - Runtime surfaces should call registry projection helpers such as
   `project("main")`, `names_for_projection("main")`,
   `tools_for_projection("child")`, or `tools_for_names(...)` instead of
   duplicating exposure filtering.
 - `ToolPoolProjection` is the explicit projection seam for follow-up work. It
   may be tested independently from agent startup and runtime wiring.
-- Future `deferred` or ToolSearch-style schema discovery must be explicit; do
-  not overload `child_only` or `extension` to mean deferred schema loading.
+- `declarable_names()` must include enabled `main`, `extension`, and
+  `deferred` names, while excluding `child_only` and disabled tools.
+- `ToolSearch` must return the matched deferred tool's exact name plus the full
+  `tool_call_schema` JSON schema needed for later execution.
+- `invoke_deferred_tool` must execute the actual deferred capability through the
+  shared `ToolGuardMiddleware` path so permission policy, hook dispatch,
+  bounded failure shaping, and large-output persistence still apply to the real
+  target tool.
+- Deferred execution is for `plain_tool`, `child_agent_bridge`, `fork_bridge`,
+  and similarly bounded tool surfaces. `command_update` tools should not move
+  behind the deferred bridge without a new explicit contract.
+- Do not overload `child_only` or `extension` to mean deferred schema loading.
 - MCP/plugin tools must preserve source/trust metadata so permission and
   observability can distinguish builtin from extension behavior.
 
@@ -203,7 +230,10 @@ Where:
 | `microcompact_eligible=True` for non-restorable stateful output | reject metadata |
 | child-only tool appears in main projection | projection test fails |
 | extension tool lacks source/trust identity | startup/registration validation rejects it |
-| deferred tool is registered | excluded from main and child projections; visible only through `deferred` projection |
+| deferred tool is registered | excluded from initial main and child projections; visible through `deferred` projection and bridge tools |
+| `ToolSearch` query matches deferred tools | result returns exact names plus full JSON parameter schemas |
+| `invoke_deferred_tool` targets unknown or non-deferred tool | bounded error result; no direct execution |
+| `invoke_deferred_tool` targets a denied deferred capability | shared policy path still returns bounded `ToolMessage(status="error")` |
 
 ### 5. Good / Base / Bad Cases
 
@@ -296,6 +326,7 @@ Required focused test families:
 
 - `coding-deepgent/tests/test_tool_system_registry.py`
 - `coding-deepgent/tests/test_tool_system_middleware.py`
+- `coding-deepgent/tests/test_tool_search.py`
 - domain-specific schema tests, for example:
   - `coding-deepgent/tests/test_tools.py`
   - `coding-deepgent/tests/test_tasks.py`
@@ -309,6 +340,7 @@ Required assertion points:
 - public tool names match capability names
 - duplicate names fail
 - main/child/extension exposure projections are stable
+- deferred projection and bridge-tool contracts are stable
 - hidden injected runtime fields are absent from model-visible schema
 - invalid extra/alias fields fail schema validation
 - permission behavior uses capability metadata
@@ -316,6 +348,7 @@ Required assertion points:
 - untrusted destructive extension tools are not auto-allowed
 - large-output and microcompact eligibility are opt-in
 - child-only tools do not enter the main tool surface
+- deferred tools do not enter the initial main tool surface directly
 
 ### 7. Wrong vs Correct
 

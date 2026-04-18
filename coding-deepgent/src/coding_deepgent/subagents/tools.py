@@ -37,6 +37,8 @@ from coding_deepgent.subagents.schemas import (
     AgentDefinition,
     ForkPlaceholderLayout,
     ForkResultEnvelope,
+    ResumeForkInput,
+    ResumeSubagentInput,
     RunSubagentInput,
     RunForkInput,
     SubagentType,
@@ -1804,6 +1806,66 @@ def run_fork(
         intent=intent,
         runtime=runtime,
         max_turns=max_turns,
+    )
+    return ForkResultEnvelope(
+        content=result.content,
+        fork_run_id=result.fork_run_id,
+        parent_thread_id=result.parent_thread_id,
+        child_thread_id=result.child_thread_id,
+        rendered_prompt_fingerprint=result.rendered_prompt_fingerprint,
+        tool_pool_identity=result.tool_pool_identity,
+        placeholder_layout=result.placeholder_layout,
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        total_tokens=result.total_tokens,
+        total_duration_ms=result.total_duration_ms,
+        total_tool_use_count=result.total_tool_use_count,
+    ).model_dump_json()
+
+
+@tool(
+    "resume_subagent",
+    args_schema=ResumeSubagentInput,
+    description="Resume one recorded subagent sidechain thread by exact thread id.",
+)
+def resume_subagent(
+    subagent_thread_id: str,
+    runtime: ToolRuntime,
+    follow_up: str | None = None,
+) -> str:
+    """Resume one previously recorded child subagent thread."""
+    result = resume_subagent_task(
+        subagent_thread_id=subagent_thread_id,
+        runtime=runtime,
+        follow_up=follow_up,
+    )
+    return SubagentResultEnvelope(
+        agent_type=result.agent_type,
+        content=result.content,
+        tool_allowlist=list(result.tool_allowlist),
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        total_tokens=result.total_tokens,
+        total_duration_ms=result.total_duration_ms,
+        total_tool_use_count=result.total_tool_use_count,
+    ).model_dump_json()
+
+
+@tool(
+    "resume_fork",
+    args_schema=ResumeForkInput,
+    description="Resume one recorded fork child thread by exact child thread id.",
+)
+def resume_fork(
+    child_thread_id: str,
+    runtime: ToolRuntime,
+    follow_up: str | None = None,
+) -> str:
+    """Resume one previously recorded fork child thread."""
+    result = resume_fork_task(
+        child_thread_id=child_thread_id,
+        runtime=runtime,
+        follow_up=follow_up,
     )
     return ForkResultEnvelope(
         content=result.content,

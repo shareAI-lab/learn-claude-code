@@ -31,6 +31,7 @@ from coding_deepgent.tool_system import (
     build_builtin_capabilities,
     build_capability_registry,
 )
+from coding_deepgent.tool_system.deferred import invoke_deferred_tool, tool_search
 from coding_deepgent.filesystem import bash, edit_file, glob_search, grep_search, read_file, write_file
 from coding_deepgent.todo.tools import todo_write
 
@@ -48,6 +49,7 @@ def canonical_registry():
             todo_tools=(todo_write,),
             memory_tools=(save_memory,),
             skill_tools=(load_skill,),
+            deferred_bridge_tools=(tool_search, invoke_deferred_tool),
             task_tools=(
                 task_create,
                 task_get,

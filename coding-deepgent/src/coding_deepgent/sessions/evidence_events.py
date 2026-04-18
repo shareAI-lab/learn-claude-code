@@ -58,13 +58,19 @@ def _safe_metadata(event: RuntimeEvent) -> dict[str, object]:
         "outcome",
         "phase",
         "error_class",
-        "reason",
         "strategy",
         "trigger",
     ):
         value = event.metadata.get(key)
         if isinstance(value, str) and value:
             metadata[key] = value
+    reason = event.metadata.get("reason")
+    if (
+        event.kind != "hook_blocked"
+        and isinstance(reason, str)
+        and reason
+    ):
+        metadata["reason"] = reason
     blocked = event.metadata.get("blocked")
     if isinstance(blocked, bool):
         metadata["blocked"] = blocked

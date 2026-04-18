@@ -189,7 +189,7 @@ class CapabilityRegistry:
         return self.names_for_projection("child")
 
     def declarable_names(self) -> list[str]:
-        return self.names_for_projection("main")
+        return self.names_for_exposure("main", "extension", "deferred")
 
     def metadata(self) -> dict[str, ToolCapability]:
         return dict(self._capabilities)
@@ -240,6 +240,8 @@ def _validate_capability(capability: ToolCapability) -> None:
 
 
 def build_default_registry(*, include_discovery: bool = False) -> CapabilityRegistry:
+    from .deferred import invoke_deferred_tool, tool_search
+
     capabilities = list(
         build_builtin_capabilities(
             filesystem_tools=(
@@ -252,6 +254,7 @@ def build_default_registry(*, include_discovery: bool = False) -> CapabilityRegi
             todo_tools=(todo_write,),
             memory_tools=(),
             skill_tools=(),
+            deferred_bridge_tools=(tool_search, invoke_deferred_tool),
             task_tools=(),
             subagent_tools=(),
         )
@@ -277,6 +280,7 @@ def build_builtin_capabilities(
     todo_tools: Sequence[BaseTool],
     memory_tools: Sequence[BaseTool],
     skill_tools: Sequence[BaseTool],
+    deferred_bridge_tools: Sequence[BaseTool],
     task_tools: Sequence[BaseTool],
     subagent_tools: Sequence[BaseTool],
 ) -> tuple[ToolCapability, ...]:
@@ -286,6 +290,7 @@ def build_builtin_capabilities(
         *todo_tools,
         *memory_tools,
         *skill_tools,
+        *deferred_bridge_tools,
         *task_tools,
         *subagent_tools,
     ]
@@ -470,6 +475,44 @@ def build_builtin_capabilities(
                 tags=("skill",),
             )
         )
+    if "ToolSearch" in tool_by_name:
+        capabilities.append(
+            ToolCapability(
+                name="ToolSearch",
+                tool=tool_by_name["ToolSearch"],
+                domain="tool_system",
+                family="tool_system",
+                mutation="read",
+                execution="plain_tool",
+                read_only=True,
+                destructive=False,
+                concurrency_safe=True,
+                source="builtin",
+                trusted=True,
+                exposure="main",
+                rendering_result="tool_message",
+                tags=("tool_search", "deferred"),
+            )
+        )
+    if "invoke_deferred_tool" in tool_by_name:
+        capabilities.append(
+            ToolCapability(
+                name="invoke_deferred_tool",
+                tool=tool_by_name["invoke_deferred_tool"],
+                domain="tool_system",
+                family="tool_system",
+                mutation="orchestration",
+                execution="plain_tool",
+                read_only=False,
+                destructive=False,
+                concurrency_safe=False,
+                source="builtin",
+                trusted=True,
+                exposure="main",
+                rendering_result="tool_message",
+                tags=("tool_search", "deferred"),
+            )
+        )
     if "task_create" in tool_by_name:
         capabilities.extend(
             [
@@ -609,7 +652,7 @@ def build_builtin_capabilities(
                 concurrency_safe=False,
                 source="builtin",
                 trusted=True,
-                exposure="main",
+                exposure="deferred",
                 rendering_result="tool_message",
                 tags=("subagent", "background"),
             )
@@ -628,7 +671,7 @@ def build_builtin_capabilities(
                 concurrency_safe=True,
                 source="builtin",
                 trusted=True,
-                exposure="main",
+                exposure="deferred",
                 rendering_result="tool_message",
                 tags=("subagent", "background", "read"),
             )
@@ -647,7 +690,7 @@ def build_builtin_capabilities(
                 concurrency_safe=False,
                 source="builtin",
                 trusted=True,
-                exposure="main",
+                exposure="deferred",
                 rendering_result="tool_message",
                 tags=("subagent", "background"),
             )
@@ -666,9 +709,47 @@ def build_builtin_capabilities(
                 concurrency_safe=False,
                 source="builtin",
                 trusted=True,
-                exposure="main",
+                exposure="deferred",
                 rendering_result="tool_message",
                 tags=("subagent", "background"),
+            )
+        )
+    if "resume_subagent" in tool_by_name:
+        capabilities.append(
+            ToolCapability(
+                name="resume_subagent",
+                tool=tool_by_name["resume_subagent"],
+                domain="subagents",
+                family="subagents",
+                mutation="orchestration",
+                execution="child_agent_bridge",
+                read_only=False,
+                destructive=False,
+                concurrency_safe=False,
+                source="builtin",
+                trusted=True,
+                exposure="deferred",
+                rendering_result="tool_message",
+                tags=("subagent", "resume"),
+            )
+        )
+    if "resume_fork" in tool_by_name:
+        capabilities.append(
+            ToolCapability(
+                name="resume_fork",
+                tool=tool_by_name["resume_fork"],
+                domain="subagents",
+                family="subagents",
+                mutation="orchestration",
+                execution="fork_bridge",
+                read_only=False,
+                destructive=False,
+                concurrency_safe=False,
+                source="builtin",
+                trusted=True,
+                exposure="deferred",
+                rendering_result="tool_message",
+                tags=("subagent", "fork", "resume"),
             )
         )
     if "run_fork" in tool_by_name:

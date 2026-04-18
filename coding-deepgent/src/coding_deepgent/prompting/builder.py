@@ -42,6 +42,11 @@ def build_default_system_prompt(*, workdir: Path, agent_name: str) -> tuple[str,
             "preserve exactly one in-progress todo and include activeForm for every todo."
         ),
         "Prefer LangChain-native tools and state updates over prose when an action is needed.",
+        (
+            "Some low-frequency or extension tools are deferred. Use ToolSearch to "
+            "discover their exact schemas, then invoke_deferred_tool to execute one "
+            "deferred tool by exact name."
+        ),
     )
 
 

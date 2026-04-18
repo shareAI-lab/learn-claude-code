@@ -287,6 +287,50 @@ class BackgroundSubagentStopInput(BaseModel):
     runtime: ToolRuntime
 
 
+class ResumeSubagentInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    subagent_thread_id: str = Field(..., min_length=1)
+    runtime: ToolRuntime
+    follow_up: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Optional follow-up instruction when resuming the recorded child thread.",
+    )
+
+    @field_validator("subagent_thread_id", "follow_up")
+    @classmethod
+    def _resume_text_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("value required")
+        return value
+
+
+class ResumeForkInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    child_thread_id: str = Field(..., min_length=1)
+    runtime: ToolRuntime
+    follow_up: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Optional follow-up instruction when resuming the recorded fork thread.",
+    )
+
+    @field_validator("child_thread_id", "follow_up")
+    @classmethod
+    def _fork_resume_text_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("value required")
+        return value
+
+
 class BackgroundSubagentRun(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

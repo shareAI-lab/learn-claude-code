@@ -75,11 +75,9 @@ Reopen only when:
 
 Deferred:
 
-- background/async agents
 - parent/child abort cascade parity
 - per-agent cleanup inventory parity
 - task notifications / summary agents
-- subagent resume
 - per-agent transcript directories
 - full fork/cache parity
 - implicit fork mode
@@ -92,12 +90,14 @@ Implemented-minimal and therefore not deferred:
 - plan-bound `verifier`
 - structured result envelopes
 - sidechain transcript in parent ledger
+- bounded background subagent/fork runs with status, follow-up input, and stop
+- explicit `resume_subagent` / `resume_fork` continuity on recorded sidechains
 
 Why deferred:
 
 - current synchronous child runtime plus sidechain audit already covers the MVP
   correctness boundary
-- rich fork/cache/background lifecycle is a second-order optimization/runtime
+- rich fork/cache lifecycle beyond the current bounded local slice is a second-order optimization/runtime
   broadening, not a missing core behavior
 - the current local transcript/session architecture is cleaner with parent-ledger
   sidechain records than with copied cc per-agent directories
@@ -147,7 +147,6 @@ Reopen only when:
 
 Deferred:
 
-- ToolSearch / deferred schema discovery runtime
 - streaming tool execution
 - non-streaming partition adapter unless proven necessary
 - dynamic hot-swap tool pool runtime
@@ -158,6 +157,7 @@ Implemented and therefore not deferred:
 - five-factor capability contract
 - explicit projection/result seams
 - dynamic tool-pool projection foundation
+- `ToolSearch` plus `invoke_deferred_tool` bridge for deferred capabilities
 - pairing/failure tests
 - result persistence / microcompact audit
 

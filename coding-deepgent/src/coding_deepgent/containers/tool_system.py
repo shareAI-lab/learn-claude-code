@@ -11,6 +11,8 @@ from coding_deepgent.permissions import PermissionManager
 from coding_deepgent.permissions.rules import PermissionRuleSpec, expand_rule_specs
 from coding_deepgent.skills import load_skill
 from coding_deepgent.subagents import (
+    resume_fork,
+    resume_subagent,
     run_fork,
     run_subagent,
     run_subagent_background,
@@ -18,6 +20,7 @@ from coding_deepgent.subagents import (
     subagent_stop,
     subagent_status,
 )
+from coding_deepgent.tool_system.deferred import invoke_deferred_tool, tool_search
 from coding_deepgent.tasks import (
     plan_get,
     plan_save,
@@ -69,6 +72,9 @@ class ToolSystemContainer(containers.DeclarativeContainer):
         default=providers.Object([save_memory, list_memory, delete_memory])
     )
     skill_tools: Any = providers.Dependency(default=providers.Object([load_skill]))
+    deferred_bridge_tools: Any = providers.Dependency(
+        default=providers.Object([tool_search, invoke_deferred_tool])
+    )
     task_tools: Any = providers.Dependency(
         default=providers.Object(
             [task_create, task_get, task_list, task_update, plan_save, plan_get]
@@ -83,6 +89,8 @@ class ToolSystemContainer(containers.DeclarativeContainer):
                 subagent_status,
                 subagent_send_input,
                 subagent_stop,
+                resume_subagent,
+                resume_fork,
             ]
         )
     )
@@ -111,6 +119,7 @@ class ToolSystemContainer(containers.DeclarativeContainer):
         todo_tools,
         memory_tools,
         skill_tools,
+        deferred_bridge_tools,
         task_tools,
         subagent_tools,
     )
@@ -121,6 +130,7 @@ class ToolSystemContainer(containers.DeclarativeContainer):
         todo_tools=todo_tools,
         memory_tools=memory_tools,
         skill_tools=skill_tools,
+        deferred_bridge_tools=deferred_bridge_tools,
         task_tools=task_tools,
         subagent_tools=subagent_tools,
     )

@@ -1,6 +1,6 @@
 # coding-deepgent Project Handoff
 
-Updated: 2026-04-18
+Updated: 2026-04-19
 Primary branch: `codex/stage-12-14-context-compact-foundation`
 Primary PR: `#220` `https://github.com/shareAI-lab/learn-claude-code/pull/220`
 
@@ -140,7 +140,7 @@ Latest completed stages and what they changed:
   * H10 plan/verify remains explicit and verifier-backed; coordinator/mailbox are deferred
 * `26`: agent-as-tool MVP closeout
   * H11 is fixed as bounded `run_subagent` tool surface with real verifier child execution
-  * H12 is fixed only as minimal context/thread propagation; rich fork/cache parity is deferred
+  * H12 is fixed as one bounded local fork/continuity slice; rich fork/cache parity is still deferred
 * `27`: local extension platform closeout
   * H15 skills, H16 MCP, and H18 hooks are closed for local MVP
   * H17 is closed as local manifest/source validation only; full install/enable lifecycle is deferred
@@ -165,14 +165,18 @@ Latest completed stages and what they changed:
 * `2026-04-18 deferred-boundary ADR refresh`
   * `.trellis/plans/coding-deepgent-deferred-boundary-refresh-adr.md` supersedes the old Stage 29 deferred note for H11/H12/H19/H01-adjacent deferred items
   * `L5-a` is now explicitly conditional/spec-only unless later tests reveal a real capability-aware partitioning gap
+* `2026-04-19 backend-next-step Stage 1/2 closeout`
+  * H01 now includes `ToolSearch` plus `invoke_deferred_tool` so deferred builtin and MCP capabilities can stay off the initial main tool list while remaining discoverable and executable through the shared policy/middleware path
+  * advanced subagent lifecycle controls (`run_subagent_background`, `subagent_status`, `subagent_send_input`, `subagent_stop`, `resume_subagent`, `resume_fork`) now live on the deferred discovery surface instead of the initial main tool surface
+  * MCP capabilities now default to the deferred discovery surface, while preserving source/trust metadata and registry validation
 
 ## Current Active Topology
 
 Use this as the current planning entry point:
 
 * Parent task: `.trellis/tasks/04-17-cc-core-topology-closeout-plan/`
-* Done: `L1-b`, `L1-c`, `L2-a`, `L2-b`, `L2-c`, `L3-a`, `L3-b`, `L3-c`, `L4-a`, `L4-b`, `L4-c`
-* Remaining: docs-only tail `L5-c` dashboard refresh
+* Done: `L1-b`, `L1-c`, `L2-a`, `L2-b`, `L2-c`, `L3-a`, `L3-b`, `L3-c`, `L4-a`, `L4-b`, `L4-c`, `L5-b`, `L5-c`
+* Remaining: no required topology implementation items are open
 * `L5-a` remains conditional only and should stay dormant unless a concrete concurrency-partition failure is discovered
 
 ## Current Contracts
@@ -206,13 +210,13 @@ Core domains:
 
 Next planned direction:
 
-* complete the final `L5-c` canonical dashboard refresh for H11/H12/H19/H01 topology closeout
+* run final release validation / PR cleanup for the now-completed backend-next-step roadmap rather than opening another backend feature family by default
 
 Intent:
 
-* update the roadmap/dashboard to reflect the now-completed H01/H11/H12/H19 implementation items
 * keep `L5-a` conditional and avoid reviving it by default
-* leave H13/H14/H21/H22 deferred unless a new source-backed PRD reopens them
+* treat Stage 1 ToolSearch/deferred discovery and Stage 2 subagent contract consolidation as complete unless a concrete local failure reopens them
+* do not reopen H13/H14/H21/H22 without a new source-backed PRD
 
 ## Planning Gate
 

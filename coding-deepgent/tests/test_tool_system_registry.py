@@ -26,6 +26,8 @@ EXPECTED_MAIN_TOOL_NAMES = [
     "list_memory",
     "delete_memory",
     "load_skill",
+    "ToolSearch",
+    "invoke_deferred_tool",
     "task_create",
     "task_get",
     "task_list",
@@ -33,11 +35,16 @@ EXPECTED_MAIN_TOOL_NAMES = [
     "plan_save",
     "plan_get",
     "run_subagent",
+    "run_fork",
+]
+
+EXPECTED_DEFERRED_TOOL_NAMES = [
     "run_subagent_background",
     "subagent_status",
     "subagent_send_input",
     "subagent_stop",
-    "run_fork",
+    "resume_subagent",
+    "resume_fork",
 ]
 
 
@@ -97,7 +104,7 @@ def test_role_based_projection_api_is_deterministic(tmp_path: Path) -> None:
     assert registry.names_for_projection("main") == EXPECTED_MAIN_TOOL_NAMES
     assert registry.names_for_projection("child") == ["glob", "grep"]
     assert registry.names_for_projection("extension") == []
-    assert registry.names_for_projection("deferred") == []
+    assert registry.names_for_projection("deferred") == EXPECTED_DEFERRED_TOOL_NAMES
     assert [tool.name for tool in registry.tools_for_projection("child")] == [
         "glob",
         "grep",
@@ -138,6 +145,7 @@ def test_build_builtin_capabilities_rejects_duplicate_tool_names() -> None:
             todo_tools=(),
             memory_tools=(),
             skill_tools=(),
+            deferred_bridge_tools=(),
             task_tools=(),
             subagent_tools=(),
         )
@@ -157,7 +165,7 @@ def test_registered_capabilities_have_five_factor_metadata_and_schema(
         assert capability.family
         assert capability.mutation
         assert capability.execution
-        assert capability.exposure in {"main", "extension", "child_only"}
+        assert capability.exposure in {"main", "extension", "child_only", "deferred"}
         assert capability.rendering_result
         public_schema = capability.tool.tool_call_schema.model_json_schema()
         public_fields = set(public_schema.get("properties", {}))
@@ -303,7 +311,10 @@ def test_capability_registry_enabled_and_extension_projections_are_explicit() ->
     assert "disabled_demo" not in registry.main_names()
     assert "disabled_demo" not in registry.declarable_names()
     assert registry.names_for_projection("extension") == ["mcp__docs__lookup"]
-    assert registry.names_for_projection("deferred") == ["audit_tool"]
+    assert registry.names_for_projection("deferred") == [
+        *EXPECTED_DEFERRED_TOOL_NAMES,
+        "audit_tool",
+    ]
     assert "audit_tool" not in registry.main_names()
 
 

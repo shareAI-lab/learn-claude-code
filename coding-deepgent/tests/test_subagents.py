@@ -31,6 +31,8 @@ from coding_deepgent.subagents import (
     ForkResultEnvelope,
     EXPLORE_CHILD_TOOLS,
     PLAN_CHILD_TOOLS,
+    ResumeForkInput,
+    ResumeSubagentInput,
     RunForkInput,
     RunSubagentInput,
     SubagentResultEnvelope,
@@ -38,8 +40,10 @@ from coding_deepgent.subagents import (
     agent_definition,
     child_capability_registry,
     child_tool_allowlist,
+    resume_fork,
     resolve_agent_definition,
     resume_fork_task,
+    resume_subagent,
     resume_subagent_task,
     run_subagent_background,
     run_fork,
@@ -919,6 +923,110 @@ def test_resume_fork_task_reuses_recorded_thread(monkeypatch, tmp_path: Path) ->
     assert captured["payload"]["messages"][-1].content == "Keep exploring"
 
 
+def test_resume_subagent_tool_returns_structured_result(monkeypatch, tmp_path: Path) -> None:
+    task_store = InMemoryStore()
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+    session_store = JsonlSessionStore(tmp_path / "sessions")
+    runtime = runtime_with_recorded_session(
+        task_store,
+        session_store=session_store,
+        workdir=workdir,
+    )
+    monkeypatch.setattr(
+        subagent_tools,
+        "create_agent",
+        lambda **_kwargs: SimpleNamespace(
+            invoke=lambda payload, **kwargs: {
+                "messages": [{"role": "assistant", "content": "first result"}]
+            }
+        ),
+    )
+    monkeypatch.setattr(subagent_tools, "build_openai_model", lambda **_kwargs: object())
+    cast(Any, run_subagent).func("Inspect the repository", runtime)
+
+    monkeypatch.setattr(
+        subagent_tools,
+        "create_agent",
+        lambda **_kwargs: SimpleNamespace(
+            invoke=lambda payload, **kwargs: {
+                "messages": [{"role": "assistant", "content": "resumed result"}]
+            }
+        ),
+    )
+
+    output = cast(Any, resume_subagent).func(
+        "session-1:general",
+        runtime,
+        "Continue the inspection",
+    )
+    result = SubagentResultEnvelope.model_validate_json(output)
+
+    assert result.agent_type == "general"
+    assert result.content == "resumed result"
+
+
+def test_resume_fork_tool_returns_structured_result(monkeypatch, tmp_path: Path) -> None:
+    task_store = InMemoryStore()
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+    session_store = JsonlSessionStore(tmp_path / "sessions")
+    registry = build_default_registry()
+    runtime = runtime_with_recorded_session(
+        task_store,
+        session_store=session_store,
+        workdir=workdir,
+    )
+    runtime.context = RuntimeContext(
+        session_id="session-1",
+        workdir=workdir,
+        trusted_workdirs=(),
+        entrypoint="test",
+        agent_name="coding-deepgent",
+        skill_dir=workdir / "skills",
+        event_sink=InMemoryEventSink(),
+        hook_registry=LocalHookRegistry(),
+        session_context=runtime.context.session_context,
+        rendered_system_prompt="Main system prompt",
+        visible_tool_projection=registry.project("main"),
+        tool_policy=ToolPolicy(registry=registry),
+    )
+    runtime.state = {"messages": [HumanMessage(content="Parent context")]}
+    monkeypatch.setattr(
+        subagent_tools,
+        "create_agent",
+        lambda **_kwargs: SimpleNamespace(
+            invoke=lambda payload, **kwargs: {
+                "messages": [{"role": "assistant", "content": "fork result"}]
+            }
+        ),
+    )
+    monkeypatch.setattr(subagent_tools, "build_openai_model", lambda **_kwargs: object())
+
+    first_result = ForkResultEnvelope.model_validate_json(
+        cast(Any, run_fork).func("Explore another branch", runtime)
+    )
+    monkeypatch.setattr(
+        subagent_tools,
+        "create_agent",
+        lambda **_kwargs: SimpleNamespace(
+            invoke=lambda payload, **kwargs: {
+                "messages": [{"role": "assistant", "content": "fork resumed"}]
+            }
+        ),
+    )
+
+    output = cast(Any, resume_fork).func(
+        first_result.child_thread_id,
+        runtime,
+        "Keep exploring",
+    )
+    result = ForkResultEnvelope.model_validate_json(output)
+
+    assert result.content == "fork resumed"
+    assert result.child_thread_id == first_result.child_thread_id
+
+
 def test_resume_fork_task_requires_matching_prompt_fingerprint(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -1121,6 +1229,17 @@ def test_run_subagent_tool_schema_rejects_runtime_creep_fields() -> None:
         )
 
 
+def test_resume_subagent_tool_schema_rejects_runtime_creep_fields() -> None:
+    runtime = SimpleNamespace()
+    schema = cast(Any, resume_subagent.tool_call_schema).model_json_schema()
+    assert set(schema["properties"]) == {"subagent_thread_id", "follow_up"}
+
+    with pytest.raises(ValidationError):
+        ResumeSubagentInput.model_validate(
+            {"subagent_thread_id": "session-1:general", "runtime": runtime, "extra": True}
+        )
+
+
 def test_run_subagent_task_general_executes_real_read_only_child_agent(
     monkeypatch,
 ) -> None:
@@ -1316,6 +1435,17 @@ def test_run_fork_tool_schema_rejects_runtime_creep_fields() -> None:
     with pytest.raises(ValidationError):
         RunForkInput.model_validate(
             {"intent": "branch", "runtime": runtime, "agent_type": "general"}
+        )
+
+
+def test_resume_fork_tool_schema_rejects_runtime_creep_fields() -> None:
+    runtime = SimpleNamespace()
+    schema = cast(Any, resume_fork.tool_call_schema).model_json_schema()
+    assert set(schema["properties"]) == {"child_thread_id", "follow_up"}
+
+    with pytest.raises(ValidationError):
+        ResumeForkInput.model_validate(
+            {"child_thread_id": "session-1:fork:run", "runtime": runtime, "extra": True}
         )
 
 

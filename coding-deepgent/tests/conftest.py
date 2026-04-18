@@ -13,6 +13,24 @@ PROVIDER_ENV_VARS = (
     "OPENAI_API_KEY",
     "OPENAI_BASE_URL",
 )
+INFRA_ENV_DEFAULTS = {
+    "POSTGRES_URL": "",
+    "CODING_DEEPGENT_POSTGRES_URL": "",
+    "REDIS_URL": "",
+    "CODING_DEEPGENT_REDIS_URL": "",
+    "OFFLOAD_BACKEND": "none",
+    "CODING_DEEPGENT_OFFLOAD_BACKEND": "none",
+    "S3_BUCKET": "",
+    "CODING_DEEPGENT_S3_BUCKET": "",
+    "S3_ENDPOINT_URL": "",
+    "CODING_DEEPGENT_S3_ENDPOINT_URL": "",
+    "S3_REGION": "",
+    "CODING_DEEPGENT_S3_REGION": "",
+    "S3_ACCESS_KEY_ID": "",
+    "CODING_DEEPGENT_S3_ACCESS_KEY_ID": "",
+    "S3_SECRET_ACCESS_KEY": "",
+    "CODING_DEEPGENT_S3_SECRET_ACCESS_KEY": "",
+}
 NETWORK_BLOCK_MESSAGE = (
     "Network access is disabled during automated tests. "
     "Stub the provider client instead of making live calls."
@@ -38,6 +56,8 @@ def pytest_configure(config: Any) -> None:
 
     for env_name in PROVIDER_ENV_VARS:
         os.environ.pop(env_name, None)
+    for env_name, value in INFRA_ENV_DEFAULTS.items():
+        os.environ[env_name] = value
 
     ORIGINAL_SOCKET_FUNCS["create_connection"] = socket.create_connection
     ORIGINAL_SOCKET_FUNCS["getaddrinfo"] = socket.getaddrinfo

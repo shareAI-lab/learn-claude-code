@@ -38,6 +38,8 @@ EXPECTED_TOOL_NAMES = [
     "list_memory",
     "delete_memory",
     "load_skill",
+    "ToolSearch",
+    "invoke_deferred_tool",
     "task_create",
     "task_get",
     "task_list",

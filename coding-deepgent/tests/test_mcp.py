@@ -57,7 +57,7 @@ def test_mcp_tool_descriptor_maps_to_capability_with_source_metadata() -> None:
     assert capability.family == "mcp"
     assert capability.mutation == "read"
     assert capability.execution == "plain_tool"
-    assert capability.exposure == "extension"
+    assert capability.exposure == "deferred"
     assert capability.rendering_result == "tool_message"
     assert capability.persist_large_output is False
     assert capability.microcompact_eligible is False
@@ -127,8 +127,13 @@ def test_mcp_extension_capabilities_are_agent_bindable_without_replacing_runtime
         getattr(tool_item, "name", type(tool_item).__name__)
         for tool_item in cast(Sequence[object], captured["tools"])
     ]
-    assert tool_names[-1] == "mcp__docs__lookup"
+    assert "mcp__docs__lookup" not in tool_names
+    assert "ToolSearch" in tool_names
+    assert "invoke_deferred_tool" in tool_names
     assert "mcp__docs__lookup" in container.capability_registry().names()
+    assert "mcp__docs__lookup" in container.capability_registry().names_for_projection(
+        "deferred"
+    )
     assert isinstance(container.capability_registry(), CapabilityRegistry)
 
 
@@ -293,4 +298,7 @@ def test_app_container_merges_loaded_mcp_capabilities(
         getattr(tool_item, "name", type(tool_item).__name__)
         for tool_item in cast(Sequence[object], captured["tools"])
     ]
-    assert "mcp__docs__lookup" in tool_names
+    assert "mcp__docs__lookup" not in tool_names
+    assert "mcp__docs__lookup" in container.capability_registry().names_for_projection(
+        "deferred"
+    )

@@ -87,6 +87,18 @@ def subagent_stop(
     runtime: ToolRuntime,
 ) -> str: ...
 
+def resume_subagent(
+    subagent_thread_id: str,
+    runtime: ToolRuntime,
+    follow_up: str | None = None,
+) -> str: ...
+
+def resume_fork(
+    child_thread_id: str,
+    runtime: ToolRuntime,
+    follow_up: str | None = None,
+) -> str: ...
+
 class AgentDefinition(BaseModel):
     agent_type: str
     description: str
@@ -194,6 +206,12 @@ def resume_fork_task(
 - `plan_save` and `plan_get` are main-surface tools, but they do not enter TodoWrite state.
 - `plan_get` is allowed for verifier subagents.
 - `plan_save` is forbidden for verifier subagents.
+- `run_subagent` and `run_fork` remain on the initial main tool surface.
+- Advanced subagent lifecycle controls:
+  `run_subagent_background`, `subagent_status`, `subagent_send_input`,
+  `subagent_stop`, `resume_subagent`, and `resume_fork`
+  are public local tools, but they live on the deferred-discovery surface and
+  should be reached through `ToolSearch` plus `invoke_deferred_tool`.
 - `run_subagent` must expose a built-in `AgentDefinition` catalog that includes
   `general`, `verifier`, `explore`, and `plan`.
 - Repo-local custom subagent definitions may extend the catalog from
@@ -286,10 +304,14 @@ def resume_fork_task(
   prompt/tool fingerprints, and effective execution ceilings.
 - `resume_subagent_task(...)` must reconstruct a child thread from recorded
   sidechain transcript + metadata and continue on the same child thread id.
+- `resume_subagent(...)` must return the same structured JSON envelope shape as
+  the synchronous general `run_subagent(...)` tool surface.
 - `resume_fork_task(...)` must reconstruct a fork child thread from recorded
   sidechain transcript + metadata, and must fail if the current rendered prompt
   fingerprint or visible tool projection fingerprint no longer matches the
   recorded fork contract.
+- `resume_fork(...)` must return the same structured JSON envelope shape as the
+  explicit `run_fork(...)` tool surface.
 - Subagent and fork resume must also fail when the current runtime workdir no
   longer matches the recorded workdir stored in sidechain metadata.
 - Verifier subagent output must expose the durable plan boundary as structured JSON including:
@@ -452,6 +474,8 @@ Expected:
 - `coding-deepgent/tests/test_subagents.py::test_run_fork_rejects_recursive_fork_marker`
 - `coding-deepgent/tests/test_subagents.py::test_resume_subagent_task_reuses_recorded_thread`
 - `coding-deepgent/tests/test_subagents.py::test_resume_fork_task_reuses_recorded_thread`
+- `coding-deepgent/tests/test_subagents.py::test_resume_subagent_tool_returns_structured_result`
+- `coding-deepgent/tests/test_subagents.py::test_resume_fork_tool_returns_structured_result`
 - `coding-deepgent/tests/test_subagents.py::test_resume_fork_task_requires_matching_prompt_fingerprint`
 - `coding-deepgent/tests/test_subagents.py::test_run_subagent_background_and_status`
 - `coding-deepgent/tests/test_subagents.py::test_run_fork_background_and_status`
@@ -459,6 +483,7 @@ Expected:
 - `coding-deepgent/tests/test_subagents.py::test_subagent_stop_cancels_running_background_run`
 - `coding-deepgent/tests/test_subagents.py::test_resume_subagent_task_requires_matching_workdir`
 - `coding-deepgent/tests/test_subagents.py::test_resume_fork_task_requires_matching_workdir`
+- `coding-deepgent/tests/test_tool_search.py::test_tool_search_returns_deferred_builtin_subagent_controls`
 - `coding-deepgent/tests/test_plugins.py::test_app_container_validates_plugin_provided_subagent_definitions`
 - `coding-deepgent/tests/test_subagents.py::test_verifier_subagent_requires_plan_id`
 - `coding-deepgent/tests/test_subagents.py::test_verifier_subagent_requires_task_store`

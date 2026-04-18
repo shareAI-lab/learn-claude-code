@@ -31,11 +31,11 @@ def adapt_mcp_tool_descriptor(descriptor: MCPToolDescriptor) -> ToolCapability:
             "read"
             if descriptor.hints.read_only and not descriptor.hints.destructive
             else "workspace_write"
-            if descriptor.hints.destructive
-            else "unknown"
+            if descriptor.hints.destructive or not descriptor.hints.read_only
+            else "workspace_write"
         ),
         execution="plain_tool",
-        exposure="extension",
+        exposure="deferred",
         rendering_result="tool_message",
         tags=(
             "mcp",
