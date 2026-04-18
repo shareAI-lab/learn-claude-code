@@ -512,6 +512,27 @@ def _execute_child_subagent(
     return {"content": content, "raw_result": result, "invocation": invocation}
 
 
+def _enqueue_agent_private_memory(
+    *,
+    invocation: RuntimeInvocation,
+    source: str,
+    task: str,
+    content: str,
+) -> None:
+    service = getattr(invocation.context, "memory_service", None)
+    if service is None:
+        return
+    agent_scope = invocation.context.agent_name
+    if not isinstance(agent_scope, str) or not agent_scope.strip():
+        return
+    service.enqueue_extraction(
+        project_scope=str(invocation.context.workdir),
+        agent_scope=agent_scope,
+        source=source,
+        text=f"Task: {task}\n\nAssistant: {content}",
+    )
+
+
 def _final_child_text(result: Any) -> str:
     content = latest_assistant_text(result).strip()
     if content:
@@ -835,6 +856,12 @@ def run_subagent_task(
                 task=verifier_task,
                 raw_result=raw_result,
             )
+            _enqueue_agent_private_memory(
+                invocation=cast(RuntimeInvocation, execution["invocation"]),
+                source="subagent_verifier",
+                task=verifier_task,
+                content=content,
+            )
         else:
             content = child_agent_factory(agent_type, allowlist)(verifier_task)
             raw_result = {"messages": [{"role": "assistant", "content": content}]}
@@ -876,6 +903,12 @@ def run_subagent_task(
             child_invocation=cast(RuntimeInvocation, execution["invocation"]),
             task=task,
             raw_result=raw_result,
+        )
+        _enqueue_agent_private_memory(
+            invocation=cast(RuntimeInvocation, execution["invocation"]),
+            source="subagent_general",
+            task=task,
+            content=content,
         )
     else:
         content = child_agent_factory(agent_type, allowlist)(task)
@@ -946,6 +979,12 @@ def run_fork_task(
             "tool_pool_fingerprint": tool_pool_identity.fingerprint,
             "placeholder_layout_version": placeholder_layout.version,
         },
+    )
+    _enqueue_agent_private_memory(
+        invocation=invocation,
+        source="fork",
+        task=intent,
+        content=content,
     )
     duration_ms = max(0, int((time.perf_counter() - started_at) * 1000))
     metrics = _result_metrics(

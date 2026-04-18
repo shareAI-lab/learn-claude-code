@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 from types import SimpleNamespace
@@ -10,6 +11,10 @@ from langgraph.store.memory import InMemoryStore
 from pydantic import ValidationError
 
 from coding_deepgent.hooks import LocalHookRegistry
+from coding_deepgent.memory.archive import InMemoryArchiveStore
+from coding_deepgent.memory.backend import SqlAlchemyMemoryRepository, create_memory_engine, migrate_memory_schema
+from coding_deepgent.memory.queue import InMemoryQueue
+from coding_deepgent.memory.service import MemoryService
 from coding_deepgent.runtime import InMemoryEventSink, RuntimeContext
 from coding_deepgent.sessions import JsonlSessionStore, build_recovery_brief, render_recovery_brief
 from coding_deepgent.sessions.records import message_id_for_index
@@ -55,6 +60,16 @@ def runtime_with_context_and_store(store: InMemoryStore) -> SimpleNamespace:
             hook_registry=LocalHookRegistry(),
         ),
         config={"configurable": {"thread_id": "session-1"}},
+    )
+
+
+def _memory_service(tmp_path: Path) -> MemoryService:
+    engine = create_memory_engine(f"sqlite+pysqlite:///{tmp_path / 'memory.db'}")
+    migrate_memory_schema(engine)
+    return MemoryService(
+        repository=SqlAlchemyMemoryRepository(engine),
+        queue=InMemoryQueue(),
+        archive_store=InMemoryArchiveStore(),
     )
 
 
@@ -239,6 +254,35 @@ def test_run_subagent_task_general_executes_real_read_only_child_agent(
         captured["invoke_kwargs"]["config"]["configurable"]["thread_id"]
         == "session-1:general"
     )
+
+
+def test_run_subagent_task_general_enqueues_agent_private_memory(tmp_path: Path, monkeypatch) -> None:
+    runtime = runtime_with_context_and_store(InMemoryStore())
+    service = _memory_service(tmp_path)
+    runtime.context = replace(runtime.context, memory_service=service)
+    monkeypatch.setattr(
+        subagent_tools,
+        "create_agent",
+        lambda **_kwargs: SimpleNamespace(
+            invoke=lambda payload, **kwargs: {
+                "messages": [{"role": "assistant", "content": "general result"}]
+            }
+        ),
+    )
+    monkeypatch.setattr(subagent_tools, "build_openai_model", lambda: object())
+
+    run_subagent_task(
+        task="Inspect the repository",
+        runtime=cast(Any, runtime),
+        agent_type="general",
+    )
+
+    jobs = service.list_jobs(
+        project_scope=str(Path.cwd()),
+        agent_scope="coding-deepgent-general",
+    )
+    assert jobs
+    assert jobs[0].job_type == "extract_long_term_memory"
 
 
 def test_run_subagent_tool_returns_structured_general_result(monkeypatch) -> None:

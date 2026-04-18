@@ -21,6 +21,13 @@ Current relational/object-backed surfaces:
 - agent memory scope metadata
 - snapshot/archive objects
 
+Recommended long-term memory table family:
+
+- `memory_records`
+- `memory_versions`
+- `memory_extraction_jobs`
+- `agent_memory_scopes`
+
 Current durable/stateful surfaces are:
 
 - LangGraph store/checkpointer seams in `coding_deepgent.runtime.checkpointing`
@@ -44,6 +51,10 @@ Preferred patterns:
   - audit/version history
   - job status tracking
   - agent memory scope metadata
+- Use queue-backed background jobs for automatic extraction and snapshot refresh
+  rather than blocking the main prompt loop.
+- Keep large snapshot/archive payloads in object storage instead of the main
+  relational tables.
 - Continue to use LangGraph store-compatible APIs where a lighter-weight store
   seam is still sufficient, such as durable task/plan records.
 - Keep namespace ownership inside the owning domain.

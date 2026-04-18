@@ -6,11 +6,13 @@ from typing import Any
 import typer
 from click.exceptions import ClickException
 from typer.main import get_command
+from typing import cast
 
 from coding_deepgent import cli_service
 from coding_deepgent.app import agent_loop, build_container
 from coding_deepgent.logging_config import configure_logging
 from coding_deepgent.memory.backend import MemoryJobStatus, migrate_memory_schema
+from coding_deepgent.memory.schemas import MemoryType
 from coding_deepgent.renderers.text import (
     render_config_table,
     render_doctor_table,
@@ -251,6 +253,12 @@ def memory_jobs(
     status: str | None = typer.Option(
         None, "--status", help="Optional job status filter."
     ),
+    agent_scope: str | None = typer.Option(
+        None, "--agent-scope", help="Optional agent scope filter."
+    ),
+    job_type: str | None = typer.Option(
+        None, "--job-type", help="Optional job type filter."
+    ),
     limit: int = typer.Option(20, "--limit", min=1, max=100),
 ) -> None:
     container = build_container()
@@ -258,6 +266,8 @@ def memory_jobs(
     status_filter = MemoryJobStatus(status) if status is not None else None
     jobs = container.memory_backend.service().list_jobs(
         project_scope=str(settings.workdir),
+        agent_scope=agent_scope,
+        job_type=job_type,
         status=status_filter,
         limit=limit,
     )
@@ -266,8 +276,49 @@ def memory_jobs(
         raise typer.Exit()
     for job in jobs:
         typer.echo(
-            f"{job.id} {job.job_type} {job.status.value} dedupe={job.dedupe_key}"
+            f"{job.id} {job.job_type} {job.status.value} scope={job.agent_scope or 'global'} dedupe={job.dedupe_key}"
         )
+
+
+@memory_app.command("records")
+def memory_records(
+    memory_type: str | None = typer.Option(
+        None, "--type", help="Optional memory type filter."
+    ),
+    agent_scope: str | None = typer.Option(
+        None, "--agent-scope", help="Optional agent scope filter."
+    ),
+    limit: int = typer.Option(20, "--limit", min=1, max=100),
+) -> None:
+    container = build_container()
+    settings = build_cli_runtime().settings_loader()
+    records = container.memory_backend.service().list_records(
+        project_scope=str(settings.workdir),
+        memory_type=cast(MemoryType, memory_type) if memory_type is not None else None,
+        agent_scope=agent_scope,
+        limit=limit,
+    )
+    if not records:
+        typer.echo("No memory records found.")
+        raise typer.Exit()
+    for record in records:
+        typer.echo(
+            f"{record.id} {record.record.type} scope={record.agent_scope or 'global'} status={record.status.value} source={record.source}"
+        )
+
+
+@memory_app.command("agent-scopes")
+def memory_agent_scopes() -> None:
+    container = build_container()
+    settings = build_cli_runtime().settings_loader()
+    scopes = container.memory_backend.service().list_agent_scopes(
+        project_scope=str(settings.workdir)
+    )
+    if not scopes:
+        typer.echo("No agent memory scopes found.")
+        raise typer.Exit()
+    for scope in scopes:
+        typer.echo(scope)
 
 
 @memory_app.command("worker-run-once")

@@ -78,6 +78,7 @@ def test_memory_service_processes_extraction_and_snapshot_jobs(tmp_path: Path) -
     stored = service.list_records(project_scope="repo-a", agent_scope="agent-a")
     assert stored
     assert stored[0].record.rule == "Run lint before commit"
+    assert service.list_agent_scopes(project_scope="repo-a") == ["agent-a"]
 
     snapshot_job = service.enqueue_snapshot_refresh(
         project_scope="repo-a",

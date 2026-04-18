@@ -155,14 +155,21 @@ class MemoryService:
         self,
         *,
         project_scope: str,
+        agent_scope: str | None = None,
+        job_type: str | None = None,
         status: MemoryJobStatus | None = None,
         limit: int = 20,
     ) -> list[DurableMemoryJob]:
         return self.repository.list_jobs(
             project_scope=project_scope,
+            agent_scope=agent_scope,
+            job_type=job_type,
             status=status,
             limit=limit,
         )
+
+    def list_agent_scopes(self, *, project_scope: str) -> list[str]:
+        return self.repository.list_agent_scopes(project_scope=project_scope)
 
     def process_next_job(self) -> DurableMemoryJob | None:
         envelope = self.queue.dequeue()

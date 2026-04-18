@@ -92,6 +92,8 @@ Current store-backed collaboration/memory surfaces:
 save_memory(type, source, runtime, ...)
 list_memory(type=None, limit=20, runtime=...)
 delete_memory(type, key, runtime)
+memory jobs
+memory worker-run-once
 task_create(...)
 task_update(...)
 plan_save(...)
@@ -214,6 +216,9 @@ Detailed tool contracts live in
   memory versions, extraction jobs, and agent memory scope metadata.
 - Redis is allowed as the current queue/lock surface for memory background jobs.
 - S3-compatible object storage is allowed for memory snapshot/archive payloads.
+- Main agent memory remains global by default.
+- Child/fork agent memory may use agent-private scope while still reading
+  global long-term memory when appropriate.
 - Session memory uses `RuntimeState["session_memory"]` and session
   `state_snapshot` continuity.
 - Evidence records are not memory records.

@@ -16,6 +16,7 @@ from coding_deepgent.settings import build_openai_model, load_settings
 from coding_deepgent.startup import require_startup_contract, validate_startup_contract
 
 from .filesystem import FilesystemContainer
+from .memory_backend import MemoryBackendContainer
 from .runtime import RuntimeContainer
 from .sessions import SessionsContainer
 from .todo import TodoContainer
@@ -30,6 +31,7 @@ class AppContainer(containers.DeclarativeContainer):
     extension_capabilities: Any = providers.Dependency(default=providers.Object([]))
 
     runtime: Any = providers.Container(RuntimeContainer, settings=settings)
+    memory_backend: Any = providers.Container(MemoryBackendContainer, settings=settings)
     todo: Any = providers.Container(TodoContainer)
     filesystem: Any = providers.Container(FilesystemContainer)
     sessions: Any = providers.Container(SessionsContainer)

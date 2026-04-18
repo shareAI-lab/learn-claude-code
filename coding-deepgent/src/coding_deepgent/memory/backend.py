@@ -212,6 +212,8 @@ class DurableMemoryRepository(Protocol):
         self,
         *,
         project_scope: str,
+        agent_scope: str | None = None,
+        job_type: str | None = None,
         status: MemoryJobStatus | None = None,
         limit: int = 20,
     ) -> list[DurableMemoryJob]: ...
@@ -226,6 +228,7 @@ class DurableMemoryRepository(Protocol):
     ) -> DurableMemoryJob: ...
 
     def ensure_agent_scope(self, *, project_scope: str, agent_scope: str) -> None: ...
+    def list_agent_scopes(self, *, project_scope: str) -> list[str]: ...
 
 
 class SqlAlchemyMemoryRepository:
@@ -357,12 +360,18 @@ class SqlAlchemyMemoryRepository:
         self,
         *,
         project_scope: str,
+        agent_scope: str | None = None,
+        job_type: str | None = None,
         status: MemoryJobStatus | None = None,
         limit: int = 20,
     ) -> list[DurableMemoryJob]:
         stmt = select(MemoryExtractionJobRow).where(
             MemoryExtractionJobRow.project_scope == project_scope
         )
+        if agent_scope is not None:
+            stmt = stmt.where(MemoryExtractionJobRow.agent_scope == agent_scope)
+        if job_type is not None:
+            stmt = stmt.where(MemoryExtractionJobRow.job_type == job_type)
         if status is not None:
             stmt = stmt.where(MemoryExtractionJobRow.status == status.value)
         stmt = stmt.order_by(desc(MemoryExtractionJobRow.updated_at)).limit(limit)
@@ -410,6 +419,15 @@ class SqlAlchemyMemoryRepository:
                 )
             )
             session.commit()
+
+    def list_agent_scopes(self, *, project_scope: str) -> list[str]:
+        stmt = (
+            select(AgentMemoryScopeRow.agent_scope)
+            .where(AgentMemoryScopeRow.project_scope == project_scope)
+            .order_by(AgentMemoryScopeRow.agent_scope)
+        )
+        with Session(self.engine, expire_on_commit=False) as session:
+            return list(session.scalars(stmt).all())
 
 
 def _record_from_row(row: MemoryRecordRow) -> DurableMemoryRecord:
