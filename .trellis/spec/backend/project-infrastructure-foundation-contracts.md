@@ -209,7 +209,11 @@ Detailed tool contracts live in
 
 #### Memory
 
-- Long-term memory uses the LangGraph `runtime.store` seam.
+- Long-term memory uses a durable backend distinct from the session ledger.
+- PostgreSQL is the current durable source of truth for long-term memory,
+  memory versions, extraction jobs, and agent memory scope metadata.
+- Redis is allowed as the current queue/lock surface for memory background jobs.
+- S3-compatible object storage is allowed for memory snapshot/archive payloads.
 - Session memory uses `RuntimeState["session_memory"]` and session
   `state_snapshot` continuity.
 - Evidence records are not memory records.
@@ -220,10 +224,9 @@ Detailed tool contracts live in
   - same CLI session resume
   - process restart
   - workspace or machine migration
-- The current `StoreBackend` supports `none` and `memory`; `memory` is an
-  in-process LangGraph store. Future process-surviving memory requires an
-  explicit durable store backend contract before docs or plans claim that level
-  of durability.
+- The current `StoreBackend` still supports `none` and `memory` for runtime
+  store seams such as task/plan state and local testing. It is no longer the
+  source of truth for durable long-term memory claims.
 
 ### 4. Project-Level Assessment
 

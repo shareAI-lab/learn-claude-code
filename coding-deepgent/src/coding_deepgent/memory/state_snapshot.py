@@ -6,8 +6,14 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from coding_deepgent.memory.schemas import MEMORY_TYPE_ORDER, MemoryType
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
+from coding_deepgent.memory.schemas import MEMORY_TYPE_ORDER, MemoryRecord, MemoryType
 from coding_deepgent.memory.store import MemoryEntry, MemoryStore, list_memory_entries
+
+if TYPE_CHECKING:
+    from coding_deepgent.memory.backend import DurableMemoryRecord
 
 LONG_TERM_MEMORY_STATE_KEY = "long_term_memory"
 
@@ -67,6 +73,48 @@ def build_long_term_memory_snapshot(
     )
 
 
+def build_long_term_memory_snapshot_from_records(
+    records: Sequence[MemoryRecord],
+    *,
+    limit: int = 12,
+) -> LongTermMemorySnapshot | None:
+    entries = [
+        LongTermMemoryEntrySnapshot(
+            key=f"record-{index}",
+            type=record.type,
+            summary=_record_summary(record),
+        )
+        for index, record in enumerate(records[:limit], start=1)
+    ]
+    if not entries:
+        return None
+    return LongTermMemorySnapshot(
+        entries=entries,
+        updated_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    )
+
+
+def build_long_term_memory_snapshot_from_durable_records(
+    records: Sequence["DurableMemoryRecord"],
+    *,
+    limit: int = 12,
+) -> LongTermMemorySnapshot | None:
+    entries = [
+        LongTermMemoryEntrySnapshot(
+            key=record.id,
+            type=record.record.type,
+            summary=_record_summary(record.record),
+        )
+        for record in records[:limit]
+    ]
+    if not entries:
+        return None
+    return LongTermMemorySnapshot(
+        entries=entries,
+        updated_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    )
+
+
 def read_long_term_memory_snapshot(
     state: Mapping[str, Any],
 ) -> LongTermMemorySnapshot | None:
@@ -91,6 +139,10 @@ def write_long_term_memory_snapshot(
 
 def _memory_entry_summary(entry: MemoryEntry) -> str:
     record = entry.record
+    return _record_summary(record)
+
+
+def _record_summary(record: MemoryRecord) -> str:
     if record.type == "feedback":
         return str(record.rule)
     if record.type == "project":

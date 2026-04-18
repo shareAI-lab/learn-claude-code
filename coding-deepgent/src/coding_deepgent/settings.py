@@ -16,6 +16,7 @@ STATUS_FILE = PROJECT_ROOT / "project_status.json"
 
 CheckpointerBackend = Literal["none", "memory"]
 StoreBackend = Literal["none", "memory"]
+OffloadBackend = Literal["none", "s3"]
 PermissionMode = Literal[
     "default", "plan", "acceptEdits", "bypassPermissions", "dontAsk"
 ]
@@ -57,6 +58,16 @@ class Settings(BaseSettings):
     openai_base_url: str | None = Field(default=None, alias="OPENAI_BASE_URL")
     checkpointer_backend: CheckpointerBackend = "none"
     store_backend: StoreBackend = "none"
+    postgres_url: str | None = Field(default=None, alias="POSTGRES_URL")
+    redis_url: str | None = Field(default=None, alias="REDIS_URL")
+    offload_backend: OffloadBackend = Field(default="none", alias="OFFLOAD_BACKEND")
+    s3_bucket: str | None = Field(default=None, alias="S3_BUCKET")
+    s3_endpoint_url: str | None = Field(default=None, alias="S3_ENDPOINT_URL")
+    s3_region: str | None = Field(default=None, alias="S3_REGION")
+    s3_access_key_id: str | None = Field(default=None, alias="S3_ACCESS_KEY_ID")
+    s3_secret_access_key: SecretStr | None = Field(
+        default=None, alias="S3_SECRET_ACCESS_KEY"
+    )
     permission_mode: PermissionMode = "default"
     permission_allow_rules: tuple[PermissionRuleSpec, ...] = ()
     permission_ask_rules: tuple[PermissionRuleSpec, ...] = ()

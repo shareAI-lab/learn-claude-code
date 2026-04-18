@@ -8,6 +8,7 @@ from coding_deepgent.hooks.registry import LocalHookRegistry
 from coding_deepgent.runtime.events import RuntimeEventSink
 
 if TYPE_CHECKING:
+    from coding_deepgent.memory.service import MemoryService
     from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
     from coding_deepgent.tool_system import ToolPoolProjection, ToolPolicy
 
@@ -29,3 +30,4 @@ class RuntimeContext:
     rendered_system_prompt: str | None = None
     visible_tool_projection: ToolPoolProjection | None = None
     tool_policy: ToolPolicy | None = None
+    memory_service: MemoryService | None = None

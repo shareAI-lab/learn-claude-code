@@ -14,6 +14,7 @@ from coding_deepgent.containers import AppContainer
 from coding_deepgent.hooks.dispatcher import dispatch_runtime_hook
 from coding_deepgent.memory import (
     build_long_term_memory_snapshot,
+    runtime_memory_service,
     write_long_term_memory_snapshot,
 )
 from coding_deepgent.memory.store import MemoryStore
@@ -113,11 +114,20 @@ def run_agent_loop(
         )
         raise
     update_session_state(session_state, result)
+    memory_service = runtime_memory_service(invocation)
+    final_text = latest_assistant_text(result)
+    if memory_service is not None and final_text:
+        latest_user = normalized[-1]["content"] if normalized else ""
+        memory_service.enqueue_extraction(
+            project_scope=str(invocation.context.workdir),
+            agent_scope=invocation.context.agent_name,
+            source="agent_loop",
+            text=f"User: {latest_user}\n\nAssistant: {final_text}",
+        )
     write_long_term_memory_snapshot(
         session_state,
         build_long_term_memory_snapshot(_runtime_store(active_container)),
     )
-    final_text = latest_assistant_text(result)
     if final_text:
         messages.append({"role": "assistant", "content": final_text})
     return final_text

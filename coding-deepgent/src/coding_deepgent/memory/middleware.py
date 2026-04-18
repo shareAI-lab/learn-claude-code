@@ -12,9 +12,15 @@ from coding_deepgent.context_payloads import (
     merge_system_message_content,
 )
 from coding_deepgent.memory.recall import recall_memories, render_memories
+from coding_deepgent.memory.runtime_support import (
+    runtime_agent_scope,
+    runtime_memory_service,
+    runtime_project_scope,
+)
 from coding_deepgent.memory.schemas import MemoryType
 from coding_deepgent.memory.state_snapshot import (
     build_long_term_memory_snapshot,
+    build_long_term_memory_snapshot_from_durable_records,
     write_long_term_memory_snapshot,
 )
 
@@ -31,10 +37,19 @@ class MemoryContextMiddleware(AgentMiddleware):
         handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
         store = getattr(request.runtime, "store", None)
+        service = runtime_memory_service(request.runtime)
+        project_scope = runtime_project_scope(request.runtime)
+        agent_scope = runtime_agent_scope(request.runtime)
         if hasattr(request.state, "__setitem__"):
             write_long_term_memory_snapshot(
                 cast(MutableMapping[str, Any], request.state),
-                build_long_term_memory_snapshot(store, limit=self.snapshot_limit),
+                (
+                    build_long_term_memory_snapshot_from_durable_records(
+                        service.list_records(project_scope=project_scope, limit=self.snapshot_limit)
+                    )
+                    if service is not None
+                    else build_long_term_memory_snapshot(store, limit=self.snapshot_limit)
+                ),
             )
         query = " ".join(
             str(message.content)
@@ -42,7 +57,13 @@ class MemoryContextMiddleware(AgentMiddleware):
             if hasattr(message, "content")
         )
         memories = recall_memories(
-            store, memory_type=self.memory_type, query=query, limit=self.limit
+            store,
+            service=service,
+            project_scope=project_scope,
+            agent_scope=agent_scope,
+            memory_type=self.memory_type,
+            query=query,
+            limit=self.limit,
         )
         rendered = render_memories(memories)
         if not rendered:

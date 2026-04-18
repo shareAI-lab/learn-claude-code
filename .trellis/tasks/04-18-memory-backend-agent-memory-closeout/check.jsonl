@@ -1,0 +1,4 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": ".trellis/spec/backend/project-infrastructure-foundation-contracts.md", "reason": "Review long-term memory durability claims and keep session ledger separate."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Review schema ownership, migration surface, and rollback strategy."}

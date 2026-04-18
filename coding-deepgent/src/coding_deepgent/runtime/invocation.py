@@ -9,6 +9,7 @@ from coding_deepgent.runtime.events import RuntimeEventSink
 from coding_deepgent.settings import Settings
 
 if TYPE_CHECKING:
+    from coding_deepgent.memory.service import MemoryService
     from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
     from coding_deepgent.tool_system import ToolPoolProjection, ToolPolicy
 
@@ -40,6 +41,7 @@ def build_runtime_context(
     rendered_system_prompt: str | None = None,
     visible_tool_projection: ToolPoolProjection | None = None,
     tool_policy: ToolPolicy | None = None,
+    memory_service: MemoryService | None = None,
 ) -> RuntimeContext:
     resolved_session_id = resolve_session_id(session_id)
     return RuntimeContext(
@@ -58,6 +60,7 @@ def build_runtime_context(
         rendered_system_prompt=rendered_system_prompt,
         visible_tool_projection=visible_tool_projection,
         tool_policy=tool_policy,
+        memory_service=memory_service,
     )
 
 
@@ -84,6 +87,7 @@ def build_runtime_invocation(
     rendered_system_prompt: str | None = None,
     visible_tool_projection: ToolPoolProjection | None = None,
     tool_policy: ToolPolicy | None = None,
+    memory_service: MemoryService | None = None,
 ) -> RuntimeInvocation:
     resolved_session_id = resolve_session_id(session_id)
     return RuntimeInvocation(
@@ -99,6 +103,7 @@ def build_runtime_invocation(
             rendered_system_prompt=rendered_system_prompt,
             visible_tool_projection=visible_tool_projection,
             tool_policy=tool_policy,
+            memory_service=memory_service,
         ),
         config=build_runnable_config(session_id=resolved_session_id),
     )

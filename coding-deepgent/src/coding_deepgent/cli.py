@@ -8,8 +8,9 @@ from click.exceptions import ClickException
 from typer.main import get_command
 
 from coding_deepgent import cli_service
-from coding_deepgent.app import agent_loop
+from coding_deepgent.app import agent_loop, build_container
 from coding_deepgent.logging_config import configure_logging
+from coding_deepgent.memory.backend import MemoryJobStatus, migrate_memory_schema
 from coding_deepgent.renderers.text import (
     render_config_table,
     render_doctor_table,
@@ -27,8 +28,10 @@ app = typer.Typer(
 )
 config_app = typer.Typer(help="Inspect resolved configuration.")
 sessions_app = typer.Typer(help="Inspect or resume recorded sessions.")
+memory_app = typer.Typer(help="Manage durable long-term memory backend and jobs.")
 app.add_typer(config_app, name="config")
 app.add_typer(sessions_app, name="sessions")
+app.add_typer(memory_app, name="memory")
 
 
 def build_cli_runtime() -> cli_service.CliRuntime:
@@ -234,6 +237,47 @@ def doctor() -> None:
         for check in runtime.doctor_checks()
     ]
     typer.echo(render_doctor_table(checks))
+
+
+@memory_app.command("migrate")
+def memory_migrate() -> None:
+    container = build_container()
+    migrate_memory_schema(container.memory_backend.engine())
+    typer.echo("Memory backend schema is ready.")
+
+
+@memory_app.command("jobs")
+def memory_jobs(
+    status: str | None = typer.Option(
+        None, "--status", help="Optional job status filter."
+    ),
+    limit: int = typer.Option(20, "--limit", min=1, max=100),
+) -> None:
+    container = build_container()
+    settings = build_cli_runtime().settings_loader()
+    status_filter = MemoryJobStatus(status) if status is not None else None
+    jobs = container.memory_backend.service().list_jobs(
+        project_scope=str(settings.workdir),
+        status=status_filter,
+        limit=limit,
+    )
+    if not jobs:
+        typer.echo("No memory jobs found.")
+        raise typer.Exit()
+    for job in jobs:
+        typer.echo(
+            f"{job.id} {job.job_type} {job.status.value} dedupe={job.dedupe_key}"
+        )
+
+
+@memory_app.command("worker-run-once")
+def memory_worker_run_once() -> None:
+    container = build_container()
+    job = container.memory_backend.service().process_next_job()
+    if job is None:
+        typer.echo("No memory job available.")
+        raise typer.Exit()
+    typer.echo(f"Processed memory job {job.id} -> {job.status.value}")
 
 
 def main(argv: list[str] | None = None) -> int:

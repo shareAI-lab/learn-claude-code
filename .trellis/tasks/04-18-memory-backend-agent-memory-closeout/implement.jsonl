@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "This task introduces real database/migration infrastructure and needs explicit backend contracts."}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "New backend infrastructure domains must land in coherent owning packages."}
+{"file": ".trellis/spec/backend/project-infrastructure-foundation-contracts.md", "reason": "Long-term memory durability changes owning surfaces and cross-session memory claims."}

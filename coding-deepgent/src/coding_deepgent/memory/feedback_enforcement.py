@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from coding_deepgent.memory.recall import recall_memories
+from coding_deepgent.memory.service import MemoryService
 from coding_deepgent.memory.schemas import MemoryRecord
 from coding_deepgent.memory.store import MemoryStore
 
@@ -37,10 +38,20 @@ class FeedbackEnforcementDecision:
 def evaluate_feedback_enforcement(
     *,
     store: MemoryStore | None,
+    service: MemoryService | None = None,
+    project_scope: str = "default",
+    agent_scope: str | None = None,
     tool_name: str,
     args: Mapping[str, object],
 ) -> FeedbackEnforcementDecision:
-    feedback_memories = recall_memories(store, memory_type="feedback", limit=50)
+    feedback_memories = recall_memories(
+        store,
+        service=service,
+        project_scope=project_scope,
+        agent_scope=agent_scope,
+        memory_type="feedback",
+        limit=50,
+    )
     for record in feedback_memories:
         decision = _evaluate_feedback_record(record, tool_name=tool_name, args=args)
         if decision.blocked:

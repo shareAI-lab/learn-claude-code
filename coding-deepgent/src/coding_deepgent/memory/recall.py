@@ -4,25 +4,42 @@ from collections import defaultdict
 from collections.abc import Sequence
 
 from coding_deepgent.memory.schemas import MEMORY_TYPE_ORDER, MemoryRecord, MemoryType
+from coding_deepgent.memory.service import MemoryService
 from coding_deepgent.memory.store import MemoryStore, list_memory_records
 
 
 def recall_memories(
     store: MemoryStore | None,
     *,
+    service: MemoryService | None = None,
+    project_scope: str = "default",
+    agent_scope: str | None = None,
     memory_type: MemoryType | None = None,
     query: str = "",
     limit: int = 5,
 ) -> list[MemoryRecord]:
-    if store is None:
+    if service is None and store is None:
         return []
 
     selected_types = (memory_type,) if memory_type is not None else MEMORY_TYPE_ORDER
-    records = [
-        record
-        for selected_type in selected_types
-        for record in list_memory_records(store, selected_type)
-    ]
+    if service is not None:
+        records = [
+            durable.record
+            for selected_type in selected_types
+            for durable in service.list_records(
+                project_scope=project_scope,
+                memory_type=selected_type,
+                agent_scope=agent_scope,
+                limit=limit,
+            )
+        ]
+    else:
+        assert store is not None
+        records = [
+            record
+            for selected_type in selected_types
+            for record in list_memory_records(store, selected_type)
+        ]
     query_terms = {term.casefold() for term in query.split()}
     if query_terms:
         records = [

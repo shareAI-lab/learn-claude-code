@@ -35,7 +35,6 @@ FORBIDDEN_RUNTIME_DEPENDENCIES = {
     "fastapi",
     "plug" + "gy",
     "open" + "telemetry",
-    "sqlalchemy",
     "alembic",
 }
 

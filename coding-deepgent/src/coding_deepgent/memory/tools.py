@@ -12,6 +12,11 @@ from coding_deepgent.memory.schemas import (
     SaveMemoryInput,
 )
 from coding_deepgent.memory.policy import evaluate_memory_quality
+from coding_deepgent.memory.runtime_support import (
+    runtime_agent_scope,
+    runtime_memory_service,
+    runtime_project_scope,
+)
 from coding_deepgent.memory.store import (
     delete_memory_record,
     list_memory_entries,
@@ -47,6 +52,7 @@ def save_memory(
 ) -> str:
     """Save structured long-term memory through the LangGraph store seam."""
 
+    service = runtime_memory_service(runtime)
     validated = SaveMemoryInput(
         type=cast(MemoryType, type),
         source=source,
@@ -62,6 +68,28 @@ def save_memory(
         purpose=purpose,
         runtime=runtime,
     )
+    if service is not None:
+        stored = service.save_record(
+            project_scope=runtime_project_scope(runtime),
+            agent_scope=runtime_agent_scope(runtime),
+            record=MemoryRecord(
+                type=validated.type,
+                source=validated.source,
+                profile=validated.profile,
+                why_it_matters=validated.why_it_matters,
+                rule=validated.rule,
+                why=validated.why,
+                how_to_apply=validated.how_to_apply,
+                fact_or_decision=validated.fact_or_decision,
+                effective_date=validated.effective_date,
+                label=validated.label,
+                pointer=validated.pointer,
+                purpose=validated.purpose,
+            ),
+            source=validated.source,
+        )
+        return f"Saved {validated.type} memory {stored.id}."
+
     store = runtime.store
     if store is None:
         return "Memory store is not configured; memory was not saved."
@@ -102,25 +130,49 @@ def list_memory(
     type: str | None = None,
     limit: int = 20,
 ) -> str:
+    service = runtime_memory_service(runtime)
+    if service is not None:
+        selected_types: tuple[MemoryType, ...] = (
+            (cast(MemoryType, type),)
+            if type is not None
+            else ("feedback", "project", "reference", "user")
+        )
+        durable_entries = [
+            (memory_type, item)
+            for memory_type in selected_types
+            for item in service.list_records(
+                project_scope=runtime_project_scope(runtime),
+                memory_type=memory_type,
+                agent_scope=runtime_agent_scope(runtime),
+                limit=limit,
+            )
+        ][:limit]
+        if not durable_entries:
+            return "No long-term memory entries found."
+        lines = ["Long-term memory entries:"]
+        for memory_type, item in durable_entries:
+            lines.append(f"- [{memory_type}] {item.id}: {_memory_entry_summary(item.record)}")
+        return "\n".join(lines)
+
     store = runtime.store
     if store is None:
         return "Memory store is not configured; no memory entries are available."
 
-    memory_types: tuple[MemoryType, ...] = (
+    store_selected_types: tuple[MemoryType, ...] = (
         (cast(MemoryType, type),)
         if type is not None
         else ("feedback", "project", "reference", "user")
     )
-    entries = [
+    store_entries = [
         (memory_type, entry)
-        for memory_type in memory_types
+        for memory_type in store_selected_types
         for entry in list_memory_entries(store, memory_type)
     ][:limit]
-    if not entries:
+    if not store_entries:
         return "No long-term memory entries found."
 
     lines = ["Long-term memory entries:"]
-    for memory_type, entry in entries:
+    for memory_type, entry in store_entries:
         lines.append(f"- [{memory_type}] {entry.key}: {_memory_entry_summary(entry.record)}")
     return "\n".join(lines)
 
@@ -134,6 +186,18 @@ def list_memory(
     ),
 )
 def delete_memory(type: str, key: str, runtime: ToolRuntime) -> str:
+    service = runtime_memory_service(runtime)
+    if service is not None:
+        deleted = service.delete_record(
+            record_id=key,
+            deleted_by="tool",
+            project_scope=runtime_project_scope(runtime),
+            agent_scope=runtime_agent_scope(runtime),
+        )
+        if not deleted:
+            return f"Memory not deleted: no {type} memory exists with key {key}."
+        return f"Deleted {type} memory {key}."
+
     store = runtime.store
     if store is None:
         return "Memory store is not configured; memory was not deleted."

@@ -5,6 +5,11 @@ from .feedback_enforcement import (
 from .middleware import MemoryContextMiddleware
 from .policy import MemoryQualityDecision, evaluate_memory_quality
 from .recall import recall_memories, render_memories
+from .runtime_support import (
+    runtime_agent_scope,
+    runtime_memory_service,
+    runtime_project_scope,
+)
 from .state_snapshot import (
     LONG_TERM_MEMORY_STATE_KEY,
     LongTermMemoryEntrySnapshot,
@@ -57,6 +62,9 @@ __all__ = [
     "read_long_term_memory_snapshot",
     "recall_memories",
     "render_memories",
+    "runtime_agent_scope",
+    "runtime_memory_service",
+    "runtime_project_scope",
     "save_memory",
     "save_memory_record",
     "write_long_term_memory_snapshot",

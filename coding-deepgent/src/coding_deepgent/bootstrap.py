@@ -44,6 +44,7 @@ def build_runtime_invocation(
         session_id=session_id,
         session_context=session_context,
         transcript_projection=transcript_projection,
+        memory_service=container.memory_backend.service(),
     )
     system_prompt = container.system_prompt()
     visible_tool_projection = container.tool_system.capability_registry().project("main")

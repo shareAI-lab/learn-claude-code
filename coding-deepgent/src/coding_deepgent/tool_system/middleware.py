@@ -12,6 +12,11 @@ from coding_deepgent.compact import maybe_persist_large_tool_result
 from coding_deepgent.hooks.dispatcher import dispatch_context_hook
 from coding_deepgent.hooks.events import HookEventName
 from coding_deepgent.memory import evaluate_feedback_enforcement
+from coding_deepgent.memory.runtime_support import (
+    runtime_agent_scope,
+    runtime_memory_service,
+    runtime_project_scope,
+)
 from coding_deepgent.runtime import RuntimeEvent
 from coding_deepgent.sessions.evidence_events import append_runtime_event_evidence
 
@@ -41,6 +46,9 @@ class ToolGuardMiddleware(AgentMiddleware):
     ) -> ToolMessage | Command[Any]:
         feedback_decision = evaluate_feedback_enforcement(
             store=getattr(request.runtime, "store", None),
+            service=runtime_memory_service(request.runtime),
+            project_scope=runtime_project_scope(request.runtime),
+            agent_scope=runtime_agent_scope(request.runtime),
             tool_name=str(request.tool_call["name"]),
             args=dict(request.tool_call.get("args", {})),
         )
