@@ -595,4 +595,23 @@ def build_builtin_capabilities(
                 tags=("subagent",),
             )
         )
+    if "run_fork" in tool_by_name:
+        capabilities.append(
+            ToolCapability(
+                name="run_fork",
+                tool=tool_by_name["run_fork"],
+                domain="subagents",
+                family="subagents",
+                mutation="orchestration",
+                execution="fork_bridge",
+                read_only=False,
+                destructive=False,
+                concurrency_safe=False,
+                source="builtin",
+                trusted=True,
+                exposure="main",
+                rendering_result="tool_message",
+                tags=("subagent", "fork"),
+            )
+        )
     return tuple(capabilities)

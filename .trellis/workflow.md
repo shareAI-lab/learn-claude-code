@@ -95,6 +95,11 @@ cat .trellis/spec/backend/langchain-native-guidelines.md  # For LangChain/LangGr
 cat .trellis/spec/guides/cc-alignment-guide.md
 ```
 
+**Architecture / Refactor Boundary Choice**:
+```bash
+cat .trellis/spec/guides/architecture-posture-guide.md
+```
+
 **Staged / Multi-Checkpoint Work**:
 ```bash
 cat .trellis/spec/guides/staged-execution-guide.md
@@ -117,6 +122,7 @@ cat .trellis/spec/guides/interview-driven-spec-expansion-guide.md
 3. **Incremental Development** - Complete one task at a time
 4. **Record Promptly** - Update tracking files immediately after completion
 5. **Document Limits** - [!] **Max 2000 lines per journal document**
+6. **Prefer Clean Architecture Over Minimal Patch** - [!] When a cleaner long-term structure conflicts with smallest-diff compatibility work, follow `.trellis/spec/guides/architecture-posture-guide.md`
 
 ### Documentation Language Convention
 
@@ -225,6 +231,12 @@ cat .trellis/spec/backend/index.md
 ```bash
 # For features spanning multiple layers
 cat .trellis/spec/guides/cross-layer-thinking-guide.md
+```
+
+**Architecture / Refactor Choice**:
+```bash
+# When clean long-term structure competes with compatibility/minimal-diff patches
+cat .trellis/spec/guides/architecture-posture-guide.md
 ```
 
 ### Step 3: Select Task to Develop
@@ -475,6 +487,7 @@ python3 ./.trellis/scripts/task.py list-archive    # List archived tasks
 2. **During development**:
    - [!] **Follow** `.trellis/spec/` guidelines
    - For cross-layer features, use `/trellis:check-cross-layer`
+   - For runtime/refactor/contract decisions, prefer the higher-value long-term structure rather than the smallest patch
    - Develop only one task at a time
    - Run lint and tests frequently
 
@@ -493,6 +506,7 @@ python3 ./.trellis/scripts/task.py list-archive    # List archived tasks
 5. **Don't** forget to update spec docs after learning something
 6. [!] **Don't** amend commits, use destructive git commands, or commit
    unrelated user changes without explicit approval
+7. [!] **Don't** add compatibility bridges, fallback paths, or duplicate abstractions only to preserve weaker old local designs unless a real external compatibility requirement exists
 
 ---
 
@@ -505,6 +519,7 @@ python3 ./.trellis/scripts/task.py list-archive    # List archived tasks
 | Frontend work | `frontend/index.md` → relevant docs |
 | Backend work | `backend/index.md` → relevant docs, plus `backend/langchain-native-guidelines.md` when LangChain/LangGraph surfaces change |
 | Cross-Layer Feature | `guides/cross-layer-thinking-guide.md` |
+| Architecture / Refactor boundary choice | `guides/architecture-posture-guide.md` |
 | cc-haha-aligned work | `guides/cc-alignment-guide.md` |
 | Staged / checkpointed execution | `guides/staged-execution-guide.md` |
 | Interview-driven spec expansion | `guides/trellis-doc-map-guide.md` → `guides/interview-driven-spec-expansion-guide.md` |

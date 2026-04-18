@@ -98,8 +98,19 @@ class SessionMessage:
     content: str
     metadata: dict[str, Any] | None = None
 
+class SessionSidechainMessage:
+    created_at: str
+    agent_type: str
+    role: str
+    content: str
+    subagent_thread_id: str
+    parent_message_id: str | None = None
+    parent_thread_id: str | None = None
+    metadata: dict[str, Any] | None = None
+
 class LoadedSession:
     history: list[SessionMessage]
+    sidechain_messages: list[SessionSidechainMessage]
     compacted_history: list[dict[str, Any]]
     compacted_history_source: CompactedHistorySource
     collapsed_history: list[dict[str, Any]]
@@ -160,6 +171,18 @@ def build_compression_view(
     *,
     projection_mode: Literal["selected", "raw", "compact", "collapse"] = "selected",
 ) -> CompressionView: ...
+
+def append_sidechain_message(
+    context: SessionContext,
+    *,
+    agent_type: str,
+    role: str,
+    content: str,
+    subagent_thread_id: str,
+    parent_message_id: str | None = None,
+    parent_thread_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> Path: ...
 ```
 
 ### 3. Contracts
@@ -330,6 +353,30 @@ def build_compression_view(
   the runtime must fail open and skip collapse-record persistence rather than
   inventing implicit indexes.
 
+#### Subagent Sidechain Transcript Records
+
+- Subagent sidechain transcript entries must be persisted in the same parent
+  session JSONL ledger as `transcript_event` records with
+  `event_kind == "subagent_message"`.
+- Sidechain entries must not appear in `LoadedSession.history`.
+- Sidechain entries must not appear in selected compacted/collapsed/main-model
+  projections unless a future contract explicitly reopens that behavior.
+- `LoadedSession.sidechain_messages` is the audit/read-model surface for child
+  transcript entries.
+- Each sidechain entry must carry bounded linkage fields:
+  - `agent_type`
+  - `role`
+  - `content`
+  - `subagent_thread_id`
+  - optional `parent_message_id`
+  - optional `parent_thread_id`
+- Fork sidechain entries may also carry bounded continuity metadata, for example:
+  - `fork_run_id`
+  - `tool_pool_fingerprint`
+  - `placeholder_layout_version`
+- Sidechain transcript stays inside the parent ledger; no per-agent transcript
+  directory is part of the current contract.
+
 #### Load-Time Collapsed History View
 
 - `JsonlSessionStore.load_session()` must derive
@@ -410,10 +457,15 @@ def build_compression_view(
 #### Memory Quality
 
 - `save_memory` writes only through `runtime.store`.
+- Long-term memory type is a closed set: `user`, `feedback`, `project`, `reference`.
+- Recovery/resume must show long-term memory and current-session memory as two
+  separate sections.
 - Before writing, it must call `evaluate_memory_quality(record, existing_records=...)`.
 - It must reject:
-  - normalized duplicates in the same namespace
+  - normalized duplicates in the same memory type
   - obvious transient task/session state
+  - project-memory entries that are derivable from repository structure or code
+  - project-memory entries that use relative time instead of absolute dates
   - trivially short low-value content
 - It must return `"Memory not saved: ..."` when rejecting, and must not write to the store.
 
@@ -444,13 +496,17 @@ def build_compression_view(
 | invalid collapse refs exist | invalid events are skipped; collapsed view falls back to raw projection if none are valid |
 | overlapping collapse records exist | newest non-overlapping valid records define the deterministic projection |
 | compact and collapse records both exist | selected continuation uses collapse projection without stacking compact and collapse summaries |
+| sidechain transcript events exist | `LoadedSession.history` and selected continuation stay unchanged; child entries load through `sidechain_messages` only |
+| fork sidechain transcript events exist | child entries stay in `sidechain_messages`; bounded fork continuity metadata roundtrips without entering main projections |
 | compression view selected projection hides raw messages | hidden raw messages have `model_visible == False` and `hidden_by_event_ids` |
 | compression view forced raw projection | all raw messages remain model-visible and projection entries use `source == "raw"` |
 | runtime pressure evidence includes affected tool IDs | timeline exposes `affected_tool_call_ids` when metadata contains them |
 | selected compacted view comes from compact record at index N | `compacted_history_source == compact/latest_valid_compact/N` |
 | selected compacted view falls back to raw history | `compacted_history_source == raw/<reason>/None` |
-| valid current session-memory artifact | recovery brief renders `Session memory:` with `[current]`; generated compact summary may receive assist text |
-| stale session-memory artifact | recovery brief renders `Session memory:` with `[stale]`; generated compact summary ignores assist text |
+| valid long-term memory snapshot in runtime state | recovery brief renders `Long-term memory:` with bounded saved entries |
+| missing long-term memory snapshot in runtime state | recovery brief renders `Long-term memory:` with `- none` |
+| valid current session-memory artifact | recovery brief renders `Current-session memory:` with `[current]`; generated compact summary may receive assist text |
+| stale session-memory artifact | recovery brief renders `Current-session memory:` with `[stale]`; generated compact summary ignores assist text |
 | invalid session-memory artifact in snapshot | load succeeds and artifact is ignored |
 | missing session-memory artifact after generated compact summary | artifact is initialized from generated summary |
 | stale-enough session-memory artifact after generated compact summary | artifact is refreshed from generated summary |
@@ -519,6 +575,7 @@ Required focused tests:
 - `coding-deepgent/tests/test_message_projection.py`
 - `coding-deepgent/tests/test_sessions.py::test_compact_record_roundtrip_does_not_enter_history`
 - `coding-deepgent/tests/test_sessions.py::test_collapse_record_roundtrip_does_not_enter_history`
+- `coding-deepgent/tests/test_sessions.py::test_sidechain_message_roundtrip_stays_out_of_parent_history`
 - `coding-deepgent/tests/test_sessions.py::test_load_session_collapsed_history_uses_newest_non_overlapping_collapses`
 - `coding-deepgent/tests/test_sessions.py::test_load_session_collapsed_history_falls_back_to_raw_on_invalid_refs`
 - `coding-deepgent/tests/test_sessions.py::test_compression_view_exposes_raw_projection_and_timeline`
@@ -604,3 +661,57 @@ if generate_compact_summary:
 Why correct:
 - Model construction and summarization happen only after explicit user opt-in.
 - No automatic transcript or state mutation is introduced.
+
+## Scenario: Projection Repair Tombstone Observability
+
+### 1. Scope / Trigger
+
+- Trigger: changes touching `project_messages(...)`,
+  `project_messages_with_stats(...)`, or agent-loop message normalization.
+- Applies when model-facing projection contains orphaned structured
+  `tool_result` blocks without a previously visible matching `tool_use`.
+
+### 2. Signatures
+
+```python
+ORPHAN_TOOL_RESULT_TOMBSTONE = (
+    "[Orphaned tool_result tombstoned: missing matching tool_use]"
+)
+
+class ProjectionRepairStats:
+    orphan_tombstoned: int = 0
+    reason: str | None = None
+
+class ProjectMessagesResult:
+    messages: list[dict[str, Any]]
+    repair_stats: ProjectionRepairStats
+
+def project_messages_with_stats(
+    messages: list[dict[str, Any]],
+    *,
+    max_chars_per_message: int | None = None,
+) -> ProjectMessagesResult: ...
+```
+
+### 3. Contracts
+
+- Projection repair must replace orphaned `tool_result` blocks with a bounded
+  text tombstone instead of passing raw orphaned tool material to the model.
+- Matched `tool_use` / `tool_result` blocks must remain unchanged.
+- Agent-loop normalization must emit one bounded `orphan_tombstoned` runtime
+  event when repair happens.
+- When a recorded session context exists, `orphan_tombstoned` evidence metadata
+  may include only bounded fields such as `reason`, `tombstoned_count`, and
+  `message_count`.
+
+### 4. Validation & Error Matrix
+
+| Case | Expected behavior |
+|---|---|
+| `tool_result` has no prior matching `tool_use` | content block is replaced with `ORPHAN_TOOL_RESULT_TOMBSTONE` and event metadata includes `reason == "missing_tool_use"` |
+| `tool_result` has a prior matching `tool_use` | structured content is preserved unchanged and no repair event is emitted |
+
+### 5. Tests Required
+
+- `coding-deepgent/tests/test_message_projection.py`
+- `coding-deepgent/tests/test_agent_runtime_service.py`

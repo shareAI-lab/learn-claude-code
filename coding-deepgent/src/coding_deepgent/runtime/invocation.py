@@ -10,6 +10,7 @@ from coding_deepgent.settings import Settings
 
 if TYPE_CHECKING:
     from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
+    from coding_deepgent.tool_system import ToolPoolProjection, ToolPolicy
 
 DEFAULT_SESSION_ID = "default"
 
@@ -36,6 +37,9 @@ def build_runtime_context(
     agent_name: str | None = None,
     session_context: SessionContext | None = None,
     transcript_projection: TranscriptProjection | None = None,
+    rendered_system_prompt: str | None = None,
+    visible_tool_projection: ToolPoolProjection | None = None,
+    tool_policy: ToolPolicy | None = None,
 ) -> RuntimeContext:
     resolved_session_id = resolve_session_id(session_id)
     return RuntimeContext(
@@ -51,6 +55,9 @@ def build_runtime_context(
         transcript_projection=transcript_projection,
         model_context_window_tokens=settings.model_context_window_tokens,
         subagent_spawn_guard_ratio=settings.subagent_spawn_guard_ratio,
+        rendered_system_prompt=rendered_system_prompt,
+        visible_tool_projection=visible_tool_projection,
+        tool_policy=tool_policy,
     )
 
 
@@ -74,6 +81,9 @@ def build_runtime_invocation(
     agent_name: str | None = None,
     session_context: SessionContext | None = None,
     transcript_projection: TranscriptProjection | None = None,
+    rendered_system_prompt: str | None = None,
+    visible_tool_projection: ToolPoolProjection | None = None,
+    tool_policy: ToolPolicy | None = None,
 ) -> RuntimeInvocation:
     resolved_session_id = resolve_session_id(session_id)
     return RuntimeInvocation(
@@ -86,6 +96,9 @@ def build_runtime_invocation(
             agent_name=agent_name,
             session_context=session_context,
             transcript_projection=transcript_projection,
+            rendered_system_prompt=rendered_system_prompt,
+            visible_tool_projection=visible_tool_projection,
+            tool_policy=tool_policy,
         ),
         config=build_runnable_config(session_id=resolved_session_id),
     )

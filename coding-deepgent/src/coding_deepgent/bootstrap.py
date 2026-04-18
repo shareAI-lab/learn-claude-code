@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Any
 
 from dependency_injector import providers
@@ -39,8 +40,20 @@ def build_runtime_invocation(
     session_context: SessionContext | None = None,
     transcript_projection: TranscriptProjection | None = None,
 ):
-    return container.runtime.invocation(
+    invocation = container.runtime.invocation(
         session_id=session_id,
         session_context=session_context,
         transcript_projection=transcript_projection,
+    )
+    system_prompt = container.system_prompt()
+    visible_tool_projection = container.tool_system.capability_registry().project("main")
+    tool_policy = container.tool_system.policy()
+    return replace(
+        invocation,
+        context=replace(
+            invocation.context,
+            rendered_system_prompt=system_prompt,
+            visible_tool_projection=visible_tool_projection,
+            tool_policy=tool_policy,
+        ),
     )

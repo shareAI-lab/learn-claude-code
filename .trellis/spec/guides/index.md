@@ -21,6 +21,7 @@ These guides help you **ask the right questions before coding**.
 
 | Guide | Purpose | When to Use |
 |-------|---------|-------------|
+| [Architecture Posture Guide](./architecture-posture-guide.md) | Keep architecture choices biased toward high-value long-term boundaries instead of smallest-diff compatibility patches | When refactors, runtime foundations, or contract changes present a "clean structure vs minimal patch" choice |
 | [CC Alignment Guide](./cc-alignment-guide.md) | Keep cc-haha alignment source-backed and effect-driven | When a feature should align with Claude Code / cc-haha behavior |
 | [Code Reuse Thinking Guide](./code-reuse-thinking-guide.md) | Identify patterns and reduce duplication | When you notice repeated patterns |
 | [Cross-Layer Thinking Guide](./cross-layer-thinking-guide.md) | Think through data flow across layers | Features spanning multiple layers |
@@ -59,6 +60,15 @@ These guides help you **ask the right questions before coding**.
 - [ ] **You're creating a new utility/helper function** ← Search first!
 
 → Read [Code Reuse Thinking Guide](./code-reuse-thinking-guide.md)
+
+### When To Apply Architecture Posture
+
+- [ ] A cleaner long-term structure conflicts with the smallest patch
+- [ ] A refactor would be simpler if old local compatibility were ignored
+- [ ] You are deciding whether to replace an old abstraction instead of layering on top
+- [ ] A task sequence choice should be driven by architectural leverage, not easiest diff
+
+→ Read [Architecture Posture Guide](./architecture-posture-guide.md)
 
 ### When to Check Mainline Scope
 

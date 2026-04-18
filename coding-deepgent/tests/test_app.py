@@ -16,6 +16,7 @@ from coding_deepgent.middleware import PlanContextMiddleware
 from coding_deepgent.compact import RuntimePressureMiddleware
 from coding_deepgent.runtime import (
     InMemoryEventSink,
+    QueuedRuntimeEventSink,
     RuntimeContext,
     RuntimeInvocation,
     RuntimeState,
@@ -31,6 +32,8 @@ EXPECTED_TOOL_NAMES = [
     "edit_file",
     "TodoWrite",
     "save_memory",
+    "list_memory",
+    "delete_memory",
     "load_skill",
     "task_create",
     "task_get",
@@ -39,6 +42,7 @@ EXPECTED_TOOL_NAMES = [
     "plan_save",
     "plan_get",
     "run_subagent",
+    "run_fork",
 ]
 
 
@@ -221,6 +225,16 @@ def test_build_runtime_invocation_carries_session_context(tmp_path: Path) -> Non
 
     assert invocation.context.session_context is session_context
     assert invocation.thread_id == "session-1"
+
+
+def test_runtime_container_uses_queued_event_sink_by_default(tmp_path: Path) -> None:
+    container = AppContainer(
+        settings=providers.Object(Settings(workdir=tmp_path)),
+        model=providers.Object(object()),
+        create_agent_factory=providers.Object(lambda **kwargs: object()),
+    )
+
+    assert isinstance(container.runtime.event_sink(), QueuedRuntimeEventSink)
 
 
 def test_agent_loop_threads_session_context_to_runtime_invocation(monkeypatch) -> None:

@@ -9,6 +9,7 @@ from coding_deepgent.runtime.events import RuntimeEventSink
 
 if TYPE_CHECKING:
     from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
+    from coding_deepgent.tool_system import ToolPoolProjection, ToolPolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,3 +26,6 @@ class RuntimeContext:
     transcript_projection: TranscriptProjection | None = None
     model_context_window_tokens: int | None = None
     subagent_spawn_guard_ratio: float | None = None
+    rendered_system_prompt: str | None = None
+    visible_tool_projection: ToolPoolProjection | None = None
+    tool_policy: ToolPolicy | None = None
