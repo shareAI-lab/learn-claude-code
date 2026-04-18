@@ -1,0 +1,44 @@
+{
+  "id": "l1a-h11-subagent-max-turns-and-model-routing",
+  "name": "l1a-h11-subagent-max-turns-and-model-routing",
+  "title": "L1-a: H11 subagent max_turns and model routing",
+  "description": "Make subagent max_turns effective and wire per-agent model selection.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-18",
+  "completedAt": "2026-04-19",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-18-subagent-batch1-parity-implementation-plan",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

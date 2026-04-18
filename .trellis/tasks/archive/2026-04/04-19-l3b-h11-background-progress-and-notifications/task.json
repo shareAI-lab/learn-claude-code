@@ -1,0 +1,44 @@
+{
+  "id": "l3b-h11-background-progress-and-notifications",
+  "name": "l3b-h11-background-progress-and-notifications",
+  "title": "L3-b: H11 background progress and notifications",
+  "description": "Track background subagent progress and emit bounded completion notifications.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-19",
+  "completedAt": "2026-04-19",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-19-subagent-batch2-runtime-implementation-plan",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

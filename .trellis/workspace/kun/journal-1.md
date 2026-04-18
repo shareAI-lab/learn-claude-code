@@ -498,3 +498,66 @@ Productized automatic memory extraction inspection, agent-private memory scope i
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: H12 fork runtime closeout
+
+**Date**: 2026-04-19
+**Task**: H12 fork runtime closeout
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Area | What was completed |
+|------|---------------------|
+| Batch 1 | Effective `max_turns`, per-agent model routing, built-in `explore`/`plan`, local custom subagents, fork continuity metadata, subagent/fork resume foundation |
+| Batch 2 | Background subagent runtime, progress + notification, queued follow-up input, plugin-provided subagent definitions |
+| H12 closeout | Explicit `run_fork` remains the only fork surface, `run_fork(background=true)` background fork runtime, stop/cancel semantics, workdir hardening, roadmap/spec closeout |
+
+**Validated**:
+- `pytest -q coding-deepgent/tests/test_agent_runtime_service.py coding-deepgent/tests/test_sessions.py coding-deepgent/tests/test_subagents.py coding-deepgent/tests/test_plugins.py coding-deepgent/tests/test_tool_system_registry.py coding-deepgent/tests/test_tool_system_middleware.py`
+- `ruff check`
+- `mypy`
+
+**Updated Files**:
+- `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+- `.trellis/spec/backend/project-infrastructure-foundation-contracts.md`
+- `.trellis/spec/backend/task-workflow-contracts.md`
+- `coding-deepgent/src/coding_deepgent/subagents/background.py`
+- `coding-deepgent/src/coding_deepgent/subagents/loader.py`
+- `coding-deepgent/src/coding_deepgent/subagents/schemas.py`
+- `coding-deepgent/src/coding_deepgent/subagents/tools.py`
+- `coding-deepgent/src/coding_deepgent/subagents/__init__.py`
+- `coding-deepgent/src/coding_deepgent/containers/tool_system.py`
+- `coding-deepgent/src/coding_deepgent/tool_system/capabilities.py`
+- `coding-deepgent/src/coding_deepgent/plugins/schemas.py`
+- `coding-deepgent/src/coding_deepgent/plugins/registry.py`
+- `coding-deepgent/src/coding_deepgent/extensions_service.py`
+- `coding-deepgent/src/coding_deepgent/runtime/context.py`
+- `coding-deepgent/src/coding_deepgent/runtime/invocation.py`
+- `coding-deepgent/src/coding_deepgent/settings.py`
+- `coding-deepgent/tests/test_subagents.py`
+- `coding-deepgent/tests/test_plugins.py`
+- `coding-deepgent/tests/test_tool_system_registry.py`
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9be06b2` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

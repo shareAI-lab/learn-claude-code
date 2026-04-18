@@ -1,0 +1,44 @@
+{
+  "id": "l4b-h12-cache-safe-summary-and-fork-reuse",
+  "name": "l4b-h12-cache-safe-summary-and-fork-reuse",
+  "title": "L4-b: H12 cache-safe summary and fork reuse",
+  "description": "Add cache-safe background fork summaries and reusable fork cache continuity on the explicit run_fork path.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-19",
+  "completedAt": "2026-04-19",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-19-h12-completion-pack-implementation-plan",
+  "relatedFiles": [],
+  "notes": "Completed the local H12 summary/reuse closeout through background fork continuity state, stable child-thread reuse, persisted prompt/tool fingerprints, and bounded summary_text updates on the same fork surface.",
+  "meta": {}
+}

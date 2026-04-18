@@ -1,0 +1,44 @@
+{
+  "id": "h12-completion-pack-implementation-plan",
+  "name": "h12-completion-pack-implementation-plan",
+  "title": "h12 completion pack implementation plan",
+  "description": "Complete H12 with explicit run_fork entry only: background fork runtime, cache-safe summary/reuse, lifecycle cleanup, and resume/path hardening.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-19",
+  "completedAt": "2026-04-19",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-19-next-subagent-planning",
+  "relatedFiles": [],
+  "notes": "Completed H12 completion pack: explicit run_fork stays the only fork surface; background fork runtime, background run status/send/stop, fork continuity metadata, resume workdir hardening, plugin-provided agent definitions, and focused closeout validation all landed together.",
+  "meta": {}
+}

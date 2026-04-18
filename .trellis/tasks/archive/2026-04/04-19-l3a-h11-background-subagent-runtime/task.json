@@ -1,0 +1,44 @@
+{
+  "id": "l3a-h11-background-subagent-runtime",
+  "name": "l3a-h11-background-subagent-runtime",
+  "title": "L3-a: H11 background subagent runtime",
+  "description": "Add background subagent execution and status surfaces.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-19",
+  "completedAt": "2026-04-19",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-19-subagent-batch2-runtime-implementation-plan",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

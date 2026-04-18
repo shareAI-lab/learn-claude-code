@@ -1,0 +1,44 @@
+{
+  "id": "l1b-h11-built-in-subagent-catalog-expansion",
+  "name": "l1b-h11-built-in-subagent-catalog-expansion",
+  "title": "L1-b: H11 built-in subagent catalog expansion",
+  "description": "Add the next built-in read-only subagent roles beyond general/verifier.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-18",
+  "completedAt": "2026-04-19",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-18-subagent-batch1-parity-implementation-plan",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

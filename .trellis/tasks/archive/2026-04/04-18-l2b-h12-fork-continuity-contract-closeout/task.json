@@ -1,0 +1,44 @@
+{
+  "id": "l2b-h12-fork-continuity-contract-closeout",
+  "name": "l2b-h12-fork-continuity-contract-closeout",
+  "title": "L2-b: H12 fork continuity contract closeout",
+  "description": "Deepen fork beyond minimal lineage metadata toward cache-safe continuity.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-18",
+  "completedAt": "2026-04-19",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-18-subagent-batch1-parity-implementation-plan",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

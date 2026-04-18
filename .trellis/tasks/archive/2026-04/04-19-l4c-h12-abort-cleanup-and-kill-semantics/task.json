@@ -1,0 +1,44 @@
+{
+  "id": "l4c-h12-abort-cleanup-and-kill-semantics",
+  "name": "l4c-h12-abort-cleanup-and-kill-semantics",
+  "title": "L4-c: H12 abort cleanup and kill semantics",
+  "description": "Add explicit stop/cleanup/kill behavior for background fork and subagent runs.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-19",
+  "completedAt": "2026-04-19",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 3,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-19-h12-completion-pack-implementation-plan",
+  "relatedFiles": [],
+  "notes": "Completed bounded stop/cleanup/kill semantics for background subagent and background fork runs, including terminal cancelled state and worker-handle cleanup.",
+  "meta": {}
+}
