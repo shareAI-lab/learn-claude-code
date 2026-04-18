@@ -51,7 +51,7 @@ def get_plan(store: TaskStore, plan_id: str) -> PlanArtifact: ...
 def run_subagent(
     task: str,
     runtime: ToolRuntime,
-    agent_type: Literal["general", "verifier"] = "general",
+    agent_type: str = "general",
     plan_id: str | None = None,
     max_turns: int = 25,
 ) -> str: ...
@@ -59,20 +59,46 @@ def run_subagent(
 def run_fork(
     intent: str,
     runtime: ToolRuntime,
+    background: bool = False,
     max_turns: int = 25,
 ) -> str: ...
 
+def run_subagent_background(
+    task: str,
+    runtime: ToolRuntime,
+    agent_type: str = "general",
+    plan_id: str | None = None,
+    max_turns: int = 25,
+) -> str: ...
+
+def subagent_status(
+    run_id: str,
+    runtime: ToolRuntime,
+) -> str: ...
+
+def subagent_send_input(
+    run_id: str,
+    message: str,
+    runtime: ToolRuntime,
+) -> str: ...
+
+def subagent_stop(
+    run_id: str,
+    runtime: ToolRuntime,
+) -> str: ...
+
 class AgentDefinition(BaseModel):
-    agent_type: Literal["general", "verifier"]
+    agent_type: str
     description: str
     when_to_use: str
+    instructions: str | None = None
     tool_allowlist: tuple[str, ...]
     disallowed_tools: tuple[str, ...]
     max_turns: int
     model_profile: str | None = None
 
 class SubagentResultEnvelope(BaseModel):
-    agent_type: Literal["general", "verifier"]
+    agent_type: str
     content: str
     tool_allowlist: list[str]
     input_tokens: int
@@ -96,11 +122,53 @@ class ForkResultEnvelope(BaseModel):
     total_duration_ms: int
     total_tool_use_count: int
 
+class BackgroundSubagentRun(BaseModel):
+    run_id: str
+    mode: Literal["background_subagent", "background_fork"]
+    agent_type: str
+    status: Literal["queued", "running", "completed", "failed", "cancelled"]
+    title: str
+    parent_thread_id: str
+    child_thread_id: str
+    workdir: str
+    requested_max_turns: int | None = None
+    effective_max_turns: int
+    model_profile: str | None = None
+    plan_id: str | None = None
+    pending_inputs: list[str]
+    progress_summary: str
+    summary_text: str | None = None
+    recent_activities: list[str]
+    latest_result: str | None = None
+    error: str | None = None
+    stop_requested: bool
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    total_duration_ms: int
+    total_tool_use_count: int
+    total_invocations: int
+    notified: bool
+
 def record_verifier_evidence(
     *,
     result: SubagentResult,
     runtime: ToolRuntime,
 ) -> bool: ...
+
+def resume_subagent_task(
+    *,
+    subagent_thread_id: str,
+    runtime: ToolRuntime,
+    follow_up: str | None = None,
+) -> SubagentResult: ...
+
+def resume_fork_task(
+    *,
+    child_thread_id: str,
+    runtime: ToolRuntime,
+    follow_up: str | None = None,
+) -> ForkResult: ...
 ```
 
 ### 3. Contracts
@@ -126,25 +194,58 @@ def record_verifier_evidence(
 - `plan_save` and `plan_get` are main-surface tools, but they do not enter TodoWrite state.
 - `plan_get` is allowed for verifier subagents.
 - `plan_save` is forbidden for verifier subagents.
-- `run_subagent` must use a built-in `AgentDefinition` catalog for MVP
-  `general` and `verifier` agent types.
+- `run_subagent` must expose a built-in `AgentDefinition` catalog that includes
+  `general`, `verifier`, `explore`, and `plan`.
+- Repo-local custom subagent definitions may extend the catalog from
+  `.coding-deepgent/SUBAGENTS.json`.
+- Local plugins may extend the catalog by declaring `agents` in `plugin.json`
+  and providing matching definitions in `<plugin-root>/subagents.json`.
 - Built-in agent definitions must declare `description`, `when_to_use`,
-  `tool_allowlist`, `disallowed_tools`, `max_turns`, and optional
-  `model_profile`.
+  `instructions`, `tool_allowlist`, `disallowed_tools`, `max_turns`, and
+  optional `model_profile`.
 - `general.max_turns == 25` and `verifier.max_turns == 5` must come from
-  definitions, not hard-coded branches.
-- `general` and `verifier` child tool surfaces must remain read-only:
+  definitions, not hard-coded branches; `explore` and `plan` must also declare
+  their own non-default ceilings.
+- `general`, `verifier`, `explore`, and `plan` child tool surfaces must remain
+  read-only:
   `read_file`, `glob`, `grep`, `task_get`, `task_list`, and `plan_get`.
-- `general` must execute through a real bounded child `create_agent` path rather
-  than returning a hard-coded acceptance string.
+- `explore` may narrow to read-only file tools only.
+- Built-in and repo-local custom child agents must execute through a real bounded
+  child `create_agent` path rather than returning a hard-coded acceptance
+  string.
 - `run_subagent` with `agent_type="verifier"` requires `plan_id`.
 - Verifier subagent execution requires a configured task store.
 - Verifier subagent execution must resolve the durable plan artifact before child execution begins.
+- `run_subagent(max_turns=...)` and `run_fork(max_turns=...)` must forward the
+  effective turn ceiling into the child/fork runtime instead of silently
+  ignoring it.
+- `AgentDefinition.model_profile` must affect child model selection when set.
+- `run_subagent_background(...)` must persist a bounded background run record in
+  the runtime store and return immediately with a stable `run_id`.
+- Background subagent runs must expose at least `status`,
+  `progress_summary`, `recent_activities`, `pending_inputs`,
+  `latest_result`, and bounded cumulative usage counters.
+- Background fork runs may reuse the same background run record shape with
+  `mode == "background_fork"` and continue on the same fork child thread.
+- `subagent_send_input(...)` must queue follow-up input for an existing
+  background run and preserve the same `run_id`.
+- Background runs may continue through repeated queued inputs, but they must not
+  claim mailbox/coordinator/team-runtime semantics.
+- `subagent_stop(...)` must request stop for queued or active background runs
+  and persist terminal `cancelled` once the current invoke boundary is safe to
+  stop.
+- Finished background workers must release in-memory worker handles after the
+  terminal status is persisted.
+- Background run completion or failure must append one bounded
+  `subagent_notification` evidence record when recording context exists.
 - General subagent output must be structured JSON including `agent_type`,
   `content`, `tool_allowlist`, `input_tokens`, `output_tokens`, `total_tokens`,
   `total_duration_ms`, and `total_tool_use_count`.
 - `run_fork` is a separate explicit tool surface. It must not be modeled as a
   `general` or `verifier` `AgentDefinition` variant.
+- `run_fork(background=True)` may enter the shared background-run manager, but
+  it still counts as the same explicit fork surface rather than a second fork
+  entrypoint.
 - `run_fork` must operate as a same-config sibling branch:
   - use the parent invocation's rendered system prompt directly
   - use the parent invocation's visible main tool projection directly
@@ -153,6 +254,8 @@ def record_verifier_evidence(
   stable visible tool-pool identity snapshot.
 - Fork tool-pool identity must be stronger than a name-only list. It must be a
   stable ordered model-visible tool snapshot.
+- Fork payload assembly must drop incomplete assistant tool-call turns that lack
+  paired tool results instead of inheriting an invalid prefix.
 - Fork recursion must be blocked by a dedicated guard marker and runtime-entry
   guard before nested fork execution begins.
 - Fork result output must be structured JSON including:
@@ -170,13 +273,25 @@ def record_verifier_evidence(
   - `total_duration_ms`
   - `total_tool_use_count`
 - Fork placeholder layout is part of the continuity seam even before full fork
-  resume exists. It must define a version and replacement-state hook contract.
+  resume exists. It must define a version, replacement-state hook contract, and
+  deterministic placeholder messages for paired tool results.
 - Real child subagent executions with an active parent `SessionContext` must
   append bounded sidechain transcript entries into the parent session ledger
   using the existing transcript-event seam rather than a separate agent
   directory.
 - Sidechain transcript entries must carry `subagent_thread_id` plus optional
   `parent_message_id` / `parent_thread_id` linkage when available.
+- Sidechain child transcript entries may persist bounded structured metadata
+  needed for subagent/fork resume, such as tool-call ids, content blocks,
+  prompt/tool fingerprints, and effective execution ceilings.
+- `resume_subagent_task(...)` must reconstruct a child thread from recorded
+  sidechain transcript + metadata and continue on the same child thread id.
+- `resume_fork_task(...)` must reconstruct a fork child thread from recorded
+  sidechain transcript + metadata, and must fail if the current rendered prompt
+  fingerprint or visible tool projection fingerprint no longer matches the
+  recorded fork contract.
+- Subagent and fork resume must also fail when the current runtime workdir no
+  longer matches the recorded workdir stored in sidechain metadata.
 - Verifier subagent output must expose the durable plan boundary as structured JSON including:
   - `plan_id`
   - `plan_title`
@@ -226,17 +341,31 @@ def record_verifier_evidence(
 | save plan with missing verification | Pydantic validation error |
 | save plan with unknown task id | `ValueError("Unknown task dependencies...")` |
 | get missing plan | `KeyError("Unknown plan...")` |
-| child tool allowlist | `general` and `verifier` include read-only file/task/plan tools and exclude mutating tools |
+| child tool allowlist | built-in child agents keep read-only tool surfaces and exclude mutating tools |
 | general subagent execution | invokes a real child agent with the read-only allowlist |
 | recorded child execution | parent session ledger receives sidechain transcript entries with child thread linkage |
+| custom local subagent definition | repo-local definition is loaded and validated before execution |
+| plugin subagent definition | plugin-declared definition is loaded and validated before execution |
 | final child assistant message is tool-only | result extraction falls back to the last non-empty assistant text |
 | verifier subagent without `plan_id` | Pydantic validation error |
 | verifier subagent without runtime store | `RuntimeError("Verifier subagent requires task store")` |
 | verifier subagent with missing plan | `KeyError("Unknown plan...")` |
 | general subagent output | structured JSON parseable as general result envelope |
 | fork output | structured JSON parseable as fork result envelope |
+| background subagent start | structured JSON parseable as background run record with stable `run_id` |
+| background fork start through `run_fork(background=true)` | structured JSON parseable as background run record with `mode == "background_fork"` |
+| background run status lookup | returns the persisted background run record |
+| background run follow-up input | queues input and preserves the same background `run_id` |
+| background run stop | records stop request and eventually reaches terminal `cancelled` |
 | fork runtime invocation lacks rendered prompt or visible tool projection | explicit runtime error; no fallback reconstruction |
+| fork prefix contains incomplete tool call without paired result | fork payload drops that incomplete assistant tool-call turn |
 | nested fork attempts | explicit recursion guard failure before child execution |
+| background run with missing store | explicit runtime error |
+| background run completion with recording context | one `subagent_notification` evidence record is appended |
+| subagent resume with unknown thread id | explicit runtime error |
+| subagent resume with mismatched workdir | explicit runtime error |
+| fork resume with mismatched prompt/tool fingerprint | explicit runtime error |
+| fork resume with mismatched workdir | explicit runtime error |
 | verifier subagent output | structured JSON parseable as verifier result |
 | verifier output with `VERDICT: PASS` and session context | one `verification` evidence record with `status == "passed"` |
 | verifier output with `VERDICT: FAIL` and session context | one `verification` evidence record with `status == "failed"` |
@@ -307,14 +436,30 @@ Expected:
 - `coding-deepgent/tests/test_tool_system_registry.py::test_main_projection_preserves_current_product_tool_surface`
 - `coding-deepgent/tests/test_subagents.py::test_subagent_allowlists_are_exact_and_exclude_mutating_tools`
 - `coding-deepgent/tests/test_subagents.py::test_run_subagent_task_general_executes_real_read_only_child_agent`
+- `coding-deepgent/tests/test_subagents.py::test_run_subagent_task_passes_effective_max_turns_via_recursion_limit`
+- `coding-deepgent/tests/test_subagents.py::test_run_subagent_task_routes_custom_model_profile`
+- `coding-deepgent/tests/test_subagents.py::test_resolve_agent_definition_loads_repo_local_custom_agents`
+- `coding-deepgent/tests/test_subagents.py::test_run_subagent_executes_repo_local_custom_agent`
+- `coding-deepgent/tests/test_subagents.py::test_resolve_agent_definition_loads_plugin_provided_agents`
 - `coding-deepgent/tests/test_subagents.py::test_run_subagent_tool_returns_structured_general_result`
 - `coding-deepgent/tests/test_subagents.py::test_run_subagent_records_sidechain_messages_in_parent_session`
 - `coding-deepgent/tests/test_subagents.py::test_subagent_result_falls_back_to_last_text_when_final_message_is_tool_only`
 - `coding-deepgent/tests/test_subagents.py::test_run_fork_tool_schema_rejects_runtime_creep_fields`
 - `coding-deepgent/tests/test_subagents.py::test_run_fork_task_executes_same_config_sibling_branch`
+- `coding-deepgent/tests/test_subagents.py::test_run_fork_filters_incomplete_tool_calls_and_exposes_placeholder_messages`
 - `coding-deepgent/tests/test_subagents.py::test_run_fork_tool_returns_structured_result`
 - `coding-deepgent/tests/test_subagents.py::test_run_fork_records_sidechain_messages_with_contract_metadata`
 - `coding-deepgent/tests/test_subagents.py::test_run_fork_rejects_recursive_fork_marker`
+- `coding-deepgent/tests/test_subagents.py::test_resume_subagent_task_reuses_recorded_thread`
+- `coding-deepgent/tests/test_subagents.py::test_resume_fork_task_reuses_recorded_thread`
+- `coding-deepgent/tests/test_subagents.py::test_resume_fork_task_requires_matching_prompt_fingerprint`
+- `coding-deepgent/tests/test_subagents.py::test_run_subagent_background_and_status`
+- `coding-deepgent/tests/test_subagents.py::test_run_fork_background_and_status`
+- `coding-deepgent/tests/test_subagents.py::test_background_subagent_send_input_reactivates_finished_run`
+- `coding-deepgent/tests/test_subagents.py::test_subagent_stop_cancels_running_background_run`
+- `coding-deepgent/tests/test_subagents.py::test_resume_subagent_task_requires_matching_workdir`
+- `coding-deepgent/tests/test_subagents.py::test_resume_fork_task_requires_matching_workdir`
+- `coding-deepgent/tests/test_plugins.py::test_app_container_validates_plugin_provided_subagent_definitions`
 - `coding-deepgent/tests/test_subagents.py::test_verifier_subagent_requires_plan_id`
 - `coding-deepgent/tests/test_subagents.py::test_verifier_subagent_requires_task_store`
 - `coding-deepgent/tests/test_subagents.py::test_verifier_subagent_rejects_unknown_plan`

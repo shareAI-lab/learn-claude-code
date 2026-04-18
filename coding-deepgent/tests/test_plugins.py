@@ -29,6 +29,14 @@ def write_plugin(root: Path, name: str, payload: dict[str, object]) -> Path:
     return path
 
 
+def write_plugin_agents(root: Path, plugin_name: str, payload: dict[str, object]) -> Path:
+    plugin_dir = root / plugin_name
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    path = plugin_dir / "subagents.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
 def valid_manifest(name: str = "demo") -> dict[str, object]:
     return {
         "name": name,
@@ -37,6 +45,7 @@ def valid_manifest(name: str = "demo") -> dict[str, object]:
         "skills": ["demo:review"],
         "tools": ["read_file"],
         "resources": ["demo_notes"],
+        "agents": [],
     }
 
 
@@ -56,6 +65,7 @@ def test_plugin_manifest_schema_is_strict_and_metadata_only() -> None:
     assert manifest.skills == ("demo:review",)
     assert manifest.tools == ("read_file",)
     assert manifest.resources == ("demo_notes",)
+    assert manifest.agents == ()
 
     with pytest.raises(ValidationError):
         PluginManifest.model_validate({"name": "demo"})
@@ -126,6 +136,7 @@ def test_plugin_registry_exposes_declarations_without_runtime_mutation(
     assert registry.declared_tools() == ("read_file", "TodoWrite")
     assert registry.declared_skills() == ("demo:review",)
     assert registry.declared_resources() == ("demo_notes", "beta_resource")
+    assert registry.declared_agents() == ()
 
     validated = registry.validate(
         known_tools={"read_file", "TodoWrite"},
@@ -239,6 +250,48 @@ def test_app_container_blocks_invalid_plugin_declarations_on_explicit_startup_va
         container.startup_contract()
     with pytest.raises(ValueError, match="unknown entries"):
         container.agent()
+
+
+def test_app_container_validates_plugin_provided_subagent_definitions(
+    tmp_path: Path,
+) -> None:
+    write_skill(tmp_path / "skills")
+    write_plugin(
+        tmp_path / "plugins",
+        "demo",
+        {
+            **valid_manifest("demo"),
+            "agents": ["demo:docs_review"],
+        },
+    )
+    write_plugin_agents(
+        tmp_path / "plugins",
+        "demo",
+        {
+            "agents": [
+                {
+                    "agent_type": "demo:docs_review",
+                    "description": "Review docs",
+                    "when_to_use": "Use for plugin-provided docs review.",
+                    "instructions": "Review docs from the plugin catalog.",
+                    "tool_allowlist": ["read_file", "glob"],
+                    "disallowed_tools": ["write_file"],
+                    "max_turns": 6,
+                }
+            ]
+        },
+    )
+
+    container = AppContainer(
+        settings=providers.Object(Settings(workdir=tmp_path)),
+        model=providers.Object(object()),
+        create_agent_factory=providers.Object(lambda **kwargs: object()),
+    )
+
+    validated = container.validated_plugin_registry()
+
+    assert validated.names() == ["demo"]
+    assert validated.declared_agents() == ("demo:docs_review",)
 
 
 def test_child_only_tools_are_not_plugin_declarable(

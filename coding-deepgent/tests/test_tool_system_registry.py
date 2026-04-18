@@ -33,6 +33,10 @@ EXPECTED_MAIN_TOOL_NAMES = [
     "plan_save",
     "plan_get",
     "run_subagent",
+    "run_subagent_background",
+    "subagent_status",
+    "subagent_send_input",
+    "subagent_stop",
     "run_fork",
 ]
 

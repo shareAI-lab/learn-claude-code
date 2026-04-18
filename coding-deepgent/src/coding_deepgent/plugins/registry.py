@@ -12,6 +12,7 @@ class PluginCapabilityDeclaration:
     skills: tuple[str, ...]
     tools: tuple[str, ...]
     resources: tuple[str, ...]
+    agents: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +44,7 @@ class PluginRegistry:
                 skills=plugin.manifest.skills,
                 tools=plugin.manifest.tools,
                 resources=plugin.manifest.resources,
+                agents=plugin.manifest.agents,
             )
             for plugin in self._plugins
         )
@@ -57,6 +59,9 @@ class PluginRegistry:
         return tuple(
             resource for item in self.declarations() for resource in item.resources
         )
+
+    def declared_agents(self) -> tuple[str, ...]:
+        return tuple(agent for item in self.declarations() for agent in item.agents)
 
     def validate(
         self,
@@ -92,6 +97,7 @@ class PluginRegistry:
                     skills=item.skills,
                     tools=item.tools,
                     resources=item.resources,
+                    agents=item.agents,
                 )
             )
         return tuple(validated)

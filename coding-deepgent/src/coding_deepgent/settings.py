@@ -150,6 +150,7 @@ def build_openai_model(
     *,
     temperature: float = 0.0,
     timeout: int | None = None,
+    model_name: str | None = None,
 ):
     active_settings = settings or load_settings()
     if active_settings.openai_api_key is None:
@@ -161,7 +162,7 @@ def build_openai_model(
     from langchain_openai import ChatOpenAI
 
     kwargs: dict[str, Any] = {
-        "model": active_settings.model_name,
+        "model": (model_name or active_settings.model_name).strip(),
         "temperature": temperature,
         "timeout": timeout or active_settings.model_timeout_seconds,
         "api_key": active_settings.openai_api_key.get_secret_value(),

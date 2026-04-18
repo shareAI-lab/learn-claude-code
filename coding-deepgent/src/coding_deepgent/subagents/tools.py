@@ -7,11 +7,18 @@ import time
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Any, cast
 
 from langchain.agents import create_agent
 from langchain.tools import ToolRuntime, tool
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langchain_core.tools import BaseTool
 
 from coding_deepgent.compact.runtime_pressure import estimate_message_tokens
@@ -19,9 +26,13 @@ from coding_deepgent.filesystem import glob_search, grep_search, read_file
 from coding_deepgent.rendering import latest_assistant_text
 from coding_deepgent.runtime import RuntimeContext, RuntimeEvent, RuntimeInvocation
 from coding_deepgent.sessions.evidence_events import append_runtime_event_evidence
-from coding_deepgent.sessions.records import SessionContext
+from coding_deepgent.sessions.records import LoadedSession, SessionContext, SessionSidechainMessage
 from coding_deepgent.sessions.store_jsonl import JsonlSessionStore
 from coding_deepgent.settings import build_openai_model
+from coding_deepgent.subagents.loader import (
+    discover_local_subagent_definitions,
+    discover_plugin_subagent_definitions,
+)
 from coding_deepgent.subagents.schemas import (
     AgentDefinition,
     ForkPlaceholderLayout,
@@ -44,7 +55,10 @@ from coding_deepgent.tool_system import (
     build_capability_registry,
 )
 
+FILE_ONLY_CHILD_TOOLS = ("read_file", "glob", "grep")
 DEFAULT_CHILD_TOOLS = ("read_file", "glob", "grep", "task_get", "task_list", "plan_get")
+EXPLORE_CHILD_TOOLS = FILE_ONLY_CHILD_TOOLS
+PLAN_CHILD_TOOLS = DEFAULT_CHILD_TOOLS
 VERIFIER_EXTRA_TOOLS = ()
 FORBIDDEN_CHILD_TOOLS = (
     "bash",
@@ -79,14 +93,29 @@ VERDICT_STATUS = {
 FORK_RECURSION_GUARD_MARKER = "<CODING_DEEPGENT_FORK>"
 FORK_PLACEHOLDER_LAYOUT_VERSION = "fork_tool_result_v1"
 FORK_REPLACEMENT_STATE_HOOK = "preserve_tool_result_ids"
+SUBAGENT_RESUME_VERSION = "subagent_resume_v1"
+FORK_RESUME_VERSION = "fork_resume_v1"
+DEFAULT_RESUME_FOLLOW_UP = "Continue the current task from the recorded sidechain state."
+DEFAULT_FORK_RESUME_FOLLOW_UP = "Continue the current branch from the recorded fork state."
+READ_ONLY_BOUNDARY_PROMPT = (
+    "You are strictly read-only. Do not modify files, tasks, plans, memory, or "
+    "invoke nested subagents. If a task requires mutation, explain what the "
+    "parent agent should do instead."
+)
+FORK_MAX_TURNS = 25
 
-BUILTIN_AGENT_DEFINITIONS: dict[SubagentType, AgentDefinition] = {
+BUILTIN_AGENT_DEFINITIONS: dict[str, AgentDefinition] = {
     "general": AgentDefinition(
         agent_type="general",
         description="Read-only general-purpose research subagent.",
         when_to_use=(
             "Use for bounded codebase research, file inspection, and durable "
             "task/plan reads that do not modify workspace or state."
+        ),
+        instructions=(
+            "You are a read-only general-purpose research subagent. Inspect the "
+            "workspace and durable task/plan state, then return a concise answer "
+            "to the parent agent."
         ),
         tool_allowlist=DEFAULT_CHILD_TOOLS,
         disallowed_tools=FORBIDDEN_CHILD_TOOLS,
@@ -100,9 +129,49 @@ BUILTIN_AGENT_DEFINITIONS: dict[SubagentType, AgentDefinition] = {
             "Use after implementation to inspect evidence against a durable "
             "plan and return PASS, FAIL, or PARTIAL."
         ),
+        instructions=(
+            "You are a verification specialist. Your role is to verify the "
+            "implementation against the plan and try to find breakage, not to "
+            "confirm success quickly."
+        ),
         tool_allowlist=DEFAULT_CHILD_TOOLS,
         disallowed_tools=FORBIDDEN_CHILD_TOOLS,
         max_turns=5,
+        model_profile=None,
+    ),
+    "explore": AgentDefinition(
+        agent_type="explore",
+        description="Read-only code exploration specialist.",
+        when_to_use=(
+            "Use for targeted repository exploration, relevant-file discovery, "
+            "and grounded codebase explanation."
+        ),
+        instructions=(
+            "You are a read-only exploration specialist. Inspect the repository, "
+            "identify the most relevant files and concrete code paths, and report "
+            "findings without speculating beyond the evidence you can read."
+        ),
+        tool_allowlist=EXPLORE_CHILD_TOOLS,
+        disallowed_tools=FORBIDDEN_CHILD_TOOLS,
+        max_turns=12,
+        model_profile=None,
+    ),
+    "plan": AgentDefinition(
+        agent_type="plan",
+        description="Read-only planning specialist for implementation shaping.",
+        when_to_use=(
+            "Use for turning a goal into a concrete implementation plan, risk "
+            "list, and execution order grounded in current repository state."
+        ),
+        instructions=(
+            "You are a read-only planning specialist. Use the repository and "
+            "durable task/plan state to produce a concrete implementation plan, "
+            "call out risks, and keep recommendations tightly grounded in the "
+            "current codebase."
+        ),
+        tool_allowlist=PLAN_CHILD_TOOLS,
+        disallowed_tools=FORBIDDEN_CHILD_TOOLS,
+        max_turns=15,
         model_profile=None,
     ),
 }
@@ -148,7 +217,7 @@ def _child_tool_capability(name: str) -> ToolCapability:
 @dataclass(frozen=True, slots=True)
 class SubagentResult:
     content: str
-    agent_type: SubagentType
+    agent_type: str
     tool_allowlist: tuple[str, ...]
     input_tokens: int = 0
     output_tokens: int = 0
@@ -177,14 +246,14 @@ class ForkResult:
     total_tool_use_count: int = 0
 
 
-ChildAgentFactory = Callable[[SubagentType, Sequence[str]], Callable[[str], str]]
+ChildAgentFactory = Callable[[str, Sequence[str]], Callable[[str], str]]
 
 
-def agent_definition(agent_type: SubagentType) -> AgentDefinition:
+def agent_definition(agent_type: str) -> AgentDefinition:
     return BUILTIN_AGENT_DEFINITIONS[agent_type]
 
 
-def child_tool_allowlist(agent_type: SubagentType) -> tuple[str, ...]:
+def child_tool_allowlist(agent_type: str) -> tuple[str, ...]:
     return agent_definition(agent_type).tool_allowlist
 
 
@@ -201,8 +270,87 @@ def _fingerprint_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
 
 
+def _json_clone(value: Any) -> Any:
+    return json.loads(json.dumps(value))
+
+
 def _stable_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def _validate_agent_definition(definition: AgentDefinition) -> None:
+    unknown_tools = sorted(
+        item for item in definition.tool_allowlist if item not in CHILD_TOOL_OBJECTS
+    )
+    if unknown_tools:
+        raise ValueError(
+            f"Unknown child tools in `{definition.agent_type}`: {', '.join(unknown_tools)}"
+        )
+    unknown_disallowed = sorted(
+        item
+        for item in definition.disallowed_tools
+        if item not in CHILD_TOOL_OBJECTS and item not in FORBIDDEN_CHILD_TOOLS
+    )
+    if unknown_disallowed:
+        raise ValueError(
+            "Unknown disallowed tools in "
+            f"`{definition.agent_type}`: {', '.join(unknown_disallowed)}"
+        )
+
+
+def _runtime_workdir(runtime: ToolRuntime | None) -> Path | None:
+    context = getattr(runtime, "context", None)
+    if isinstance(context, RuntimeContext):
+        return context.workdir
+    return None
+
+
+def _runtime_plugin_dir(runtime: ToolRuntime | None) -> Path:
+    context = getattr(runtime, "context", None)
+    if isinstance(context, RuntimeContext):
+        return context.plugin_dir
+    return Path("plugins")
+
+
+def _agent_definitions_for_workdir(
+    workdir: Path | None,
+    *,
+    plugin_dir: Path,
+) -> dict[str, AgentDefinition]:
+    definitions: dict[str, AgentDefinition] = dict(BUILTIN_AGENT_DEFINITIONS)
+    if workdir is None:
+        return definitions
+    for definition in discover_plugin_subagent_definitions(
+        workdir=workdir,
+        plugin_dir=plugin_dir,
+    ):
+        if definition.agent_type in definitions:
+            raise ValueError(
+                f"Subagent definition `{definition.agent_type}` collides with an existing agent"
+            )
+        _validate_agent_definition(definition)
+        definitions[definition.agent_type] = definition
+    for definition in discover_local_subagent_definitions(workdir=workdir):
+        if definition.agent_type in definitions:
+            raise ValueError(
+                f"Subagent definition `{definition.agent_type}` collides with an existing agent"
+            )
+        _validate_agent_definition(definition)
+        definitions[definition.agent_type] = definition
+    return definitions
+
+
+def resolve_agent_definition(
+    agent_type: str, *, runtime: ToolRuntime | None = None
+) -> AgentDefinition:
+    definitions = _agent_definitions_for_workdir(
+        _runtime_workdir(runtime),
+        plugin_dir=_runtime_plugin_dir(runtime),
+    )
+    try:
+        return definitions[agent_type]
+    except KeyError as exc:
+        raise KeyError(f"Unknown subagent definition: {agent_type}") from exc
 
 
 def _tool_surface_snapshot(projection: ToolPoolProjection) -> ToolPoolIdentitySnapshot:
@@ -235,6 +383,10 @@ def _fork_placeholder_layout(messages: Sequence[BaseMessage]) -> ForkPlaceholder
     return ForkPlaceholderLayout(
         version=FORK_PLACEHOLDER_LAYOUT_VERSION,
         paired_tool_call_ids=paired_tool_call_ids,
+        placeholder_messages=[
+            f"<fork-tool-result:{tool_call_id}>"
+            for tool_call_id in paired_tool_call_ids
+        ],
         replacement_state_hook=FORK_REPLACEMENT_STATE_HOOK,
     )
 
@@ -276,55 +428,46 @@ def _verifier_task_prompt(
     )
 
 
-def _general_system_prompt(*, definition: AgentDefinition, context: RuntimeContext) -> str:
+def _agent_system_prompt(*, definition: AgentDefinition, context: RuntimeContext) -> str:
     allowed_tools = ", ".join(definition.tool_allowlist)
-    return "\n\n".join(
+    sections = [
+        definition.instructions
+        or "You are a read-only subagent. Use the available tools only when they materially improve the result.",
+        READ_ONLY_BOUNDARY_PROMPT,
+    ]
+    if definition.agent_type == "verifier":
+        sections.append(
+            "Use only the available tools when they materially improve the verification result. "
+            "Cite concrete evidence from commands or tool reads in your final answer."
+        )
+    sections.extend(
         [
-            (
-                "You are a read-only general-purpose research subagent. Inspect "
-                "the workspace and durable task/plan state, then return a concise "
-                "answer to the parent agent."
-            ),
-            (
-                "Do not modify files, tasks, plans, memory, or invoke nested "
-                "subagents. If a task requires mutation, explain what the parent "
-                "agent should do instead."
-            ),
             f"Workspace: {context.workdir}",
             f"Allowed tools: {allowed_tools}",
         ]
     )
+    if definition.agent_type == "verifier":
+        sections.append(
+            "End with a final line exactly `VERDICT: PASS`, `VERDICT: FAIL`, or `VERDICT: PARTIAL`."
+        )
+    return "\n\n".join(sections)
 
 
-def _verifier_system_prompt(
-    *, definition: AgentDefinition, context: RuntimeContext
-) -> str:
-    tool_allowlist = definition.tool_allowlist
-    allowed_tools = ", ".join(tool_allowlist)
-    return "\n\n".join(
-        [
-            (
-                "You are a verification specialist. Your role is to verify the "
-                "implementation against the plan and try to find breakage, not to "
-                "confirm success quickly."
-            ),
-            (
-                "You are strictly read-only. Do not modify files, tasks, plans, "
-                "memory, or invoke nested subagents."
-            ),
-            (
-                "Use only the available tools when they materially improve the "
-                "verification result. Cite concrete evidence from commands or tool "
-                "reads in your final answer."
-            ),
-            f"Workspace: {context.workdir}",
-            f"Allowed tools: {allowed_tools}",
-            (
-                "End with a final line exactly `VERDICT: PASS`, `VERDICT: FAIL`, "
-                "or `VERDICT: PARTIAL`."
-            ),
-        ]
-    )
+def _effective_max_turns(definition: AgentDefinition, requested_max_turns: int | None) -> int:
+    if requested_max_turns is None:
+        return definition.max_turns
+    return min(requested_max_turns, definition.max_turns)
+
+
+def _recursion_limit_for_max_turns(max_turns: int) -> int:
+    return max(3, (max_turns * 2) + 1)
+
+
+def _build_thread_config(*, thread_id: str, max_turns: int) -> dict[str, Any]:
+    return {
+        "configurable": {"thread_id": thread_id},
+        "recursion_limit": _recursion_limit_for_max_turns(max_turns),
+    }
 
 
 def _runtime_visible_tool_projection(runtime: ToolRuntime) -> ToolPoolProjection:
@@ -352,6 +495,7 @@ def _child_runtime_invocation(
     *,
     runtime: ToolRuntime,
     definition: AgentDefinition,
+    max_turns: int,
     run_id: str | None = None,
 ) -> RuntimeInvocation:
     context = getattr(runtime, "context", None)
@@ -370,17 +514,17 @@ def _child_runtime_invocation(
             agent_name=f"{context.agent_name}-{definition.agent_type}",
             entrypoint=f"run_subagent:{definition.agent_type}",
         ),
-        config={
-            "configurable": {
-                "thread_id": f"{parent_thread_id}:{definition.agent_type}{suffix}"
-            }
-        },
+        config=_build_thread_config(
+            thread_id=f"{parent_thread_id}:{definition.agent_type}{suffix}",
+            max_turns=max_turns,
+        ),
     )
 
 
 def _fork_runtime_invocation(
     *,
     runtime: ToolRuntime,
+    max_turns: int,
     run_id: str,
 ) -> RuntimeInvocation:
     context = getattr(runtime, "context", None)
@@ -398,7 +542,10 @@ def _fork_runtime_invocation(
             visible_tool_projection=visible_tool_projection,
             tool_policy=_runtime_tool_policy(runtime),
         ),
-        config={"configurable": {"thread_id": f"{parent_thread_id}:fork:{run_id}"}},
+        config=_build_thread_config(
+            thread_id=f"{parent_thread_id}:fork:{run_id}",
+            max_turns=max_turns,
+        ),
     )
 
 
@@ -431,6 +578,53 @@ def _fork_source_messages(runtime: ToolRuntime) -> list[BaseMessage]:
     ):
         raise RuntimeError("Fork requires runtime state messages")
     return list(messages)
+
+
+def _message_tool_call_ids(message: BaseMessage) -> tuple[str, ...]:
+    if isinstance(message, AIMessage):
+        return tuple(
+            str(item.get("id", "")).strip()
+            for item in message.tool_calls
+            if isinstance(item, dict) and str(item.get("id", "")).strip()
+        )
+    content = getattr(message, "content", None)
+    if isinstance(content, list):
+        return tuple(
+            str(block.get("id", "")).strip()
+            for block in content
+            if isinstance(block, dict)
+            and block.get("type") == "tool_use"
+            and str(block.get("id", "")).strip()
+        )
+    return ()
+
+
+def _tool_result_call_id(message: BaseMessage) -> str | None:
+    if isinstance(message, ToolMessage):
+        tool_call_id = getattr(message, "tool_call_id", None)
+        if isinstance(tool_call_id, str) and tool_call_id.strip():
+            return tool_call_id.strip()
+    return None
+
+
+def _normalize_fork_source_messages(
+    source_messages: Sequence[BaseMessage],
+) -> list[BaseMessage]:
+    paired_tool_result_ids = {
+        tool_call_id
+        for message in source_messages
+        if (tool_call_id := _tool_result_call_id(message)) is not None
+    }
+    normalized: list[BaseMessage] = []
+    for message in source_messages:
+        tool_call_ids = _message_tool_call_ids(message)
+        if tool_call_ids and any(
+            tool_call_id not in paired_tool_result_ids
+            for tool_call_id in tool_call_ids
+        ):
+            continue
+        normalized.append(message)
+    return normalized
 
 
 def _message_contains_marker(message: BaseMessage, marker: str) -> bool:
@@ -467,7 +661,8 @@ def _fork_payload_messages(
     source_messages: Sequence[BaseMessage],
     intent: str,
 ) -> list[BaseMessage]:
-    return [*source_messages, HumanMessage(content=_fork_directive(intent))]
+    normalized_messages = _normalize_fork_source_messages(source_messages)
+    return [*normalized_messages, HumanMessage(content=_fork_directive(intent))]
 
 
 def _execute_child_subagent(
@@ -475,6 +670,7 @@ def _execute_child_subagent(
     task: str,
     runtime: ToolRuntime,
     definition: AgentDefinition,
+    max_turns: int,
     run_id: str | None = None,
 ) -> dict[str, Any]:
     from coding_deepgent.agent_runtime_service import invoke_agent
@@ -482,18 +678,17 @@ def _execute_child_subagent(
     invocation = _child_runtime_invocation(
         runtime=runtime,
         definition=definition,
+        max_turns=max_turns,
         run_id=run_id,
     )
-    system_prompt = (
-        _verifier_system_prompt(definition=definition, context=invocation.context)
-        if definition.agent_type == "verifier"
-        else _general_system_prompt(definition=definition, context=invocation.context)
+    system_prompt = _agent_system_prompt(
+        definition=definition, context=invocation.context
     )
     agent = cast(
         Any,
         create_agent,
     )(
-        model=build_openai_model(),
+        model=build_openai_model(model_name=definition.model_profile),
         tools=_child_tools(definition),
         system_prompt=system_prompt,
         middleware=_child_middleware(definition),
@@ -588,6 +783,129 @@ def _result_metrics(
     }
 
 
+def _definition_origin(agent_type: str) -> str:
+    if agent_type in BUILTIN_AGENT_DEFINITIONS:
+        return "builtin"
+    if ":" in agent_type:
+        return "plugin"
+    return "local"
+
+
+def _activity_summary(content: str, *, limit: int = 72) -> str:
+    first_line = next((line.strip() for line in content.splitlines() if line.strip()), "")
+    if not first_line:
+        return "No summary yet."
+    if len(first_line) <= limit:
+        return first_line
+    return f"{first_line[: limit - 3].rstrip()}..."
+
+
+def _runtime_workdir_string(runtime: ToolRuntime | None) -> str:
+    workdir = _runtime_workdir(runtime)
+    if workdir is None:
+        return ""
+    return str(workdir.resolve())
+
+
+def _validate_recorded_workdir(
+    *,
+    runtime: ToolRuntime,
+    metadata: dict[str, Any],
+) -> None:
+    expected_workdir = metadata.get("workdir")
+    if not isinstance(expected_workdir, str) or not expected_workdir.strip():
+        return
+    current_workdir = _runtime_workdir(runtime)
+    if current_workdir is None:
+        raise RuntimeError("Resume requires runtime workdir context")
+    if str(current_workdir.resolve()) != expected_workdir.strip():
+        raise RuntimeError("Resume requires the same recorded workdir")
+    if not current_workdir.exists() or not current_workdir.is_dir():
+        raise RuntimeError("Resume requires an existing recorded workdir")
+
+
+def _subagent_resume_metadata(
+    *,
+    definition: AgentDefinition,
+    runtime: ToolRuntime | None,
+    requested_max_turns: int | None,
+    effective_max_turns: int,
+    plan_id: str | None = None,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "resume_version": SUBAGENT_RESUME_VERSION,
+        "agent_origin": _definition_origin(definition.agent_type),
+        "requested_max_turns": requested_max_turns,
+        "effective_max_turns": effective_max_turns,
+        "model_profile": definition.model_profile,
+        "tool_allowlist": list(definition.tool_allowlist),
+        "workdir": _runtime_workdir_string(runtime),
+    }
+    if plan_id is not None:
+        metadata["plan_id"] = plan_id
+    return metadata
+
+
+def _fork_resume_metadata(
+    *,
+    runtime: ToolRuntime | None,
+    run_id: str,
+    requested_max_turns: int | None,
+    effective_max_turns: int,
+    tool_pool_identity: ToolPoolIdentitySnapshot,
+    prompt_fingerprint: str,
+    placeholder_layout: ForkPlaceholderLayout,
+) -> dict[str, Any]:
+    return {
+        "resume_version": FORK_RESUME_VERSION,
+        "fork_run_id": run_id,
+        "requested_max_turns": requested_max_turns,
+        "effective_max_turns": effective_max_turns,
+        "tool_pool_fingerprint": tool_pool_identity.fingerprint,
+        "rendered_prompt_fingerprint": prompt_fingerprint,
+        "placeholder_layout_version": placeholder_layout.version,
+        "placeholder_messages": list(placeholder_layout.placeholder_messages),
+        "workdir": _runtime_workdir_string(runtime),
+    }
+
+
+def _sidechain_entry_metadata(message: Any) -> dict[str, Any] | None:
+    metadata: dict[str, Any] = {}
+    if isinstance(message, ToolMessage):
+        tool_call_id = getattr(message, "tool_call_id", None)
+        if isinstance(tool_call_id, str) and tool_call_id.strip():
+            metadata["tool_call_id"] = tool_call_id.strip()
+    if isinstance(message, AIMessage) and message.tool_calls:
+        metadata["tool_calls"] = _json_clone(message.tool_calls)
+    if isinstance(message, dict):
+        tool_calls = message.get("tool_calls")
+        if isinstance(tool_calls, list) and tool_calls:
+            metadata["tool_calls"] = _json_clone(tool_calls)
+        tool_call_id = message.get("tool_call_id")
+        if isinstance(tool_call_id, str) and tool_call_id.strip():
+            metadata["tool_call_id"] = tool_call_id.strip()
+        content = message.get("content")
+    else:
+        content = getattr(message, "content", "")
+    if isinstance(content, list) and content:
+        metadata["structured_content"] = _json_clone(content)
+    return metadata or None
+
+
+def _merge_sidechain_metadata(
+    root_metadata: dict[str, Any] | None,
+    entry_metadata: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if root_metadata is None and entry_metadata is None:
+        return None
+    merged: dict[str, Any] = {}
+    if root_metadata is not None:
+        merged.update(_json_clone(root_metadata))
+    if entry_metadata is not None:
+        merged["sidechain_entry"] = _json_clone(entry_metadata)
+    return merged
+
+
 def _record_sidechain_messages(
     *,
     runtime: ToolRuntime | None,
@@ -623,7 +941,7 @@ def _record_sidechain_messages(
         parent_thread_id=parent_thread_id,
         metadata=metadata,
     )
-    for role, content in _sidechain_message_entries(raw_result):
+    for role, content, entry_metadata in _sidechain_message_entries(raw_result):
         store.append_sidechain_message(
             session_context,
             agent_type=agent_type,
@@ -632,21 +950,94 @@ def _record_sidechain_messages(
             subagent_thread_id=subagent_thread_id,
             parent_message_id=parent_message_id,
             parent_thread_id=parent_thread_id,
-            metadata=metadata,
+            metadata=_merge_sidechain_metadata(metadata, entry_metadata),
         )
     return True
 
 
-def _sidechain_message_entries(raw_result: Any) -> list[tuple[str, str]]:
+def _sidechain_message_entries(
+    raw_result: Any,
+) -> list[tuple[str, str, dict[str, Any] | None]]:
     messages = raw_result.get("messages", []) if isinstance(raw_result, dict) else []
-    entries: list[tuple[str, str]] = []
+    entries: list[tuple[str, str, dict[str, Any] | None]] = []
     for message in messages:
         role = _sidechain_message_role(message)
         content = _sidechain_message_text(message)
         if role is None or not content:
             continue
-        entries.append((role, content))
+        entries.append((role, content, _sidechain_entry_metadata(message)))
     return entries
+
+
+def _sidechain_thread_entries(
+    loaded: LoadedSession, *, thread_id: str
+) -> list[SessionSidechainMessage]:
+    return [
+        item for item in loaded.sidechain_messages if item.subagent_thread_id == thread_id
+    ]
+
+
+def _sidechain_root_metadata(
+    entries: Sequence[SessionSidechainMessage],
+) -> dict[str, Any]:
+    if not entries:
+        raise RuntimeError("No sidechain messages recorded for the requested thread")
+    metadata = entries[0].metadata
+    if not isinstance(metadata, dict):
+        return {}
+    return metadata
+
+
+def _reconstruct_sidechain_message(entry: SessionSidechainMessage) -> BaseMessage:
+    metadata = entry.metadata or {}
+    sidechain_entry = metadata.get("sidechain_entry")
+    structured_content = (
+        sidechain_entry.get("structured_content")
+        if isinstance(sidechain_entry, dict)
+        else None
+    )
+    content: Any = structured_content if structured_content is not None else entry.content
+    if entry.role == "assistant":
+        tool_calls = (
+            sidechain_entry.get("tool_calls")
+            if isinstance(sidechain_entry, dict)
+            else None
+        )
+        if isinstance(tool_calls, list) and tool_calls:
+            return AIMessage(content=content, tool_calls=cast(Any, tool_calls))
+        return AIMessage(content=content)
+    if entry.role == "tool":
+        tool_call_id = (
+            sidechain_entry.get("tool_call_id")
+            if isinstance(sidechain_entry, dict)
+            else None
+        )
+        if not isinstance(tool_call_id, str) or not tool_call_id.strip():
+            raise RuntimeError(
+                f"Cannot resume tool sidechain message without tool_call_id for thread {entry.subagent_thread_id}"
+            )
+        return ToolMessage(content=content, tool_call_id=tool_call_id.strip())
+    if entry.role == "system":
+        return SystemMessage(content=content)
+    return HumanMessage(content=content)
+
+
+def _resume_sidechain_messages(
+    loaded: LoadedSession, *, thread_id: str
+) -> tuple[list[SessionSidechainMessage], list[BaseMessage]]:
+    entries = _sidechain_thread_entries(loaded, thread_id=thread_id)
+    if not entries:
+        raise RuntimeError(f"Unknown sidechain thread: {thread_id}")
+    return entries, [_reconstruct_sidechain_message(item) for item in entries]
+
+
+def _recorded_effective_max_turns(
+    metadata: dict[str, Any], *, fallback: int
+) -> int:
+    value = metadata.get("effective_max_turns")
+    if isinstance(value, int) and value >= 1:
+        return value
+    return fallback
 
 
 def _sidechain_message_role(message: Any) -> str | None:
@@ -757,16 +1148,65 @@ def _runtime_agent_name(runtime: ToolRuntime) -> str:
     return f"{parent_agent_name}-verifier"
 
 
+def _resumed_child_runtime_invocation(
+    *,
+    runtime: ToolRuntime,
+    definition: AgentDefinition,
+    thread_id: str,
+    max_turns: int,
+) -> RuntimeInvocation:
+    context = getattr(runtime, "context", None)
+    if not isinstance(context, RuntimeContext):
+        raise RuntimeError("Subagent resume requires runtime context")
+    return RuntimeInvocation(
+        context=replace(
+            context,
+            agent_name=f"{context.agent_name}-{definition.agent_type}",
+            entrypoint=f"run_subagent:{definition.agent_type}",
+        ),
+        config=_build_thread_config(thread_id=thread_id, max_turns=max_turns),
+    )
+
+
+def _resumed_fork_runtime_invocation(
+    *,
+    runtime: ToolRuntime,
+    thread_id: str,
+    max_turns: int,
+) -> RuntimeInvocation:
+    context = getattr(runtime, "context", None)
+    if not isinstance(context, RuntimeContext):
+        raise RuntimeError("Fork resume requires runtime context")
+    rendered_system_prompt = _runtime_rendered_system_prompt(runtime)
+    visible_tool_projection = _runtime_visible_tool_projection(runtime)
+    return RuntimeInvocation(
+        context=replace(
+            context,
+            agent_name=f"{context.agent_name}-fork",
+            entrypoint="run_fork",
+            rendered_system_prompt=rendered_system_prompt,
+            visible_tool_projection=visible_tool_projection,
+            tool_policy=_runtime_tool_policy(runtime),
+        ),
+        config=_build_thread_config(thread_id=thread_id, max_turns=max_turns),
+    )
+
+
 def _execute_fork_subagent(
     *,
     intent: str,
     runtime: ToolRuntime,
+    max_turns: int,
     run_id: str,
 ) -> dict[str, Any]:
     from coding_deepgent.agent_runtime_service import invoke_agent
 
     projection = _runtime_visible_tool_projection(runtime)
-    invocation = _fork_runtime_invocation(runtime=runtime, run_id=run_id)
+    invocation = _fork_runtime_invocation(
+        runtime=runtime,
+        max_turns=max_turns,
+        run_id=run_id,
+    )
     source_messages = _fork_source_messages(runtime)
     guard_message = _fork_recursion_guard(runtime=runtime, source_messages=source_messages)
     if guard_message is not None:
@@ -800,21 +1240,224 @@ def _execute_fork_subagent(
     }
 
 
+def _load_recorded_sidechain_thread(
+    *, runtime: ToolRuntime, thread_id: str
+) -> tuple[LoadedSession, list[SessionSidechainMessage], list[BaseMessage]]:
+    context = getattr(runtime, "context", None)
+    if not isinstance(context, RuntimeContext):
+        raise RuntimeError("Sidechain resume requires runtime context")
+    session_context = context.session_context
+    if not isinstance(session_context, SessionContext):
+        raise RuntimeError("Sidechain resume requires a recorded session context")
+    loaded = JsonlSessionStore(session_context.store_dir).load_session(
+        session_id=session_context.session_id,
+        workdir=session_context.workdir,
+    )
+    entries, messages = _resume_sidechain_messages(loaded, thread_id=thread_id)
+    return loaded, entries, messages
+
+
+def resume_subagent_task(
+    *,
+    subagent_thread_id: str,
+    runtime: ToolRuntime,
+    follow_up: str | None = None,
+) -> SubagentResult:
+    from coding_deepgent.agent_runtime_service import invoke_agent
+
+    _, entries, messages = _load_recorded_sidechain_thread(
+        runtime=runtime,
+        thread_id=subagent_thread_id,
+    )
+    agent_type = entries[0].agent_type
+    if agent_type == "fork":
+        raise ValueError("Use resume_fork_task() for fork sidechain threads")
+    definition = resolve_agent_definition(agent_type, runtime=runtime)
+    root_metadata = _sidechain_root_metadata(entries)
+    _validate_recorded_workdir(runtime=runtime, metadata=root_metadata)
+    effective_max_turns = _recorded_effective_max_turns(
+        root_metadata,
+        fallback=definition.max_turns,
+    )
+    invocation = _resumed_child_runtime_invocation(
+        runtime=runtime,
+        definition=definition,
+        thread_id=subagent_thread_id,
+        max_turns=effective_max_turns,
+    )
+    follow_up_prompt = (follow_up or DEFAULT_RESUME_FOLLOW_UP).strip()
+    agent = cast(
+        Any,
+        create_agent,
+    )(
+        model=build_openai_model(model_name=definition.model_profile),
+        tools=_child_tools(definition),
+        system_prompt=_agent_system_prompt(definition=definition, context=invocation.context),
+        middleware=_child_middleware(definition),
+        context_schema=RuntimeContext,
+        store=runtime.store,
+        name=invocation.context.agent_name,
+    )
+    started_at = time.perf_counter()
+    result = invoke_agent(
+        agent,
+        {"messages": [*messages, HumanMessage(content=follow_up_prompt)]},
+        invocation,
+    )
+    content = _final_child_text(result).strip()
+    if not content:
+        raise RuntimeError("Resumed subagent returned no assistant content")
+    _record_sidechain_messages(
+        runtime=runtime,
+        agent_type=definition.agent_type,
+        child_invocation=invocation,
+        task=follow_up_prompt,
+        raw_result=result,
+        metadata=root_metadata,
+    )
+    _enqueue_agent_private_memory(
+        invocation=invocation,
+        source=f"subagent_{definition.agent_type}_resume",
+        task=follow_up_prompt,
+        content=content,
+    )
+    metrics = _result_metrics(
+        task=follow_up_prompt,
+        content=content,
+        raw_result=result,
+        duration_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+    )
+    return SubagentResult(
+        content=content,
+        agent_type=definition.agent_type,
+        tool_allowlist=definition.tool_allowlist,
+        input_tokens=metrics["input_tokens"],
+        output_tokens=metrics["output_tokens"],
+        total_tokens=metrics["total_tokens"],
+        total_duration_ms=metrics["total_duration_ms"],
+        total_tool_use_count=metrics["total_tool_use_count"],
+        plan_id=cast(Any, root_metadata.get("plan_id")) if agent_type == "verifier" else None,
+    )
+
+
+def resume_fork_task(
+    *,
+    child_thread_id: str,
+    runtime: ToolRuntime,
+    follow_up: str | None = None,
+) -> ForkResult:
+    from coding_deepgent.agent_runtime_service import invoke_agent
+
+    _, entries, messages = _load_recorded_sidechain_thread(
+        runtime=runtime,
+        thread_id=child_thread_id,
+    )
+    if entries[0].agent_type != "fork":
+        raise ValueError("Requested sidechain thread is not a fork thread")
+    root_metadata = _sidechain_root_metadata(entries)
+    _validate_recorded_workdir(runtime=runtime, metadata=root_metadata)
+    expected_prompt_fingerprint = root_metadata.get("rendered_prompt_fingerprint")
+    current_prompt_fingerprint = _fingerprint_text(_runtime_rendered_system_prompt(runtime))
+    if (
+        isinstance(expected_prompt_fingerprint, str)
+        and expected_prompt_fingerprint != current_prompt_fingerprint
+    ):
+        raise RuntimeError("Fork resume requires the same rendered system prompt fingerprint")
+    current_projection = _runtime_visible_tool_projection(runtime)
+    current_tool_pool = _tool_surface_snapshot(current_projection)
+    expected_tool_pool = root_metadata.get("tool_pool_fingerprint")
+    if isinstance(expected_tool_pool, str) and expected_tool_pool != current_tool_pool.fingerprint:
+        raise RuntimeError("Fork resume requires the same visible tool projection fingerprint")
+    effective_max_turns = _recorded_effective_max_turns(
+        root_metadata,
+        fallback=FORK_MAX_TURNS,
+    )
+    invocation = _resumed_fork_runtime_invocation(
+        runtime=runtime,
+        thread_id=child_thread_id,
+        max_turns=effective_max_turns,
+    )
+    follow_up_prompt = (follow_up or DEFAULT_FORK_RESUME_FOLLOW_UP).strip()
+    agent = cast(
+        Any,
+        create_agent,
+    )(
+        model=build_openai_model(),
+        tools=current_projection.tools(),
+        system_prompt=_runtime_rendered_system_prompt(runtime),
+        middleware=_fork_middleware(runtime, current_projection),
+        context_schema=RuntimeContext,
+        store=runtime.store,
+        name=invocation.context.agent_name,
+    )
+    started_at = time.perf_counter()
+    result = invoke_agent(
+        agent,
+        {"messages": [*messages, HumanMessage(content=follow_up_prompt)]},
+        invocation,
+    )
+    content = _final_child_text(result).strip()
+    if not content:
+        raise RuntimeError("Resumed fork returned no assistant content")
+    placeholder_layout = ForkPlaceholderLayout.model_validate(
+        {
+            "version": str(root_metadata.get("placeholder_layout_version", FORK_PLACEHOLDER_LAYOUT_VERSION)),
+            "paired_tool_call_ids": [],
+            "placeholder_messages": list(root_metadata.get("placeholder_messages", []))
+            if isinstance(root_metadata.get("placeholder_messages"), list)
+            else [],
+            "replacement_state_hook": FORK_REPLACEMENT_STATE_HOOK,
+        }
+    )
+    _record_sidechain_messages(
+        runtime=runtime,
+        agent_type="fork",
+        child_invocation=invocation,
+        task=follow_up_prompt,
+        raw_result=result,
+        metadata=root_metadata,
+    )
+    _enqueue_agent_private_memory(
+        invocation=invocation,
+        source="fork_resume",
+        task=follow_up_prompt,
+        content=content,
+    )
+    metrics = _result_metrics(
+        task=follow_up_prompt,
+        content=content,
+        raw_result=result,
+        duration_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+    )
+    return ForkResult(
+        content=content,
+        fork_run_id=str(root_metadata.get("fork_run_id", "resumed")),
+        parent_thread_id=_runtime_thread_id(runtime),
+        child_thread_id=child_thread_id,
+        rendered_prompt_fingerprint=current_prompt_fingerprint,
+        tool_pool_identity=current_tool_pool,
+        placeholder_layout=placeholder_layout,
+        input_tokens=metrics["input_tokens"],
+        output_tokens=metrics["output_tokens"],
+        total_tokens=metrics["total_tokens"],
+        total_duration_ms=metrics["total_duration_ms"],
+        total_tool_use_count=metrics["total_tool_use_count"],
+    )
+
+
 def run_subagent_task(
     *,
     task: str,
-    agent_type: SubagentType = "general",
+    agent_type: str = "general",
     runtime: ToolRuntime | None = None,
     plan_id: str | None = None,
     max_turns: int | None = None,
+    run_id: str | None = None,
     child_agent_factory: ChildAgentFactory | None = None,
 ) -> SubagentResult:
-    definition = agent_definition(agent_type)
+    definition = resolve_agent_definition(agent_type, runtime=runtime)
     allowlist = definition.tool_allowlist
-    effective_max_turns = (
-        definition.max_turns if max_turns is None else min(max_turns, definition.max_turns)
-    )
-    del effective_max_turns
+    effective_max_turns = _effective_max_turns(definition, max_turns)
     guard_message = _subagent_spawn_pressure_guard(runtime)
     if guard_message is not None:
         output_tokens = estimate_message_tokens([HumanMessage(content=guard_message)])
@@ -845,7 +1488,8 @@ def run_subagent_task(
                 task=verifier_task,
                 runtime=runtime,
                 definition=definition,
-                run_id=plan.id,
+                max_turns=effective_max_turns,
+                run_id=run_id or plan.id,
             )
             content = str(execution["content"])
             raw_result = execution["raw_result"]
@@ -855,6 +1499,13 @@ def run_subagent_task(
                 child_invocation=cast(RuntimeInvocation, execution["invocation"]),
                 task=verifier_task,
                 raw_result=raw_result,
+                metadata=_subagent_resume_metadata(
+                    definition=definition,
+                    runtime=runtime,
+                    requested_max_turns=max_turns,
+                    effective_max_turns=effective_max_turns,
+                    plan_id=plan.id,
+                ),
             )
             _enqueue_agent_private_memory(
                 invocation=cast(RuntimeInvocation, execution["invocation"]),
@@ -894,6 +1545,8 @@ def run_subagent_task(
             task=task,
             runtime=runtime,
             definition=definition,
+            max_turns=effective_max_turns,
+            run_id=run_id,
         )
         content = str(execution["content"])
         raw_result = execution["raw_result"]
@@ -903,10 +1556,16 @@ def run_subagent_task(
             child_invocation=cast(RuntimeInvocation, execution["invocation"]),
             task=task,
             raw_result=raw_result,
+            metadata=_subagent_resume_metadata(
+                definition=definition,
+                runtime=runtime,
+                requested_max_turns=max_turns,
+                effective_max_turns=effective_max_turns,
+            ),
         )
         _enqueue_agent_private_memory(
             invocation=cast(RuntimeInvocation, execution["invocation"]),
-            source="subagent_general",
+            source=f"subagent_{definition.agent_type}",
             task=task,
             content=content,
         )
@@ -937,8 +1596,9 @@ def run_fork_task(
     intent: str,
     runtime: ToolRuntime,
     max_turns: int | None = None,
+    run_id: str | None = None,
 ) -> ForkResult:
-    del max_turns
+    effective_max_turns = FORK_MAX_TURNS if max_turns is None else min(max_turns, FORK_MAX_TURNS)
     guard_message = _subagent_spawn_pressure_guard(runtime)
     if guard_message is not None:
         output_tokens = estimate_message_tokens([HumanMessage(content=guard_message)])
@@ -957,14 +1617,22 @@ def run_fork_task(
             total_tokens=output_tokens,
         )
 
-    run_id = uuid.uuid4().hex[:12]
+    active_run_id = run_id or uuid.uuid4().hex[:12]
     projection = _runtime_visible_tool_projection(runtime)
     tool_pool_identity = _tool_surface_snapshot(projection)
     rendered_system_prompt = _runtime_rendered_system_prompt(runtime)
     prompt_fingerprint = _fingerprint_text(rendered_system_prompt)
-    placeholder_layout = _fork_placeholder_layout(_fork_source_messages(runtime))
+    normalized_source_messages = _normalize_fork_source_messages(
+        _fork_source_messages(runtime)
+    )
+    placeholder_layout = _fork_placeholder_layout(normalized_source_messages)
     started_at = time.perf_counter()
-    execution = _execute_fork_subagent(intent=intent, runtime=runtime, run_id=run_id)
+    execution = _execute_fork_subagent(
+        intent=intent,
+        runtime=runtime,
+        max_turns=effective_max_turns,
+        run_id=active_run_id,
+    )
     content = str(execution["content"])
     raw_result = execution["raw_result"]
     invocation = cast(RuntimeInvocation, execution["invocation"])
@@ -974,11 +1642,15 @@ def run_fork_task(
         child_invocation=invocation,
         task=_fork_directive(intent),
         raw_result=raw_result,
-        metadata={
-            "fork_run_id": run_id,
-            "tool_pool_fingerprint": tool_pool_identity.fingerprint,
-            "placeholder_layout_version": placeholder_layout.version,
-        },
+        metadata=_fork_resume_metadata(
+            runtime=runtime,
+            run_id=active_run_id,
+            requested_max_turns=max_turns,
+            effective_max_turns=effective_max_turns,
+            tool_pool_identity=tool_pool_identity,
+            prompt_fingerprint=prompt_fingerprint,
+            placeholder_layout=placeholder_layout,
+        ),
     )
     _enqueue_agent_private_memory(
         invocation=invocation,
@@ -1000,7 +1672,7 @@ def run_fork_task(
     )
     return ForkResult(
         content=content,
-        fork_run_id=run_id,
+        fork_run_id=active_run_id,
         parent_thread_id=_runtime_thread_id(runtime),
         child_thread_id=child_thread_id,
         rendered_prompt_fingerprint=prompt_fingerprint,
@@ -1116,9 +1788,18 @@ def run_subagent(
 def run_fork(
     intent: str,
     runtime: ToolRuntime,
+    background: bool = False,
     max_turns: int = 25,
 ) -> str:
     """Run one bounded same-config sibling fork."""
+    if background:
+        from coding_deepgent.subagents.background import BACKGROUND_SUBAGENT_MANAGER
+
+        return BACKGROUND_SUBAGENT_MANAGER.start_fork(
+            intent=intent,
+            runtime=runtime,
+            max_turns=max_turns,
+        ).model_dump_json()
     result = run_fork_task(
         intent=intent,
         runtime=runtime,

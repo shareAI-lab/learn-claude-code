@@ -31,3 +31,4 @@ class RuntimeContext:
     visible_tool_projection: ToolPoolProjection | None = None
     tool_policy: ToolPolicy | None = None
     memory_service: MemoryService | None = None
+    plugin_dir: Path = Path("plugins")

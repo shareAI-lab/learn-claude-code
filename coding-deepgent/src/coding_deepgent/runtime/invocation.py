@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 from typing import TYPE_CHECKING
 
 from coding_deepgent.hooks.registry import LocalHookRegistry
@@ -23,7 +24,7 @@ def resolve_session_id(session_id: str | None = None) -> str:
 
 def build_runnable_config(
     *, session_id: str | None = None
-) -> dict[str, dict[str, str]]:
+) -> dict[str, Any]:
     resolved_session_id = resolve_session_id(session_id)
     return {"configurable": {"thread_id": resolved_session_id}}
 
@@ -61,13 +62,14 @@ def build_runtime_context(
         visible_tool_projection=visible_tool_projection,
         tool_policy=tool_policy,
         memory_service=memory_service,
+        plugin_dir=settings.plugin_dir,
     )
 
 
 @dataclass(frozen=True, slots=True)
 class RuntimeInvocation:
     context: RuntimeContext
-    config: dict[str, dict[str, str]]
+    config: dict[str, Any]
 
     @property
     def thread_id(self) -> str:

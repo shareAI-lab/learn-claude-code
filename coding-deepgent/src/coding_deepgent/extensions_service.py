@@ -6,6 +6,7 @@ from coding_deepgent.mcp import MCPRuntimeLoadResult, load_mcp_runtime_extension
 from coding_deepgent.plugins import PluginRegistry, discover_local_plugins
 from coding_deepgent.skills import discover_local_skills
 from coding_deepgent.settings import Settings
+from coding_deepgent.subagents.loader import discover_plugin_subagent_definitions
 
 
 def plugin_registry(settings: Settings) -> PluginRegistry:
@@ -53,5 +54,9 @@ def validate_plugin_registry(
     plugin_registry.validate(
         known_tools=known_tools,
         known_skills=known_skills,
+    )
+    discover_plugin_subagent_definitions(
+        workdir=settings.workdir,
+        plugin_dir=settings.plugin_dir,
     )
     return plugin_registry

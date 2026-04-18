@@ -595,6 +595,82 @@ def build_builtin_capabilities(
                 tags=("subagent",),
             )
         )
+    if "run_subagent_background" in tool_by_name:
+        capabilities.append(
+            ToolCapability(
+                name="run_subagent_background",
+                tool=tool_by_name["run_subagent_background"],
+                domain="subagents",
+                family="subagents",
+                mutation="orchestration",
+                execution="child_agent_bridge",
+                read_only=False,
+                destructive=False,
+                concurrency_safe=False,
+                source="builtin",
+                trusted=True,
+                exposure="main",
+                rendering_result="tool_message",
+                tags=("subagent", "background"),
+            )
+        )
+    if "subagent_status" in tool_by_name:
+        capabilities.append(
+            ToolCapability(
+                name="subagent_status",
+                tool=tool_by_name["subagent_status"],
+                domain="subagents",
+                family="subagents",
+                mutation="read",
+                execution="plain_tool",
+                read_only=True,
+                destructive=False,
+                concurrency_safe=True,
+                source="builtin",
+                trusted=True,
+                exposure="main",
+                rendering_result="tool_message",
+                tags=("subagent", "background", "read"),
+            )
+        )
+    if "subagent_send_input" in tool_by_name:
+        capabilities.append(
+            ToolCapability(
+                name="subagent_send_input",
+                tool=tool_by_name["subagent_send_input"],
+                domain="subagents",
+                family="subagents",
+                mutation="orchestration",
+                execution="plain_tool",
+                read_only=False,
+                destructive=False,
+                concurrency_safe=False,
+                source="builtin",
+                trusted=True,
+                exposure="main",
+                rendering_result="tool_message",
+                tags=("subagent", "background"),
+            )
+        )
+    if "subagent_stop" in tool_by_name:
+        capabilities.append(
+            ToolCapability(
+                name="subagent_stop",
+                tool=tool_by_name["subagent_stop"],
+                domain="subagents",
+                family="subagents",
+                mutation="orchestration",
+                execution="plain_tool",
+                read_only=False,
+                destructive=False,
+                concurrency_safe=False,
+                source="builtin",
+                trusted=True,
+                exposure="main",
+                rendering_result="tool_message",
+                tags=("subagent", "background"),
+            )
+        )
     if "run_fork" in tool_by_name:
         capabilities.append(
             ToolCapability(

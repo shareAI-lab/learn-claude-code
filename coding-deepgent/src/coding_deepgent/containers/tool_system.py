@@ -10,7 +10,14 @@ from coding_deepgent.memory import delete_memory, list_memory, save_memory
 from coding_deepgent.permissions import PermissionManager
 from coding_deepgent.permissions.rules import PermissionRuleSpec, expand_rule_specs
 from coding_deepgent.skills import load_skill
-from coding_deepgent.subagents import run_fork, run_subagent
+from coding_deepgent.subagents import (
+    run_fork,
+    run_subagent,
+    run_subagent_background,
+    subagent_send_input,
+    subagent_stop,
+    subagent_status,
+)
 from coding_deepgent.tasks import (
     plan_get,
     plan_save,
@@ -68,7 +75,16 @@ class ToolSystemContainer(containers.DeclarativeContainer):
         )
     )
     subagent_tools: Any = providers.Dependency(
-        default=providers.Object([run_subagent, run_fork])
+        default=providers.Object(
+            [
+                run_subagent,
+                run_fork,
+                run_subagent_background,
+                subagent_status,
+                subagent_send_input,
+                subagent_stop,
+            ]
+        )
     )
     extension_capabilities: Any = providers.Dependency(default=providers.Object([]))
     permission_mode: Any = providers.Dependency(default=providers.Object("default"))

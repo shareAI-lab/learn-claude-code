@@ -18,6 +18,7 @@ class PluginManifest(BaseModel):
     skills: tuple[str, ...] = ()
     tools: tuple[str, ...] = ()
     resources: tuple[str, ...] = ()
+    agents: tuple[str, ...] = ()
 
     @field_validator("name", "description", "version")
     @classmethod
@@ -34,7 +35,7 @@ class PluginManifest(BaseModel):
             raise ValueError("name must be a local identifier")
         return value
 
-    @field_validator("skills", "tools", "resources")
+    @field_validator("skills", "tools", "resources", "agents")
     @classmethod
     def _entries_must_be_identifiers(cls, values: tuple[str, ...]) -> tuple[str, ...]:
         cleaned: list[str] = []

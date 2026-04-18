@@ -97,7 +97,7 @@ memory worker-run-once
 task_create(...)
 task_update(...)
 plan_save(...)
-run_subagent(task, runtime, agent_type="general" | "verifier", plan_id=...)
+run_subagent(task, runtime, agent_type="<builtin-or-local>", plan_id=...)
 ```
 
 Long-term memory may also influence runtime behavior through existing guard
@@ -243,7 +243,7 @@ Detailed tool contracts live in
 | collapse | Live collapse is useful pressure mitigation but is a temporary projection concept, not a durable session concept. | spec gap risk | Any durable collapse store must first explain why it is not just compact history with different trigger metadata. |
 | runtime pressure | Middleware-level staged rewrite is LangChain-native and testable. | architecture-correct | Keep ordering, fail-open behavior, bounded evidence, and prompt-too-long retry tests as mandatory. |
 | task | Durable task/plan graph is correctly separate from TodoWrite. | architecture-correct | Do not add workflow semantics to todo state or transcript evidence. |
-| subagent | Verifier and general child runtimes are bounded synchronous MVP slices with read-only tool allowlists and structured result envelopes; they are not a team runtime. | architecture gap for future cc | Mailbox/coordinator/background execution require new task/subagent specs, not more string payloads in `run_subagent`. |
+| subagent | Built-in `general`/`verifier`/`explore`/`plan`, repo-local and plugin-provided child definitions, fork continuity, sidechain-thread resume, and bounded background subagent runs are local slices with read-only tool allowlists and structured result envelopes; they are not a team runtime. | architecture gap for future cc | Mailbox/coordinator/team execution still require new task/subagent specs, not more string payloads in `run_subagent`. |
 | hooks | Local sync hooks are a safe foundation. | process/spec gap for extension lifecycle | Keep plugin/async/remote hooks deferred until a concrete lifecycle and trust contract exists. |
 | memory | Scoped memory quality gate is good; durable backend depth is not yet sufficient for process-surviving cross-session claims. | architecture gap | Add durable store backend contract before expanding memory extraction or claiming richer cc memory parity. |
 
