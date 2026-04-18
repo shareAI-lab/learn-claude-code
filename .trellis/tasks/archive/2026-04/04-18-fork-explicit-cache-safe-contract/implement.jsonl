@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/task-workflow-contracts.md", "reason": "Subagent and agent definition contracts own child runtime/result/session expectations."}
+{"file": ".trellis/spec/backend/session-compact-contracts.md", "reason": "Fork sidechain and future continuity must preserve session ledger and projection boundaries."}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "Fork entry and subagent runtime stay on official LangChain tool/agent surfaces."}

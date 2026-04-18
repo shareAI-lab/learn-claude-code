@@ -1,0 +1,4 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "Review fork implementation against tool/schema/runtime boundary rules."}
+{"file": ".trellis/spec/backend/task-workflow-contracts.md", "reason": "Review subagent/fork contracts against durable workflow expectations."}
