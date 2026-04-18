@@ -399,3 +399,36 @@ Closed out the integrated memory module: four-type long-term memory, feedback en
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: Fork explicit entrypoint and cache-safe contract
+
+**Date**: 2026-04-18
+**Task**: Fork explicit entrypoint and cache-safe contract
+
+### Summary
+
+Added explicit run_fork entrypoint with same-config sibling fork contract, runtime prompt/tool snapshot seams, fork continuity metadata, tests, and Trellis spec updates.
+
+### Main Changes
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2c8a2d5` | (see git log) |
+| `2e6e2df` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
