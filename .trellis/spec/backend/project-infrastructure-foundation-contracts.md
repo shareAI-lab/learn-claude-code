@@ -110,6 +110,10 @@ surfaces, not only through prompt recall. Current local contract:
 
 Current product memory surface is intentionally split into two visible layers:
 
+- product-level rules
+  - one project-level rules file defines long-term behavior constraints
+  - this layer is user-editable
+  - this layer is not long-term memory and not transcript history
 - long-term memory
   - durable reusable facts, rules, references, and user profile entries
   - save/list/delete through memory tools
@@ -119,6 +123,19 @@ Current product memory surface is intentionally split into two visible layers:
   - the bounded summary/artifact for the active session only
   - shown separately in recovery/resume
   - must not be treated as long-term durable memory
+
+The product-level context and memory model is four-layer:
+
+1. project-level rules
+2. long-term memory
+3. current-session memory
+4. recovery context
+
+Default assembly rule:
+
+- earlier layers define longer-lived behavior or knowledge
+- later layers restore current-session and historical context
+- later layers must not silently override the prior three by default
 
 Current tool capability protocol:
 

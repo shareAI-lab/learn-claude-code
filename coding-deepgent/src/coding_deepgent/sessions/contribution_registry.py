@@ -10,6 +10,9 @@ from .long_term_memory import (
     recovery_brief_contribution as long_term_memory_recovery_brief_contribution,
     runtime_state_contribution as long_term_memory_runtime_state_contribution,
 )
+from .project_rules import (
+    recovery_brief_contribution as project_rules_recovery_brief_contribution,
+)
 from .session_memory import (
     compact_assist_contribution,
     compact_summary_update_contribution,
@@ -24,8 +27,13 @@ RUNTIME_STATE_CONTRIBUTIONS: tuple[RuntimeStateContribution, ...] = (
 )
 
 RECOVERY_BRIEF_CONTRIBUTIONS: tuple[RecoveryBriefContribution, ...] = (
+    project_rules_recovery_brief_contribution(),
     long_term_memory_recovery_brief_contribution(),
     recovery_brief_contribution(),
+    runtime_pressure_recovery_brief_contribution(),
+)
+
+RESUME_CONTEXT_CONTRIBUTIONS: tuple[RecoveryBriefContribution, ...] = (
     runtime_pressure_recovery_brief_contribution(),
 )
 

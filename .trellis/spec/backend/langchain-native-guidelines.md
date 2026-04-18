@@ -27,12 +27,17 @@ shape.
 - Keep code simple before modularizing.
 - Do not add wrapper layers, fallback parsers, or framework-shaped indirection without a real boundary.
 - If multiple surfaces are involved, keep tool, middleware, state, prompt, and rendering responsibilities separate.
+- For project infrastructure changes, prove the mutation belongs to one of the
+  official runtime surfaces: tool, middleware, typed state, context schema,
+  checkpointer, store, or graph/subgraph. If it does not, document the explicit
+  non-LangChain boundary before implementing.
 
 Before editing, identify:
 
 1. **Surface**
 2. **Primary boundary**
 3. **Smallest viable change**
+4. **Durability boundary** for any session, memory, task, or transcript change
 
 ---
 
@@ -53,6 +58,12 @@ Preferred outcome:
 - strict schema
 - direct field access
 - predictable `Command(update=...)` or typed return value
+- matching `ToolCapability` metadata for the five-factor tool protocol:
+  `name`, `schema`, `permission`, `execution`, and `rendering_result`
+
+For tool capability ownership, safe defaults, exposure projection, large-output
+eligibility, and runtime-pressure metadata, read
+[Tool Capability Contracts](./tool-capability-contracts.md).
 
 ---
 
@@ -64,6 +75,9 @@ Preferred outcome:
 - Use reducers or explicit rejection when parallel tool calls can race on the
   same state key.
 - Do not introduce persistence/store/task graph just for ephemeral session state.
+- Do not use a generic "session state" dictionary to mix transcript facts,
+  evidence, durable tasks, long-term memory, and live projection artifacts. Use
+  the owning surface for each concern.
 
 ---
 
@@ -136,12 +150,15 @@ For LangChain tool/state changes, prove:
 - state update returns the expected shape
 - middleware injects or guards only what it owns
 - no stale public prompt/tool wording remains
+- transcript/session/store mutations have an explicit durability boundary
+- live projection middleware does not rewrite persisted session records
 
 Useful review checks:
 
 ```bash
 rg -n "dict\\[str, Any\\]|normalize_.*\\(|fallback|alias|ToolRuntime|InjectedToolCallId" <paths>
 rg -n "system_prompt|SYSTEM_PROMPT|description=|Field\\(" <paths>
+rg -n "record_type|message_index|thread_id|checkpointer|store|session_memory" <paths>
 ```
 
 Treat matches as review prompts, not automatic failures.
@@ -152,4 +169,6 @@ Treat matches as review prompts, not automatic failures.
 
 - Use [Directory Structure](./directory-structure.md) for product-domain ownership.
 - Use [Quality Guidelines](./quality-guidelines.md) for review/testing expectations.
+- Use [Tool Capability Contracts](./tool-capability-contracts.md) for H01
+  tool protocol and capability metadata.
 - Use `guides/cc-alignment-guide.md` when the task also targets `cc-haha` alignment.

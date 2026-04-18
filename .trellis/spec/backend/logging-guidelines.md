@@ -84,9 +84,24 @@ Current whitelisted runtime evidence kinds:
 
 - `hook_blocked`
 - `permission_denied`
+- `snip`
 - `microcompact`
+- `context_collapse`
 - `auto_compact`
+- `post_autocompact_turn`
 - `reactive_compact`
+- `subagent_spawn_guard`
+- `orphan_tombstoned`
+- `query_error`
+
+`token_budget` is a bounded runtime event for local observability. It is not
+persisted as session evidence by default because it can fire every assistant
+response turn and would otherwise dominate recovery briefs.
+
+Env-gated prompt/API dumps are allowed only when
+`CODING_DEEPGENT_DUMP_PROMPTS=1`. Dumps must be local files, must keep secrets
+out of dump metadata, and must never be injected back into model-visible
+context.
 
 Add a new evidence kind only when:
 

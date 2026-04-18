@@ -9,6 +9,9 @@ from coding_deepgent import agent_service
 from coding_deepgent.compact import RuntimePressureMiddleware
 from coding_deepgent import extensions_service
 from coding_deepgent.memory import MemoryContextMiddleware
+from coding_deepgent.sessions.session_memory_middleware import (
+    SessionMemoryContextMiddleware,
+)
 from coding_deepgent.settings import build_openai_model, load_settings
 from coding_deepgent.startup import require_startup_contract, validate_startup_contract
 
@@ -78,6 +81,10 @@ class AppContainer(containers.DeclarativeContainer):
     memory_middleware_list: Any = providers.Callable(
         agent_service.singleton_list, memory_middleware
     )
+    session_memory_middleware: Any = providers.Factory(SessionMemoryContextMiddleware)
+    session_memory_middleware_list: Any = providers.Callable(
+        agent_service.singleton_list, session_memory_middleware
+    )
     runtime_pressure_middleware: Any = providers.Factory(
         RuntimePressureMiddleware,
         registry=tool_system.capability_registry,
@@ -114,6 +121,7 @@ class AppContainer(containers.DeclarativeContainer):
         agent_service.combine_middleware,
         todo.middleware_list,
         memory_middleware_list,
+        session_memory_middleware_list,
         runtime_pressure_middleware_list,
         tool_system.middleware_list,
     )

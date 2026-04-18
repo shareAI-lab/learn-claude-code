@@ -149,6 +149,42 @@ def test_compact_messages_expands_tail_to_preserve_tool_result_pair() -> None:
     assert artifact.messages[-2:] == [tool_use_message, tool_result_message]
 
 
+def test_compact_messages_preserves_pair_for_dynamic_projection_tool_name() -> None:
+    tool_use_message = {
+        "role": "assistant",
+        "content": [
+            {
+                "type": "tool_use",
+                "id": "call-ext",
+                "name": "mcp__docs__lookup",
+                "input": {"query": "policy"},
+            }
+        ],
+    }
+    tool_result_message = {
+        "role": "user",
+        "content": [
+            {
+                "type": "tool_result",
+                "tool_use_id": "call-ext",
+                "content": "doc result",
+            }
+        ],
+    }
+
+    artifact = compact_messages_with_summary(
+        [
+            {"role": "user", "content": "old"},
+            tool_use_message,
+            tool_result_message,
+        ],
+        summary="Summary",
+        keep_last=1,
+    )
+
+    assert artifact.messages[-2:] == [tool_use_message, tool_result_message]
+
+
 def test_compact_messages_rejects_invalid_inputs() -> None:
     with pytest.raises(ValueError, match="messages are required"):
         compact_messages_with_summary([], summary="Summary")

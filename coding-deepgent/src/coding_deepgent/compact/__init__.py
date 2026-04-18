@@ -15,7 +15,13 @@ from .artifacts import (
     format_compact_summary,
     is_compact_artifact_message,
 )
-from .projection import project_messages
+from .projection import (
+    ORPHAN_TOOL_RESULT_TOMBSTONE,
+    ProjectMessagesResult,
+    ProjectionRepairStats,
+    project_messages,
+    project_messages_with_stats,
+)
 from .runtime_pressure import (
     DEFAULT_AUTO_COMPACT_THRESHOLD_TOKENS,
     DEFAULT_COLLAPSE_THRESHOLD_TOKENS,
@@ -101,7 +107,11 @@ __all__ = [
     "is_compact_artifact_message",
     "PERSISTED_OUTPUT_CLOSING_TAG",
     "PERSISTED_OUTPUT_TAG",
+    "ORPHAN_TOOL_RESULT_TOMBSTONE",
+    "ProjectMessagesResult",
+    "ProjectionRepairStats",
     "project_messages",
+    "project_messages_with_stats",
     "PersistedToolResult",
     "DEFAULT_PREVIEW_CHARS",
     "DEFAULT_KEEP_RECENT_TOOL_RESULTS",

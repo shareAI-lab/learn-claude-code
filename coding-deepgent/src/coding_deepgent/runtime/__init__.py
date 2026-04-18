@@ -1,6 +1,12 @@
 from .checkpointing import select_checkpointer, select_store
 from .context import RuntimeContext
-from .events import InMemoryEventSink, NullEventSink, RuntimeEvent, RuntimeEventSink
+from .events import (
+    InMemoryEventSink,
+    NullEventSink,
+    QueuedRuntimeEventSink,
+    RuntimeEvent,
+    RuntimeEventSink,
+)
 from .invocation import (
     DEFAULT_SESSION_ID,
     RuntimeInvocation,
@@ -15,6 +21,7 @@ __all__ = [
     "DEFAULT_SESSION_ID",
     "InMemoryEventSink",
     "NullEventSink",
+    "QueuedRuntimeEventSink",
     "PlanningState",
     "RuntimeContext",
     "RuntimeEvent",

@@ -123,6 +123,11 @@ cat .trellis/spec/guides/interview-driven-spec-expansion-guide.md
 4. **Record Promptly** - Update tracking files immediately after completion
 5. **Document Limits** - [!] **Max 2000 lines per journal document**
 6. **Prefer Clean Architecture Over Minimal Patch** - [!] When a cleaner long-term structure conflicts with smallest-diff compatibility work, follow `.trellis/spec/guides/architecture-posture-guide.md`
+7. **Plan Before Building Feature Families** - [!] For any non-trivial feature family, do not begin implementation until the plan explicitly states:
+   - `Acceptance Targets`
+   - `Planned Features`
+   - `Planned Extensions`
+   Use `.trellis/spec/guides/planning-targets-guide.md`.
 
 ### Documentation Language Convention
 
@@ -239,6 +244,12 @@ cat .trellis/spec/guides/cross-layer-thinking-guide.md
 cat .trellis/spec/guides/architecture-posture-guide.md
 ```
 
+**Planning Standard**:
+```bash
+# When defining a feature family before implementation
+cat .trellis/spec/guides/planning-targets-guide.md
+```
+
 ### Step 3: Select Task to Develop
 
 Use the task management script:
@@ -267,6 +278,7 @@ python3 ./.trellis/scripts/task.py create "<title>" --slug <task-name>
    --> For cc-haha-targeted behavior: read .trellis/spec/guides/cc-alignment-guide.md
    --> For staged work: read .trellis/spec/guides/staged-execution-guide.md
    --> For missing project conventions: read .trellis/spec/guides/interview-driven-spec-expansion-guide.md
+   --> For non-trivial feature families: define Acceptance Targets / Planned Features / Planned Extensions before implementation
 
 3. Self-test
    --> Run project's lint/test commands (see spec docs)
@@ -337,6 +349,37 @@ For staged product work, Trellis should own the protocol directly:
   boundary change, or verification failure appears
 
 Read `.trellis/spec/guides/staged-execution-guide.md` for the full checkpoint template and stop conditions.
+
+### Planning Standard
+
+For any non-trivial feature family, planning must make three buckets explicit
+before implementation starts:
+
+- `Acceptance Targets`
+- `Planned Features`
+- `Planned Extensions`
+
+Required meaning:
+
+- `Acceptance Targets`
+  - what must be true for the task to count as complete
+  - describe user-visible/system-visible outcomes, not only implementation notes
+- `Planned Features`
+  - the concrete features to implement in the current task
+- `Planned Extensions`
+  - future features intentionally not implemented now, but already identified
+
+Block rule:
+
+- If a feature family jumps from vague discussion straight into implementation
+  without these three buckets, do not proceed. First write them into the task
+  PRD or canonical planning note.
+
+Execution preference:
+
+- Once these three buckets are clear and approved, prefer one integrated
+  implementation pass for the feature family instead of repeated tiny planning
+  resets, unless a real blocker appears.
 
 ### Interview-Driven Spec Expansion
 

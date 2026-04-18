@@ -13,6 +13,9 @@
 - This is a cross-layer contract because capability metadata, middleware result
   handling, runtime context/session id, workspace file paths, and tests must
   agree.
+- For the broader five-factor tool protocol and safe defaults for
+  `persist_large_output`, read
+  [Tool Capability Contracts](./tool-capability-contracts.md).
 
 ### 2. Signatures
 
@@ -62,6 +65,9 @@ def maybe_persist_large_tool_result(
 
 - The preview content must include the relative workspace path to the persisted
   file so a workspace read tool can reopen it later.
+- A tool may remain `microcompact_eligible` even when replaying the original
+  tool call would be unsafe or non-deterministic, as long as large-output
+  persistence keeps a stable model-visible path to the full original output.
 - Small successful results must remain unchanged.
 - Error `ToolMessage` results must remain unchanged.
 - Existing upstream `ToolMessage.artifact` must not be discarded. If a rewritten
@@ -137,4 +143,3 @@ Required assertion points:
 - persisted file contains full original content
 - small results are unchanged
 - middleware integration persists only after an allowed tool call
-

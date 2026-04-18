@@ -36,6 +36,7 @@ def adapt_mcp_tool_descriptor(descriptor: MCPToolDescriptor) -> ToolCapability:
         ),
         execution="plain_tool",
         exposure="extension",
+        rendering_result="tool_message",
         tags=(
             "mcp",
             f"server:{descriptor.source.server_name}",

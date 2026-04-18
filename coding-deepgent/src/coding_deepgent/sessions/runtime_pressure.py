@@ -22,6 +22,7 @@ def recovery_brief_contribution() -> RecoveryBriefContribution:
             if item.kind == "runtime_event"
             and isinstance(item.metadata, dict)
             and item.metadata.get("event_kind") in RUNTIME_PRESSURE_EVENT_KINDS
+            and item.metadata.get("outcome") != "attempted"
         )
         if not counts:
             return None

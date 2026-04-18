@@ -152,6 +152,14 @@ Implemented / partial:
 - `build_default_system_prompt()` encodes product identity and LangChain-native behavior.
 - Tests assert stale tool wording is not in the prompt.
 
+Planning direction:
+
+- product context should now be reasoned about as four layers:
+  - project-level rules
+  - long-term memory
+  - current-session memory
+  - recovery context
+
 ### Target design
 
 The prompt system defines stable model operating contract.
@@ -160,6 +168,7 @@ Do:
 
 - Keep the base prompt short, stable, and product-specific.
 - Keep custom prompt and append prompt separate.
+- Keep project-level rules as a distinct layer before long-term memory.
 - Keep user/system context structured even if not all fields are model-visible yet.
 - Add role/mode overlays only when the runtime mode exists.
 - Use LangChain `dynamic_prompt` middleware only when prompt truly depends on runtime state/context.
@@ -364,6 +373,7 @@ Implemented / partial:
 - feedback rules can directly affect a few high-value actions
 - long-term memory appears in recovery/resume as its own section
 - current-session memory appears in recovery/resume as a separate section
+- planning baseline now treats product-level rules as a separate layer rather than folding them into memory
 
 Missing:
 

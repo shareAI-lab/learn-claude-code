@@ -207,8 +207,13 @@ def append_sidechain_message(
   and `verdict=<verdict>`.
 - `render_recovery_brief()` must not dump arbitrary evidence metadata for
   runtime or verification evidence.
+- User-facing recovery brief may show product-level rules, long-term memory, and
+  current-session memory as separate sections.
+- Model-facing resume context should only carry the recovery layer and must not
+  duplicate project rules, long-term memory, or current-session memory when
+  those layers are already injected earlier in the runtime assembly order.
 - When `LoadedSession.state["session_memory"]` contains a valid artifact,
-  `render_recovery_brief()` must render it in a dedicated `Session memory:`
+  `render_recovery_brief()` must render it in a dedicated `Current-session memory:`
   section and mark it `current` or `stale` based on the stored `message_count`
   versus `LoadedSession.summary.message_count`.
 - Invalid `session_memory` state must be ignored rather than breaking session

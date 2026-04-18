@@ -27,6 +27,7 @@ These guides help you **ask the right questions before coding**.
 | [Cross-Layer Thinking Guide](./cross-layer-thinking-guide.md) | Think through data flow across layers | Features spanning multiple layers |
 | [Interview-Driven Spec Expansion Guide](./interview-driven-spec-expansion-guide.md) | Fill Trellis specs through focused maintainer interviews | When missing project knowledge depends on maintainer decisions |
 | [Mainline Scope Guide](./mainline-scope-guide.md) | Keep product work focused on the real implementation target | When tutorial/reference assets might distract from `coding-deepgent` |
+| [Planning Targets Guide](./planning-targets-guide.md) | Force feature-family plans to state acceptance targets, current planned features, and future planned extensions before implementation | When defining a new feature family or expanding an existing one |
 | [Staged Execution Guide](./staged-execution-guide.md) | Run multi-stage work with explicit checkpoints and bounded validation | When one task family should proceed across sub-stages without drift |
 | [Trellis Doc Map Guide](./trellis-doc-map-guide.md) | Explain high-value Trellis document roles, reading order, and update targets | When you need to understand or extend the `.trellis/` document system |
 
@@ -85,6 +86,14 @@ These guides help you **ask the right questions before coding**.
 - [ ] The task needs `lean` vs `deep` validation-budget control
 
 → Read [Staged Execution Guide](./staged-execution-guide.md)
+
+### When To Lock Planning Targets
+
+- [ ] You are defining a non-trivial feature family before implementation
+- [ ] You want one integrated implementation pass after planning
+- [ ] You need to separate what must ship now from what is intentionally deferred
+
+→ Read [Planning Targets Guide](./planning-targets-guide.md)
 
 ### When To Navigate Trellis Docs
 

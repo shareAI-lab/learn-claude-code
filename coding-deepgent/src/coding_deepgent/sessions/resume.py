@@ -1,13 +1,20 @@
 from __future__ import annotations
 
-from collections.abc import Callable, MutableMapping
+from collections.abc import Callable, MutableMapping, Sequence
 from dataclasses import dataclass
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from .contribution_registry import RECOVERY_BRIEF_CONTRIBUTIONS
-from .contributions import RecoveryBriefSection, build_recovery_brief_sections
+from .contribution_registry import (
+    RECOVERY_BRIEF_CONTRIBUTIONS,
+    RESUME_CONTEXT_CONTRIBUTIONS,
+)
+from .contributions import (
+    RecoveryBriefContribution,
+    RecoveryBriefSection,
+    build_recovery_brief_sections,
+)
 from .ports import SessionStore
 from .records import LoadedSession, SessionCompact, SessionEvidence
 
@@ -57,6 +64,7 @@ def build_recovery_brief(
     *,
     evidence_limit: int = 5,
     compact_limit: int = 3,
+    contribution_set: Sequence[RecoveryBriefContribution] = RECOVERY_BRIEF_CONTRIBUTIONS,
 ) -> RecoveryBrief:
     active_todos = tuple(
         str(item.get("content", "")).strip()
@@ -72,7 +80,7 @@ def build_recovery_brief(
         active_todos=active_todos,
         contribution_sections=build_recovery_brief_sections(
             loaded_session,
-            RECOVERY_BRIEF_CONTRIBUTIONS,
+            contribution_set,
         ),
         recent_evidence=tuple(loaded_session.evidence[-evidence_limit:]),
         recent_compacts=tuple(loaded_session.compacts[-compact_limit:]),
@@ -136,7 +144,7 @@ def build_resume_context_message(loaded_session: LoadedSession) -> dict[str, str
         "role": "system",
         "content": (
             f"{RESUME_CONTEXT_MESSAGE_PREFIX}\n\n"
-            f"{render_recovery_brief(build_recovery_brief(loaded_session))}"
+            f"{render_recovery_brief(build_recovery_brief(loaded_session, contribution_set=RESUME_CONTEXT_CONTRIBUTIONS))}"
         ),
     }
 

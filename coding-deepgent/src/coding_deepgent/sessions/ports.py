@@ -32,6 +32,30 @@ class SessionStore(Protocol):
         state: dict[str, Any],
     ) -> Path: ...
 
+    def append_evidence(
+        self,
+        context: SessionContext,
+        *,
+        kind: str,
+        summary: str,
+        status: str = "recorded",
+        subject: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Path: ...
+
+    def append_sidechain_message(
+        self,
+        context: SessionContext,
+        *,
+        agent_type: str,
+        role: str,
+        content: str,
+        subagent_thread_id: str,
+        parent_message_id: str | None = None,
+        parent_thread_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Path: ...
+
     def append_compact(
         self,
         context: SessionContext,

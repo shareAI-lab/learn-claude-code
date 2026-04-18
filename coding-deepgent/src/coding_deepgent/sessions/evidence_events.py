@@ -12,6 +12,9 @@ RUNTIME_EVIDENCE_KINDS = frozenset(
         "microcompact",
         "context_collapse",
         "auto_compact",
+        "post_autocompact_turn",
+        "orphan_tombstoned",
+        "query_error",
         "reactive_compact",
         "subagent_spawn_guard",
     }
@@ -52,6 +55,10 @@ def _safe_metadata(event: RuntimeEvent) -> dict[str, object]:
         "tool",
         "policy_code",
         "permission_behavior",
+        "outcome",
+        "phase",
+        "error_class",
+        "reason",
         "strategy",
         "trigger",
     ):
@@ -78,6 +85,17 @@ def _safe_metadata(event: RuntimeEvent) -> dict[str, object]:
         "context_window_tokens",
         "estimated_token_ratio_percent",
         "drained_summaries",
+        "pre_compact_total",
+        "post_compact_total",
+        "new_turn_input",
+        "new_turn_output",
+        "input_token_estimate",
+        "output_token_estimate",
+        "total_token_estimate",
+        "response_message_count",
+        "message_count",
+        "tombstoned_count",
+        "retry_count",
     ):
         value = event.metadata.get(key)
         if isinstance(value, int) and value >= 0:
@@ -106,9 +124,20 @@ def _summary(event: RuntimeEvent, metadata: dict[str, object]) -> str:
         collapsed = metadata.get("collapsed_messages", 0)
         return f"Live context collapse summarized {collapsed} older messages."
     if event.kind == "auto_compact":
+        if metadata.get("outcome") == "attempted":
+            return "Live auto-compact attempt started."
         if metadata.get("trigger") == "failure_circuit_breaker":
             return "Live auto-compact skipped after repeated failures."
         return "Live auto-compact summarized history."
+    if event.kind == "post_autocompact_turn":
+        return "Post-auto-compact turn completed with bounded canary metrics."
+    if event.kind == "orphan_tombstoned":
+        count = metadata.get("tombstoned_count", 0)
+        return f"Projection repair tombstoned {count} orphaned tool blocks."
+    if event.kind == "query_error":
+        phase = metadata.get("phase", "unknown")
+        error_class = metadata.get("error_class", "Exception")
+        return f"Agent query failed during {phase}: {error_class}."
     if event.kind == "reactive_compact":
         return "Reactive compact retried after prompt-too-long."
     if event.kind == "subagent_spawn_guard":
@@ -126,15 +155,21 @@ def _status(event: RuntimeEvent) -> str:
         "microcompact",
         "context_collapse",
         "auto_compact",
+        "post_autocompact_turn",
+        "orphan_tombstoned",
         "reactive_compact",
         "subagent_spawn_guard",
     }:
+        if event.kind == "auto_compact" and event.metadata.get("outcome") == "attempted":
+            return "recorded"
         return "completed"
+    if event.kind == "query_error":
+        return "failed"
     return "recorded"
 
 
 def _subject(metadata: dict[str, object]) -> str | None:
-    for key in ("tool", "hook_event", "strategy"):
+    for key in ("tool", "hook_event", "strategy", "phase", "reason"):
         value = metadata.get(key)
         if isinstance(value, str) and value:
             return value

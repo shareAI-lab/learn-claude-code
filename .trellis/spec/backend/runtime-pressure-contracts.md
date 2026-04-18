@@ -536,6 +536,18 @@ def reactive_compact_messages(
   returns only messages.
 - `maybe_auto_compact_messages_with_status(...)` must distinguish threshold not
   attempted, attempted-and-compacted, and attempted-and-failed-open outcomes.
+- Proactive AutoCompact observability must emit a bounded `auto_compact`
+  runtime event with `outcome == "attempted"` when the threshold is crossed,
+  and a second bounded `auto_compact` event with `outcome == "succeeded"` only
+  after live compaction succeeds.
+- Successful AutoCompact events must include bounded local estimates:
+  `pre_compact_total`, `post_compact_total`, `tokens_saved_estimate`, and
+  `hidden_messages`. These are deterministic local estimates, not provider
+  billing or tokenizer truth.
+- After a live AutoCompact or context collapse succeeds, the first successful
+  following model call must emit one `post_autocompact_turn` canary event with:
+  `pre_compact_total`, `post_compact_total`, `new_turn_input`, and
+  `new_turn_output`.
 - `compact_live_messages_with_result(...)` must own boundary, summary,
   restoration messages, preserved tail, trigger, and token estimates.
 - `compact_live_messages_with_summary(...)` must remain a compatibility wrapper
@@ -734,11 +746,14 @@ Required assertion points:
   - `microcompact`
   - `context_collapse`
   - `auto_compact`
+  - `post_autocompact_turn`
   - `reactive_compact`
   - `subagent_spawn_guard`
+  - `token_budget`
 - Event metadata must stay bounded and may include:
   - `source == "runtime_pressure"`
   - `strategy`
+  - `outcome`
   - `hidden_messages`
   - `cleared_tool_results`
   - `tools_cleared`
@@ -757,11 +772,21 @@ Required assertion points:
   - `context_window_tokens`
   - `estimated_token_ratio_percent`
   - `drained_summaries`
+  - `pre_compact_total`
+  - `post_compact_total`
+  - `new_turn_input`
+  - `new_turn_output`
+  - `input_token_estimate`
+  - `output_token_estimate`
+  - `total_token_estimate`
+  - `response_message_count`
 - Session evidence persistence for runtime pressure events must reuse the
   existing `append_runtime_event_evidence(...)` seam rather than introducing a
   second compact-specific ledger.
 - Runtime pressure event evidence must remain bounded summary evidence, not raw
   transcript dumps or full summarizer payloads.
+- `token_budget` may remain sink-only and should not be persisted as session
+  evidence by default because it fires per assistant response turn.
 
 ### 3. Validation & Error Matrix
 
@@ -770,7 +795,10 @@ Required assertion points:
 | snip happens during live request | `event_sink` receives `snip` event |
 | microcompact happens during live request | `event_sink` receives `microcompact` event |
 | context collapse happens during live request | `event_sink` receives `context_collapse` event |
-| auto-compact happens during live request | `event_sink` receives `auto_compact` event |
+| auto-compact threshold is crossed | `event_sink` receives `auto_compact` with `outcome == "attempted"` |
+| auto-compact succeeds | `event_sink` receives `auto_compact` with `outcome == "succeeded"` |
+| first successful model call after compact/collapse | `event_sink` receives one `post_autocompact_turn` event |
+| model call succeeds | `event_sink` receives one bounded `token_budget` event |
 | reactive compact retry happens | `event_sink` receives `reactive_compact` event |
 | subagent spawn guard blocks | `event_sink` receives `subagent_spawn_guard` event |
 | active `session_context` exists | whitelisted runtime pressure events append `runtime_event` session evidence |
@@ -781,3 +809,52 @@ Required assertion points:
 - `coding-deepgent/tests/test_runtime_pressure.py`
 - existing runtime event tests in `coding-deepgent/tests/test_hooks.py`
 - existing runtime event evidence tests in `coding-deepgent/tests/test_tool_system_middleware.py`
+
+## Scenario: Env-Gated Prompt/API Dump
+
+### 1. Scope / Trigger
+
+- Trigger: changes touching model-call observability, prompt dump paths, or
+  `CODING_DEEPGENT_DUMP_PROMPTS`.
+- Applies when a developer needs a local replay/debug artifact for what the
+  LangChain model-call middleware sent to the model.
+
+### 2. Signatures
+
+```python
+PROMPT_DUMP_ENV = "CODING_DEEPGENT_DUMP_PROMPTS"
+
+def prompt_dump_enabled(env: Mapping[str, str] | None = None) -> bool: ...
+
+def dump_model_request_if_enabled(
+    context: object,
+    *,
+    request: object,
+    messages: Sequence[object],
+    input_token_estimate: int | None = None,
+    env: Mapping[str, str] | None = None,
+) -> Path | None: ...
+```
+
+### 3. Contracts
+
+- Prompt/API dumps must be disabled unless `CODING_DEEPGENT_DUMP_PROMPTS=1`.
+- Dumps must be local JSONL files under the active runtime workdir.
+- Dump metadata must redact secret-like fields such as API keys, tokens,
+  passwords, and authorization values.
+- Dump records may include model-facing prompt messages because the feature is
+  explicitly developer-gated, but records must stay bounded and must never be
+  injected into model-visible context.
+- No CLI dump flag is part of the MVP contract.
+
+### 4. Validation & Error Matrix
+
+| Case | Expected behavior |
+|---|---|
+| env unset | no prompt dump file is written |
+| `CODING_DEEPGENT_DUMP_PROMPTS=1` | one JSONL request record is appended for the model call |
+| model settings include a secret-like key | dumped metadata contains `<redacted>` for that key |
+
+### 5. Tests Required
+
+- `coding-deepgent/tests/test_runtime_pressure.py`

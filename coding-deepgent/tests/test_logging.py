@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from structlog.testing import capture_logs
+
 from coding_deepgent.logging_config import (
     configure_logging,
+    logger_for,
     redact_value,
     safe_environment_snapshot,
 )
@@ -37,3 +40,20 @@ def test_configure_logging_initializes_structlog_without_services() -> None:
 
     assert logger is not None
     assert hasattr(logger, "bind")
+
+
+def test_logger_for_binds_agent_scope_fields() -> None:
+    configure_logging("DEBUG")
+
+    with capture_logs() as logs:
+        logger_for(
+            "runtime_pressure",
+            agent_name="agent-1",
+            session_id="session-1",
+            entrypoint="test",
+        ).debug("observed")
+
+    assert logs[0]["component"] == "runtime_pressure"
+    assert logs[0]["agent_name"] == "agent-1"
+    assert logs[0]["session_id"] == "session-1"
+    assert logs[0]["entrypoint"] == "test"

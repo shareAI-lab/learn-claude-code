@@ -54,6 +54,13 @@ def test_mcp_tool_descriptor_maps_to_capability_with_source_metadata() -> None:
     assert capability.concurrency_safe is True
     assert capability.source == "mcp:docs"
     assert capability.trusted is False
+    assert capability.family == "mcp"
+    assert capability.mutation == "read"
+    assert capability.execution == "plain_tool"
+    assert capability.exposure == "extension"
+    assert capability.rendering_result == "tool_message"
+    assert capability.persist_large_output is False
+    assert capability.microcompact_eligible is False
     assert "server:docs" in capability.tags
     assert "transport:stdio" in capability.tags
 

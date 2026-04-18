@@ -56,3 +56,22 @@ def configure_logging(level: str = "INFO") -> Any:
         cache_logger_on_first_use=True,
     )
     return structlog.get_logger("coding_deepgent")
+
+
+def logger_for(
+    component: str,
+    *,
+    agent_name: str | None = None,
+    session_id: str | None = None,
+    **fields: object,
+) -> Any:
+    logger = structlog.get_logger("coding_deepgent").bind(
+        component=component.strip() or "runtime"
+    )
+    if agent_name is not None:
+        logger = logger.bind(agent_name=agent_name)
+    if session_id is not None:
+        logger = logger.bind(session_id=session_id)
+    if fields:
+        logger = logger.bind(**fields)
+    return logger

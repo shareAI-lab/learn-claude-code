@@ -13,6 +13,7 @@ from coding_deepgent.compact.summarizer import generate_compact_summary
 from coding_deepgent.hooks.dispatcher import dispatch_context_hook
 from coding_deepgent.hooks.events import HookEventName
 from coding_deepgent.runtime.events import RuntimeEvent
+from coding_deepgent.runtime.prompt_dump import dump_model_request_if_enabled
 from coding_deepgent.sessions.evidence_events import append_runtime_event_evidence
 from coding_deepgent.sessions.records import SessionContext, TranscriptProjection
 from coding_deepgent.sessions.store_jsonl import JsonlSessionStore
@@ -102,6 +103,13 @@ class LiveCompactionResult:
             *self.restoration_messages,
             *self.preserved_tail,
         ]
+
+
+@dataclass(frozen=True, slots=True)
+class PostAutocompactCanary:
+    pre_compact_total: int
+    post_compact_total: int
+    trigger: str
 
 
 def _with_projected_token_estimate(result: LiveCompactionResult) -> LiveCompactionResult:
@@ -351,6 +359,12 @@ class RuntimePressureMiddleware(AgentMiddleware):
     main_agent_name: str = "coding-deepgent"
     now: Callable[[], datetime] = _utc_now
     _auto_compact_failure_count: int = field(default=0, init=False, compare=False, repr=False)
+    _pending_post_autocompact_turn: PostAutocompactCanary | None = field(
+        default=None,
+        init=False,
+        compare=False,
+        repr=False,
+    )
 
     def wrap_model_call(
         self,
@@ -461,6 +475,11 @@ class RuntimePressureMiddleware(AgentMiddleware):
                     **collapse_pressure,
                 },
             )
+            self._set_pending_post_autocompact_turn(
+                pre_compact_total=estimate_message_tokens(collapse_source_messages),
+                post_compact_total=estimate_message_tokens(processed),
+                trigger="context_collapse",
+            )
         if self._should_skip_auto_compact():
             _emit_runtime_pressure_event(
                 request,
@@ -475,6 +494,25 @@ class RuntimePressureMiddleware(AgentMiddleware):
                 },
             )
         else:
+            auto_compact_source = list(processed)
+            auto_compact_source_tokens = estimate_message_tokens(auto_compact_source)
+            auto_compact_attempted = (
+                self.auto_compact_threshold_tokens is not None
+                and auto_compact_source_tokens >= self.auto_compact_threshold_tokens
+            )
+            if auto_compact_attempted:
+                _emit_runtime_pressure_event(
+                    request,
+                    kind="auto_compact",
+                    message="Runtime pressure middleware started proactive auto-compact.",
+                    metadata={
+                        "source": "runtime_pressure",
+                        "strategy": "auto",
+                        "outcome": "attempted",
+                        "pre_compact_total": auto_compact_source_tokens,
+                        "message_count": len(auto_compact_source),
+                    },
+                )
             auto_compact_result = maybe_auto_compact_messages_with_status(
                 processed,
                 summarizer=request.model,
@@ -495,9 +533,26 @@ class RuntimePressureMiddleware(AgentMiddleware):
                     metadata={
                         "source": "runtime_pressure",
                         "strategy": "auto",
+                        "outcome": "succeeded",
+                        "pre_compact_total": auto_compact_source_tokens,
+                        "post_compact_total": estimate_message_tokens(processed),
+                        "tokens_saved_estimate": max(
+                            0,
+                            auto_compact_source_tokens
+                            - estimate_message_tokens(processed),
+                        ),
+                        "hidden_messages": _auto_compact_hidden_message_count(
+                            auto_compact_source,
+                            processed,
+                        ),
                         "used_session_memory_assist": session_memory_assist is not None,
                         "restored_path_count": _restored_path_count(processed),
                     },
+                )
+                self._set_pending_post_autocompact_turn(
+                    pre_compact_total=auto_compact_source_tokens,
+                    post_compact_total=estimate_message_tokens(processed),
+                    trigger="auto_compact",
                 )
             elif auto_compact_result.failed:
                 self._increment_auto_compact_failure_count()
@@ -507,7 +562,11 @@ class RuntimePressureMiddleware(AgentMiddleware):
             else request.override(messages=cast(list[Any], processed))
         )
         try:
-            return handler(active_request)
+            return self._call_model_handler_with_observability(
+                request,
+                active_request,
+                handler,
+            )
         except Exception as exc:
             if not is_prompt_too_long_error(exc):
                 raise
@@ -528,7 +587,11 @@ class RuntimePressureMiddleware(AgentMiddleware):
                 )
                 drained_request = active_request.override(messages=cast(list[Any], drained))
                 try:
-                    return handler(drained_request)
+                    return self._call_model_handler_with_observability(
+                        request,
+                        drained_request,
+                        handler,
+                    )
                 except Exception as drained_exc:
                     if not is_prompt_too_long_error(drained_exc):
                         raise
@@ -558,7 +621,90 @@ class RuntimePressureMiddleware(AgentMiddleware):
                     "restored_path_count": _restored_path_count(compacted),
                 },
             )
-            return handler(active_request.override(messages=cast(list[Any], compacted)))
+            return self._call_model_handler_with_observability(
+                request,
+                active_request.override(messages=cast(list[Any], compacted)),
+                handler,
+            )
+
+    def _call_model_handler_with_observability(
+        self,
+        original_request: ModelRequest,
+        active_request: ModelRequest,
+        handler: Callable[[ModelRequest], ModelResponse],
+    ) -> ModelResponse:
+        context = getattr(original_request.runtime, "context", None)
+        input_tokens = estimate_message_tokens(active_request.messages)
+        dump_model_request_if_enabled(
+            context,
+            request=active_request,
+            messages=active_request.messages,
+            input_token_estimate=input_tokens,
+        )
+        response = handler(active_request)
+        output_tokens = _response_token_estimate(response)
+        _emit_runtime_pressure_event(
+            original_request,
+            kind="token_budget",
+            message="Model call completed with bounded token-budget estimates.",
+            metadata={
+                "source": "runtime_pressure",
+                "strategy": "model_call",
+                "input_token_estimate": input_tokens,
+                "output_token_estimate": output_tokens,
+                "total_token_estimate": input_tokens + output_tokens,
+                "message_count": len(active_request.messages),
+                "response_message_count": _response_message_count(response),
+            },
+        )
+        self._emit_pending_post_autocompact_turn(
+            original_request,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+        return response
+
+    def _set_pending_post_autocompact_turn(
+        self,
+        *,
+        pre_compact_total: int,
+        post_compact_total: int,
+        trigger: str,
+    ) -> None:
+        object.__setattr__(
+            self,
+            "_pending_post_autocompact_turn",
+            PostAutocompactCanary(
+                pre_compact_total=pre_compact_total,
+                post_compact_total=post_compact_total,
+                trigger=trigger,
+            ),
+        )
+
+    def _emit_pending_post_autocompact_turn(
+        self,
+        request: ModelRequest,
+        *,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> None:
+        pending = self._pending_post_autocompact_turn
+        if pending is None:
+            return
+        object.__setattr__(self, "_pending_post_autocompact_turn", None)
+        _emit_runtime_pressure_event(
+            request,
+            kind="post_autocompact_turn",
+            message="First turn after compact completed with canary metrics.",
+            metadata={
+                "source": "runtime_pressure",
+                "trigger": pending.trigger,
+                "pre_compact_total": pending.pre_compact_total,
+                "post_compact_total": pending.post_compact_total,
+                "new_turn_input": input_tokens,
+                "new_turn_output": output_tokens,
+            },
+        )
 
     def _should_skip_auto_compact(self) -> bool:
         return (
@@ -1110,8 +1256,39 @@ def estimate_message_tokens(messages: Sequence[BaseMessage]) -> int:
     return sum(_estimate_message_tokens(message) for message in messages)
 
 
+def _response_token_estimate(response: object) -> int:
+    result = getattr(response, "result", None)
+    if isinstance(result, Sequence) and not isinstance(result, (str, bytes, bytearray)):
+        total = 0
+        for item in result:
+            if isinstance(item, BaseMessage):
+                total += _estimate_message_tokens(item)
+            else:
+                total += _estimate_text_tokens(str(item))
+        return total
+    if result is not None:
+        return _estimate_text_tokens(str(result))
+    structured = getattr(response, "structured_response", None)
+    if structured is not None:
+        return _estimate_text_tokens(str(structured))
+    return 0
+
+
+def _response_message_count(response: object) -> int:
+    result = getattr(response, "result", None)
+    if isinstance(result, Sequence) and not isinstance(result, (str, bytes, bytearray)):
+        return len(result)
+    return 1 if result is not None else 0
+
+
 def _estimate_message_tokens(message: BaseMessage) -> int:
     text = _message_text(message)
+    if not text:
+        return 0
+    return _estimate_text_tokens(text)
+
+
+def _estimate_text_tokens(text: str) -> int:
     if not text:
         return 0
     return max(1, (len(text) + 3) // 4)
@@ -1364,6 +1541,36 @@ def _persisted_output_path(message: BaseMessage) -> str | None:
         return None
     path = artifact.get("path")
     return path.strip() if isinstance(path, str) and path.strip() else None
+
+
+def _auto_compact_hidden_message_count(
+    source_messages: Sequence[BaseMessage],
+    compacted_messages: Sequence[BaseMessage],
+) -> int:
+    if compacted_messages:
+        content = str(getattr(compacted_messages[0], "content", ""))
+        for part in content.split(";"):
+            key, separator, value = part.strip().partition("=")
+            if separator and key == "summarized_messages":
+                try:
+                    return max(0, int(value))
+                except ValueError:
+                    break
+    source_count = len(
+        [
+            message
+            for message in source_messages
+            if not _is_live_pressure_artifact_message(message)
+        ]
+    )
+    compacted_count = len(
+        [
+            message
+            for message in compacted_messages
+            if not _is_live_pressure_artifact_message(message)
+        ]
+    )
+    return max(0, source_count - compacted_count)
 
 
 def is_prompt_too_long_error(error: Exception) -> bool:

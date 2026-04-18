@@ -1,0 +1,4 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": ".trellis/spec/backend/project-infrastructure-foundation-contracts.md", "reason": "Review the four-layer model against owning surfaces and promotion boundaries."}
+{"file": ".trellis/spec/backend/session-compact-contracts.md", "reason": "Review resume/recovery layering and non-duplication after changes."}

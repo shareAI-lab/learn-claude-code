@@ -8,6 +8,7 @@ This file is intentionally an overview. The executable contracts are split into 
 
 | Contract | Scope | Read when changing |
 |---|---|---|
+| [Project Infrastructure Foundation Contracts](./project-infrastructure-foundation-contracts.md) | Project-level ownership/maturity gate across transcript/session/compact/collapse/runtime pressure/task/subagent/hooks/memory | Any cross-infrastructure cc feature, release audit, or change that could blur ledger/projection/store/runtime ownership |
 | [Tool Result Storage Contracts](./tool-result-storage-contracts.md) | Large tool-result persistence, preview references, model-visible persisted output markers | `tool_system`, large-output tools, persisted tool-output previews |
 | [Session Compact Contracts](./session-compact-contracts.md) | Session resume, manual/generated compact, compact transcript records, session memory, memory quality | `sessions`, CLI resume, compact artifacts, memory quality/session-memory continuity |
 | [Runtime Pressure Contracts](./runtime-pressure-contracts.md) | Live snip, microcompact, context collapse, auto/reactive compact, restoration messages, runtime pressure events/evidence | `compact.runtime_pressure`, model-call middleware, runtime pressure settings/events |
@@ -17,4 +18,7 @@ This file is intentionally an overview. The executable contracts are split into 
 - Keep contract details in the focused files above.
 - Add new runtime/compact scenarios to the narrowest file that owns the behavior.
 - If a new scenario crosses all three surfaces, add a short coordination note here and detailed rules in each focused contract.
+- If a new scenario also touches task, subagent, hooks, or memory, first run the
+  project-level gate in
+  [Project Infrastructure Foundation Contracts](./project-infrastructure-foundation-contracts.md).
 - Use `coding-deepgent/tests/...` and `coding-deepgent/src/...` paths in new test/implementation references.

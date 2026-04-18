@@ -320,6 +320,7 @@ def test_app_container_wires_memory_middleware_and_store() -> None:
     assert middleware_names == [
         "PlanContextMiddleware",
         "MemoryContextMiddleware",
+        "SessionMemoryContextMiddleware",
         "RuntimePressureMiddleware",
         "ToolGuardMiddleware",
     ]

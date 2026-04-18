@@ -459,7 +459,7 @@ def test_runtime_pressure_middleware_runs_time_based_microcompact(
     assert messages[5].content == MICROCOMPACT_CLEARED_MESSAGE
     assert messages[7].content == "z" * 500
     events = context.event_sink.snapshot()
-    assert [event.kind for event in events] == ["microcompact"]
+    assert [event.kind for event in events] == ["microcompact", "token_budget"]
     assert events[0].metadata["trigger"] == "time_gap"
     assert events[0].metadata["gap_minutes"] == 125
     assert events[0].metadata["tools_cleared"] == 2
@@ -504,7 +504,7 @@ def test_runtime_pressure_middleware_runs_token_budget_microcompact(
     middleware.wrap_model_call(request, lambda _request: SimpleNamespace(result="ok"))
 
     events = context.event_sink.snapshot()
-    assert [event.kind for event in events] == ["microcompact"]
+    assert [event.kind for event in events] == ["microcompact", "token_budget"]
     assert events[0].metadata["tools_cleared"] == 2
     assert events[0].metadata["tools_kept"] == 2
     assert events[0].metadata["keep_recent"] == 2
@@ -562,7 +562,7 @@ def test_time_based_microcompact_min_saved_tokens_skips_low_value_clear(
     assert isinstance(messages, list)
     assert messages[2].content == "x" * 100
     assert messages[4].content == "y" * 100
-    assert context.event_sink.snapshot() == ()
+    assert [event.kind for event in context.event_sink.snapshot()] == ["token_budget"]
 
 
 def test_collapse_live_messages_with_summary_preserves_tool_pair_in_tail() -> None:
@@ -905,6 +905,8 @@ def test_runtime_pressure_middleware_drains_collapse_projection_before_reactive_
     assert [event.kind for event in context.event_sink.snapshot()] == [
         "context_collapse",
         "context_collapse",
+        "token_budget",
+        "post_autocompact_turn",
     ]
 
 
@@ -998,6 +1000,9 @@ def test_runtime_pressure_middleware_runs_snip_microcollapse_autocompact_order(
         "microcompact",
         "context_collapse",
         "auto_compact",
+        "auto_compact",
+        "token_budget",
+        "post_autocompact_turn",
     ]
     assert len(summarizer.requests) == 2
     messages = captured["messages"]
@@ -1146,8 +1151,17 @@ def test_auto_compact_failure_circuit_breaker_skips_after_max_failures(
     assert handler_calls == 3
     assert len(summarizer.requests) == 2
     events = context.event_sink.snapshot()
-    assert [event.kind for event in events] == ["auto_compact"]
-    assert events[0].metadata == {
+    assert [event.kind for event in events] == [
+        "auto_compact",
+        "token_budget",
+        "auto_compact",
+        "token_budget",
+        "auto_compact",
+        "token_budget",
+    ]
+    assert events[0].metadata["outcome"] == "attempted"
+    assert events[2].metadata["outcome"] == "attempted"
+    assert events[4].metadata == {
         "source": "runtime_pressure",
         "strategy": "auto",
         "trigger": "failure_circuit_breaker",
@@ -1199,7 +1213,17 @@ def test_auto_compact_success_resets_failure_circuit_breaker(tmp_path: Path) -> 
     assert len(second_success.requests) == 1
     assert [event.kind for event in context.event_sink.snapshot()] == [
         "auto_compact",
+        "token_budget",
         "auto_compact",
+        "auto_compact",
+        "token_budget",
+        "post_autocompact_turn",
+        "auto_compact",
+        "token_budget",
+        "auto_compact",
+        "auto_compact",
+        "token_budget",
+        "post_autocompact_turn",
     ]
 
 
@@ -1299,8 +1323,13 @@ def test_auto_compact_exhausted_ptl_retries_can_trip_circuit_breaker(
 
     assert len(summarizer.requests) == 2
     events = context.event_sink.snapshot()
-    assert [event.kind for event in events] == ["auto_compact"]
-    assert events[0].metadata["trigger"] == "failure_circuit_breaker"
+    assert [event.kind for event in events] == [
+        "auto_compact",
+        "token_budget",
+        "auto_compact",
+        "token_budget",
+    ]
+    assert events[2].metadata["trigger"] == "failure_circuit_breaker"
 
 
 def test_runtime_pressure_middleware_emits_microcompact_and_auto_events(
@@ -1340,7 +1369,13 @@ def test_runtime_pressure_middleware_emits_microcompact_and_auto_events(
     middleware.wrap_model_call(request, lambda _request: SimpleNamespace(result="ok"))
 
     events = context.event_sink.snapshot()
-    assert [event.kind for event in events] == ["microcompact", "auto_compact"]
+    assert [event.kind for event in events] == [
+        "microcompact",
+        "auto_compact",
+        "auto_compact",
+        "token_budget",
+        "post_autocompact_turn",
+    ]
     assert events[0].metadata["source"] == "runtime_pressure"
     assert events[0].metadata["strategy"] == "microcompact"
     assert events[0].metadata["cleared_tool_results"] == 2
@@ -1348,12 +1383,65 @@ def test_runtime_pressure_middleware_emits_microcompact_and_auto_events(
     assert events[0].metadata["tools_kept"] == 1
     assert events[0].metadata["tokens_saved_estimate"] > 0
     assert events[0].metadata["keep_recent"] == 1
-    assert events[1].metadata == {
+    assert events[1].metadata["outcome"] == "attempted"
+    assert events[2].metadata == {
         "source": "runtime_pressure",
         "strategy": "auto",
+        "outcome": "succeeded",
+        "pre_compact_total": events[2].metadata["pre_compact_total"],
+        "post_compact_total": events[2].metadata["post_compact_total"],
+        "tokens_saved_estimate": events[2].metadata["tokens_saved_estimate"],
+        "hidden_messages": events[2].metadata["hidden_messages"],
         "used_session_memory_assist": False,
         "restored_path_count": 0,
     }
+    assert events[3].metadata["input_token_estimate"] > 0
+    assert events[3].metadata["output_token_estimate"] > 0
+    assert events[4].metadata["pre_compact_total"] == events[2].metadata["pre_compact_total"]
+    assert events[4].metadata["post_compact_total"] == events[2].metadata["post_compact_total"]
+    assert events[4].metadata["new_turn_input"] == events[3].metadata["input_token_estimate"]
+    assert events[4].metadata["new_turn_output"] == events[3].metadata["output_token_estimate"]
+
+
+def test_runtime_pressure_model_request_dump_is_env_gated(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    registry = build_default_registry(include_discovery=True)
+    context = runtime_context(tmp_path)
+    middleware = RuntimePressureMiddleware(
+        registry=registry,
+        auto_compact_threshold_tokens=None,
+    )
+
+    request = ModelRequest(
+        model=SimpleNamespace(),
+        messages=[HumanMessage(content="hello dump")],
+        system_message=SystemMessage(content="Base"),
+        tool_choice=None,
+        tools=[],
+        response_format=None,
+        state={"messages": []},
+        runtime=SimpleNamespace(context=context),
+        model_settings={"api_key": "secret", "temperature": 0},
+    )
+
+    middleware.wrap_model_call(request, lambda _request: SimpleNamespace(result="ok"))
+    dump_path = (
+        tmp_path
+        / ".coding-deepgent"
+        / "prompt-dumps"
+        / "session-1__test-agent.jsonl"
+    )
+    assert not dump_path.exists()
+
+    monkeypatch.setenv("CODING_DEEPGENT_DUMP_PROMPTS", "1")
+    middleware.wrap_model_call(request, lambda _request: SimpleNamespace(result="ok"))
+
+    record = json.loads(dump_path.read_text(encoding="utf-8").splitlines()[0])
+    assert record["record_type"] == "model_request"
+    assert record["messages"][0]["content"] == "hello dump"
+    assert record["model_settings"]["api_key"] == "<redacted>"
 
 
 def test_maybe_auto_compact_messages_passes_session_memory_assist() -> None:
@@ -1429,7 +1517,10 @@ def test_runtime_pressure_middleware_retries_once_on_prompt_too_long() -> None:
     middleware.wrap_model_call(request, handler)
 
     assert len(calls) == 2
-    assert [event.kind for event in context.event_sink.snapshot()] == ["reactive_compact"]
+    assert [event.kind for event in context.event_sink.snapshot()] == [
+        "reactive_compact",
+        "token_budget",
+    ]
     assert str(calls[1][0].content).startswith(LIVE_COMPACT_BOUNDARY_PREFIX)
     assert "Reactive compact summary." in str(calls[1][1].content)
 
@@ -1477,15 +1568,36 @@ def test_runtime_pressure_events_append_session_evidence(tmp_path: Path) -> None
     loaded = session_store.load_session(session_id="session-1", workdir=tmp_path)
     rendered = render_recovery_brief(build_recovery_brief(loaded))
 
-    assert loaded.summary.evidence_count == 1
-    assert loaded.evidence[0].kind == "runtime_event"
-    assert loaded.evidence[0].status == "completed"
-    assert loaded.evidence[0].metadata == {
+    assert loaded.summary.evidence_count == 3
+    assert [item.metadata["event_kind"] for item in loaded.evidence if item.metadata] == [
+        "auto_compact",
+        "auto_compact",
+        "post_autocompact_turn",
+    ]
+    assert loaded.evidence[0].status == "recorded"
+    assert loaded.evidence[0].metadata["outcome"] == "attempted"
+    assert loaded.evidence[1].kind == "runtime_event"
+    assert loaded.evidence[1].status == "completed"
+    assert loaded.evidence[1].metadata == {
         "event_kind": "auto_compact",
         "source": "runtime_pressure",
         "strategy": "auto",
+        "outcome": "succeeded",
+        "hidden_messages": loaded.evidence[1].metadata["hidden_messages"],
+        "pre_compact_total": loaded.evidence[1].metadata["pre_compact_total"],
+        "post_compact_total": loaded.evidence[1].metadata["post_compact_total"],
+        "tokens_saved_estimate": loaded.evidence[1].metadata["tokens_saved_estimate"],
         "used_session_memory_assist": True,
         "restored_path_count": 0,
+    }
+    assert loaded.evidence[2].metadata == {
+        "event_kind": "post_autocompact_turn",
+        "source": "runtime_pressure",
+        "trigger": "auto_compact",
+        "pre_compact_total": loaded.evidence[2].metadata["pre_compact_total"],
+        "post_compact_total": loaded.evidence[2].metadata["post_compact_total"],
+        "new_turn_input": loaded.evidence[2].metadata["new_turn_input"],
+        "new_turn_output": loaded.evidence[2].metadata["new_turn_output"],
     }
     assert "[completed] runtime_event: Live auto-compact summarized history." in rendered
 

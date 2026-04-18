@@ -13,6 +13,7 @@ STATE_SNAPSHOT_RECORD_TYPE = "state_snapshot"
 EVIDENCE_RECORD_TYPE = "evidence"
 COMPACT_EVENT_KIND = "compact"
 COLLAPSE_EVENT_KIND = "collapse"
+SUBAGENT_MESSAGE_EVENT_KIND = "subagent_message"
 
 
 def iso_timestamp_now() -> str:
@@ -74,6 +75,18 @@ class SessionMessage:
         if self.metadata is not None:
             message["metadata"] = deepcopy(self.metadata)
         return message
+
+
+@dataclass(frozen=True, slots=True)
+class SessionSidechainMessage:
+    created_at: str
+    agent_type: str
+    role: str
+    content: str
+    subagent_thread_id: str
+    parent_message_id: str | None = None
+    parent_thread_id: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,6 +167,7 @@ class LoadedSession:
     compacts: list[SessionCompact]
     summary: SessionSummary
     collapses: list[SessionCollapse] = field(default_factory=list)
+    sidechain_messages: list[SessionSidechainMessage] = field(default_factory=list)
 
 
 class SessionLoadError(RuntimeError):

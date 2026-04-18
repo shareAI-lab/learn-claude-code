@@ -1,6 +1,6 @@
 # coding-deepgent Project Handoff
 
-Updated: 2026-04-15
+Updated: 2026-04-18
 Primary branch: `codex/stage-12-14-context-compact-foundation`
 Primary PR: `#220` `https://github.com/shareAI-lab/learn-claude-code/pull/220`
 
@@ -57,6 +57,7 @@ Current mainline has focused on:
 
 * context / compact / session / recovery hardening
 * durable task / workflow hardening
+* cc-highlight topology closeout for H01, H11/H12, and H19
 
 Latest completed stage families:
 
@@ -78,6 +79,8 @@ Latest completed stage families:
 * Stage 27: Local Extension Platform Closeout
 * Stage 28: Observability Evidence Closeout
 * Stage 29: Deferred Boundary ADR And MVP Release Checklist
+* 2026-04-17 H19 Vertical Closeout
+* 2026-04-17 H01 L1-c Capability Audit
 
 ## Latest Verified State
 
@@ -148,6 +151,29 @@ Latest completed stages and what they changed:
   * H01-H22 have explicit statuses in the canonical dashboard
   * H13/H14/H21/H22 are deferred out of Approach A MVP
   * Stage 30-36 reserve is not currently required unless later validation finds a concrete MVP gap
+* `2026-04-17 H19 vertical closeout`: observability/evidence cleanup
+  * `L1-b`, `L2-b`, and `L3-b` are complete under `.trellis/tasks/04-17-cc-core-topology-closeout-plan/`
+  * H19 now includes queued `RuntimeEventSink`, agent-scoped logger, AutoCompact attempted/succeeded events, `post_autocompact_turn` canary metrics, `orphan_tombstoned` projection repair, structured `query_error`, per-turn `token_budget`, and env-gated `CODING_DEEPGENT_DUMP_PROMPTS=1` dumps
+  * External analytics backend, Perfetto, SDK/TTFT progress, provider cache/cost, and CLI dump flag remain deferred and should be covered by `L5-b` ADR refresh
+* `2026-04-17 H01 L1-c capability audit`: five-factor tool metadata cleanup
+  * `ToolCapability` now carries explicit five-factor metadata, including `rendering_result`
+  * capability registry validation enforces name/schema/metadata/exposure and large-output/microcompact opt-in invariants
+  * downstream H01 role projection, dynamic pool, pairing, and concurrency work remain open
+* `2026-04-17/18 H01/H11/H12 closeout follow-through`
+  * `H11` now has `AgentDefinition`, a real read-only `general` child runtime, structured subagent result envelopes, and sidechain transcript audit in the parent session ledger
+  * `H01` now has role-based projection, explicit `ToolPoolProjection`, pairing/failure regressions, and result-persistence/microcompact audit closeout
+* `2026-04-18 deferred-boundary ADR refresh`
+  * `.trellis/plans/coding-deepgent-deferred-boundary-refresh-adr.md` supersedes the old Stage 29 deferred note for H11/H12/H19/H01-adjacent deferred items
+  * `L5-a` is now explicitly conditional/spec-only unless later tests reveal a real capability-aware partitioning gap
+
+## Current Active Topology
+
+Use this as the current planning entry point:
+
+* Parent task: `.trellis/tasks/04-17-cc-core-topology-closeout-plan/`
+* Done: `L1-b`, `L1-c`, `L2-a`, `L2-b`, `L2-c`, `L3-a`, `L3-b`, `L3-c`, `L4-a`, `L4-b`, `L4-c`
+* Remaining: docs-only tail `L5-c` dashboard refresh
+* `L5-a` remains conditional only and should stay dormant unless a concrete concurrency-partition failure is discovered
 
 ## Current Contracts
 
@@ -180,14 +206,13 @@ Core domains:
 
 Next planned direction:
 
-* release validation / PR cleanup for Approach A MVP
+* complete the final `L5-c` canonical dashboard refresh for H11/H12/H19/H01 topology closeout
 
 Intent:
 
-* run a broader validation pass when cost is acceptable
-* review/stage the accumulated Stage 18-29 work
-* update PR #220 or prepare the next PR boundary
-* keep H13/H14/H21/H22 in the next-cycle backlog unless a new source-backed PRD reopens them
+* update the roadmap/dashboard to reflect the now-completed H01/H11/H12/H19 implementation items
+* keep `L5-a` conditional and avoid reviving it by default
+* leave H13/H14/H21/H22 deferred unless a new source-backed PRD reopens them
 
 ## Planning Gate
 
@@ -203,11 +228,27 @@ Before any new stage implementation begins, the proposal must state:
 
 Cross-session memory is a product requirement.
 
+Refactor posture is also a product requirement for current transcript/context
+engineering work:
+
+* do not prioritize compatibility with old local schema/design when that blocks
+  a cleaner long-term foundation
+* do not add fallback paths only to preserve legacy local data shapes
+* prefer durable long-term architecture and clean domain boundaries over
+  minimizing short-term blast radius
+* when a transcript/runtime foundation choice is ambiguous, bias toward the
+  design that better supports future compact/collapse/timeline infrastructure
+  even if it requires replacing current local abstractions
+
 Interpretation for current planning:
 
 * durable user-relevant information must survive session resume boundaries
 * future stages should prefer durable memory/evidence/session mechanisms that improve cross-session continuity
 * stage proposals must say explicitly whether they advance cross-session memory directly, indirectly, or not at all
+* transcript/context refactors may replace current local compact/count/index
+  designs instead of preserving them as compatibility bridges
+* old local data compatibility is not a default requirement unless the user
+  explicitly reintroduces it later
 
 Delivery preference for current planning:
 

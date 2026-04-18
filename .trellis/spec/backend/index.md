@@ -47,6 +47,8 @@ contracts should be captured here in Trellis.
 | [Quality Guidelines](./quality-guidelines.md) | Mainline code-review, testing, and boundary rules | Active |
 | [Logging Guidelines](./logging-guidelines.md) | Structured logging and evidence-vs-log boundary | Active |
 | [Runtime Context And Compaction Contracts](./runtime-context-compaction-contracts.md) | Overview index for runtime/compact contract files | Active |
+| [Project Infrastructure Foundation Contracts](./project-infrastructure-foundation-contracts.md) | Project-level review gate for transcript/session/compact/collapse/runtime pressure/task/subagent/hooks/memory | Active |
+| [Tool Capability Contracts](./tool-capability-contracts.md) | H01 five-factor tool protocol, safe defaults, capability metadata, and tool projection rules | Active |
 | [Tool Result Storage Contracts](./tool-result-storage-contracts.md) | Executable contracts for large-output persistence and preview references | Active |
 | [Session Compact Contracts](./session-compact-contracts.md) | Executable contracts for resume, compact records, session memory, and memory quality | Active |
 | [Runtime Pressure Contracts](./runtime-pressure-contracts.md) | Executable contracts for live microcompact, auto/reactive compact, restoration, and runtime pressure evidence | Active |
@@ -62,6 +64,8 @@ For most current `coding-deepgent` work, the high-signal Trellis docs are:
 - [LangChain-Native Implementation Guidelines](./langchain-native-guidelines.md)
 - [Quality Guidelines](./quality-guidelines.md)
 - [Runtime Context And Compaction Contracts](./runtime-context-compaction-contracts.md)
+- [Project Infrastructure Foundation Contracts](./project-infrastructure-foundation-contracts.md)
+- [Tool Capability Contracts](./tool-capability-contracts.md)
 - [Tool Result Storage Contracts](./tool-result-storage-contracts.md)
 - [Session Compact Contracts](./session-compact-contracts.md)
 - [Runtime Pressure Contracts](./runtime-pressure-contracts.md)

@@ -34,6 +34,7 @@ coding-deepgent/src/coding_deepgent/
 ├── filesystem/               # filesystem/domain-level helpers
 ├── prompting/                # layered prompt + dynamic context assembly
 ├── compact/                  # projection, summaries, runtime pressure, artifacts
+├── rules/                    # project-level rules entrypoint and file loading
 ├── sessions/                 # transcript/evidence/resume/record stores
 ├── memory/                   # save/recall/policy/context integration
 ├── todo/                     # short-term planning contract
@@ -55,6 +56,7 @@ coding-deepgent/src/coding_deepgent/
 New behavior should land in the domain package that owns the product concept:
 
 - session persistence or resume -> `sessions/`
+- project-level persistent behavior rules -> `rules/`
 - dynamic runtime state or invocation shaping -> `runtime/`
 - tool exposure or tool guard behavior -> `tool_system/`
 - task graph or plan artifacts -> `tasks/`
@@ -134,7 +136,7 @@ For implementation-specific rules, read
 ## Naming And Placement Conventions
 
 - Keep package names noun-based and product-domain oriented:
-  - `sessions`, `tasks`, `compact`, `memory`
+  - `sessions`, `tasks`, `compact`, `memory`, `rules`
 - Prefer small modules with one strong responsibility over giant mixed files.
 - Put public exports in each domain `__init__.py` only when that improves the
   main product surface; do not re-export everything automatically.

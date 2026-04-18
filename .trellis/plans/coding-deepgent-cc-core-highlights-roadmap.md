@@ -83,7 +83,7 @@ stage checkpoint materially changes a row.
 
 | ID | Highlight | Current status | MVP boundary | Main modules | Next / remaining stage |
 |---|---|---|---|---|---|
-| H01 | Tool-first capability runtime | implemented | strict tool schemas, capability metadata, guarded execution for all model-facing capabilities | `tool_system`, domain `tools.py` | closed in Stage 21; keep only regression/audit follow-up |
+| H01 | Tool-first capability runtime | implemented | strict tool schemas, capability metadata, guarded execution for all model-facing capabilities | `tool_system`, domain `tools.py` | H01 closeout path is complete through `L1-c`, `L2-c`, `L3-c`, `L4-a`, `L4-b`, and `L4-c`; `L5-a` remains conditional/spec-only unless a real capability-aware partitioning failure appears |
 | H02 | Permission runtime and hard safety | implemented | deterministic local policy, safe defaults, trusted dirs, explicit deny/ask behavior | `permissions`, `tool_system`, `filesystem`, `hooks` | closed in Stage 21; keep only regression/audit follow-up |
 | H03 | Layered prompt contract | implemented | stable base prompt plus structured dynamic context; no giant tool manual | `prompting`, `runtime`, `memory`, `compact` | closed in Stage 22; keep only regression/audit follow-up |
 | H04 | Dynamic context protocol | implemented | typed/bounded context payload assembly across recovery, memory, todo, and compact flows; skills/resources deferred | `runtime`, `sessions`, `memory`, `compact` | closed in Stage 22 with explicit MVP boundary |
@@ -93,15 +93,15 @@ stage checkpoint materially changes a row.
 | H08 | TodoWrite short-term planning contract | implemented | strict TodoWrite state contract, separate from durable Task | `todo`, `runtime`, `prompting` | closed in Stage 25 |
 | H09 | Durable Task graph | implemented | validated graph, readiness, plan artifacts, verification nudge | `tasks`, `tool_system` | closed in Stage 25 |
 | H10 | Plan / Execute / Verify workflow discipline | implemented | explicit plan artifact, verifier child execution, persisted verifier evidence | `tasks`, `subagents`, `sessions` | closed in Stage 25; coordinator deferred |
-| H11 | Agent as tool and runtime object | implemented | all subagents enter as tools; verifier has bounded child runtime and evidence lineage | `subagents`, `runtime`, `tasks`, `sessions` | closed in Stage 26; full agent-team lifecycle deferred |
-| H12 | Fork/cache-aware subagent execution | implemented-minimal | smallest local context/thread propagation needed by H11 only | `subagents`, `runtime`, `compact` | minimal MVP slice closed in Stage 26; rich cache parity deferred |
+| H11 | Agent as tool and runtime object | implemented | bounded `run_subagent` surface, `AgentDefinition`, real read-only `general` and `verifier` child runtimes, structured result envelopes, and parent-ledger sidechain transcript audit | `subagents`, `runtime`, `tasks`, `sessions` | local MVP closeout is complete; full background/team lifecycle remains deferred via refreshed deferred-boundary ADR |
+| H12 | Fork/cache-aware subagent execution | implemented-minimal | smallest local context/thread propagation and sidechain lineage needed by H11 only; rich fork/cache parity remains deferred | `subagents`, `runtime`, `compact` | local minimal slice is complete; rich fork/cache parity stays deferred in the refreshed deferred-boundary ADR |
 | H13 | Mailbox / SendMessage | deferred | out of MVP | `tasks`, `subagents` | Stage 29 deferred-boundary ADR |
 | H14 | Coordinator keeps synthesis | deferred | out of MVP | `tasks`, `subagents`, `prompting` | Stage 29 deferred-boundary ADR |
 | H15 | Skill system packaging | implemented | local skill loader/tool and bounded context injection only | `skills`, `tool_system`, `prompting` | closed in Stage 27 |
 | H16 | MCP external capability protocol | implemented | local MCP config/loading seam, tool/resource separation, capability policy | `mcp`, `plugins`, `tool_system` | closed in Stage 27 |
 | H17 | Plugin states | implemented-minimal | local manifest/source validation only; install/enable lifecycle deferred | `plugins`, `skills`, `mcp` | local MVP closed in Stage 27; lifecycle deferred |
 | H18 | Hooks as middleware | implemented | safe lifecycle hooks through middleware boundaries, not backdoors | `hooks`, `tool_system`, `runtime` | closed in Stage 27 |
-| H19 | Observability and evidence ledger | implemented | structured local events plus session evidence and recovery visibility | `runtime`, `sessions`, `tool_system`, `subagents` | closed in Stage 28 |
+| H19 | Observability and evidence ledger | implemented | queued runtime event sink, agent-scoped logger, compact attempted/succeeded events, post-compact canary, orphan tombstone repair event, structured query_error, per-turn token_budget, env-gated prompt/API dump, session evidence and recovery visibility | `runtime`, `sessions`, `tool_system`, `subagents` | local closeout is complete; deferred analytics/Perfetto/SDK/TTFT/provider-cache items are now captured in the refreshed deferred-boundary ADR |
 | H20 | Cost/cache instrumentation | implemented-minimal | local budget/projection/compact counters only; provider-specific cost/cache deferred | `compact`, `runtime`, `sessions` | minimal MVP slice closed in Stage 28 |
 | H21 | Bridge / remote / IDE control plane | deferred | out of MVP | future integration boundary | Stage 29 deferred-boundary ADR |
 | H22 | Daemon / cron / proactive automation | deferred | out of MVP | future scheduling boundary | Stage 29 deferred-boundary ADR |

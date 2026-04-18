@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/session-compact-contracts.md", "reason": "Recovery/resume and current-session memory contracts change with the unified model closeout."}
+{"file": ".trellis/spec/backend/project-infrastructure-foundation-contracts.md", "reason": "Unified four-layer context and memory model changes product-level boundaries and must stay source-of-truth here."}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "New product-level rules layer must land in a coherent owning package."}

@@ -14,6 +14,9 @@ from coding_deepgent.hooks import HookPayload, HookResult, LocalHookRegistry
 from coding_deepgent.memory import MemoryContextMiddleware
 from coding_deepgent.middleware import PlanContextMiddleware
 from coding_deepgent.compact import RuntimePressureMiddleware
+from coding_deepgent.sessions.session_memory_middleware import (
+    SessionMemoryContextMiddleware,
+)
 from coding_deepgent.runtime import (
     InMemoryEventSink,
     QueuedRuntimeEventSink,
@@ -94,11 +97,12 @@ def test_build_agent_binds_todowrite_product_tools(monkeypatch) -> None:
     assert agent is not None
     assert captured["state_schema"] is RuntimeState
     middleware = cast(Sequence[object], captured["middleware"])
-    assert len(middleware) == 4
+    assert len(middleware) == 5
     assert isinstance(middleware[0], PlanContextMiddleware)
     assert isinstance(middleware[1], MemoryContextMiddleware)
-    assert isinstance(middleware[2], RuntimePressureMiddleware)
-    assert isinstance(middleware[3], ToolGuardMiddleware)
+    assert isinstance(middleware[2], SessionMemoryContextMiddleware)
+    assert isinstance(middleware[3], RuntimePressureMiddleware)
+    assert isinstance(middleware[4], ToolGuardMiddleware)
     tool_names = [
         getattr(tool, "name", getattr(tool, "__name__", ""))
         for tool in cast(Iterable[object], captured["tools"])
@@ -150,7 +154,7 @@ def test_build_agent_wires_runtime_pressure_settings(monkeypatch) -> None:
 
     assert agent is not None
     middleware = cast(Sequence[object], captured["middleware"])
-    runtime_pressure = cast(RuntimePressureMiddleware, middleware[2])
+    runtime_pressure = cast(RuntimePressureMiddleware, middleware[3])
     assert runtime_pressure.auto_compact_threshold_tokens == 1234
     assert runtime_pressure.auto_compact_max_failures == 2
     assert runtime_pressure.auto_compact_ptl_retry_limit == 3

@@ -6,8 +6,8 @@ from dependency_injector import containers, providers
 
 from coding_deepgent.hooks import LocalHookRegistry
 from coding_deepgent.runtime import (
-    InMemoryEventSink,
     PlanningState,
+    QueuedRuntimeEventSink,
     RuntimeContext,
     build_runtime_context,
     build_runtime_invocation,
@@ -20,7 +20,7 @@ from coding_deepgent.runtime import (
 class RuntimeContainer(containers.DeclarativeContainer):
     settings: Any = providers.Dependency()
 
-    event_sink: Any = providers.Singleton(InMemoryEventSink)
+    event_sink: Any = providers.Singleton(QueuedRuntimeEventSink)
     hook_registry: Any = providers.Singleton(LocalHookRegistry)
     state_schema: Any = providers.Object(PlanningState)
     context_schema: Any = providers.Object(RuntimeContext)

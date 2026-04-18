@@ -25,6 +25,7 @@ from .records import (
     EVIDENCE_RECORD_TYPE,
     LoadedSession,
     MESSAGE_RECORD_TYPE,
+    SUBAGENT_MESSAGE_EVENT_KIND,
     TRANSCRIPT_EVENT_RECORD_TYPE,
     SESSION_RECORD_VERSION,
     STATE_SNAPSHOT_RECORD_TYPE,
@@ -36,6 +37,7 @@ from .records import (
     SessionEvidence,
     SessionLoadError,
     SessionMessage,
+    SessionSidechainMessage,
     SessionSummary,
     make_evidence_record,
     make_message_record,
@@ -129,6 +131,38 @@ class JsonlSessionStore:
         self._append_record(context.transcript_path, record)
         return context.transcript_path
 
+    def append_sidechain_message(
+        self,
+        context: SessionContext,
+        *,
+        agent_type: str,
+        role: str,
+        content: str,
+        subagent_thread_id: str,
+        parent_message_id: str | None = None,
+        parent_thread_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Path:
+        payload: dict[str, Any] = {
+            "agent_type": agent_type.strip(),
+            "role": role.strip(),
+            "content": content,
+            "subagent_thread_id": subagent_thread_id.strip(),
+        }
+        if parent_message_id is not None and parent_message_id.strip():
+            payload["parent_message_id"] = parent_message_id.strip()
+        if parent_thread_id is not None and parent_thread_id.strip():
+            payload["parent_thread_id"] = parent_thread_id.strip()
+        if metadata is not None:
+            payload["metadata"] = json.loads(json.dumps(metadata))
+        record = make_transcript_event_record(
+            context,
+            event_kind=SUBAGENT_MESSAGE_EVENT_KIND,
+            payload=payload,
+        )
+        self._append_record(context.transcript_path, record)
+        return context.transcript_path
+
     def append_compact(
         self,
         context: SessionContext,
@@ -206,6 +240,7 @@ class JsonlSessionStore:
         evidence: list[SessionEvidence] = []
         compacts: list[SessionCompact] = []
         collapses: list[SessionCollapse] = []
+        sidechain_messages: list[SessionSidechainMessage] = []
 
         for record in self._iter_valid_records(context.transcript_path):
             if record.get("session_id") != session_id:
@@ -242,6 +277,10 @@ class JsonlSessionStore:
                 collapse_item = self._coerce_collapse(record)
                 if collapse_item is not None:
                     collapses.append(collapse_item)
+                    continue
+                sidechain_item = self._coerce_sidechain_message(record)
+                if sidechain_item is not None:
+                    sidechain_messages.append(sidechain_item)
 
         if not history:
             raise SessionLoadError(
@@ -283,6 +322,7 @@ class JsonlSessionStore:
             compacts=compacts,
             summary=summary,
             collapses=collapses,
+            sidechain_messages=sidechain_messages,
         )
 
     def list_sessions(self, *, workdir: Path) -> list[SessionSummary]:
@@ -469,6 +509,54 @@ class JsonlSessionStore:
             end_message_id=payload["end_message_id"],
             covered_message_ids=payload["covered_message_ids"],
             metadata=payload["metadata"],
+        )
+
+    def _coerce_sidechain_message(
+        self,
+        record: dict[str, Any],
+    ) -> SessionSidechainMessage | None:
+        if record.get("event_kind") != SUBAGENT_MESSAGE_EVENT_KIND:
+            return None
+        payload = record.get("payload")
+        created_at = record.get("timestamp")
+        if not isinstance(payload, dict):
+            return None
+        agent_type = payload.get("agent_type")
+        role = payload.get("role")
+        content = payload.get("content")
+        subagent_thread_id = payload.get("subagent_thread_id")
+        parent_message_id = payload.get("parent_message_id")
+        parent_thread_id = payload.get("parent_thread_id")
+        metadata = payload.get("metadata")
+        if not isinstance(created_at, str) or not created_at.strip():
+            return None
+        if not isinstance(agent_type, str) or not agent_type.strip():
+            return None
+        if not isinstance(role, str) or not role.strip():
+            return None
+        if not isinstance(content, str):
+            return None
+        if not isinstance(subagent_thread_id, str) or not subagent_thread_id.strip():
+            return None
+        if parent_message_id is not None and not isinstance(parent_message_id, str):
+            return None
+        if parent_thread_id is not None and not isinstance(parent_thread_id, str):
+            return None
+        if metadata is not None and not isinstance(metadata, dict):
+            return None
+        return SessionSidechainMessage(
+            created_at=created_at,
+            agent_type=agent_type.strip(),
+            role=role.strip(),
+            content=content,
+            subagent_thread_id=subagent_thread_id.strip(),
+            parent_message_id=parent_message_id.strip()
+            if isinstance(parent_message_id, str) and parent_message_id.strip()
+            else None,
+            parent_thread_id=parent_thread_id.strip()
+            if isinstance(parent_thread_id, str) and parent_thread_id.strip()
+            else None,
+            metadata=deepcopy(metadata) if isinstance(metadata, dict) else None,
         )
 
     def _coerce_transcript_reference_payload(
@@ -693,3 +781,14 @@ class JsonlSessionStore:
             ),
             build_collapse_summary_message(collapse.summary),
         ]
+
+    def latest_message_id(self, context: SessionContext) -> str | None:
+        latest: str | None = None
+        for record in self._iter_valid_records(context.transcript_path):
+            if (
+                record.get("session_id") == context.session_id
+                and record.get("record_type") == MESSAGE_RECORD_TYPE
+                and isinstance(record.get("message_id"), str)
+            ):
+                latest = str(record["message_id"])
+        return latest
