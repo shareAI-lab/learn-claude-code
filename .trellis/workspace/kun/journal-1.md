@@ -561,3 +561,47 @@ Productized automatic memory extraction inspection, agent-private memory scope i
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: Deferred Tool Discovery And Subagent Contract Closeout
+
+**Date**: 2026-04-19
+**Task**: Deferred Tool Discovery And Subagent Contract Closeout
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Area | Description |
+|------|-------------|
+| Stage 0 | Restored clean baseline by aligning app tool-surface expectations, no-network test defaults, hook evidence metadata, and handoff wording. |
+| Stage 1 | Added `ToolSearch` and `invoke_deferred_tool` so deferred builtin and MCP capabilities can stay off the initial main tool list while remaining searchable and executable through the shared tool-policy/middleware path. |
+| Stage 2 | Consolidated subagent/fork contracts by moving advanced lifecycle controls onto the deferred surface and exposing `resume_subagent` / `resume_fork` as structured tool surfaces. |
+| Specs | Updated canonical H01 / task-workflow / infrastructure contracts plus roadmap, deferred ADR, and project handoff to reflect the new deferred-discovery and subagent lifecycle boundaries. |
+| Validation | `ruff check` on touched code/tests, `mypy` on touched typed modules, focused pytest on app/tool-system/mcp/tool-search/subagents, and full `pytest -q coding-deepgent/tests` (`371 passed`). |
+
+**Notes**:
+- Left the user's existing `.env.example` deletion untouched.
+- Left generated `.coding-deepgent/memory.db` untracked and out of commits.
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e3da016` | (see git log) |
+| `d27cf24` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
