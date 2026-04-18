@@ -465,3 +465,36 @@ Completed the unified context/memory model and durable memory backend: added pro
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: Memory productization closeout
+
+**Date**: 2026-04-18
+**Task**: Memory productization closeout
+
+### Summary
+
+Productized automatic memory extraction inspection, agent-private memory scope inspection, and snapshot refresh closeout; validated focused pytest, ruff, and mypy; archived the Trellis task.
+
+### Main Changes
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `672e56a` | (see git log) |
+| `d0e6f49` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
