@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/guides/planning-targets-guide.md", "reason": "Roadmap planning standard with acceptance/planned/deferred buckets."}
+{"file": ".trellis/project-handoff.md", "reason": "Current mainline status and release baseline."}
