@@ -277,6 +277,10 @@ Implemented checkpoint:
 Circle 2 begins only after Circle 1 is coherent enough to act as a daily-driver
 local coding agent.
 
+Canonical Circle 2 plan:
+
+* `.trellis/plans/coding-deepgent-circle-2-expanded-parity-plan.md`
+
 Likely Circle 2 bands:
 
 * mailbox / `SendMessage`

@@ -21,6 +21,7 @@ Canonical goal/backlog docs:
 
 * `.trellis/tasks/archive/2026-04/04-14-redefine-coding-deepgent-final-goal/prd.md`
 * `.trellis/plans/coding-deepgent-full-cc-parity-roadmap.md`
+* `.trellis/plans/coding-deepgent-circle-2-expanded-parity-plan.md`
 * `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md` (historical MVP dashboard)
 
 ## Minimal Resume Procedure
@@ -201,6 +202,9 @@ Latest completed stages and what they changed:
   * `coding-deepgent sessions history|projection|timeline|evidence|events|permissions` expose resume/history/projection/recovery state without raw JSONL inspection
   * `coding-deepgent skills|mcp|hooks|plugins list|inspect|validate|debug` expose usable local extension inspect/debug seams
   * `coding-deepgent acceptance circle1` records the deterministic local Circle 1 acceptance boundary for workflows A/B/C
+* `2026-04-20 Circle 2 planning`
+  * `.trellis/plans/coding-deepgent-circle-2-expanded-parity-plan.md` defines the substrate-first Circle 2 execution sequence
+  * Circle 2 Wave 1 should start with durable daemon/worker/event substrate before mailbox/coordinator/remote features
 
 ## Current Active Topology
 
@@ -243,8 +247,10 @@ Core domains:
 Next planned direction:
 
 * Circle 1 local daily-driver parity is now implemented as the current baseline
-* next work should begin Circle 2 only after release/PR validation, or else
-  address concrete Circle 1 regressions found by acceptance workflows
+* next implementation wave should be Circle 2 / Wave 1:
+  durable daemon / worker / event substrate
+* use `.trellis/plans/coding-deepgent-circle-2-expanded-parity-plan.md` as the
+  canonical Circle 2 execution plan
 
 Intent:
 
