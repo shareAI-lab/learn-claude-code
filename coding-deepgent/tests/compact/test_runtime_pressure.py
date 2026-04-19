@@ -2,11 +2,19 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from types import SimpleNamespace
 from pathlib import Path
+from collections.abc import Sequence
+from typing import Any, cast
 
-from langchain.agents.middleware import ModelRequest
+from langchain.agents.middleware import ModelRequest, ModelResponse
 from langchain.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
+from langchain_core.messages import AnyMessage, BaseMessage
+from langchain_core.prompt_values import PromptValue
+from langgraph.runtime import Runtime
+from langchain_core.runnables import RunnableConfig
+from pydantic import PrivateAttr
 
 from coding_deepgent.compact import (
     LIVE_COLLAPSE_BOUNDARY_PREFIX,
@@ -32,7 +40,7 @@ from coding_deepgent.compact import (
     snip_messages,
 )
 from coding_deepgent.hooks import HookResult, LocalHookRegistry
-from coding_deepgent.runtime import InMemoryEventSink, RuntimeContext
+from coding_deepgent.runtime import InMemoryEventSink, RuntimeContext, RuntimeEvent
 from coding_deepgent.sessions import (
     COLLAPSE_EVENT_KIND,
     JsonlSessionStore,
@@ -42,44 +50,95 @@ from coding_deepgent.sessions import (
 )
 from coding_deepgent.tool_system import build_default_registry
 
+MessageLike = BaseMessage | list[str] | tuple[str, str] | str | dict[str, Any]
+ModelInput = PromptValue | str | Sequence[MessageLike]
 
-class FakeSummarizer:
+
+class FakeSummarizer(FakeMessagesListChatModel):
+    _requests: list[list[dict[str, Any]]] = PrivateAttr(default_factory=list)
+
     def __init__(self, response: str) -> None:
-        self.response = response
-        self.requests: list[list[dict[str, object]]] = []
+        super().__init__(responses=[AIMessage(content=response)])
 
-    def invoke(self, messages: list[dict[str, object]]) -> str:
-        self.requests.append(messages)
-        return self.response
+    @property
+    def requests(self) -> list[list[dict[str, Any]]]:
+        return self._requests
+
+    def invoke(
+        self,
+        input: ModelInput,
+        config: RunnableConfig | None = None,
+        **kwargs: Any,
+    ) -> AIMessage:
+        if isinstance(input, list):
+            self._requests.append(cast(list[dict[str, Any]], input))
+        return super().invoke(input, config=config, **kwargs)
 
 
-class FailingSummarizer:
+class FailingSummarizer(FakeMessagesListChatModel):
+    _requests: list[list[dict[str, Any]]] = PrivateAttr(default_factory=list)
+
     def __init__(self) -> None:
-        self.requests: list[list[dict[str, object]]] = []
+        super().__init__(responses=[AIMessage(content="unused")])
 
-    def invoke(self, messages: list[dict[str, object]]) -> str:
-        self.requests.append(messages)
+    @property
+    def requests(self) -> list[list[dict[str, Any]]]:
+        return self._requests
+
+    def invoke(
+        self,
+        input: ModelInput,
+        config: RunnableConfig | None = None,
+        **kwargs: Any,
+    ) -> AIMessage:
+        del config, kwargs
+        if isinstance(input, list):
+            self._requests.append(cast(list[dict[str, Any]], input))
         raise RuntimeError("compact summarizer unavailable")
 
 
-class PromptTooLongThenSuccessSummarizer:
+class PromptTooLongThenSuccessSummarizer(FakeMessagesListChatModel):
+    _requests: list[list[dict[str, Any]]] = PrivateAttr(default_factory=list)
+
     def __init__(self, response: str) -> None:
-        self.response = response
-        self.requests: list[list[dict[str, object]]] = []
+        super().__init__(responses=[AIMessage(content=response)])
 
-    def invoke(self, messages: list[dict[str, object]]) -> str:
-        self.requests.append(messages)
-        if len(self.requests) == 1:
+    @property
+    def requests(self) -> list[list[dict[str, Any]]]:
+        return self._requests
+
+    def invoke(
+        self,
+        input: ModelInput,
+        config: RunnableConfig | None = None,
+        **kwargs: Any,
+    ) -> AIMessage:
+        if isinstance(input, list):
+            self._requests.append(cast(list[dict[str, Any]], input))
+        if len(self._requests) == 1:
             raise RuntimeError("prompt too long for compact request")
-        return self.response
+        return super().invoke(input, config=config, **kwargs)
 
 
-class PromptTooLongSummarizer:
+class PromptTooLongSummarizer(FakeMessagesListChatModel):
+    _requests: list[list[dict[str, Any]]] = PrivateAttr(default_factory=list)
+
     def __init__(self) -> None:
-        self.requests: list[list[dict[str, object]]] = []
+        super().__init__(responses=[AIMessage(content="unused")])
 
-    def invoke(self, messages: list[dict[str, object]]) -> str:
-        self.requests.append(messages)
+    @property
+    def requests(self) -> list[list[dict[str, Any]]]:
+        return self._requests
+
+    def invoke(
+        self,
+        input: ModelInput,
+        config: RunnableConfig | None = None,
+        **kwargs: Any,
+    ) -> AIMessage:
+        del config, kwargs
+        if isinstance(input, list):
+            self._requests.append(cast(list[dict[str, Any]], input))
         raise RuntimeError("prompt too long for compact request")
 
 
@@ -109,6 +168,49 @@ def runtime_context(
         session_context=session_context,
         transcript_projection=transcript_projection,
     )
+
+
+def _unused_model() -> BaseChatModel:
+    return FakeMessagesListChatModel(responses=[AIMessage(content="unused")])
+
+
+def _runtime(
+    context: RuntimeContext | None = None,
+    *,
+    store: object | None = None,
+) -> Runtime[Any]:
+    return Runtime(context=context, store=cast(Any, store))
+
+
+def _request(
+    *,
+    model: BaseChatModel,
+    messages: list[AnyMessage],
+    context: RuntimeContext | None = None,
+    state: dict[str, Any] | None = None,
+    model_settings: dict[str, Any] | None = None,
+    store: object | None = None,
+) -> ModelRequest:
+    runtime = _runtime(context, store=store) if (context is not None or store is not None) else None
+    return ModelRequest(
+        model=model,
+        messages=messages,
+        system_message=SystemMessage(content="Base"),
+        tool_choice=None,
+        tools=[],
+        response_format=None,
+        state=cast(Any, state if state is not None else {"messages": []}),
+        runtime=runtime,
+        model_settings=model_settings or {},
+    )
+
+
+def _ok_response(text: str = "ok") -> ModelResponse:
+    return ModelResponse(result=[AIMessage(content=text)])
+
+
+def _events(context: RuntimeContext) -> tuple[RuntimeEvent, ...]:
+    return cast(InMemoryEventSink, context.event_sink).snapshot()
 
 
 def _read_call(tool_call_id: str) -> AIMessage:
@@ -378,10 +480,10 @@ def test_runtime_pressure_middleware_rewrites_request_messages_before_model_call
 
     def handler(request: ModelRequest):
         captured["messages"] = request.messages
-        return SimpleNamespace(result="ok")
+        return _ok_response()
 
-    request = ModelRequest(
-        model=SimpleNamespace(),
+    request = _request(
+        model=_unused_model(),
         messages=[
             HumanMessage(content="inspect files"),
             _read_call("call-1"),
@@ -389,13 +491,6 @@ def test_runtime_pressure_middleware_rewrites_request_messages_before_model_call
             _read_call("call-2"),
             ToolMessage(content="y" * 500, tool_call_id="call-2"),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(),
-        model_settings={},
     )
 
     middleware.wrap_model_call(request, handler)
@@ -428,10 +523,10 @@ def test_runtime_pressure_middleware_runs_time_based_microcompact(
 
     def handler(request: ModelRequest):
         captured["messages"] = request.messages
-        return SimpleNamespace(result="ok")
+        return _ok_response()
 
-    request = ModelRequest(
-        model=SimpleNamespace(),
+    request = _request(
+        model=_unused_model(),
         messages=[
             HumanMessage(content="inspect files"),
             _read_call("call-1"),
@@ -442,13 +537,7 @@ def test_runtime_pressure_middleware_runs_time_based_microcompact(
             _read_call("call-3"),
             ToolMessage(content="z" * 500, tool_call_id="call-3"),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=context),
-        model_settings={},
+        context=context,
     )
 
     middleware.wrap_model_call(request, handler)
@@ -458,7 +547,7 @@ def test_runtime_pressure_middleware_runs_time_based_microcompact(
     assert messages[2].content == MICROCOMPACT_CLEARED_MESSAGE
     assert messages[5].content == MICROCOMPACT_CLEARED_MESSAGE
     assert messages[7].content == "z" * 500
-    events = context.event_sink.snapshot()
+    events = _events(context)
     assert [event.kind for event in events] == ["microcompact", "token_budget"]
     assert events[0].metadata["trigger"] == "time_gap"
     assert events[0].metadata["gap_minutes"] == 125
@@ -480,8 +569,8 @@ def test_runtime_pressure_middleware_runs_token_budget_microcompact(
         microcompact_protect_recent_tokens=100,
     )
 
-    request = ModelRequest(
-        model=SimpleNamespace(),
+    request = _request(
+        model=_unused_model(),
         messages=[
             _read_call("call-1"),
             ToolMessage(content="a" * 400, tool_call_id="call-1"),
@@ -492,18 +581,12 @@ def test_runtime_pressure_middleware_runs_token_budget_microcompact(
             _read_call("call-4"),
             ToolMessage(content="d" * 160, tool_call_id="call-4"),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=context),
-        model_settings={},
+        context=context,
     )
 
-    middleware.wrap_model_call(request, lambda _request: SimpleNamespace(result="ok"))
+    middleware.wrap_model_call(request, lambda _request: _ok_response())
 
-    events = context.event_sink.snapshot()
+    events = _events(context)
     assert [event.kind for event in events] == ["microcompact", "token_budget"]
     assert events[0].metadata["tools_cleared"] == 2
     assert events[0].metadata["tools_kept"] == 2
@@ -534,8 +617,8 @@ def test_time_based_microcompact_min_saved_tokens_skips_low_value_clear(
     )
     captured: dict[str, object] = {}
 
-    request = ModelRequest(
-        model=SimpleNamespace(),
+    request = _request(
+        model=_unused_model(),
         messages=[
             _assistant_at("2026-04-16T10:00:00Z"),
             _read_call("call-1"),
@@ -543,18 +626,12 @@ def test_time_based_microcompact_min_saved_tokens_skips_low_value_clear(
             _read_call("call-2"),
             ToolMessage(content="y" * 100, tool_call_id="call-2"),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=context),
-        model_settings={},
+        context=context,
     )
 
     def handler(active_request: ModelRequest):
         captured["messages"] = active_request.messages
-        return SimpleNamespace(result="ok")
+        return _ok_response()
 
     middleware.wrap_model_call(request, handler)
 
@@ -562,7 +639,7 @@ def test_time_based_microcompact_min_saved_tokens_skips_low_value_clear(
     assert isinstance(messages, list)
     assert messages[2].content == "x" * 100
     assert messages[4].content == "y" * 100
-    assert [event.kind for event in context.event_sink.snapshot()] == ["token_budget"]
+    assert [event.kind for event in _events(context)] == ["token_budget"]
 
 
 def test_collapse_live_messages_with_summary_preserves_tool_pair_in_tail() -> None:
@@ -713,24 +790,18 @@ def test_auto_compact_uses_pre_and_post_compact_hook_context(tmp_path: Path) -> 
     )
     captured: dict[str, object] = {}
 
-    request = ModelRequest(
+    request = _request(
         model=summarizer,
         messages=[
             HumanMessage(content="x" * 5000),
             HumanMessage(content="y" * 5000),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=context),
-        model_settings={},
+        context=context,
     )
 
     def handler(active_request: ModelRequest):
         captured["messages"] = active_request.messages
-        return SimpleNamespace(result="ok")
+        return _ok_response()
 
     middleware.wrap_model_call(request, handler)
 
@@ -815,6 +886,7 @@ def test_runtime_pressure_middleware_persists_collapse_record_when_projection_ex
             entries=(("msg-000000",), ("msg-000001",))
         ),
     )
+    assert context.session_context is not None
     store.append_message(context.session_context, role="assistant", content="continue")
     middleware = RuntimePressureMiddleware(
         registry=build_default_registry(include_discovery=True),
@@ -822,22 +894,16 @@ def test_runtime_pressure_middleware_persists_collapse_record_when_projection_ex
         keep_recent_messages_after_collapse=1,
         auto_compact_threshold_tokens=None,
     )
-    request = ModelRequest(
+    request = _request(
         model=FakeSummarizer("<summary>Generated collapse summary.</summary>"),
         messages=[
             HumanMessage(content="x" * 5000),
             HumanMessage(content="y" * 5000),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=context),
-        model_settings={},
+        context=context,
     )
 
-    middleware.wrap_model_call(request, lambda active_request: SimpleNamespace(result="ok"))
+    middleware.wrap_model_call(request, lambda active_request: _ok_response())
 
     raw_records = [
         json.loads(line)
@@ -855,7 +921,9 @@ def test_runtime_pressure_middleware_persists_collapse_record_when_projection_ex
     assert loaded.collapses[0].end_message_id == "msg-000000"
     assert loaded.collapses[0].covered_message_ids == ("msg-000000",)
     assert loaded.collapses[0].metadata is not None
-    assert loaded.collapses[0].metadata["source"] == "runtime_pressure"
+    collapse_metadata = loaded.collapses[0].metadata
+    assert collapse_metadata is not None
+    assert collapse_metadata["source"] == "runtime_pressure"
 
 
 def test_runtime_pressure_middleware_drains_collapse_projection_before_reactive_compact(
@@ -868,27 +936,21 @@ def test_runtime_pressure_middleware_drains_collapse_projection_before_reactive_
         auto_compact_threshold_tokens=None,
     )
     context = runtime_context(tmp_path)
-    calls: list[list[object]] = []
-    request = ModelRequest(
+    calls: list[list[BaseMessage]] = []
+    request = _request(
         model=FakeSummarizer("<summary>Generated collapse summary.</summary>"),
         messages=[
             HumanMessage(content="x" * 5000),
             HumanMessage(content="y" * 5000),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=context),
-        model_settings={},
+        context=context,
     )
 
     def handler(active_request: ModelRequest):
         calls.append(list(active_request.messages))
         if len(calls) == 1:
             raise RuntimeError("prompt too long for current context window")
-        return SimpleNamespace(result="ok")
+        return _ok_response()
 
     middleware.wrap_model_call(request, handler)
 
@@ -902,7 +964,7 @@ def test_runtime_pressure_middleware_drains_collapse_projection_before_reactive_
         for message in calls[1]
         if hasattr(message, "content")
     )
-    assert [event.kind for event in context.event_sink.snapshot()] == [
+    assert [event.kind for event in _events(context)] == [
         "context_collapse",
         "context_collapse",
         "token_budget",
@@ -968,9 +1030,9 @@ def test_runtime_pressure_middleware_runs_snip_microcollapse_autocompact_order(
 
     def handler(request: ModelRequest):
         captured["messages"] = request.messages
-        return SimpleNamespace(result="ok")
+        return _ok_response()
 
-    request = ModelRequest(
+    request = _request(
         model=summarizer,
         messages=[
             HumanMessage(content="old context " * 1000),
@@ -984,18 +1046,12 @@ def test_runtime_pressure_middleware_runs_snip_microcollapse_autocompact_order(
             HumanMessage(content="tail one " * 5000),
             HumanMessage(content="tail two " * 5000),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=context),
-        model_settings={},
+        context=context,
     )
 
     middleware.wrap_model_call(request, handler)
 
-    assert [event.kind for event in context.event_sink.snapshot()] == [
+    assert [event.kind for event in _events(context)] == [
         "snip",
         "microcompact",
         "context_collapse",
@@ -1046,21 +1102,15 @@ def test_runtime_pressure_middleware_auto_compacts_when_threshold_is_crossed() -
 
     def handler(request: ModelRequest):
         captured["messages"] = request.messages
-        return SimpleNamespace(result="ok")
+        return _ok_response()
 
-    request = ModelRequest(
+    request = _request(
         model=summarizer,
         messages=[
             HumanMessage(content="x" * 5000),
             HumanMessage(content="y" * 5000),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=runtime_context(Path.cwd())),
-        model_settings={},
+        context=runtime_context(Path.cwd()),
     )
 
     middleware.wrap_model_call(request, handler)
@@ -1080,24 +1130,19 @@ def test_runtime_pressure_middleware_refreshes_session_memory_after_auto_compact
         auto_compact_threshold_tokens=10,
         keep_recent_messages=1,
     )
-    state = {"messages": []}
+    state: dict[str, Any] = {"messages": []}
 
-    request = ModelRequest(
+    request = _request(
         model=summarizer,
         messages=[
             HumanMessage(content="x" * 5000),
             HumanMessage(content="y" * 5000),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
         state=state,
-        runtime=SimpleNamespace(context=runtime_context(Path.cwd())),
-        model_settings={},
+        context=runtime_context(Path.cwd()),
     )
 
-    middleware.wrap_model_call(request, lambda _request: SimpleNamespace(result="ok"))
+    middleware.wrap_model_call(request, lambda _request: _ok_response())
 
     assert state["session_memory"] == {
         "content": "Generated compact summary.",
@@ -1126,22 +1171,16 @@ def test_auto_compact_failure_circuit_breaker_skips_after_max_failures(
     def handler(_request: ModelRequest):
         nonlocal handler_calls
         handler_calls += 1
-        return SimpleNamespace(result="ok")
+        return _ok_response()
 
     def request() -> ModelRequest:
-        return ModelRequest(
+        return _request(
             model=summarizer,
             messages=[
                 HumanMessage(content="x" * 5000),
                 HumanMessage(content="y" * 5000),
             ],
-            system_message=SystemMessage(content="Base"),
-            tool_choice=None,
-            tools=[],
-            response_format=None,
-            state={"messages": []},
-            runtime=SimpleNamespace(context=context),
-            model_settings={},
+            context=context,
         )
 
     middleware.wrap_model_call(request(), handler)
@@ -1150,7 +1189,7 @@ def test_auto_compact_failure_circuit_breaker_skips_after_max_failures(
 
     assert handler_calls == 3
     assert len(summarizer.requests) == 2
-    events = context.event_sink.snapshot()
+    events = _events(context)
     assert [event.kind for event in events] == [
         "auto_compact",
         "token_budget",
@@ -1183,35 +1222,29 @@ def test_auto_compact_success_resets_failure_circuit_breaker(tmp_path: Path) -> 
         keep_recent_messages=1,
     )
 
-    def request(model: object) -> ModelRequest:
-        return ModelRequest(
+    def request(model: BaseChatModel) -> ModelRequest:
+        return _request(
             model=model,
             messages=[
                 HumanMessage(content="x" * 5000),
                 HumanMessage(content="y" * 5000),
             ],
-            system_message=SystemMessage(content="Base"),
-            tool_choice=None,
-            tools=[],
-            response_format=None,
-            state={"messages": []},
-            runtime=SimpleNamespace(context=context),
-            model_settings={},
+            context=context,
         )
 
-    middleware.wrap_model_call(request(failing), lambda _request: SimpleNamespace(result="ok"))
+    middleware.wrap_model_call(request(failing), lambda _request: _ok_response())
     middleware.wrap_model_call(
-        request(first_success), lambda _request: SimpleNamespace(result="ok")
+        request(first_success), lambda _request: _ok_response()
     )
-    middleware.wrap_model_call(request(failing), lambda _request: SimpleNamespace(result="ok"))
+    middleware.wrap_model_call(request(failing), lambda _request: _ok_response())
     middleware.wrap_model_call(
-        request(second_success), lambda _request: SimpleNamespace(result="ok")
+        request(second_success), lambda _request: _ok_response()
     )
 
     assert len(failing.requests) == 2
     assert len(first_success.requests) == 1
     assert len(second_success.requests) == 1
-    assert [event.kind for event in context.event_sink.snapshot()] == [
+    assert [event.kind for event in _events(context)] == [
         "auto_compact",
         "token_budget",
         "auto_compact",
@@ -1240,25 +1273,19 @@ def test_auto_compact_retries_prompt_too_long_summary_source() -> None:
     )
     captured: dict[str, object] = {}
 
-    request = ModelRequest(
+    request = _request(
         model=summarizer,
         messages=[
             HumanMessage(content="oldest context " * 500),
             HumanMessage(content="x" * 5000),
             HumanMessage(content="y" * 5000),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=runtime_context(Path.cwd())),
-        model_settings={},
+        context=runtime_context(Path.cwd()),
     )
 
     def handler(active_request: ModelRequest):
         captured["messages"] = active_request.messages
-        return SimpleNamespace(result="ok")
+        return _ok_response()
 
     middleware.wrap_model_call(request, handler)
 
@@ -1302,27 +1329,21 @@ def test_auto_compact_exhausted_ptl_retries_can_trip_circuit_breaker(
     )
 
     def request() -> ModelRequest:
-        return ModelRequest(
+        return _request(
             model=summarizer,
             messages=[
                 HumanMessage(content="oldest context " * 500),
                 HumanMessage(content="x" * 5000),
                 HumanMessage(content="y" * 5000),
             ],
-            system_message=SystemMessage(content="Base"),
-            tool_choice=None,
-            tools=[],
-            response_format=None,
-            state={"messages": []},
-            runtime=SimpleNamespace(context=context),
-            model_settings={},
+            context=context,
         )
 
-    middleware.wrap_model_call(request(), lambda _request: SimpleNamespace(result="ok"))
-    middleware.wrap_model_call(request(), lambda _request: SimpleNamespace(result="ok"))
+    middleware.wrap_model_call(request(), lambda _request: _ok_response())
+    middleware.wrap_model_call(request(), lambda _request: _ok_response())
 
     assert len(summarizer.requests) == 2
-    events = context.event_sink.snapshot()
+    events = _events(context)
     assert [event.kind for event in events] == [
         "auto_compact",
         "token_budget",
@@ -1345,7 +1366,7 @@ def test_runtime_pressure_middleware_emits_microcompact_and_auto_events(
         keep_recent_messages=1,
     )
 
-    request = ModelRequest(
+    request = _request(
         model=summarizer,
         messages=[
             HumanMessage(content="inspect files"),
@@ -1357,18 +1378,12 @@ def test_runtime_pressure_middleware_emits_microcompact_and_auto_events(
             ToolMessage(content="z" * 500, tool_call_id="call-3"),
             HumanMessage(content="tail"),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=context),
-        model_settings={},
+        context=context,
     )
 
-    middleware.wrap_model_call(request, lambda _request: SimpleNamespace(result="ok"))
+    middleware.wrap_model_call(request, lambda _request: _ok_response())
 
-    events = context.event_sink.snapshot()
+    events = _events(context)
     assert [event.kind for event in events] == [
         "microcompact",
         "auto_compact",
@@ -1414,19 +1429,14 @@ def test_runtime_pressure_model_request_dump_is_env_gated(
         auto_compact_threshold_tokens=None,
     )
 
-    request = ModelRequest(
-        model=SimpleNamespace(),
+    request = _request(
+        model=_unused_model(),
         messages=[HumanMessage(content="hello dump")],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=context),
         model_settings={"api_key": "secret", "temperature": 0},
+        context=context,
     )
 
-    middleware.wrap_model_call(request, lambda _request: SimpleNamespace(result="ok"))
+    middleware.wrap_model_call(request, lambda _request: _ok_response())
     dump_path = (
         tmp_path
         / ".coding-deepgent"
@@ -1436,7 +1446,7 @@ def test_runtime_pressure_model_request_dump_is_env_gated(
     assert not dump_path.exists()
 
     monkeypatch.setenv("CODING_DEEPGENT_DUMP_PROMPTS", "1")
-    middleware.wrap_model_call(request, lambda _request: SimpleNamespace(result="ok"))
+    middleware.wrap_model_call(request, lambda _request: _ok_response())
 
     record = json.loads(dump_path.read_text(encoding="utf-8").splitlines()[0])
     assert record["record_type"] == "model_request"
@@ -1491,33 +1501,27 @@ def test_runtime_pressure_middleware_retries_once_on_prompt_too_long() -> None:
         auto_compact_threshold_tokens=None,
         keep_recent_messages=1,
     )
-    calls: list[list[object]] = []
+    calls: list[list[BaseMessage]] = []
 
     def handler(request: ModelRequest):
         calls.append(list(request.messages))
         if len(calls) == 1:
             raise RuntimeError("prompt too long for current context window")
-        return SimpleNamespace(result="ok")
+        return _ok_response()
 
-    request = ModelRequest(
+    request = _request(
         model=summarizer,
         messages=[
             HumanMessage(content="x" * 5000),
             HumanMessage(content="y" * 5000),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=context),
-        model_settings={},
+        context=context,
     )
 
     middleware.wrap_model_call(request, handler)
 
     assert len(calls) == 2
-    assert [event.kind for event in context.event_sink.snapshot()] == [
+    assert [event.kind for event in _events(context)] == [
         "reactive_compact",
         "token_budget",
     ]
@@ -1541,16 +1545,12 @@ def test_runtime_pressure_events_append_session_evidence(tmp_path: Path) -> None
         keep_recent_messages=1,
     )
 
-    request = ModelRequest(
+    request = _request(
         model=summarizer,
         messages=[
             HumanMessage(content="x" * 5000),
             HumanMessage(content="y" * 5000),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
         state={
             "messages": [],
             "session_memory": {
@@ -1560,11 +1560,10 @@ def test_runtime_pressure_events_append_session_evidence(tmp_path: Path) -> None
                 "updated_at": "2026-04-15T00:00:00Z",
             },
         },
-        runtime=SimpleNamespace(context=context),
-        model_settings={},
+        context=context,
     )
 
-    middleware.wrap_model_call(request, lambda _request: SimpleNamespace(result="ok"))
+    middleware.wrap_model_call(request, lambda _request: _ok_response())
     loaded = session_store.load_session(session_id="session-1", workdir=tmp_path)
     rendered = render_recovery_brief(build_recovery_brief(loaded))
 
@@ -1575,29 +1574,35 @@ def test_runtime_pressure_events_append_session_evidence(tmp_path: Path) -> None
         "post_autocompact_turn",
     ]
     assert loaded.evidence[0].status == "recorded"
-    assert loaded.evidence[0].metadata["outcome"] == "attempted"
+    first_metadata = loaded.evidence[0].metadata
+    assert first_metadata is not None
+    assert first_metadata["outcome"] == "attempted"
     assert loaded.evidence[1].kind == "runtime_event"
     assert loaded.evidence[1].status == "completed"
-    assert loaded.evidence[1].metadata == {
+    second_metadata = loaded.evidence[1].metadata
+    assert second_metadata is not None
+    assert second_metadata == {
         "event_kind": "auto_compact",
         "source": "runtime_pressure",
         "strategy": "auto",
         "outcome": "succeeded",
-        "hidden_messages": loaded.evidence[1].metadata["hidden_messages"],
-        "pre_compact_total": loaded.evidence[1].metadata["pre_compact_total"],
-        "post_compact_total": loaded.evidence[1].metadata["post_compact_total"],
-        "tokens_saved_estimate": loaded.evidence[1].metadata["tokens_saved_estimate"],
+        "hidden_messages": second_metadata["hidden_messages"],
+        "pre_compact_total": second_metadata["pre_compact_total"],
+        "post_compact_total": second_metadata["post_compact_total"],
+        "tokens_saved_estimate": second_metadata["tokens_saved_estimate"],
         "used_session_memory_assist": True,
         "restored_path_count": 0,
     }
-    assert loaded.evidence[2].metadata == {
+    third_metadata = loaded.evidence[2].metadata
+    assert third_metadata is not None
+    assert third_metadata == {
         "event_kind": "post_autocompact_turn",
         "source": "runtime_pressure",
         "trigger": "auto_compact",
-        "pre_compact_total": loaded.evidence[2].metadata["pre_compact_total"],
-        "post_compact_total": loaded.evidence[2].metadata["post_compact_total"],
-        "new_turn_input": loaded.evidence[2].metadata["new_turn_input"],
-        "new_turn_output": loaded.evidence[2].metadata["new_turn_output"],
+        "pre_compact_total": third_metadata["pre_compact_total"],
+        "post_compact_total": third_metadata["post_compact_total"],
+        "new_turn_input": third_metadata["new_turn_input"],
+        "new_turn_output": third_metadata["new_turn_output"],
     }
     assert "[completed] runtime_event: Live auto-compact summarized history." in rendered
 
@@ -1614,8 +1619,8 @@ def test_runtime_pressure_microcompact_evidence_includes_bounded_savings(
         keep_recent_tool_results=1,
     )
 
-    request = ModelRequest(
-        model=SimpleNamespace(),
+    request = _request(
+        model=_unused_model(),
         messages=[
             HumanMessage(content="inspect files"),
             _read_call("call-1"),
@@ -1623,23 +1628,19 @@ def test_runtime_pressure_microcompact_evidence_includes_bounded_savings(
             _read_call("call-2"),
             ToolMessage(content="y" * 500, tool_call_id="call-2"),
         ],
-        system_message=SystemMessage(content="Base"),
-        tool_choice=None,
-        tools=[],
-        response_format=None,
-        state={"messages": []},
-        runtime=SimpleNamespace(context=context),
-        model_settings={},
+        context=context,
     )
 
-    middleware.wrap_model_call(request, lambda _request: SimpleNamespace(result="ok"))
+    middleware.wrap_model_call(request, lambda _request: _ok_response())
     loaded = session_store.load_session(session_id="session-1", workdir=tmp_path)
 
     assert loaded.summary.evidence_count == 1
     assert loaded.evidence[0].kind == "runtime_event"
-    assert loaded.evidence[0].metadata["event_kind"] == "microcompact"
-    assert loaded.evidence[0].metadata["cleared_tool_results"] == 1
-    assert loaded.evidence[0].metadata["tools_cleared"] == 1
-    assert loaded.evidence[0].metadata["tools_kept"] == 1
-    assert loaded.evidence[0].metadata["tokens_saved_estimate"] > 0
-    assert loaded.evidence[0].metadata["keep_recent"] == 1
+    metadata = loaded.evidence[0].metadata
+    assert metadata is not None
+    assert metadata["event_kind"] == "microcompact"
+    assert metadata["cleared_tool_results"] == 1
+    assert metadata["tools_cleared"] == 1
+    assert metadata["tools_kept"] == 1
+    assert metadata["tokens_saved_estimate"] > 0
+    assert metadata["keep_recent"] == 1

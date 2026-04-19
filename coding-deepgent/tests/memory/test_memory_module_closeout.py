@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 from dependency_injector import providers
 from langchain.messages import ToolMessage
+from langchain.tools.tool_node import ToolCallRequest
+from langgraph.runtime import Runtime
 from langgraph.store.memory import InMemoryStore
 
 from coding_deepgent.containers import AppContainer
@@ -65,20 +66,25 @@ def test_feedback_memory_blocks_commit_through_tool_guard(tmp_path: Path) -> Non
         registry=container.tool_system.capability_registry(),
         event_sink=sink,
     )
-    request = SimpleNamespace(
+    request = ToolCallRequest(
         tool_call={"name": "bash", "args": {"command": "git commit -m 'x'"}, "id": "call-1"},
-        runtime=SimpleNamespace(
-            context=RuntimeContext(
-                session_id="session-1",
-                workdir=tmp_path,
-                trusted_workdirs=(),
-                entrypoint="test",
-                agent_name="test-agent",
-                skill_dir=tmp_path / "skills",
-                event_sink=sink,
-                hook_registry=LocalHookRegistry(),
+        tool=None,
+        state={},
+        runtime=cast(
+            Any,
+            Runtime(
+                context=RuntimeContext(
+                    session_id="session-1",
+                    workdir=tmp_path,
+                    trusted_workdirs=(),
+                    entrypoint="test",
+                    agent_name="test-agent",
+                    skill_dir=tmp_path / "skills",
+                    event_sink=sink,
+                    hook_registry=LocalHookRegistry(),
+                ),
+                store=store,
             ),
-            store=store,
         ),
     )
 

@@ -13,6 +13,7 @@ from coding_deepgent.frontend.bridge import (
     _run_streaming_prompt,
     run_jsonl_bridge,
 )
+from coding_deepgent.frontend.protocol import FrontendEvent
 from coding_deepgent.frontend.protocol import AssistantDeltaEvent, ToolFinishedEvent
 from coding_deepgent.runtime import RuntimeEvent
 from coding_deepgent.settings import Settings
@@ -229,7 +230,7 @@ def test_fake_bridge_can_surface_permission_request(tmp_path: Path) -> None:
 def test_streaming_prompt_maps_langgraph_parts_to_frontend_events(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     settings.workdir.mkdir()
-    emitted = []
+    emitted: list[FrontendEvent] = []
     session_state: dict[str, Any] = {}
     history: list[dict[str, Any]] = []
 
