@@ -17,6 +17,7 @@ from coding_deepgent.tasks import (
     get_plan,
     get_task,
     is_task_ready,
+    list_plans,
     plan_get,
     plan_save,
     task_create,
@@ -273,3 +274,26 @@ def test_plan_tools_save_and_get_artifacts() -> None:
         ).verification
         == "Run pytest tests/test_tasks.py"
     )
+
+
+def test_list_plans_is_deterministic() -> None:
+    store = InMemoryStore()
+    task = create_task(store, title="Implement feature")
+    first = create_plan(
+        store,
+        title="B plan",
+        content="Second",
+        verification="pytest -q tests/test_tasks.py",
+        task_ids=[task.id],
+    )
+    second = create_plan(
+        store,
+        title="A plan",
+        content="First",
+        verification="pytest -q tests/test_tasks.py",
+        task_ids=[task.id],
+    )
+
+    plans = list_plans(store)
+
+    assert [plan.id for plan in plans] == sorted([first.id, second.id])

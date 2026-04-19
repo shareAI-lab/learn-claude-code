@@ -58,6 +58,14 @@ def list_tasks(store: TaskStore, *, include_terminal: bool = False) -> list[Task
     return sorted(records, key=lambda record: record.id)
 
 
+def list_plans(store: TaskStore) -> list[PlanArtifact]:
+    records = [
+        PlanArtifact.model_validate(_item_value(item))
+        for item in store.search(plan_namespace())
+    ]
+    return sorted(records, key=lambda record: record.id)
+
+
 def get_task(store: TaskStore, task_id: str) -> TaskRecord:
     item = store.get(task_namespace(), task_id)
     if item is None:

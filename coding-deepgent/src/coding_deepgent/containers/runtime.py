@@ -44,4 +44,5 @@ class RuntimeContainer(containers.DeclarativeContainer):
     store: Any = providers.Singleton(
         select_store,
         backend=settings.provided.store_backend,
+        store_path=settings.provided.store_path,
     )

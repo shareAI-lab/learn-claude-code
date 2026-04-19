@@ -89,6 +89,25 @@ describe('frontend reducer', () => {
     expect(state.contextSnapshot?.session_memory_status).toBe('current');
     expect(state.subagentSnapshot?.total).toBe(1);
     expect(state.subagentSnapshot?.items[0]?.content).toBe('Checked tests.');
+
+    state = reduceFrontendEvent(state, {
+      type: 'background_subagent_snapshot',
+      total: 1,
+      items: [
+        {
+          run_id: 'bgrun-1',
+          status: 'running',
+          mode: 'background_subagent',
+          agent_type: 'general',
+          progress_summary: 'Background subagent is running.',
+          pending_inputs: 1,
+          total_invocations: 0
+        }
+      ]
+    });
+
+    expect(state.backgroundSubagentSnapshot?.total).toBe(1);
+    expect(state.backgroundSubagentSnapshot?.items[0]?.run_id).toBe('bgrun-1');
   });
 
   it('handles interleaved streaming and tool events', () => {

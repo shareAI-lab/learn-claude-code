@@ -123,6 +123,22 @@ class SubagentSnapshotEvent(StrictModel):
     items: list[SubagentItemPayload]
 
 
+class BackgroundSubagentItemPayload(StrictModel):
+    run_id: str
+    status: Literal["queued", "running", "completed", "failed", "cancelled"]
+    mode: Literal["background_subagent", "background_fork"]
+    agent_type: str
+    progress_summary: str
+    pending_inputs: int = Field(..., ge=0)
+    total_invocations: int = Field(..., ge=0)
+
+
+class BackgroundSubagentSnapshotEvent(StrictModel):
+    type: Literal["background_subagent_snapshot"] = "background_subagent_snapshot"
+    total: int = Field(..., ge=0)
+    items: list[BackgroundSubagentItemPayload]
+
+
 class RuntimeEventPayload(StrictModel):
     type: Literal["runtime_event"] = "runtime_event"
     kind: str
@@ -166,6 +182,7 @@ FrontendEvent: TypeAlias = Annotated[
     | TaskSnapshotEvent
     | ContextSnapshotEvent
     | SubagentSnapshotEvent
+    | BackgroundSubagentSnapshotEvent
     | RuntimeEventPayload
     | RecoveryBriefEvent
     | RunFinishedEvent
@@ -195,8 +212,38 @@ class ExitInput(StrictModel):
     type: Literal["exit"] = "exit"
 
 
+class RefreshSnapshotsInput(StrictModel):
+    type: Literal["refresh_snapshots"] = "refresh_snapshots"
+
+
+class RunBackgroundSubagentControlInput(StrictModel):
+    type: Literal["run_background_subagent"] = "run_background_subagent"
+    task: str = Field(..., min_length=1)
+    agent_type: str = "general"
+    plan_id: str | None = Field(default=None, min_length=1)
+    max_turns: int = Field(default=25, ge=1, le=25)
+
+
+class SubagentSendInputControl(StrictModel):
+    type: Literal["subagent_send_input"] = "subagent_send_input"
+    run_id: str = Field(..., min_length=1)
+    message: str = Field(..., min_length=1)
+
+
+class SubagentStopInputControl(StrictModel):
+    type: Literal["subagent_stop"] = "subagent_stop"
+    run_id: str = Field(..., min_length=1)
+
+
 FrontendInput: TypeAlias = Annotated[
-    SubmitPromptInput | PermissionDecisionInput | InterruptInput | ExitInput,
+    SubmitPromptInput
+    | PermissionDecisionInput
+    | InterruptInput
+    | ExitInput
+    | RefreshSnapshotsInput
+    | RunBackgroundSubagentControlInput
+    | SubagentSendInputControl
+    | SubagentStopInputControl,
     Field(discriminator="type"),
 ]
 

@@ -5,7 +5,8 @@ import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Literal
+from types import SimpleNamespace
+from typing import Any, Literal, cast
 
 from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
 from langgraph.types import Command
@@ -19,12 +20,19 @@ from coding_deepgent.agent_runtime_service import (
 )
 from coding_deepgent.compact import compact_record_from_messages, project_messages_with_stats
 from coding_deepgent.rendering import latest_assistant_text
-from coding_deepgent.runtime import RuntimeEvent, default_runtime_state
+from coding_deepgent.runtime import (
+    RuntimeEvent,
+    build_runnable_config,
+    build_runtime_context,
+    default_runtime_state,
+)
 from coding_deepgent.sessions import LoadedSession
 from coding_deepgent.sessions.service import recorded_session_store
 from coding_deepgent.settings import Settings
+from coding_deepgent.subagents.background import BACKGROUND_SUBAGENT_MANAGER
 
 from .event_mapping import (
+    background_subagent_snapshot_from_runtime,
     context_snapshot_from_loaded,
     runtime_events_to_frontend,
     subagent_snapshot_from_loaded,
@@ -34,6 +42,7 @@ from .event_mapping import (
 from .protocol import (
     AssistantDeltaEvent,
     AssistantMessageEvent,
+    BackgroundSubagentSnapshotEvent,
     ContextSnapshotEvent,
     FrontendEvent,
     FrontendInput,
@@ -41,11 +50,15 @@ from .protocol import (
     PermissionRequestedEvent,
     ProtocolErrorEvent,
     RecoveryBriefEvent,
+    RefreshSnapshotsInput,
+    RunBackgroundSubagentControlInput,
     RunFailedEvent,
     RunFinishedEvent,
     RuntimeEventPayload,
     SessionStartedEvent,
+    SubagentSendInputControl,
     SubmitPromptInput,
+    SubagentStopInputControl,
     SubagentSnapshotEvent,
     TaskItemPayload,
     TaskSnapshotEvent,
@@ -65,6 +78,17 @@ class PromptRunResult:
     task_snapshot: tuple[TaskItemPayload, ...] = ()
     context_snapshot: ContextSnapshotEvent | None = None
     subagent_snapshot: SubagentSnapshotEvent | None = None
+    background_subagent_snapshot: BackgroundSubagentSnapshotEvent | None = None
+
+
+@dataclass(frozen=True)
+class ControlRunResult:
+    events: tuple[FrontendEvent, ...] = ()
+    recovery_brief: str | None = None
+    task_snapshot: tuple[TaskItemPayload, ...] = ()
+    context_snapshot: ContextSnapshotEvent | None = None
+    subagent_snapshot: SubagentSnapshotEvent | None = None
+    background_subagent_snapshot: BackgroundSubagentSnapshotEvent | None = None
 
 
 EventEmitter = Callable[[FrontendEvent], None]
@@ -75,6 +99,10 @@ PromptRunner = Callable[
 PermissionResumeRunner = Callable[
     [dict[str, Any], list[dict[str, Any]], dict[str, Any], str, str, EventEmitter],
     PromptRunResult,
+]
+ControlRunner = Callable[
+    [FrontendInput, dict[str, Any], str, EventEmitter],
+    ControlRunResult,
 ]
 
 FRONTEND_HITL_ENTRYPOINT = "coding-deepgent-frontend"
@@ -102,11 +130,19 @@ def _task_snapshot_items(container: Any) -> tuple[TaskItemPayload, ...]:
     return tuple(task_snapshot_from_store(store).items)
 
 
+def _background_subagent_snapshot(runtime: object) -> BackgroundSubagentSnapshotEvent:
+    return background_subagent_snapshot_from_runtime(
+        runtime,
+        include_terminal=True,
+    )
+
+
 @dataclass
 class BridgeSession:
     settings: Settings
     prompt_runner: PromptRunner
     permission_resume_runner: PermissionResumeRunner | None = None
+    control_runner: ControlRunner | None = None
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     history: list[dict[str, Any]] = field(default_factory=list)
     session_state: dict[str, Any] = field(default_factory=default_runtime_state)
@@ -123,6 +159,14 @@ class BridgeSession:
         if request.type == "permission_decision":
             self._handle_permission_decision(request, emit)
             return False
+        if request.type in {
+            "refresh_snapshots",
+            "run_background_subagent",
+            "subagent_send_input",
+            "subagent_stop",
+        }:
+            self._handle_control(request, emit)
+            return False
         if request.type == "interrupt":
             emit(
                 RuntimeEventPayload(
@@ -138,14 +182,7 @@ class BridgeSession:
         return False
 
     def _handle_prompt(self, request: SubmitPromptInput, emit: EventEmitter) -> None:
-        if not self.started:
-            self.started = True
-            emit(
-                SessionStartedEvent(
-                    session_id=self.session_id,
-                    workdir=str(self.settings.workdir),
-                )
-            )
+        self._ensure_started(emit)
 
         user_id = f"user-{uuid.uuid4().hex[:12]}"
         assistant_id = f"assistant-{uuid.uuid4().hex[:12]}"
@@ -188,6 +225,27 @@ class BridgeSession:
         self.pending_assistant_message_id = None
         self.pending_permission_requests.clear()
         self._emit_completed_run(result, assistant_id=assistant_id, emit=emit)
+
+    def _handle_control(self, request: FrontendInput, emit: EventEmitter) -> None:
+        self._ensure_started(emit)
+        if self.control_runner is None:
+            emit(ProtocolErrorEvent(error="frontend control runner is not configured"))
+            return
+        try:
+            result = self.control_runner(
+                request,
+                self.session_state,
+                self.session_id,
+                emit,
+            )
+        except Exception as exc:
+            emit(
+                ProtocolErrorEvent(
+                    error=_bounded_error(exc),
+                )
+            )
+            return
+        self._emit_control_result(result, emit=emit)
 
     def _handle_permission_decision(self, request, emit: EventEmitter) -> None:
         pending = self.pending_permission_requests.get(request.request_id)
@@ -275,16 +333,49 @@ class BridgeSession:
     ) -> None:
         for event in runtime_events_to_frontend(result.runtime_events):
             emit(event)
+        self._emit_snapshot_result(result, emit=emit)
+        emit(AssistantMessageEvent(message_id=assistant_id, text=result.text))
+        if result.recovery_brief:
+            emit(RecoveryBriefEvent(text=result.recovery_brief))
+        emit(RunFinishedEvent(session_id=self.session_id))
+
+    def _emit_control_result(
+        self,
+        result: ControlRunResult,
+        *,
+        emit: EventEmitter,
+    ) -> None:
+        for event in result.events:
+            emit(event)
+        self._emit_snapshot_result(result, emit=emit)
+        if result.recovery_brief:
+            emit(RecoveryBriefEvent(text=result.recovery_brief))
+
+    def _emit_snapshot_result(
+        self,
+        result: PromptRunResult | ControlRunResult,
+        *,
+        emit: EventEmitter,
+    ) -> None:
         emit(todo_snapshot_from_state(self.session_state))
         emit(TaskSnapshotEvent(items=list(result.task_snapshot)))
         if result.context_snapshot is not None:
             emit(result.context_snapshot)
         if result.subagent_snapshot is not None:
             emit(result.subagent_snapshot)
-        emit(AssistantMessageEvent(message_id=assistant_id, text=result.text))
-        if result.recovery_brief:
-            emit(RecoveryBriefEvent(text=result.recovery_brief))
-        emit(RunFinishedEvent(session_id=self.session_id))
+        if result.background_subagent_snapshot is not None:
+            emit(result.background_subagent_snapshot)
+
+    def _ensure_started(self, emit: EventEmitter) -> None:
+        if self.started:
+            return
+        self.started = True
+        emit(
+            SessionStartedEvent(
+                session_id=self.session_id,
+                workdir=str(self.settings.workdir),
+            )
+        )
 
 
 @dataclass
@@ -354,6 +445,13 @@ class _DefaultFrontendBridgeRunner:
             task_snapshot=_task_snapshot_items(self.container),
             context_snapshot=context_snapshot,
             subagent_snapshot=subagent_snapshot,
+            background_subagent_snapshot=_background_subagent_snapshot(
+                _control_runtime(
+                    container=self.container,
+                    settings=self.settings,
+                    session_id=session_id,
+                )
+            ),
         )
 
     def resume_permission(
@@ -385,6 +483,64 @@ class _DefaultFrontendBridgeRunner:
 
     def _set_emitted_events(self, value: int) -> None:
         self.emitted_events = value
+
+    def control(
+        self,
+        request: FrontendInput,
+        session_state: dict[str, Any],
+        session_id: str,
+        emit: EventEmitter,
+    ) -> ControlRunResult:
+        del session_state, emit
+        runtime = _control_runtime(
+            container=self.container,
+            settings=self.settings,
+            session_id=session_id,
+        )
+        if isinstance(request, RefreshSnapshotsInput):
+            return _control_result_for_runtime(
+                self.container,
+                self.settings,
+                session_id=session_id,
+            )
+        if isinstance(request, RunBackgroundSubagentControlInput):
+            record = BACKGROUND_SUBAGENT_MANAGER.start_subagent(
+                task=request.task,
+                runtime=cast(Any, runtime),
+                agent_type=request.agent_type,
+                plan_id=request.plan_id,
+                max_turns=request.max_turns,
+            )
+            return _control_result_for_runtime(
+                self.container,
+                self.settings,
+                session_id=session_id,
+                message=f"Started background subagent {record.run_id}.",
+            )
+        if isinstance(request, SubagentSendInputControl):
+            record = BACKGROUND_SUBAGENT_MANAGER.send_input(
+                run_id=request.run_id,
+                message=request.message,
+                runtime=cast(Any, runtime),
+            )
+            return _control_result_for_runtime(
+                self.container,
+                self.settings,
+                session_id=session_id,
+                message=f"Queued follow-up input for {record.run_id}.",
+            )
+        if isinstance(request, SubagentStopInputControl):
+            record = BACKGROUND_SUBAGENT_MANAGER.stop(
+                run_id=request.run_id,
+                runtime=cast(Any, runtime),
+            )
+            return _control_result_for_runtime(
+                self.container,
+                self.settings,
+                session_id=session_id,
+                message=f"Updated {record.run_id} to {record.status}.",
+            )
+        raise RuntimeError(f"unsupported control input: {request.type}")
 
 
 @dataclass
@@ -534,6 +690,44 @@ class _FakeFrontendBridgeRunner:
                 session_memory_status="missing",
             ),
             subagent_snapshot=SubagentSnapshotEvent(total=0, items=[]),
+            background_subagent_snapshot=BackgroundSubagentSnapshotEvent(total=0, items=[]),
+        )
+
+    def control(
+        self,
+        request: FrontendInput,
+        session_state: dict[str, Any],
+        session_id: str,
+        emit: EventEmitter,
+    ) -> ControlRunResult:
+        del session_state, session_id, emit
+        if isinstance(request, RefreshSnapshotsInput):
+            message = "Refreshed frontend snapshots."
+        elif isinstance(request, RunBackgroundSubagentControlInput):
+            message = "Started fake background subagent."
+        elif isinstance(request, SubagentSendInputControl):
+            message = f"Queued fake follow-up for {request.run_id}."
+        elif isinstance(request, SubagentStopInputControl):
+            message = f"Stopped fake background run {request.run_id}."
+        else:
+            raise RuntimeError(f"unsupported control input: {request.type}")
+        return ControlRunResult(
+            events=(RuntimeEventPayload(kind="control", message=message),),
+            context_snapshot=ContextSnapshotEvent(
+                projection_mode="raw",
+                history_messages=0,
+                model_messages=0,
+                visible_messages=0,
+                hidden_messages=0,
+                compact_count=0,
+                collapse_count=0,
+                session_memory_status="missing",
+            ),
+            subagent_snapshot=SubagentSnapshotEvent(total=0, items=[]),
+            background_subagent_snapshot=BackgroundSubagentSnapshotEvent(
+                total=0,
+                items=[],
+            ),
         )
 
 
@@ -541,9 +735,9 @@ def build_default_bridge_runners(
     settings: Settings,
     *,
     hitl: bool = False,
-) -> tuple[PromptRunner, PermissionResumeRunner]:
+) -> tuple[PromptRunner, PermissionResumeRunner, ControlRunner]:
     runner = _DefaultFrontendBridgeRunner(settings=settings, hitl=hitl)
-    return runner.run_prompt, runner.resume_permission
+    return runner.run_prompt, runner.resume_permission, runner.control
 
 
 def build_default_prompt_runner(
@@ -554,9 +748,9 @@ def build_default_prompt_runner(
     return build_default_bridge_runners(settings, hitl=hitl)[0]
 
 
-def build_fake_bridge_runners() -> tuple[PromptRunner, PermissionResumeRunner]:
+def build_fake_bridge_runners() -> tuple[PromptRunner, PermissionResumeRunner, ControlRunner]:
     runner = _FakeFrontendBridgeRunner()
-    return runner.run_prompt, runner.resume_permission
+    return runner.run_prompt, runner.resume_permission, runner.control
 
 
 def build_fake_prompt_runner() -> PromptRunner:
@@ -730,6 +924,13 @@ def _stream_graph_run(
         task_snapshot=_task_snapshot_items(container),
         context_snapshot=context_snapshot,
         subagent_snapshot=subagent_snapshot,
+        background_subagent_snapshot=_background_subagent_snapshot(
+            _control_runtime(
+                container=container,
+                settings=settings,
+                session_id=session_id,
+            )
+        ),
     )
 
 
@@ -955,6 +1156,65 @@ def _event_sink_snapshot(event_sink: object) -> tuple[RuntimeEvent, ...]:
     if callable(snapshot):
         return tuple(snapshot())
     return ()
+
+
+def _control_runtime(
+    *,
+    container: Any,
+    settings: Settings,
+    session_id: str,
+) -> SimpleNamespace:
+    runtime_container = getattr(container, "runtime", None)
+    event_sink_provider = getattr(runtime_container, "event_sink", None)
+    hook_registry_provider = getattr(runtime_container, "hook_registry", None)
+    event_sink = event_sink_provider() if callable(event_sink_provider) else None
+    hook_registry = hook_registry_provider() if callable(hook_registry_provider) else None
+    session_context = recorded_session_store(settings).create_session(
+        workdir=settings.workdir,
+        session_id=session_id,
+        entrypoint=FRONTEND_HITL_ENTRYPOINT,
+    )
+    return SimpleNamespace(
+        store=runtime_container.store() if runtime_container is not None else None,
+        context=build_runtime_context(
+            settings,
+            cast(Any, event_sink),
+            cast(Any, hook_registry),
+            session_id=session_id,
+            entrypoint=FRONTEND_HITL_ENTRYPOINT,
+            session_context=session_context,
+        ),
+        config=build_runnable_config(session_id=session_id),
+    )
+
+
+def _control_result_for_runtime(
+    container: Any,
+    settings: Settings,
+    *,
+    session_id: str,
+    message: str | None = None,
+) -> ControlRunResult:
+    recovery_brief, context_snapshot, subagent_snapshot = _session_visibility(
+        settings,
+        session_id,
+    )
+    runtime = _control_runtime(
+        container=container,
+        settings=settings,
+        session_id=session_id,
+    )
+    events: tuple[FrontendEvent, ...] = ()
+    if message is not None:
+        events = (RuntimeEventPayload(kind="control", message=message),)
+    return ControlRunResult(
+        events=events,
+        recovery_brief=recovery_brief,
+        task_snapshot=_task_snapshot_items(container),
+        context_snapshot=context_snapshot,
+        subagent_snapshot=subagent_snapshot,
+        background_subagent_snapshot=_background_subagent_snapshot(runtime),
+    )
 
 
 def _recovery_brief(settings: Settings, session_id: str) -> str | None:

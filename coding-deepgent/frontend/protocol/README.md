@@ -12,6 +12,10 @@ to Python stdin.
 {"type":"submit_prompt","text":"implement the feature"}
 {"type":"permission_decision","request_id":"req-1","decision":"approve"}
 {"type":"permission_decision","request_id":"req-1","decision":"reject","message":"Use read-only mode."}
+{"type":"refresh_snapshots"}
+{"type":"run_background_subagent","task":"inspect repo","agent_type":"general","max_turns":5}
+{"type":"subagent_send_input","run_id":"bgrun-1","message":"continue with tests"}
+{"type":"subagent_stop","run_id":"bgrun-1"}
 {"type":"interrupt"}
 {"type":"exit"}
 ```
@@ -32,6 +36,7 @@ to Python stdin.
 {"type":"task_snapshot","items":[{"id":"task-1","content":"Ship inspect view","status":"in_progress"}]}
 {"type":"context_snapshot","projection_mode":"collapse","history_messages":8,"model_messages":5,"visible_messages":4,"hidden_messages":4,"compact_count":1,"collapse_count":1,"session_memory_status":"current","latest_event":"collapse"}
 {"type":"subagent_snapshot","total":1,"items":[{"created_at":"2026-04-20T00:00:00Z","agent_type":"general","role":"assistant","content":"Checked tests.","subagent_thread_id":"child-1"}]}
+{"type":"background_subagent_snapshot","total":1,"items":[{"run_id":"bgrun-1","status":"running","mode":"background_subagent","agent_type":"general","progress_summary":"Background subagent is running.","pending_inputs":1,"total_invocations":0}]}
 {"type":"runtime_event","kind":"query_error","message":"Query failed.","metadata":{}}
 {"type":"recovery_brief","text":"Session: ..."}
 {"type":"run_finished","session_id":"session-1","status":"completed"}
@@ -77,8 +82,11 @@ Current Web foundation:
 - `assistant_message` finalizes the assistant text for that `message_id`.
 - Tool events may interleave with assistant deltas.
 - Snapshot events such as `todo_snapshot`, `task_snapshot`,
-  `context_snapshot`, and `subagent_snapshot` describe the latest known runtime
+  `context_snapshot`, `subagent_snapshot`, and `background_subagent_snapshot`
+  describe the latest known runtime
   state for the completed turn; consumers should replace prior snapshot state.
+- Bridge control inputs are for the active frontend process only. They do not
+  imply a daemon or cross-process worker lifecycle.
 - `run_failed` may appear after partial deltas if execution fails mid-stream.
 - `run_finished` closes a prompt turn.
 - `protocol_error` describes malformed bridge input/output and does not imply the

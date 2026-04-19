@@ -1,5 +1,6 @@
 from .checkpointing import select_checkpointer, select_store
 from .context import RuntimeContext
+from .file_store import FileStore
 from .agent_factory import (
     RuntimeAgentBuildRequest,
     RuntimeAgentFactory,
@@ -26,6 +27,7 @@ from .roles import CURRENT_RUNTIME_ROLES, FUTURE_TEAM_RUNTIME_ROLES, RuntimeAgen
 __all__ = [
     "DEFAULT_SESSION_ID",
     "CURRENT_RUNTIME_ROLES",
+    "FileStore",
     "FUTURE_TEAM_RUNTIME_ROLES",
     "InMemoryEventSink",
     "NullEventSink",

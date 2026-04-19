@@ -193,6 +193,10 @@ Latest completed stages and what they changed:
   * `coding-deepgent sessions inspect` renders loaded-session metadata, recovery brief, selected raw/compact/collapse projection mode, compression timeline, model projection rows, raw transcript visibility, and current-session memory freshness
   * frontend protocol now includes `context_snapshot` and `subagent_snapshot` events so runtime projection and sidechain activity can reach renderer-neutral consumers without exposing raw JSONL records
   * React/Ink CLI now renders context, durable task, and subagent panels from reducer state in addition to todo, permission, message, and recovery surfaces
+* `2026-04-20 Circle 1 Wave 2 control surfaces pack`
+  * runtime store now has a local `file` backend, making task/plan/runtime-store state survive process boundaries inside one workspace
+  * `coding-deepgent tasks ...` and `coding-deepgent plans ...` now provide real user-facing control over the durable task/plan store
+  * frontend bridge now supports `refresh_snapshots`, `run_background_subagent`, `subagent_send_input`, and `subagent_stop` for the active TUI process, plus `background_subagent_snapshot` visibility
 
 ## Current Active Topology
 
@@ -234,10 +238,9 @@ Core domains:
 
 Next planned direction:
 
-* continue Circle 1 / Wave 2 with runtime-controlling CLI/TUI surfaces:
-  task/plan command UX, richer resume/history selection UX, subagent/fork
-  control affordances, and permission/recovery history visibility
-* use the completed Wave 1 checkpoint and first Wave 2 surfaces pack as the
+* continue Circle 1 / Wave 2 with richer resume/history selection UX and
+  permission/recovery history visibility
+* use the completed Wave 1 checkpoint and the two Wave 2 surface packs as the
   runtime/UI baseline
 
 Intent:

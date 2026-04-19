@@ -17,8 +17,11 @@ from coding_deepgent.memory.schemas import MemoryType
 from coding_deepgent.renderers.text import (
     render_config_table,
     render_doctor_table,
+    render_object_detail,
+    render_plan_table,
     render_session_inspect_view,
     render_session_table,
+    render_task_table,
 )
 from coding_deepgent.rendering import extract_text
 from coding_deepgent.settings import build_openai_model
@@ -33,9 +36,13 @@ app = typer.Typer(
 )
 config_app = typer.Typer(help="Inspect resolved configuration.")
 sessions_app = typer.Typer(help="Inspect or resume recorded sessions.")
+tasks_app = typer.Typer(help="Inspect and control durable task records.")
+plans_app = typer.Typer(help="Inspect and control durable plan artifacts.")
 memory_app = typer.Typer(help="Manage durable long-term memory backend and jobs.")
 app.add_typer(config_app, name="config")
 app.add_typer(sessions_app, name="sessions")
+app.add_typer(tasks_app, name="tasks")
+app.add_typer(plans_app, name="plans")
 app.add_typer(memory_app, name="memory")
 
 
@@ -130,6 +137,153 @@ def sessions_list() -> None:
         for session in runtime.list_sessions()
     ]
     typer.echo(render_session_table(sessions))
+
+
+@tasks_app.command("list")
+def tasks_list(
+    include_terminal: bool = typer.Option(
+        False,
+        "--all",
+        help="Include completed and cancelled tasks.",
+    ),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    records = [
+        record.model_dump()
+        for record in cli_service.task_records(
+            settings,
+            include_terminal=include_terminal,
+        )
+    ]
+    typer.echo(render_task_table(records))
+
+
+@tasks_app.command("get")
+def tasks_get(
+    task_id: str = typer.Argument(..., help="Durable task identifier."),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        record = cli_service.task_record(settings, task_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Task", record.model_dump()))
+
+
+@tasks_app.command("create")
+def tasks_create(
+    title: str = typer.Argument(..., help="Task title."),
+    description: str = typer.Option("", "--description"),
+    depends_on: list[str] | None = typer.Option(
+        None,
+        "--depends-on",
+        help="Repeat to add dependency task ids.",
+    ),
+    owner: str | None = typer.Option(None, "--owner"),
+    metadata: list[str] | None = typer.Option(
+        None,
+        "--metadata",
+        help="Repeat as key=value.",
+    ),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        record = cli_service.create_task_record(
+            settings,
+            title=title,
+            description=description,
+            depends_on=depends_on,
+            owner=owner,
+            metadata=_metadata_options(metadata),
+        )
+    except ValueError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Task", record.model_dump()))
+
+
+@tasks_app.command("update")
+def tasks_update(
+    task_id: str = typer.Argument(..., help="Durable task identifier."),
+    status: str | None = typer.Option(None, "--status"),
+    depends_on: list[str] | None = typer.Option(
+        None,
+        "--depends-on",
+        help="Repeat to replace dependencies.",
+    ),
+    owner: str | None = typer.Option(None, "--owner"),
+    metadata: list[str] | None = typer.Option(
+        None,
+        "--metadata",
+        help="Repeat as key=value.",
+    ),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        record = cli_service.update_task_record(
+            settings,
+            task_id=task_id,
+            status=status,
+            depends_on=depends_on,
+            owner=owner,
+            metadata=_metadata_options(metadata) if metadata is not None else None,
+        )
+    except (KeyError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Task", record.model_dump()))
+
+
+@plans_app.command("list")
+def plans_list() -> None:
+    settings = build_cli_runtime().settings_loader()
+    records = [record.model_dump() for record in cli_service.plan_records(settings)]
+    typer.echo(render_plan_table(records))
+
+
+@plans_app.command("get")
+def plans_get(
+    plan_id: str = typer.Argument(..., help="Durable plan identifier."),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        record = cli_service.plan_record(settings, plan_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Plan", record.model_dump()))
+
+
+@plans_app.command("save")
+def plans_save(
+    title: str = typer.Argument(..., help="Plan title."),
+    content: str = typer.Option(..., "--content", help="Plan content."),
+    verification: str = typer.Option(
+        ...,
+        "--verification",
+        help="Verification criteria.",
+    ),
+    task_ids: list[str] | None = typer.Option(
+        None,
+        "--task-id",
+        help="Repeat to associate durable tasks.",
+    ),
+    metadata: list[str] | None = typer.Option(
+        None,
+        "--metadata",
+        help="Repeat as key=value.",
+    ),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        record = cli_service.create_plan_record(
+            settings,
+            title=title,
+            content=content,
+            verification=verification,
+            task_ids=task_ids,
+            metadata=_metadata_options(metadata),
+        )
+    except ValueError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Plan", record.model_dump()))
 
 
 @sessions_app.command("inspect")
@@ -305,6 +459,20 @@ def _projection_mode(value: str) -> ProjectionMode:
     if value not in {"selected", "raw", "compact", "collapse"}:
         raise ValueError("projection must be one of: selected, raw, compact, collapse")
     return cast(ProjectionMode, value)
+
+
+def _metadata_options(values: list[str] | None) -> dict[str, str]:
+    if not values:
+        return {}
+    parsed: dict[str, str] = {}
+    for item in values:
+        key, separator, value = item.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if not separator or not key or not value:
+            raise ValueError("metadata entries must use key=value with non-empty values")
+        parsed[key] = value
+    return parsed
 
 
 @app.command("ui")

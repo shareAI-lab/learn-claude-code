@@ -5,9 +5,12 @@ from typing import Any, Literal, cast
 
 from coding_deepgent.runtime import RuntimeEvent
 from coding_deepgent.sessions import LoadedSession, build_session_inspect_view
+from coding_deepgent.subagents.background import BACKGROUND_SUBAGENT_MANAGER
 from coding_deepgent.tasks.store import TaskStore, list_tasks
 
 from .protocol import (
+    BackgroundSubagentItemPayload,
+    BackgroundSubagentSnapshotEvent,
     ContextSnapshotEvent,
     RuntimeEventPayload,
     SubagentItemPayload,
@@ -103,6 +106,37 @@ def subagent_snapshot_from_loaded(
                 subagent_thread_id=message.subagent_thread_id,
             )
             for message in messages
+        ],
+    )
+
+
+def background_subagent_snapshot_from_runtime(
+    runtime: object,
+    *,
+    include_terminal: bool = True,
+    limit: int = 8,
+) -> BackgroundSubagentSnapshotEvent:
+    try:
+        runs = BACKGROUND_SUBAGENT_MANAGER.list_runs(
+            runtime=cast(Any, runtime),
+            include_terminal=include_terminal,
+        )
+    except Exception:
+        return BackgroundSubagentSnapshotEvent(total=0, items=[])
+    selected = runs[-limit:] if limit > 0 else ()
+    return BackgroundSubagentSnapshotEvent(
+        total=len(runs),
+        items=[
+            BackgroundSubagentItemPayload(
+                run_id=run.run_id,
+                status=run.status,
+                mode=run.mode,
+                agent_type=run.agent_type,
+                progress_summary=run.progress_summary,
+                pending_inputs=len(run.pending_inputs),
+                total_invocations=run.total_invocations,
+            )
+            for run in selected
         ],
     )
 

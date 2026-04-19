@@ -33,6 +33,16 @@ export type SubagentItemPayload = {
   subagent_thread_id: string;
 };
 
+export type BackgroundSubagentItemPayload = {
+  run_id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  mode: 'background_subagent' | 'background_fork';
+  agent_type: string;
+  progress_summary: string;
+  pending_inputs: number;
+  total_invocations: number;
+};
+
 export type FrontendEvent =
   | { type: 'session_started'; session_id: string; workdir: string }
   | { type: 'user_message'; id: string; text: string }
@@ -47,6 +57,7 @@ export type FrontendEvent =
   | { type: 'task_snapshot'; items: TaskItemPayload[] }
   | ({ type: 'context_snapshot' } & ContextSnapshotPayload)
   | { type: 'subagent_snapshot'; total: number; items: SubagentItemPayload[] }
+  | { type: 'background_subagent_snapshot'; total: number; items: BackgroundSubagentItemPayload[] }
   | { type: 'runtime_event'; kind: string; message: string; metadata?: Record<string, unknown> }
   | { type: 'recovery_brief'; text: string }
   | { type: 'run_finished'; session_id: string; status: 'completed' | 'exited' }
@@ -56,6 +67,10 @@ export type FrontendEvent =
 export type FrontendInput =
   | { type: 'submit_prompt'; text: string }
   | { type: 'permission_decision'; request_id: string; decision: 'approve' | 'reject'; message?: string }
+  | { type: 'refresh_snapshots' }
+  | { type: 'run_background_subagent'; task: string; agent_type?: string; plan_id?: string; max_turns?: number }
+  | { type: 'subagent_send_input'; run_id: string; message: string }
+  | { type: 'subagent_stop'; run_id: string }
   | { type: 'interrupt' }
   | { type: 'exit' };
 
@@ -73,6 +88,7 @@ const EVENT_TYPES = new Set([
   'task_snapshot',
   'context_snapshot',
   'subagent_snapshot',
+  'background_subagent_snapshot',
   'runtime_event',
   'recovery_brief',
   'run_finished',

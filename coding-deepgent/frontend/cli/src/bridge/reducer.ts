@@ -1,4 +1,5 @@
 import type {
+  BackgroundSubagentItemPayload,
   ContextSnapshotPayload,
   FrontendEvent,
   SubagentItemPayload,
@@ -31,6 +32,7 @@ export type UiState = {
   tasks: TaskItemPayload[];
   contextSnapshot?: ContextSnapshotPayload;
   subagentSnapshot?: { total: number; items: SubagentItemPayload[] };
+  backgroundSubagentSnapshot?: { total: number; items: BackgroundSubagentItemPayload[] };
   pendingPermissions: PendingPermission[];
   recoveryBrief?: string;
   isRunning: boolean;
@@ -166,6 +168,11 @@ export function reduceFrontendEvent(state: UiState, event: UiAction): UiState {
         ...state,
         subagentSnapshot: { total: event.total, items: event.items }
       };
+    case 'background_subagent_snapshot':
+      return {
+        ...state,
+        backgroundSubagentSnapshot: { total: event.total, items: event.items }
+      };
     case 'runtime_event':
       return {
         ...state,
@@ -222,7 +229,7 @@ export function reduceFrontendEvent(state: UiState, event: UiAction): UiState {
             id: `help-${state.messages.length}`,
             kind: 'system',
             title: 'Help',
-            text: 'Commands: /help show this message, /clear clear visible messages, /exit quit.'
+            text: 'Commands: /help, /refresh, /subagent-run <task>, /subagent-send <run_id> <message>, /subagent-stop <run_id>, /clear, /exit.'
           }
         ],
         status: 'Help shown'

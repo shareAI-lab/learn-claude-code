@@ -15,7 +15,7 @@ export function StatusFooter({ state }: { state: UiState }): React.ReactNode {
         {status}
         {state.sessionId ? ` | session ${state.sessionId.slice(0, 8)}` : ''}
         {state.workdir ? ` | ${state.workdir}` : ''}
-        {' | /help /clear /exit'}
+        {' | /help /refresh /clear /exit'}
       </Text>
     </Box>
   );

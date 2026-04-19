@@ -8,6 +8,7 @@ from coding_deepgent.settings import Settings, load_settings
 
 from .producer import (
     BridgeSession,
+    ControlRunner,
     PermissionResumeRunner,
     PromptRunner,
     build_default_bridge_runners,
@@ -32,16 +33,18 @@ class FrontendClient:
         settings: Settings | None = None,
         prompt_runner: PromptRunner | None = None,
         permission_resume_runner: PermissionResumeRunner | None = None,
+        control_runner: ControlRunner | None = None,
         fake: bool = False,
     ) -> None:
         active_settings = settings or load_settings()
         runner = prompt_runner
         resume_runner = permission_resume_runner
-        if runner is None and resume_runner is None:
+        active_control_runner = control_runner
+        if runner is None and resume_runner is None and active_control_runner is None:
             if fake:
-                runner, resume_runner = build_fake_bridge_runners()
+                runner, resume_runner, active_control_runner = build_fake_bridge_runners()
             else:
-                runner, resume_runner = build_default_bridge_runners(
+                runner, resume_runner, active_control_runner = build_default_bridge_runners(
                     active_settings, hitl=True
                 )
         active_runner = runner or (
@@ -53,6 +56,7 @@ class FrontendClient:
             settings=active_settings,
             prompt_runner=active_runner,
             permission_resume_runner=resume_runner,
+            control_runner=active_control_runner,
         )
         self._lock = threading.Lock()
 

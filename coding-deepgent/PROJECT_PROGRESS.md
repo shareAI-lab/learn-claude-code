@@ -26,7 +26,7 @@ Canonical live status is now:
 
 - Approach A MVP closeout completed through `Stage 29`
 - `Circle 1 / Wave 1` runtime-core parity checkpoint is implemented
-- current implementation line: `Circle 1 / Wave 2` runtime-exposing CLI/TUI surfaces
+- current implementation line: `Circle 1 / Wave 2` runtime-exposing and runtime-controlling CLI/TUI surfaces
 - still deferred out of Circle 1: mailbox/coordinator/team-runtime, remote/IDE,
   daemon/cron, and full marketplace/install lifecycle
 

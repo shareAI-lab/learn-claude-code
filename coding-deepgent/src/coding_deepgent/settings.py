@@ -15,7 +15,7 @@ DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
 STATUS_FILE = PROJECT_ROOT / "project_status.json"
 
 CheckpointerBackend = Literal["none", "memory"]
-StoreBackend = Literal["none", "memory"]
+StoreBackend = Literal["none", "memory", "file"]
 OffloadBackend = Literal["none", "s3"]
 PermissionMode = Literal[
     "default", "plan", "acceptEdits", "bypassPermissions", "dontAsk"
@@ -51,13 +51,14 @@ class Settings(BaseSettings):
 
     workdir: Path = Field(default_factory=resolve_workdir)
     session_dir: Path = Field(default=Path(".coding-deepgent/sessions"))
+    store_path: Path = Field(default=Path(".coding-deepgent/store.json"))
     skill_dir: Path = Field(default=Path("skills"))
     plugin_dir: Path = Field(default=Path("plugins"))
     model_name: str = Field(default_factory=deepgent_model_name)
     openai_api_key: SecretStr | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_base_url: str | None = Field(default=None, alias="OPENAI_BASE_URL")
     checkpointer_backend: CheckpointerBackend = "none"
-    store_backend: StoreBackend = "none"
+    store_backend: StoreBackend = "file"
     postgres_url: str | None = Field(default=None, alias="POSTGRES_URL")
     redis_url: str | None = Field(default=None, alias="REDIS_URL")
     offload_backend: OffloadBackend = Field(default="none", alias="OFFLOAD_BACKEND")
@@ -123,6 +124,11 @@ class Settings(BaseSettings):
             self.skill_dir = (self.workdir / self.skill_dir).resolve()
         else:
             self.skill_dir = self.skill_dir.expanduser().resolve()
+
+        if not self.store_path.is_absolute():
+            self.store_path = (self.workdir / self.store_path).resolve()
+        else:
+            self.store_path = self.store_path.expanduser().resolve()
 
         if not self.plugin_dir.is_absolute():
             self.plugin_dir = (self.workdir / self.plugin_dir).resolve()

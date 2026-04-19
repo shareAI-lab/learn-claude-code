@@ -126,6 +126,8 @@ def test_help_lists_runtime_foundation_commands() -> None:
     assert result.exit_code == 0
     assert "run" in result.stdout
     assert "sessions" in result.stdout
+    assert "tasks" in result.stdout
+    assert "plans" in result.stdout
     assert "config" in result.stdout
     assert "doctor" in result.stdout
     assert "ui" in result.stdout
@@ -335,6 +337,126 @@ def test_sessions_inspect_renders_projection_visibility(
     assert "source=collapse_summary" in result.stdout
     assert "Raw Transcript Visibility" in result.stdout
     assert "msg-000000 role=user hidden" in result.stdout
+
+
+def test_tasks_list_renders_durable_task_table(monkeypatch) -> None:
+    monkeypatch.setattr(
+        cli_service,
+        "task_records",
+        lambda settings, include_terminal=False: [
+            cli_service.TaskRecord(
+                id="task-1",
+                title="Implement control surface",
+                status="pending",
+                owner="kun",
+                metadata={"ready": "true"},
+            )
+        ],
+    )
+
+    result = runner.invoke(cli.app, ["tasks", "list"])
+
+    assert result.exit_code == 0
+    assert "Tasks" in result.stdout
+    assert "task-1" in result.stdout
+    assert "Implement control surface" in result.stdout
+
+
+def test_tasks_create_parses_metadata(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_create_task_record(settings, **kwargs):
+        del settings
+        captured.update(kwargs)
+        return cli_service.TaskRecord(
+            id="task-1",
+            title=str(kwargs["title"]),
+            description=str(kwargs["description"]),
+            owner=kwargs["owner"],
+            metadata=kwargs["metadata"] or {},
+        )
+
+    monkeypatch.setattr(cli_service, "create_task_record", fake_create_task_record)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "tasks",
+            "create",
+            "Ship control surface",
+            "--description",
+            "Add CLI controls",
+            "--owner",
+            "kun",
+            "--metadata",
+            "type=workflow",
+            "--metadata",
+            "priority=high",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["metadata"] == {"type": "workflow", "priority": "high"}
+    assert "Ship control surface" in result.stdout
+    assert "Task" in result.stdout
+
+
+def test_plans_list_and_save_use_cli_service(monkeypatch) -> None:
+    monkeypatch.setattr(
+        cli_service,
+        "plan_records",
+        lambda settings: [
+            cli_service.PlanArtifact(
+                id="plan-1",
+                title="Ship plan",
+                content="Implement controls.",
+                verification="pytest -q coding-deepgent/tests",
+                task_ids=["task-1"],
+            )
+        ],
+    )
+
+    saved: dict[str, object] = {}
+
+    def fake_create_plan_record(settings, **kwargs):
+        del settings
+        saved.update(kwargs)
+        return cli_service.PlanArtifact(
+            id="plan-2",
+            title=str(kwargs["title"]),
+            content=str(kwargs["content"]),
+            verification=str(kwargs["verification"]),
+            task_ids=list(kwargs["task_ids"] or []),
+            metadata=kwargs["metadata"] or {},
+        )
+
+    monkeypatch.setattr(cli_service, "create_plan_record", fake_create_plan_record)
+
+    list_result = runner.invoke(cli.app, ["plans", "list"])
+    save_result = runner.invoke(
+        cli.app,
+        [
+            "plans",
+            "save",
+            "Control plan",
+            "--content",
+            "Implement CLI controls.",
+            "--verification",
+            "pytest -q coding-deepgent/tests/cli/test_cli.py",
+            "--task-id",
+            "task-1",
+            "--metadata",
+            "phase=wave2b",
+        ],
+    )
+
+    assert list_result.exit_code == 0
+    assert "Plans" in list_result.stdout
+    assert "plan-1" in list_result.stdout
+    assert save_result.exit_code == 0
+    assert saved["metadata"] == {"phase": "wave2b"}
+    assert saved["task_ids"] == ["task-1"]
+    assert "Control plan" in save_result.stdout
 
 
 def test_sessions_resume_uses_recovery_brief_continuation_history(

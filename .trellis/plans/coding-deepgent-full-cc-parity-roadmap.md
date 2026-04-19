@@ -230,6 +230,11 @@ Implemented checkpoint:
   * frontend protocol exposes `context_snapshot` and `subagent_snapshot`
   * React/Ink CLI renders context, task, and subagent panels from typed reducer
     state
+* `2026-04-20`: control surfaces pack
+  * local runtime store now has a `file` backend for process-surviving task/plan/background-run state in one workspace
+  * CLI now exposes durable `tasks/*` and `plans/*` control surfaces
+  * TUI bridge now exposes live background-subagent control for the active
+    frontend process
 
 #### Wave 3: Usable Local Extension Seams
 

@@ -23,6 +23,16 @@ describe('frontend protocol', () => {
     }
   });
 
+  it('encodes control inputs for background subagents', () => {
+    expect(
+      encodeFrontendInput({
+        type: 'run_background_subagent',
+        task: 'inspect repo',
+        agent_type: 'general'
+      })
+    ).toBe('{"type":"run_background_subagent","task":"inspect repo","agent_type":"general"}\n');
+  });
+
   it('rejects unknown frontend events', () => {
     expect(() => parseFrontendEvent('{"type":"unknown"}')).toThrow(/unknown frontend event type/);
   });

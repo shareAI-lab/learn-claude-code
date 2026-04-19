@@ -42,6 +42,40 @@ export function App({ bridge }: { bridge: BridgeClient }): React.ReactNode {
       dispatch({ type: 'ui_clear' });
       return;
     }
+    if (text === '/refresh') {
+      send({ type: 'refresh_snapshots' });
+      return;
+    }
+    if (text.startsWith('/subagent-run ')) {
+      send({ type: 'run_background_subagent', task: text.slice('/subagent-run '.length).trim() });
+      return;
+    }
+    if (text.startsWith('/subagent-send ')) {
+      const payload = text.slice('/subagent-send '.length).trim();
+      const [runId, ...rest] = payload.split(/\s+/);
+      const message = rest.join(' ').trim();
+      if (runId && message) {
+        send({ type: 'subagent_send_input', run_id: runId, message });
+        return;
+      }
+      dispatch({
+        type: 'protocol_error',
+        error: 'Usage: /subagent-send <run_id> <message>'
+      });
+      return;
+    }
+    if (text.startsWith('/subagent-stop ')) {
+      const runId = text.slice('/subagent-stop '.length).trim();
+      if (runId) {
+        send({ type: 'subagent_stop', run_id: runId });
+        return;
+      }
+      dispatch({
+        type: 'protocol_error',
+        error: 'Usage: /subagent-stop <run_id>'
+      });
+      return;
+    }
     send({ type: 'submit_prompt', text });
   };
 
@@ -52,7 +86,10 @@ export function App({ bridge }: { bridge: BridgeClient }): React.ReactNode {
       <ContextPanel snapshot={state.contextSnapshot} />
       <TodoPanel todos={state.todos} />
       <TaskPanel tasks={state.tasks} />
-      <SubagentPanel snapshot={state.subagentSnapshot} />
+      <SubagentPanel
+        backgroundSnapshot={state.backgroundSubagentSnapshot}
+        snapshot={state.subagentSnapshot}
+      />
       <PermissionPanel permissions={state.pendingPermissions} send={send} />
       <MessageList messages={state.messages} />
       <SpinnerLine active={state.isRunning} />

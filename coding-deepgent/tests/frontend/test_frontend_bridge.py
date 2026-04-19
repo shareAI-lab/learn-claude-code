@@ -18,6 +18,11 @@ from coding_deepgent.frontend.protocol import FrontendEvent
 from coding_deepgent.frontend.protocol import AssistantDeltaEvent, ToolFinishedEvent
 from coding_deepgent.runtime import RuntimeEvent
 from coding_deepgent.settings import Settings
+from coding_deepgent.frontend.protocol import (
+    BackgroundSubagentSnapshotEvent,
+    ContextSnapshotEvent,
+    SubagentSnapshotEvent,
+)
 
 
 def _settings(tmp_path: Path) -> Settings:
@@ -66,6 +71,18 @@ def test_jsonl_bridge_runs_prompt_and_emits_ordered_events(tmp_path: Path) -> No
                 ),
             ),
             recovery_brief="Recovery brief text.",
+            context_snapshot=ContextSnapshotEvent(
+                projection_mode="raw",
+                history_messages=2,
+                model_messages=2,
+                visible_messages=2,
+                hidden_messages=0,
+                compact_count=0,
+                collapse_count=0,
+                session_memory_status="missing",
+            ),
+            subagent_snapshot=SubagentSnapshotEvent(total=0, items=[]),
+            background_subagent_snapshot=BackgroundSubagentSnapshotEvent(total=0, items=[]),
         )
 
     run_jsonl_bridge(
@@ -82,6 +99,9 @@ def test_jsonl_bridge_runs_prompt_and_emits_ordered_events(tmp_path: Path) -> No
         "runtime_event",
         "todo_snapshot",
         "task_snapshot",
+        "context_snapshot",
+        "subagent_snapshot",
+        "background_subagent_snapshot",
         "assistant_message",
         "recovery_brief",
         "run_finished",
@@ -96,7 +116,10 @@ def test_jsonl_bridge_runs_prompt_and_emits_ordered_events(tmp_path: Path) -> No
         }
     ]
     assert events[4]["items"] == []
-    assert events[5]["text"].startswith("done for ")
+    assert events[5]["type"] == "context_snapshot"
+    assert events[6]["type"] == "subagent_snapshot"
+    assert events[7]["type"] == "background_subagent_snapshot"
+    assert events[8]["text"].startswith("done for ")
 
 
 def test_jsonl_bridge_reports_protocol_errors_and_continues(tmp_path: Path) -> None:
@@ -152,7 +175,21 @@ def test_jsonl_bridge_streams_runner_events_before_final_message(tmp_path: Path)
             )
         )
         session_state["todos"] = []
-        return PromptRunResult(text="hello")
+        return PromptRunResult(
+            text="hello",
+            context_snapshot=ContextSnapshotEvent(
+                projection_mode="raw",
+                history_messages=2,
+                model_messages=2,
+                visible_messages=2,
+                hidden_messages=0,
+                compact_count=0,
+                collapse_count=0,
+                session_memory_status="missing",
+            ),
+            subagent_snapshot=SubagentSnapshotEvent(total=0, items=[]),
+            background_subagent_snapshot=BackgroundSubagentSnapshotEvent(total=0, items=[]),
+        )
 
     run_jsonl_bridge(
         ['{"type":"submit_prompt","text":"stream"}\n'],
@@ -170,6 +207,9 @@ def test_jsonl_bridge_streams_runner_events_before_final_message(tmp_path: Path)
         "tool_finished",
         "todo_snapshot",
         "task_snapshot",
+        "context_snapshot",
+        "subagent_snapshot",
+        "background_subagent_snapshot",
         "assistant_message",
         "run_finished",
     ]
@@ -248,9 +288,40 @@ def test_fake_bridge_emits_runtime_visibility_snapshots(tmp_path: Path) -> None:
     events = _events(output)
     context = next(event for event in events if event["type"] == "context_snapshot")
     subagents = next(event for event in events if event["type"] == "subagent_snapshot")
+    background = next(event for event in events if event["type"] == "background_subagent_snapshot")
     assert context["projection_mode"] == "raw"
     assert context["session_memory_status"] == "missing"
     assert subagents == {"type": "subagent_snapshot", "total": 0, "items": []}
+    assert background == {"type": "background_subagent_snapshot", "total": 0, "items": []}
+
+
+def test_fake_bridge_handles_refresh_control_input(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    settings.workdir.mkdir()
+    output = StringIO()
+
+    from coding_deepgent.frontend.bridge import build_fake_bridge_runners
+
+    runner, resume_runner, control_runner = build_fake_bridge_runners()
+    run_jsonl_bridge(
+        ['{"type":"refresh_snapshots"}\n'],
+        output,
+        settings=settings,
+        prompt_runner=runner,
+        permission_resume_runner=resume_runner,
+        control_runner=control_runner,
+    )
+
+    events = _events(output)
+    assert [event["type"] for event in events] == [
+        "session_started",
+        "runtime_event",
+        "todo_snapshot",
+        "task_snapshot",
+        "context_snapshot",
+        "subagent_snapshot",
+        "background_subagent_snapshot",
+    ]
 
 
 def test_jsonl_bridge_resumes_after_permission_decision(tmp_path: Path) -> None:

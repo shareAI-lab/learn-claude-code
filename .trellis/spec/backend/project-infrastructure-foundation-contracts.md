@@ -229,9 +229,9 @@ Detailed tool contracts live in
   - same CLI session resume
   - process restart
   - workspace or machine migration
-- The current `StoreBackend` still supports `none` and `memory` for runtime
-  store seams such as task/plan state and local testing. It is no longer the
-  source of truth for durable long-term memory claims.
+- The current `StoreBackend` supports `none`, `memory`, and local `file` for
+  runtime store seams such as task/plan/background-run state and local testing.
+  It is still not the source of truth for durable long-term memory claims.
 
 ### 4. Project-Level Assessment
 

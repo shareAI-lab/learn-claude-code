@@ -47,6 +47,15 @@ def create_plan(
 ) -> PlanArtifact: ...
 
 def get_plan(store: TaskStore, plan_id: str) -> PlanArtifact: ...
+def list_plans(store: TaskStore) -> list[PlanArtifact]: ...
+
+coding-deepgent tasks list [--all]
+coding-deepgent tasks get TASK_ID
+coding-deepgent tasks create TITLE [--description TEXT] [--depends-on TASK_ID]... [--owner NAME] [--metadata KEY=VALUE]...
+coding-deepgent tasks update TASK_ID [--status STATUS] [--depends-on TASK_ID]... [--owner NAME] [--metadata KEY=VALUE]...
+coding-deepgent plans list
+coding-deepgent plans get PLAN_ID
+coding-deepgent plans save TITLE --content TEXT --verification TEXT [--task-id TASK_ID]... [--metadata KEY=VALUE]...
 
 def run_subagent(
     task: str,
@@ -203,9 +212,15 @@ def resume_fork_task(
 - `PlanArtifact.verification` is required and must be non-empty.
 - `PlanArtifact.task_ids` must reference existing durable tasks.
 - Plan artifacts use a separate store namespace from task records.
+- `list_plans()` must return deterministic id order.
 - `plan_save` and `plan_get` are main-surface tools, but they do not enter TodoWrite state.
 - `plan_get` is allowed for verifier subagents.
 - `plan_save` is forbidden for verifier subagents.
+- local CLI `tasks/*` and `plans/*` commands must operate on the same runtime
+  store namespaces as `task_*` / `plan_*` tools; they must not introduce a
+  second persistence path.
+- the default local `StoreBackend` may now be `file` for process-surviving task,
+  plan, memory-store, and background-run state in one workspace.
 - `run_subagent` and `run_fork` remain on the initial main tool surface.
 - `run_subagent` and `run_fork` must not grow mailbox, coordinator, worker,
   team, Scratchpad, or message-routing schema fields. Those behaviors require
@@ -258,6 +273,9 @@ def resume_fork_task(
 - `subagent_stop(...)` must request stop for queued or active background runs
   and persist terminal `cancelled` once the current invoke boundary is safe to
   stop.
+- without a daemon or mailbox, background run worker handles remain process-local.
+  User-facing start/send/stop controls for background subagents therefore belong
+  to the active frontend/bridge process, not standalone cross-process CLI commands.
 - Finished background workers must release in-memory worker handles after the
   terminal status is persisted.
 - Background run completion or failure must append one bounded

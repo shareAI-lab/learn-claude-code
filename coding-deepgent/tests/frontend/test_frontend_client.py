@@ -33,6 +33,7 @@ def test_frontend_client_stream_prompt_yields_fake_events(tmp_path: Path) -> Non
         "task_snapshot",
         "context_snapshot",
         "subagent_snapshot",
+        "background_subagent_snapshot",
         "assistant_message",
         "recovery_brief",
         "run_finished",

@@ -69,6 +69,93 @@ def render_doctor_table(checks: Sequence[Mapping[str, Any]]) -> str:
     return _render_table(table)
 
 
+def render_task_table(tasks: Sequence[Mapping[str, Any]]) -> str:
+    if not tasks:
+        return "No tasks recorded."
+    table = Table(title="Tasks", box=box.SIMPLE_HEAVY)
+    table.add_column("Task", style="cyan", no_wrap=True)
+    table.add_column("Status", no_wrap=True)
+    table.add_column("Ready", no_wrap=True)
+    table.add_column("Owner", no_wrap=True)
+    table.add_column("Depends On")
+    table.add_column("Title")
+    for task in tasks:
+        metadata = task.get("metadata", {})
+        ready = "-"
+        if isinstance(metadata, Mapping):
+            ready = str(metadata.get("ready", "-"))
+        depends_on = task.get("depends_on", [])
+        depends_text = ", ".join(str(item) for item in depends_on) if isinstance(depends_on, Sequence) and not isinstance(depends_on, str) else "-"
+        table.add_row(
+            str(task.get("id", "unknown")),
+            str(task.get("status", "-")),
+            ready,
+            str(task.get("owner", "-") or "-"),
+            depends_text or "-",
+            str(task.get("title", "")),
+        )
+    return _render_table(table)
+
+
+def render_plan_table(plans: Sequence[Mapping[str, Any]]) -> str:
+    if not plans:
+        return "No plans recorded."
+    table = Table(title="Plans", box=box.SIMPLE_HEAVY)
+    table.add_column("Plan", style="cyan", no_wrap=True)
+    table.add_column("Title")
+    table.add_column("Tasks")
+    table.add_column("Verification")
+    for plan in plans:
+        task_ids = plan.get("task_ids", [])
+        tasks_text = ", ".join(str(item) for item in task_ids) if isinstance(task_ids, Sequence) and not isinstance(task_ids, str) else "-"
+        table.add_row(
+            str(plan.get("id", "unknown")),
+            str(plan.get("title", "")),
+            tasks_text or "-",
+            _preview(plan.get("verification", "")),
+        )
+    return _render_table(table)
+
+
+def render_subagent_table(runs: Sequence[Mapping[str, Any]]) -> str:
+    if not runs:
+        return "No background subagent runs recorded."
+    table = Table(title="Subagents", box=box.SIMPLE_HEAVY)
+    table.add_column("Run", style="cyan", no_wrap=True)
+    table.add_column("Status", no_wrap=True)
+    table.add_column("Mode", no_wrap=True)
+    table.add_column("Agent", no_wrap=True)
+    table.add_column("Pending", justify="right", no_wrap=True)
+    table.add_column("Calls", justify="right", no_wrap=True)
+    table.add_column("Progress")
+    for run in runs:
+        pending_inputs = run.get("pending_inputs", [])
+        pending_count = (
+            len(pending_inputs)
+            if isinstance(pending_inputs, Sequence) and not isinstance(pending_inputs, str)
+            else 0
+        )
+        table.add_row(
+            str(run.get("run_id", "unknown")),
+            str(run.get("status", "-")),
+            str(run.get("mode", "-")),
+            str(run.get("agent_type", "-")),
+            str(pending_count),
+            str(run.get("total_invocations", 0)),
+            _preview(run.get("progress_summary", "")),
+        )
+    return _render_table(table)
+
+
+def render_object_detail(title: str, payload: Mapping[str, Any]) -> str:
+    table = Table(title=title, box=box.SIMPLE_HEAVY, show_header=False)
+    table.add_column("Key", style="cyan", no_wrap=True)
+    table.add_column("Value")
+    for key in sorted(payload):
+        table.add_row(str(key), _preview(payload[key], limit=500))
+    return _render_table(table)
+
+
 def render_session_inspect_view(
     view: SessionInspectView,
     *,

@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from coding_deepgent.frontend.protocol import (
     AssistantMessageEvent,
     ContextSnapshotEvent,
+    RunBackgroundSubagentControlInput,
     SubmitPromptInput,
     parse_frontend_event,
     parse_frontend_input,
@@ -38,6 +39,16 @@ def test_frontend_input_parses_submit_prompt() -> None:
 
     assert isinstance(parsed, SubmitPromptInput)
     assert parsed.text == "ship it"
+
+
+def test_frontend_input_parses_background_subagent_control() -> None:
+    parsed = parse_frontend_input(
+        '{"type":"run_background_subagent","task":"inspect repo","agent_type":"general","max_turns":5}'
+    )
+
+    assert isinstance(parsed, RunBackgroundSubagentControlInput)
+    assert parsed.task == "inspect repo"
+    assert parsed.max_turns == 5
 
 
 def test_frontend_context_snapshot_event_validates_payload() -> None:

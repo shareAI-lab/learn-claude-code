@@ -4,8 +4,11 @@ import importlib.util
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Sequence, cast
 
+from langchain.agents import create_agent
+
+from coding_deepgent import bootstrap
 from coding_deepgent.compact import (
     compact_metadata,
     compact_messages_with_summary,
@@ -13,6 +16,20 @@ from coding_deepgent.compact import (
 )
 from coding_deepgent.logging_config import safe_environment_snapshot
 from coding_deepgent.settings import Settings, load_settings
+from coding_deepgent.settings import build_openai_model as build_model
+from coding_deepgent.tasks import (
+    PlanArtifact,
+    TaskStatus,
+    TaskRecord,
+    create_plan,
+    create_task,
+    get_plan,
+    get_task,
+    list_plans,
+    list_tasks,
+    update_task,
+)
+from coding_deepgent.tasks.store import TaskStore
 from coding_deepgent.sessions import (
     LoadedSession,
     SessionLoadError,
@@ -92,6 +109,8 @@ def doctor_checks(settings: Settings) -> Sequence[DoctorCheck]:
         DoctorCheck("model_name", "resolved", settings.model_name),
         DoctorCheck("workdir", "ready", str(settings.workdir)),
         DoctorCheck("session_dir", "ready", str(default_session_dir(settings))),
+        DoctorCheck("store_backend", "resolved", settings.store_backend),
+        DoctorCheck("store_path", "ready", str(settings.store_path)),
         DoctorCheck("typer", dependency_status("typer"), "CLI command surface."),
         DoctorCheck("rich", dependency_status("rich"), "Terminal rendering dependency."),
         DoctorCheck(
@@ -119,6 +138,86 @@ def load_session(settings: Settings, session_id: str) -> LoadedSession:
         return load_recorded_session(settings, session_id)
     except SessionLoadError as exc:
         raise KeyError(str(exc)) from exc
+
+
+def task_records(
+    settings: Settings,
+    *,
+    include_terminal: bool = False,
+) -> list[TaskRecord]:
+    return list_tasks(
+        cast(TaskStore, _runtime_store(settings)),
+        include_terminal=include_terminal,
+    )
+
+
+def task_record(settings: Settings, task_id: str) -> TaskRecord:
+    return get_task(cast(TaskStore, _runtime_store(settings)), task_id)
+
+
+def create_task_record(
+    settings: Settings,
+    *,
+    title: str,
+    description: str = "",
+    depends_on: list[str] | None = None,
+    owner: str | None = None,
+    metadata: dict[str, str] | None = None,
+) -> TaskRecord:
+    return create_task(
+        cast(TaskStore, _runtime_store(settings)),
+        title=title,
+        description=description,
+        depends_on=depends_on,
+        owner=owner,
+        metadata=metadata,
+    )
+
+
+def update_task_record(
+    settings: Settings,
+    *,
+    task_id: str,
+    status: str | None = None,
+    depends_on: list[str] | None = None,
+    owner: str | None = None,
+    metadata: dict[str, str] | None = None,
+) -> TaskRecord:
+    return update_task(
+        cast(TaskStore, _runtime_store(settings)),
+        task_id=task_id,
+        status=cast(TaskStatus | None, status),
+        depends_on=depends_on,
+        owner=owner,
+        metadata=metadata,
+    )
+
+
+def plan_records(settings: Settings) -> list[PlanArtifact]:
+    return list_plans(cast(TaskStore, _runtime_store(settings)))
+
+
+def plan_record(settings: Settings, plan_id: str) -> PlanArtifact:
+    return get_plan(cast(TaskStore, _runtime_store(settings)), plan_id)
+
+
+def create_plan_record(
+    settings: Settings,
+    *,
+    title: str,
+    content: str,
+    verification: str,
+    task_ids: list[str] | None = None,
+    metadata: dict[str, str] | None = None,
+) -> PlanArtifact:
+    return create_plan(
+        cast(TaskStore, _runtime_store(settings)),
+        title=title,
+        content=content,
+        verification=verification,
+        task_ids=task_ids,
+        metadata=metadata,
+    )
 
 
 def run_once(
@@ -407,3 +506,21 @@ def build_cli_runtime(
         ),
         doctor_checks=lambda: doctor_checks(active_settings_loader()),
     )
+
+
+def _runtime_store(settings: Settings) -> object:
+    container = _build_container_for_settings(settings)
+    store = container.runtime.store()
+    if store is None:
+        raise RuntimeError("Runtime store is not configured")
+    return store
+
+
+def _build_container_for_settings(settings: Settings):
+    container = bootstrap.build_container(
+        settings_loader=lambda: settings,
+        model_factory=build_model,
+        create_agent_factory=create_agent,
+    )
+    bootstrap.validate_container_startup(container=container)
+    return container

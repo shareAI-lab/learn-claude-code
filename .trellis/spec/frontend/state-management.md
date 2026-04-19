@@ -11,6 +11,8 @@ Status: `Active` for `coding-deepgent/frontend/cli`
 - Runtime facts such as todo/task/context/subagent snapshots are replace-latest
   state. Components render the latest reduced snapshot and must not infer
   product truth by parsing message text.
+- Background subagent lifecycle is also replace-latest state:
+  `background_subagent_snapshot` replaces the prior run list in reducer state.
 
 ## Rules
 
@@ -23,6 +25,9 @@ Status: `Active` for `coding-deepgent/frontend/cli`
   but Python runtime facts must still arrive through `FrontendEvent`.
 - `ContextPanel`, `TaskPanel`, and `SubagentPanel` consume reducer state only;
   they must not load sessions or call Python directly.
+- Slash commands that trigger bridge control inputs may be parsed in the Ink app
+  layer, but they must still send typed `FrontendInput` payloads into the bridge
+  instead of mutating reducer state directly.
 
 ## Real Examples
 
