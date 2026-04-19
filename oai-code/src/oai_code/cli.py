@@ -18,6 +18,7 @@ from .config import load_config
 from .llm.client import LLMClient
 from .agent.system_prompt import build_system_prompt
 from .context import auto_compact
+from .session import SessionStore
 from .tools.registry import ToolRegistry
 from .tools.builtin import register_builtins
 from .tools.compact_tool import register_compact
@@ -50,6 +51,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--model", help="model id")
     p.add_argument("--base-url", help="override base_url")
     p.add_argument("--config", help="extra settings.json path")
+    p.add_argument("--resume", help="resume a session by id, or 'latest'")
+    p.add_argument("--list-sessions", action="store_true", help="list saved sessions and exit")
+    p.add_argument("--no-save", action="store_true", help="do not persist this session to disk")
     p.add_argument("--no-stream", action="store_true")
     p.add_argument("--serial", action="store_true", help="force serial tool execution")
     p.add_argument("--debug", action="store_true")
@@ -66,9 +70,17 @@ def _run_once(
     *,
     summarize_llm=None,
     pending_compact: dict | None = None,
+    session_store=None,
+    resumed_messages: list[dict] | None = None,
 ) -> int:
     state = AgentState()
-    if system_prompt:
+    if resumed_messages:
+        state.messages = list(resumed_messages)
+        for m in state.messages:
+            if m.get("role") == "system":
+                state.system = m.get("content", "")
+                break
+    elif system_prompt:
         state.system = system_prompt
         state.messages.insert(0, {"role": "system", "content": system_prompt})
     if pending_compact is not None:
@@ -95,7 +107,11 @@ def _run_once(
         )
     except Interrupted:
         print("\n[interrupted]", file=sys.stderr)
+        if session_store is not None:
+            session_store.append_new_messages(state.messages)
         return 130
+    if session_store is not None:
+        session_store.append_new_messages(state.messages)
     print()
     return 0
 
@@ -105,10 +121,27 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
 
+    overrides = _build_cli_overrides(args)
+    if args.no_save:
+        overrides.setdefault("session", {})["auto_save"] = False
     cfg = load_config(
-        cli_overrides=_build_cli_overrides(args),
+        cli_overrides=overrides,
         extra_config_path=args.config,
     )
+
+    # --list-sessions 不需要 model,提前处理
+    if args.list_sessions:
+        store = SessionStore(cfg)
+        ids = store.list_ids()
+        if not ids:
+            print("(no sessions)")
+            return 0
+        for sid in ids:
+            s = store.summary(sid)
+            first = s.get("first_user", "")
+            print(f"{sid}  msgs={s['messages']:>4}  {first}")
+        return 0
+
     if not cfg.model:
         print("oaic: model is required (set via --model or provider profile)", file=sys.stderr)
         return 2
@@ -151,15 +184,37 @@ def main(argv: list[str] | None = None) -> int:
 
     register_compact(registry, trigger_compact_fn=trigger_compact)
 
+    # Session 持久化
+    session_store = SessionStore(cfg)
+    resumed_messages: list[dict] | None = None
+    if args.resume:
+        target = args.resume
+        if target == "latest":
+            latest = session_store.latest_id()
+            if not latest:
+                print("oaic: no sessions to resume", file=sys.stderr)
+                return 2
+            target = latest
+        try:
+            resumed_messages = session_store.load(target)
+            print(f"[resumed session {target}: {len(resumed_messages)} messages]")
+        except FileNotFoundError as e:
+            print(f"oaic: {e}", file=sys.stderr)
+            return 2
+    else:
+        session_store.new_session()
+
     if args.prompt:
         return _run_once(
             cfg, llm, registry, args.prompt, system_prompt,
             summarize_llm=summarize_llm, pending_compact=pending_compact,
+            session_store=session_store, resumed_messages=resumed_messages,
         )
 
     repl = Repl(
         cfg, llm, registry, todo_mgr, task_store, system_prompt,
         summarize_llm=summarize_llm, pending_compact=pending_compact,
+        session_store=session_store, resumed_messages=resumed_messages,
     )
     try:
         repl.run()

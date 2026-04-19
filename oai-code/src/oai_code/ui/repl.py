@@ -31,6 +31,8 @@ class Repl:
         *,
         summarize_llm: LLMClient | None = None,
         pending_compact: dict | None = None,
+        session_store=None,
+        resumed_messages: list[dict] | None = None,
     ):
         self.cfg = cfg
         self.llm = llm
@@ -40,6 +42,8 @@ class Repl:
         self._system_prompt = system_prompt
         self._summarize_llm = summarize_llm
         self._pending_compact = pending_compact
+        self._session_store = session_store
+        self._resumed_messages = resumed_messages
         self.console = Console()
         self.state = self._new_state()
         if self._pending_compact is not None:
@@ -54,8 +58,17 @@ class Repl:
         self._in_text_block = False
 
     def _new_state(self) -> AgentState:
-        """新建带已算好 system prompt 的 AgentState。"""
+        """新建带已算好 system prompt 的 AgentState,若有 resumed_messages 则恢复。"""
         s = AgentState()
+        if self._resumed_messages:
+            s.messages = list(self._resumed_messages)
+            for m in s.messages:
+                if m.get("role") == "system":
+                    s.system = m.get("content", "")
+                    break
+            # 只在首次 new_state 时应用 resumed,后续 /clear 走空路径
+            self._resumed_messages = None
+            return s
         if self._system_prompt:
             s.system = self._system_prompt
             s.messages.append({"role": "system", "content": self._system_prompt})
@@ -142,6 +155,9 @@ class Repl:
                 if self._in_text_block:
                     self.console.print()
                     self._in_text_block = False
+                # 每轮后落盘
+                if self._session_store is not None:
+                    self._session_store.append_new_messages(self.state.messages)
 
     # ---------- Helpers ----------
 
@@ -166,6 +182,7 @@ class Repl:
                 "[bold]commands[/]: "
                 "/help  /clear  /compact  /tools  /todos  /tasks  "
                 "/models [model-id]  /provider <name>  "
+                "/sessions  /resume <id|latest>  "
                 "/quit"
             )
         elif head == "/clear":
@@ -196,6 +213,13 @@ class Repl:
                 self.console.print("[dim](task store not available)[/]")
             else:
                 self.console.print(self.task_store.list_all())
+        elif head == "/sessions":
+            self._list_sessions()
+        elif head == "/resume":
+            if not arg:
+                self.console.print("[red]usage: /resume <id|latest>[/]")
+            else:
+                self._do_resume(arg)
         elif head == "/models":
             if not arg:
                 self._list_models()
@@ -251,6 +275,48 @@ class Repl:
         self.console.print(
             f"[green]✓[/] provider → [cyan]{self.cfg.provider}[/] "
             f"model=[cyan]{self.cfg.model}[/]"
+        )
+
+    def _list_sessions(self) -> None:
+        if self._session_store is None:
+            self.console.print("[dim](session store not available)[/]")
+            return
+        ids = self._session_store.list_ids()
+        if not ids:
+            self.console.print("(no sessions)")
+            return
+        current = self._session_store.session_id
+        for sid in ids[:20]:
+            mark = "●" if sid == current else " "
+            s = self._session_store.summary(sid)
+            first = s.get("first_user", "") or "[empty]"
+            self.console.print(
+                f"  {mark} [cyan]{sid}[/]  msgs={s['messages']:>3}  [dim]{first}[/]"
+            )
+        if len(ids) > 20:
+            self.console.print(f"[dim]... {len(ids) - 20} more[/]")
+
+    def _do_resume(self, target: str) -> None:
+        if self._session_store is None:
+            self.console.print("[dim](session store not available)[/]")
+            return
+        if target == "latest":
+            latest = self._session_store.latest_id()
+            if not latest:
+                self.console.print("[red]no sessions to resume[/]")
+                return
+            target = latest
+        try:
+            msgs = self._session_store.load(target)
+        except FileNotFoundError as e:
+            self.console.print(f"[red]{e}[/]")
+            return
+        self._resumed_messages = msgs
+        self.state = self._new_state()
+        if self._pending_compact is not None:
+            self._pending_compact["state"] = self.state
+        self.console.print(
+            f"[green]✓[/] resumed [cyan]{target}[/]  [dim]({len(msgs)} messages)[/]"
         )
 
     def _list_models(self) -> None:
