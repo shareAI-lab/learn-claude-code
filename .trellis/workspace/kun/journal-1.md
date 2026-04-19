@@ -637,3 +637,47 @@ Committed the coding-deepgent runtime/frontend readiness snapshot, reorganized p
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: Minimal Web UI Over Frontend Gateway
+
+**Date**: 2026-04-19
+**Task**: Minimal Web UI Over Frontend Gateway
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Area | Description |
+|------|-------------|
+| Gateway | Added `coding-deepgent ui-gateway` SSE foundation and `/ui` route for a minimal browser shell |
+| Web UI | Added `coding-deepgent/frontend/web/index.html` to submit prompts, connect `EventSource`, and render user/assistant/tool/runtime/todo/recovery events |
+| Docs | Updated `coding-deepgent/README.md` and frontend/backend directory specs to reflect CLI/embedded/browser adapter layering |
+| Validation | `pytest -q tests/frontend/test_frontend_gateway.py tests/frontend/test_stream_bridge.py tests/frontend/test_frontend_runs.py tests/frontend/test_frontend_sse.py tests/frontend/test_frontend_client.py tests/frontend/test_frontend_protocol.py tests/frontend/test_frontend_bridge.py tests/frontend/test_frontend_event_mapping.py tests/structure/test_structure.py tests/cli/test_cli.py` (56 passed), `ruff check ...`, `mypy src/coding_deepgent/frontend`, and gateway/CLI help smoke all passed |
+
+**Outcome**:
+- Browser UI now consumes the SSE gateway instead of the CLI JSONL adapter.
+- CLI, embedded Python, and browser each have their own adapter over the shared producer/runtime foundation.
+- True runtime HITL remains explicitly deferred; the web shell only visualizes permission requests.
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `818fb6d` | (see git log) |
+| `31ea501` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
