@@ -35,6 +35,8 @@ class Repl:
         resumed_messages: list[dict] | None = None,
         background_manager=None,
         mcp_manager=None,
+        team_manager=None,
+        team_bus=None,
     ):
         self.cfg = cfg
         self.llm = llm
@@ -48,6 +50,8 @@ class Repl:
         self._resumed_messages = resumed_messages
         self._bg_manager = background_manager
         self._mcp_manager = mcp_manager
+        self._team_manager = team_manager
+        self._team_bus = team_bus
         self.console = Console()
         self.state = self._new_state()
         if self._pending_compact is not None:
@@ -189,7 +193,8 @@ class Repl:
             )
             self.console.print(
                 "[bold]inspect[/]:      "
-                "/tools  /todos  /tasks  /bg [id]  /mcp  /system  /history [N]  /debug"
+                "/tools  /todos  /tasks  /bg [id]  /mcp  /team  /inbox  "
+                "/system  /history [N]  /debug"
             )
             self.console.print(
                 "[bold]model[/]:        "
@@ -244,6 +249,24 @@ class Repl:
                 self.console.print("[dim](no mcp servers configured)[/]")
             else:
                 self.console.print(self._mcp_manager.summary())
+        elif head == "/team":
+            if self._team_manager is None:
+                self.console.print("[dim](team not enabled; set team.enabled=true)[/]")
+            else:
+                self.console.print(self._team_manager.render())
+        elif head == "/inbox":
+            if self._team_bus is None:
+                self.console.print("[dim](team not enabled)[/]")
+            else:
+                msgs = self._team_bus.read_inbox("lead")
+                if not msgs:
+                    self.console.print("(inbox empty)")
+                else:
+                    for m in msgs:
+                        self.console.print(
+                            f"[{m.get('type')}] from [cyan]{m.get('from')}[/]: "
+                            f"{m.get('content', '')[:300]}"
+                        )
         elif head == "/save":
             if self._session_store is None:
                 self.console.print("[dim](no session store)[/]")

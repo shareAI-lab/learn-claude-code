@@ -20,6 +20,8 @@ from .agent.system_prompt import build_system_prompt
 from .context import auto_compact
 from .mcp import MCPManager
 from .session import SessionStore
+from .team import MessageBus, TeammateManager
+from .team.tools import register_team_tools
 from .tools.registry import ToolRegistry
 from .tools.background import BackgroundManager, register_background
 from .tools.builtin import register_builtins
@@ -174,6 +176,21 @@ def main(argv: list[str] | None = None) -> int:
     bg_manager = BackgroundManager(cfg)
     register_background(registry, bg_manager)
 
+    # 多 Agent (M3): 仅在 team.enabled=true 时注册
+    team_bus: MessageBus | None = None
+    team_manager: TeammateManager | None = None
+    if cfg.team.enabled:
+        team_bus = MessageBus(cfg)
+        team_manager = TeammateManager(cfg=cfg)
+        register_team_tools(
+            registry,
+            cfg=subagent_cfg,
+            llm=subagent_llm,
+            bus=team_bus,
+            manager=team_manager,
+            parent_registry=registry,
+        )
+
     # MCP (stdio only for M2): 启动 enabled 的 server,把它们的 tools 加入 registry
     mcp_manager: MCPManager | None = None
     if cfg.mcp_servers:
@@ -232,6 +249,8 @@ def main(argv: list[str] | None = None) -> int:
         session_store=session_store, resumed_messages=resumed_messages,
         background_manager=bg_manager,
         mcp_manager=mcp_manager,
+        team_manager=team_manager,
+        team_bus=team_bus,
     )
     try:
         repl.run()
