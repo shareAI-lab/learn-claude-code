@@ -62,6 +62,7 @@ The stage-3 runtime-foundation CLI keeps the legacy `--prompt` path while adding
 - `coding-deepgent sessions resume <session-id> --prompt "..."` — continue a recorded session when a session provider is wired
 - `coding-deepgent doctor` — verify CLI/rendering/logging dependencies locally
 - `coding-deepgent ui` — start the React/Ink CLI frontend
+- `coding-deepgent-ui` — product shortcut for `coding-deepgent ui`
 - `coding-deepgent ui-bridge` — JSONL backend bridge for the React/Ink frontend
 - `coding-deepgent ui-gateway` — start the future-Web SSE gateway foundation; requires optional `web` dependencies (`pip install -e .[web]`)
 
@@ -86,16 +87,20 @@ Current minimal web shell:
 
 Development commands:
 
+- `coding-deepgent-ui --fake` — start the interactive CLI through the product shortcut with deterministic fake responses
+- `coding-deepgent-ui` — start the interactive CLI through the product shortcut
 - `coding-deepgent ui --fake` — start the interactive CLI against a deterministic fake bridge
 - `coding-deepgent ui` — start the interactive CLI against the Python runtime
+- `npm --prefix frontend/cli install` — install the React/Ink CLI package dependencies when first setting up the repo
 - `pip install -e .[web]` — install the optional FastAPI/Uvicorn gateway dependencies
 - `coding-deepgent ui-gateway --fake` — start the SSE gateway and browse to `http://127.0.0.1:2027/ui`
 - `npm --prefix frontend/cli run dev:fake` — start the interactive CLI against a deterministic fake bridge
 - `npm --prefix frontend/cli run dev` — start the interactive CLI against the Python runtime
 
 The frontend protocol supports live assistant deltas and permission request
-events. Real HITL tool gating requires a runtime pause/resume seam and should
-not be treated as complete only because the UI can display approval prompts.
+events. The CLI JSONL bridge now supports same-process LangGraph interrupt
+pause/resume for permission approval; the SSE gateway still needs a dedicated
+resume endpoint before it should claim full HITL approval support.
 
 Rich table renderers live in `coding_deepgent.renderers.text`, and local structured logging setup lives in `coding_deepgent.logging_config`.
 

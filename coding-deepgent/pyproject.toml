@@ -36,6 +36,7 @@ web = [
 
 [project.scripts]
 coding-deepgent = "coding_deepgent.cli:cli"
+coding-deepgent-ui = "coding_deepgent.cli:ui_cli"
 
 [tool.setuptools.package-dir]
 "" = "src"

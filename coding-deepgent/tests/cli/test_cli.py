@@ -160,6 +160,50 @@ def test_ui_command_runs_frontend_script(monkeypatch) -> None:
     assert str(captured["cwd"]).endswith("coding-deepgent/frontend/cli")
 
 
+def test_ui_console_script_entry_runs_ui_command(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run_frontend_ui(*, fake: bool) -> int:
+        captured["fake"] = fake
+        return 0
+
+    monkeypatch.setattr(cli, "_run_frontend_ui", fake_run_frontend_ui)
+
+    assert cli.ui_cli(["--fake"]) == 0
+    assert captured == {"fake": True}
+
+
+def test_ui_command_reports_missing_frontend_dependencies(monkeypatch, tmp_path: Path) -> None:
+    frontend_dir = tmp_path / "frontend" / "cli"
+    frontend_dir.mkdir(parents=True)
+    (frontend_dir / "package.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(cli, "_frontend_cli_dir", lambda: frontend_dir)
+
+    result = runner.invoke(cli.app, ["ui"])
+
+    assert result.exit_code != 0
+    assert "Frontend CLI dependencies are not installed" in result.stderr
+
+
+def test_ui_command_reports_missing_npm(monkeypatch, tmp_path: Path) -> None:
+    frontend_dir = tmp_path / "frontend" / "cli"
+    frontend_dir.mkdir(parents=True)
+    (frontend_dir / "package.json").write_text("{}", encoding="utf-8")
+    (frontend_dir / "node_modules").mkdir()
+    monkeypatch.setattr(cli, "_frontend_cli_dir", lambda: frontend_dir)
+
+    def fake_run(args, *, cwd):
+        del args, cwd
+        raise FileNotFoundError("npm")
+
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+
+    result = runner.invoke(cli.app, ["ui", "--fake"])
+
+    assert result.exit_code != 0
+    assert "npm is required" in result.stderr
+
+
 def test_ui_gateway_command_runs_uvicorn(monkeypatch) -> None:
     captured: dict[str, object] = {}
     fake_app = object()

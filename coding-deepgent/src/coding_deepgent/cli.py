@@ -257,12 +257,32 @@ def ui(
         help="Start the React/Ink CLI frontend with deterministic fake responses.",
     ),
 ) -> None:
-    frontend_dir = Path(__file__).resolve().parents[2] / "frontend" / "cli"
+    raise typer.Exit(_run_frontend_ui(fake=fake))
+
+
+def _frontend_cli_dir() -> Path:
+    return Path(__file__).resolve().parents[2] / "frontend" / "cli"
+
+
+def _run_frontend_ui(*, fake: bool = False) -> int:
+    frontend_dir = _frontend_cli_dir()
     if not frontend_dir.exists():
         raise ClickException(f"Frontend CLI package not found: {frontend_dir}")
+    if not (frontend_dir / "package.json").exists():
+        raise ClickException(f"Frontend CLI package.json not found: {frontend_dir}")
+    if not (frontend_dir / "node_modules").exists():
+        raise ClickException(
+            "Frontend CLI dependencies are not installed. "
+            "Run `npm --prefix frontend/cli install` from `coding-deepgent/`."
+        )
     script = "start:fake" if fake else "start"
-    result = subprocess.run(["npm", "run", script], cwd=frontend_dir)
-    raise typer.Exit(result.returncode)
+    try:
+        result = subprocess.run(["npm", "run", script], cwd=frontend_dir)
+    except FileNotFoundError as exc:
+        raise ClickException(
+            "npm is required to start the React/Ink CLI frontend."
+        ) from exc
+    return int(result.returncode)
 
 
 @app.command("ui-bridge")
@@ -419,6 +439,11 @@ def main(argv: list[str] | None = None) -> int:
 
 def cli(argv: list[str] | None = None) -> int:
     return main(sys.argv[1:] if argv is None else argv)
+
+
+def ui_cli(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    return main(["ui", *args])
 
 
 if __name__ == "__main__":  # pragma: no cover
