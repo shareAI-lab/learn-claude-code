@@ -1,0 +1,10 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": ".trellis/tasks/04-20-extract-coding-agent-repo/prd.md", "reason": "Confirmed migration plan and acceptance criteria"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Backend product root and domain ownership rules to rewrite for new repo"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Backend validation and source-root expectations"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Frontend path expectations after promoting product root"}
+{"file": ".trellis/spec/guides/mainline-scope-guide.md", "reason": "Rewrite mainline scope for extracted repo"}
+{"file": ".trellis/spec/guides/trellis-doc-map-guide.md", "reason": "Trellis document ownership for curated migration"}
+{"file": ".trellis/spec/guides/architecture-posture-guide.md", "reason": "Prefer clean extraction boundaries over old monorepo compatibility"}

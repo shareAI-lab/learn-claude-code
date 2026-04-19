@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/04-20-extract-coding-agent-repo/prd.md", "reason": "Migration requirements and verification notes"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Backend validation expectations"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Frontend validation expectations"}

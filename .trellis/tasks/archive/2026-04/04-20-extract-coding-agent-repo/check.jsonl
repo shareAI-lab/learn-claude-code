@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/04-20-extract-coding-agent-repo/prd.md", "reason": "Check migration against acceptance criteria"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Check backend path and ownership docs after extraction"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Check validation and forbidden runtime-state migration"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Check frontend docs and scripts after extraction"}
+{"file": ".trellis/spec/guides/mainline-scope-guide.md", "reason": "Check extracted repo no longer points at old tutorial root"}
+{"file": ".trellis/spec/guides/trellis-doc-map-guide.md", "reason": "Check Trellis layer ownership after migration"}
+{"file": ".trellis/spec/guides/architecture-posture-guide.md", "reason": "Check clean extraction boundary choices"}
