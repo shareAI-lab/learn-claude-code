@@ -137,6 +137,63 @@ def _run_write(cfg: Config, file_path: str, content: str) -> str:
 
 # ---------- Edit ----------
 
+def _run_multi_edit(
+    cfg: Config,
+    file_path: str,
+    edits: list[dict],
+) -> str:
+    """M4-4: 对单文件做多处 edit,原子性:全部成功才写盘。
+
+    edits 列表按顺序应用,前一次修改的结果作为后一次的输入。
+    任何一个 old_string 找不到 / 多次匹配且未开 replace_all → 整体回滚。
+    """
+    try:
+        path = safe_path(file_path, cfg)
+    except PathDeniedError as e:
+        return f"Error: {e}"
+    if not path.exists():
+        return f"Error: file not found: {file_path}"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+    if not isinstance(edits, list) or not edits:
+        return "Error: edits must be a non-empty list"
+
+    working = text
+    replaced_counts: list[int] = []
+    for i, ed in enumerate(edits):
+        if not isinstance(ed, dict):
+            return f"Error: edits[{i}] must be object"
+        old = ed.get("old_string")
+        new = ed.get("new_string")
+        if not isinstance(old, str) or not isinstance(new, str):
+            return f"Error: edits[{i}] missing old_string/new_string"
+        replace_all = bool(ed.get("replace_all", False))
+        cnt = working.count(old)
+        if cnt == 0:
+            return f"Error: edits[{i}] old_string not found"
+        if cnt > 1 and not replace_all:
+            return (
+                f"Error: edits[{i}] old_string matched {cnt} times; "
+                f"pass more context or set replace_all"
+            )
+        if replace_all:
+            working = working.replace(old, new)
+            replaced_counts.append(cnt)
+        else:
+            working = working.replace(old, new, 1)
+            replaced_counts.append(1)
+
+    try:
+        path.write_text(working, encoding="utf-8")
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+    total = sum(replaced_counts)
+    return f"MultiEdit applied {len(edits)} edits ({total} replacements) to {file_path}"
+
+
 def _run_edit(
     cfg: Config,
     file_path: str,
@@ -370,6 +427,41 @@ def register_builtins(registry: ToolRegistry) -> None:
                 kw["new_string"],
                 kw.get("replace_all", False),
             ),
+            path_fields=("file_path",),
+        )
+    )
+
+    registry.register(
+        Tool(
+            name="MultiEdit",
+            description=(
+                "Apply multiple Edit operations to a single file atomically. "
+                "All edits succeed or none are written. Each edit has the same "
+                "semantics as the Edit tool. Order matters: later edits see the "
+                "output of earlier ones."
+            ),
+            requires=["write"],
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string"},
+                    "edits": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "old_string": {"type": "string"},
+                                "new_string": {"type": "string"},
+                                "replace_all": {"type": "boolean", "default": False},
+                            },
+                            "required": ["old_string", "new_string"],
+                        },
+                    },
+                },
+                "required": ["file_path", "edits"],
+            },
+            handler=lambda **kw: _run_multi_edit(cfg, kw["file_path"], kw["edits"]),
             path_fields=("file_path",),
         )
     )
