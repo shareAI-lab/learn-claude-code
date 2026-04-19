@@ -962,3 +962,36 @@ Created the substrate-first Circle 2 expanded product parity plan with Wave 1 da
 ### Next Steps
 
 - None - task complete
+
+
+## Session 25: Complete Circle 2 local expanded parity baseline
+
+**Date**: 2026-04-20
+**Task**: Complete Circle 2 local expanded parity baseline
+
+### Summary
+
+Implemented the Circle 2 local expanded parity baseline with durable event_stream, worker_runtime, mailbox, teams, remote, extension_lifecycle, and continuity domains plus CLI surfaces and Circle 2 acceptance harness. Validated full Python and TS suites and archived the Circle 2 implementation task.
+
+### Main Changes
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bbe9eeb` | (see git log) |
+| `7cc5bfb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
