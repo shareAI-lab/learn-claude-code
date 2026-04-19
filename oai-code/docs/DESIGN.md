@@ -268,6 +268,14 @@ oai-code/
 **M3 — 可选**
 - 多 agent teammate（s09-s11）
 - Worktree 隔离（s12）
+- MCP sse + http 传输（补齐 stdio 之外的两种）
+- **退出时记忆总结**（显式触发）：
+  - 命令形式：`/quit --summary` 或 `/exit-summary` slash
+  - 总结目标：从当前 session 的 messages 里提炼"值得跨会话保留"的要点（决策、规范、用户偏好）
+  - 使用模型：`roles.summarize`（复用 auto-compact 的小模型）
+  - 写入位置：**追加**到 `.oaic/MEMORY.md`（不动用户手写的 `CLAUDE.md`）
+  - 条目格式：带时间戳的 Markdown 块，便于后期人工审核删除
+  - 默认行为：不主动触发，需用户显式指令
 - 发布到 PyPI（包名 `oai-code`、CLI `oaic`；发布前需检索 PyPI 占用，结论**待确认**）
 
 ---
