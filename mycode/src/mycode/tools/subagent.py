@@ -57,12 +57,14 @@ def _run_subagent(
 
     sub_registry = _filtered_registry(parent_registry, subagent_type)
 
-    sub_system_prefix = (
-        f"You are a subagent of mycode running task: {description or 'task'}.\n"
-        f"Subagent type: {subagent_type}. "
-        f"Do the work and return a concise text summary — your reply will be handed "
-        f"back to the main agent verbatim. Do not ask clarifying questions; make "
-        f"reasonable assumptions and report them."
+    from ..prompts import load_prompt
+
+    sub_system_prefix = load_prompt(
+        "subagent_system",
+        lang=cfg.prompt_lang,
+        workspace=cfg.workspace_root(),
+        description=description or "task",
+        subagent_type=subagent_type,
     )
     state = AgentState()
 

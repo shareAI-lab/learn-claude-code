@@ -95,14 +95,14 @@ def auto_compact(
 
     # 对 head 生成摘要
     if head:
+        from ..prompts import load_prompt
+
         head_text = json.dumps(head, default=str, ensure_ascii=False)[-40000:]
-        prompt = (
-            "Summarize the following conversation for continuity. Preserve:\n"
-            "- user intent & pending tasks\n"
-            "- files/paths already read or edited\n"
-            "- key findings and tool outputs\n"
-            "- any errors the assistant hit\n\n"
-            f"Conversation JSON:\n{head_text}"
+        prompt = load_prompt(
+            "auto_compact",
+            lang=cfg.prompt_lang,
+            workspace=cfg.workspace_root(),
+            conversation=head_text,
         )
         try:
             resp = summarize_llm.call(

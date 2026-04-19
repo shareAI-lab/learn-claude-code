@@ -14,20 +14,15 @@ from ..llm.client import LLMClient
 from .registry import Tool, ToolRegistry
 
 
-EXPERT_SYSTEM_PROMPT = (
-    "You are an expert model being consulted by another coding agent. "
-    "Answer the user's question thoroughly and precisely. "
-    "You do NOT have tools — produce your best answer from reasoning alone. "
-    "If the question is ambiguous, state your assumptions clearly."
-)
-
-
 def _run_ask_expert(
     *,
     expert_llm: LLMClient,
     question: str,
     context: str = "",
+    prompt_lang: str = "en",
 ) -> str:
+    from ..prompts import load_prompt
+
     q = (question or "").strip()
     if not q:
         return "Error: question is empty"
@@ -37,9 +32,10 @@ def _run_ask_expert(
         user_content = f"Context:\n{context.strip()}\n\nQuestion:\n{q}"
 
     try:
+        system_prompt = load_prompt("expert_system", lang=prompt_lang)
         resp = expert_llm.call(
             messages=[
-                {"role": "system", "content": EXPERT_SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
             ],
             tools=None,  # expert 不给工具
@@ -90,6 +86,7 @@ def register_ask_expert(
                 expert_llm=expert_llm,
                 question=kw["question"],
                 context=kw.get("context", ""),
+                prompt_lang=cfg.prompt_lang,
             ),
         )
     )

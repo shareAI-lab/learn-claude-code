@@ -19,26 +19,6 @@ from ..config.models import Config
 
 MEMORY_FILE_REL = ".mycode/MEMORY.md"
 
-SUMMARY_PROMPT = """\
-Extract "worth-remembering-across-sessions" points from the conversation below.
-
-Focus on:
-- user preferences or coding standards stated explicitly
-- architectural decisions, file naming conventions, project constraints
-- non-obvious gotchas encountered (root causes, not transient errors)
-- long-lived TODOs / promises made to the user
-
-Ignore:
-- specific error messages that were resolved and are unlikely to recur
-- casual chit-chat
-- one-off debugging steps
-
-Output plain Markdown bullet list (max ~15 items). If nothing is worth saving,
-output exactly: "(nothing new)".
-
-Conversation JSON follows:
-"""
-
 
 def _memory_path(cfg: Config) -> Path:
     p = cfg.workspace_root() / MEMORY_FILE_REL
@@ -56,10 +36,15 @@ def summarize_to_memory(
     if not non_system:
         return "(no conversation to summarize)"
 
+    from ..prompts import load_prompt
+
     convo_text = json.dumps(non_system, default=str, ensure_ascii=False)[-60000:]
+    prompt_prefix = load_prompt(
+        "summarize", lang=cfg.prompt_lang, workspace=cfg.workspace_root()
+    )
     try:
         resp = summarize_llm.call(
-            messages=[{"role": "user", "content": SUMMARY_PROMPT + convo_text}],
+            messages=[{"role": "user", "content": prompt_prefix + "\n\n" + convo_text}],
             tools=None,
         )
         extracted = (resp.content or "").strip()

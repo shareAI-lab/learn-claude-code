@@ -95,6 +95,9 @@ class Config(BaseModel):
     serial_only: bool = False
     tool_result_max_bytes: int = Field(default=51200, ge=1024)
 
+    # M6-3: 提示词模板语言,读取 prompts/{lang}/*.md
+    prompt_lang: Literal["en", "zh"] = "en"
+
     allowed_tools: list[str] | None = None
     denied_tools: list[str] = Field(default_factory=list)
     denied_paths: list[str] = Field(

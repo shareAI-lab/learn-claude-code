@@ -26,15 +26,16 @@ TEAMMATE_WHITELIST_READ = {"Read", "Grep", "Glob", "Bash"}
 TEAMMATE_WHITELIST_FULL = {"Read", "Grep", "Glob", "Bash", "Write", "Edit"}
 
 
-def _teammate_system_prompt(name: str, role: str, team_name: str, wd) -> str:
-    return (
-        f"You are '{name}', a teammate in team '{team_name}', role: {role}.\n"
-        f"Workspace: {wd}.\n"
-        "Communication:\n"
-        "- Messages from others arrive as <inbox> user messages each turn.\n"
-        "- Use SendMessage to reply; use Idle when you have no work.\n"
-        "- If you receive shutdown_request, finish your current step and stop.\n"
-        "Keep replies concise; prefer tool calls over narration."
+def _teammate_system_prompt(name: str, role: str, team_name: str, wd, lang: str = "en") -> str:
+    from ..prompts import load_prompt
+
+    return load_prompt(
+        "teammate_system",
+        lang=lang,
+        name=name,
+        role=role,
+        team_name=team_name,
+        workspace_path=str(wd),
     )
 
 
@@ -145,7 +146,7 @@ def start_teammate_loop(
     """
 
     sub_reg = _build_teammate_registry(parent_registry, bus, name, read_only, task_store)
-    system = _teammate_system_prompt(name, role, "default", cfg.workspace_root())
+    system = _teammate_system_prompt(name, role, "default", cfg.workspace_root(), cfg.prompt_lang)
 
     def _loop() -> None:
         state = AgentState()
