@@ -646,7 +646,7 @@ Committed the coding-deepgent runtime/frontend readiness snapshot, reorganized p
 
 ### Summary
 
-(Add summary)
+Added a minimal browser UI over `coding-deepgent ui-gateway`, wiring the new SSE gateway foundation into a static web shell that can submit prompts and render the shared frontend event stream.
 
 ### Main Changes
 
@@ -668,11 +668,14 @@ Committed the coding-deepgent runtime/frontend readiness snapshot, reorganized p
 | Hash | Message |
 |------|---------|
 | `818fb6d` | (see git log) |
-| `31ea501` | (see git log) |
+| `d90baab` | (see git log) |
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `pytest -q tests/frontend/test_frontend_gateway.py tests/frontend/test_stream_bridge.py tests/frontend/test_frontend_runs.py tests/frontend/test_frontend_sse.py tests/frontend/test_frontend_client.py tests/frontend/test_frontend_protocol.py tests/frontend/test_frontend_bridge.py tests/frontend/test_frontend_event_mapping.py tests/structure/test_structure.py tests/cli/test_cli.py`
+- [OK] `ruff check src/coding_deepgent/frontend src/coding_deepgent/cli.py tests/frontend/test_frontend_gateway.py tests/frontend/test_stream_bridge.py tests/frontend/test_frontend_runs.py tests/frontend/test_frontend_sse.py tests/frontend/test_frontend_client.py tests/structure/test_structure.py tests/cli/test_cli.py`
+- [OK] `mypy src/coding_deepgent/frontend`
+- [OK] `PYTHONPATH=src python3 -m coding_deepgent --help`
 
 ### Status
 
