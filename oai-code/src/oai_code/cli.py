@@ -27,6 +27,7 @@ from .tools.ask_user import non_interactive_ask, register_ask_user
 from .tools.background import BackgroundManager, register_background
 from .tools.builtin import register_builtins
 from .tools.compact_tool import register_compact
+from .tools.plan_mode import PlanModeState, register_plan_mode
 from .tools.skills import discover_skills, register_load_skill
 from .tools.subagent import register_task_tool
 from .tools.tasks import TaskStore, register_tasks
@@ -78,6 +79,7 @@ def _run_once(
     session_store=None,
     resumed_messages: list[dict] | None = None,
     background_manager=None,
+    plan_state=None,
 ) -> int:
     state = AgentState()
     if resumed_messages:
@@ -111,6 +113,7 @@ def _run_once(
             stream=cfg.ui.stream,
             summarize_llm=summarize_llm,
             background_manager=background_manager,
+            plan_state=plan_state,
         )
     except Interrupted:
         print("\n[interrupted]", file=sys.stderr)
@@ -226,6 +229,10 @@ def main(argv: list[str] | None = None) -> int:
 
     register_ask_user(registry, ask_fn=_dispatch_ask)
 
+    # Plan Mode: EnterPlanMode 设 flag, ExitPlanMode 通过 AskUserQuestion 要审批
+    plan_state = PlanModeState()
+    register_plan_mode(registry, state=plan_state, ask_fn=_dispatch_ask)
+
     # Session 持久化
     session_store = SessionStore(cfg)
     resumed_messages: list[dict] | None = None
@@ -252,6 +259,7 @@ def main(argv: list[str] | None = None) -> int:
             summarize_llm=summarize_llm, pending_compact=pending_compact,
             session_store=session_store, resumed_messages=resumed_messages,
             background_manager=bg_manager,
+            plan_state=plan_state,
         )
 
     repl = Repl(
@@ -263,6 +271,7 @@ def main(argv: list[str] | None = None) -> int:
         team_manager=team_manager,
         team_bus=team_bus,
         ask_holder=ask_holder,
+        plan_state=plan_state,
     )
     try:
         repl.run()

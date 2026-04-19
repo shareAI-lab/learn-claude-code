@@ -83,6 +83,7 @@ def run_turn(
     stream: bool = True,
     summarize_llm: LLMClient | None = None,
     background_manager=None,
+    plan_state=None,
     _system_override: str | None = None,
     _max_iterations: int | None = None,
 ) -> None:
@@ -149,7 +150,7 @@ def run_turn(
 
         # 执行工具
         try:
-            results = dispatch(tool_calls, registry, cfg)
+            results = dispatch(tool_calls, registry, cfg, plan_state=plan_state)
         except KeyboardInterrupt:
             # 工具执行中断: 为每个未完成 id 补 [interrupted] tool_result,
             # 保持 messages 合法

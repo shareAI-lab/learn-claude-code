@@ -97,13 +97,26 @@ def _build_groups(
 
 
 def _execute_one(
-    call: ToolCall, registry: ToolRegistry, max_bytes: int
+    call: ToolCall,
+    registry: ToolRegistry,
+    max_bytes: int,
+    plan_state=None,
 ) -> ToolResult:
     if not registry.is_allowed(call.name):
         return ToolResult(call.id, f"Error: tool '{call.name}' not allowed by policy")
     tool = registry.get(call.name)
     if not tool:
         return ToolResult(call.id, f"Error: unknown tool '{call.name}'")
+    # M4-5: Plan mode gate
+    if plan_state is not None and getattr(plan_state, "active", False):
+        from ..tools.plan_mode import is_tool_allowed_in_plan_mode
+
+        if not is_tool_allowed_in_plan_mode(call.name, tool.requires):
+            return ToolResult(
+                call.id,
+                f"Error: tool '{call.name}' blocked in plan mode (requires "
+                f"{tool.requires}). Call ExitPlanMode with a plan first.",
+            )
     try:
         out = tool.handler(**call.arguments)
     except TypeError as e:
@@ -119,8 +132,12 @@ def dispatch(
     calls: list[ToolCall],
     registry: ToolRegistry,
     cfg: Config,
+    plan_state=None,
 ) -> list[ToolResult]:
-    """主入口: 返回与 calls 同序的 ToolResult 列表。"""
+    """主入口: 返回与 calls 同序的 ToolResult 列表。
+
+    plan_state 非 None 且 active=True 时,写/执行/派发类工具被拒(M4-5)。
+    """
     if not calls:
         return []
 
@@ -131,7 +148,7 @@ def dispatch(
 
     def run_group(group: list[ToolCall]) -> list[ToolResult]:
         # 组内串行
-        return [_execute_one(c, registry, max_bytes) for c in group]
+        return [_execute_one(c, registry, max_bytes, plan_state) for c in group]
 
     if parallel <= 1:
         for g in groups:

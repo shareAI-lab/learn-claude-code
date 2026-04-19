@@ -38,6 +38,7 @@ class Repl:
         team_manager=None,
         team_bus=None,
         ask_holder=None,
+        plan_state=None,
     ):
         self.cfg = cfg
         self.llm = llm
@@ -55,6 +56,7 @@ class Repl:
         self._team_bus = team_bus
         if ask_holder is not None:
             ask_holder["fn"] = self._interactive_ask
+        self._plan_state = plan_state
         self.console = Console()
         self.state = self._new_state()
         if self._pending_compact is not None:
@@ -154,6 +156,7 @@ class Repl:
                     stream=self.cfg.ui.stream,
                     summarize_llm=self._summarize_llm,
                     background_manager=self._bg_manager,
+                    plan_state=self._plan_state,
                 )
             except Interrupted:
                 self.console.print("\n[yellow]⟂ interrupted[/]")
@@ -257,6 +260,12 @@ class Repl:
                 self.console.print("[dim](team not enabled; set team.enabled=true)[/]")
             else:
                 self.console.print(self._team_manager.render())
+        elif head == "/plan":
+            if self._plan_state is None:
+                self.console.print("[dim](plan mode not available)[/]")
+            else:
+                status = "[yellow]ON[/]" if self._plan_state.active else "[dim]off[/]"
+                self.console.print(f"plan mode: {status}")
         elif head == "/inbox":
             if self._team_bus is None:
                 self.console.print("[dim](team not enabled)[/]")
