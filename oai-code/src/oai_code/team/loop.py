@@ -131,6 +131,7 @@ def start_teammate_loop(
     bus: MessageBus,
     manager: TeammateManager,
     task_store: TaskStore | None = None,
+    summarize_llm: LLMClient | None = None,
     read_only: bool = False,
     max_work_iterations: int = 20,
     idle_poll_sec: float = 2.0,
@@ -140,6 +141,7 @@ def start_teammate_loop(
     """在独立线程里跑队友 agent loop。立即返回线程对象,不阻塞。
 
     autonomous=True 时,IDLE 阶段会自动扫描 .oaic/tasks/ 认领未阻塞任务。
+    summarize_llm 传入时,队友的 run_turn 也会在超阈值时做 auto-compact(M4-1)。
     """
 
     sub_reg = _build_teammate_registry(parent_registry, bus, name, read_only, task_store)
@@ -169,6 +171,7 @@ def start_teammate_loop(
                         registry=sub_reg,
                         callbacks=LoopCallbacks(),
                         stream=False,
+                        summarize_llm=summarize_llm,
                         _system_override=system,
                         _max_iterations=3,
                     )

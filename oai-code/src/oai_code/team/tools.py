@@ -25,6 +25,7 @@ def register_team_tools(
     parent_registry: ToolRegistry,
     tracker: ProtocolTracker | None = None,
     task_store=None,
+    summarize_llm: LLMClient | None = None,
 ) -> None:
     if tracker is None:
         tracker = ProtocolTracker()
@@ -46,6 +47,7 @@ def register_team_tools(
             bus=bus,
             manager=manager,
             task_store=task_store,
+            summarize_llm=summarize_llm,
             read_only=read_only,
         )
         manager.register_thread(name, t)
