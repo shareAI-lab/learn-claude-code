@@ -16,8 +16,10 @@ from . import __version__
 from .agent.loop import AgentState, Interrupted, LoopCallbacks, run_turn
 from .config import load_config
 from .llm.client import LLMClient
+from .agent.system_prompt import build_system_prompt
 from .tools.registry import ToolRegistry
 from .tools.builtin import register_builtins
+from .tools.skills import discover_skills, register_load_skill
 from .tools.subagent import register_task_tool
 from .tools.tasks import TaskStore, register_tasks
 from .tools.todo import TodoManager, register_todo
@@ -53,8 +55,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _run_once(cfg, llm, registry, prompt_text: str) -> int:
+def _run_once(cfg, llm, registry, prompt_text: str, system_prompt: str | None = None) -> int:
     state = AgentState()
+    if system_prompt:
+        state.system = system_prompt
+        state.messages.insert(0, {"role": "system", "content": system_prompt})
     import sys as _sys
 
     def on_text(delta: str) -> None:
@@ -102,11 +107,16 @@ def main(argv: list[str] | None = None) -> int:
     task_store = TaskStore(cfg)
     register_tasks(registry, task_store)
     register_task_tool(registry, cfg=cfg, llm=llm)
+    skills = discover_skills(cfg)
+    register_load_skill(registry, skills)
+
+    # 预先计算 system prompt,注入 skills 目录
+    system_prompt = build_system_prompt(cfg, skills=skills)
 
     if args.prompt:
-        return _run_once(cfg, llm, registry, args.prompt)
+        return _run_once(cfg, llm, registry, args.prompt, system_prompt)
 
-    repl = Repl(cfg, llm, registry, todo_mgr, task_store)
+    repl = Repl(cfg, llm, registry, todo_mgr, task_store, system_prompt)
     try:
         repl.run()
     except (KeyboardInterrupt, EOFError):

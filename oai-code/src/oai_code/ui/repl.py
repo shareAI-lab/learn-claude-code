@@ -27,14 +27,16 @@ class Repl:
         registry: ToolRegistry,
         todo_mgr=None,
         task_store=None,
+        system_prompt: str | None = None,
     ):
         self.cfg = cfg
         self.llm = llm
         self.registry = registry
         self.todo_mgr = todo_mgr
         self.task_store = task_store
+        self._system_prompt = system_prompt
         self.console = Console()
-        self.state = AgentState()
+        self.state = self._new_state()
 
         history_dir = cfg.workspace_root() / ".oaic"
         history_dir.mkdir(exist_ok=True)
@@ -43,6 +45,14 @@ class Repl:
         )
         self._last_interrupt_ts: float = 0.0
         self._in_text_block = False
+
+    def _new_state(self) -> AgentState:
+        """新建带已算好 system prompt 的 AgentState。"""
+        s = AgentState()
+        if self._system_prompt:
+            s.system = self._system_prompt
+            s.messages.append({"role": "system", "content": self._system_prompt})
+        return s
 
     # ---------- Callback 渲染 ----------
 
@@ -151,7 +161,7 @@ class Repl:
                 "/quit"
             )
         elif head == "/clear":
-            self.state = AgentState()
+            self.state = self._new_state()
             self.console.print("[dim]conversation cleared[/]")
         elif head == "/todos":
             if self.todo_mgr is None:

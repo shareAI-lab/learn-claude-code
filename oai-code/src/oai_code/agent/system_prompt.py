@@ -24,8 +24,13 @@ Guidelines:
 """
 
 
-def build_system_prompt(cfg: Config) -> str:
+def build_system_prompt(cfg: Config, skills=None) -> str:
     parts = [BASE_SYSTEM]
     parts.extend(load_all(cfg.memory_files, cwd=cfg.workspace_root()))
+    if skills is not None and skills.skills:
+        parts.append(
+            "<skills>\nYou can invoke LoadSkill(name=...) to load any of these:\n"
+            f"{skills.descriptions()}\n</skills>"
+        )
     parts.append(f'<workspace path="{cfg.workspace_root()}"/>')
     return "\n\n".join(parts)
