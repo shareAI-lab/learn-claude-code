@@ -13,6 +13,7 @@ from coding_deepgent.frontend.bridge import (
     _run_streaming_prompt,
     run_jsonl_bridge,
 )
+from coding_deepgent.frontend.producer import PendingPermissionRequest
 from coding_deepgent.frontend.protocol import FrontendEvent
 from coding_deepgent.frontend.protocol import AssistantDeltaEvent, ToolFinishedEvent
 from coding_deepgent.runtime import RuntimeEvent
@@ -225,6 +226,134 @@ def test_fake_bridge_can_surface_permission_request(tmp_path: Path) -> None:
     permission = next(event for event in events if event["type"] == "permission_requested")
     assert permission["tool"] == "fake_write"
     assert permission["options"] == ["approve", "reject"]
+
+
+def test_jsonl_bridge_resumes_after_permission_decision(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    settings.workdir.mkdir()
+    output = StringIO()
+
+    def runner(
+        prompt: str,
+        history: list[dict[str, Any]],
+        session_state: dict[str, Any],
+        session_id: str,
+        assistant_message_id: str,
+        emit,
+    ) -> PromptRunResult:
+        del prompt, history, session_state, session_id, assistant_message_id, emit
+        return PromptRunResult(
+            text="",
+            pending_permissions=(
+                PendingPermissionRequest(
+                    request_id="perm-1",
+                    tool="write_file",
+                    description="Approval required before running `write_file`",
+                ),
+            ),
+        )
+
+    def resume_runner(
+        decisions: dict[str, Any],
+        history: list[dict[str, Any]],
+        session_state: dict[str, Any],
+        session_id: str,
+        assistant_message_id: str,
+        emit,
+    ) -> PromptRunResult:
+        del session_id
+        assert decisions == {"perm-1": {"decision": "approve", "message": None}}
+        emit(AssistantDeltaEvent(message_id=assistant_message_id, text="done"))
+        history.append({"role": "assistant", "content": "done"})
+        session_state["todos"] = []
+        return PromptRunResult(text="done")
+
+    run_jsonl_bridge(
+        [
+            '{"type":"submit_prompt","text":"ship it"}\n',
+            '{"type":"permission_decision","request_id":"perm-1","decision":"approve"}\n',
+        ],
+        output,
+        settings=settings,
+        prompt_runner=runner,
+        permission_resume_runner=resume_runner,
+    )
+
+    events = _events(output)
+    assert [event["type"] for event in events] == [
+        "session_started",
+        "user_message",
+        "permission_requested",
+        "permission_resolved",
+        "assistant_delta",
+        "todo_snapshot",
+        "assistant_message",
+        "run_finished",
+    ]
+    assert events[2]["request_id"] == "perm-1"
+    assert events[5]["items"] == []
+
+
+def test_streaming_prompt_returns_pending_permission_requests(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    settings.workdir.mkdir()
+    emitted: list[FrontendEvent] = []
+    session_state: dict[str, Any] = {}
+    history: list[dict[str, Any]] = []
+
+    class FakeInterrupt:
+        def __init__(self, *, id: str, value: dict[str, Any]) -> None:
+            self.id = id
+            self.value = value
+
+    class FakeAgent:
+        def stream(self, payload, **kwargs):
+            del payload, kwargs
+            yield {
+                "type": "updates",
+                "data": {
+                    "__interrupt__": (
+                        FakeInterrupt(
+                            id="perm-1",
+                            value={
+                                "kind": "permission_request",
+                                "tool": "write_file",
+                                "description": "Approval required",
+                                "options": ["approve", "reject"],
+                            },
+                        ),
+                    )
+                },
+            }
+
+    result = _run_streaming_prompt(
+        settings=settings,
+        prompt="hello",
+        history=history,
+        session_state=session_state,
+        session_id="session-stream",
+        assistant_message_id="assistant-1",
+        emit=emitted.append,
+        container=SimpleNamespace(),
+        event_sink=SimpleNamespace(snapshot=lambda: ()),
+        emitted_events=lambda: 0,
+        set_emitted_events=lambda value: None,
+        build_agent=lambda container=None: FakeAgent(),
+        build_runtime_invocation=lambda **kwargs: SimpleNamespace(
+            context=SimpleNamespace(session_id="session-stream"),
+            config={"configurable": {"thread_id": "session-stream"}},
+        ),
+    )
+
+    assert result.text == ""
+    assert result.pending_permissions == (
+        PendingPermissionRequest(
+            request_id="perm-1",
+            tool="write_file",
+            description="Approval required",
+        ),
+    )
+    assert emitted == []
 
 
 def test_streaming_prompt_maps_langgraph_parts_to_frontend_events(tmp_path: Path) -> None:

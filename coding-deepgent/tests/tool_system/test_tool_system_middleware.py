@@ -70,6 +70,7 @@ def request(
     sink: InMemoryEventSink | None = None,
     *,
     store: object | None = None,
+    entrypoint: str = "test",
 ):
     hook_registry = LocalHookRegistry()
     runtime = SimpleNamespace(
@@ -77,7 +78,7 @@ def request(
             session_id="session-1",
             workdir=Path.cwd(),
             trusted_workdirs=(),
-            entrypoint="test",
+            entrypoint=entrypoint,
             agent_name="test-agent",
             skill_dir=Path.cwd() / "skills",
             event_sink=sink or InMemoryEventSink(),
@@ -193,6 +194,68 @@ def test_tool_guard_blocks_ask_decisions_without_calling_handler() -> None:
     events = sink.snapshot()
     assert [event.kind for event in events] == ["permission_ask"]
     assert events[0].metadata["policy_code"] == "permission_required"
+
+
+def test_tool_guard_hitl_approve_resumes_and_calls_handler(monkeypatch) -> None:
+    registry = canonical_registry()
+    policy = ToolPolicy(
+        registry=registry,
+        permission_manager=PermissionManager(mode="default", workdir=Path.cwd()),
+    )
+    sink = InMemoryEventSink()
+    middleware = ToolGuardMiddleware(registry=registry, policy=policy, event_sink=sink)
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        "coding_deepgent.tool_system.middleware.interrupt",
+        lambda payload: {"decision": "approve", "payload": payload},
+    )
+
+    result = middleware.wrap_tool_call(
+        request(
+            "write_file",
+            {"path": "README.md", "content": "x"},
+            sink,
+            entrypoint="coding-deepgent-frontend",
+        ),
+        lambda _request: calls.append("called")
+        or ToolMessage(content="ok", tool_call_id="call-1"),
+    )
+
+    assert isinstance(result, ToolMessage)
+    assert result.content == "ok"
+    assert calls == ["called"]
+    assert [event.kind for event in sink.snapshot()] == ["allowed", "completed"]
+
+
+def test_tool_guard_hitl_reject_returns_bounded_error(monkeypatch) -> None:
+    registry = canonical_registry()
+    policy = ToolPolicy(
+        registry=registry,
+        permission_manager=PermissionManager(mode="default", workdir=Path.cwd()),
+    )
+    sink = InMemoryEventSink()
+    middleware = ToolGuardMiddleware(registry=registry, policy=policy, event_sink=sink)
+
+    monkeypatch.setattr(
+        "coding_deepgent.tool_system.middleware.interrupt",
+        lambda payload: {"decision": "reject", "message": "No writes today", "payload": payload},
+    )
+
+    result = middleware.wrap_tool_call(
+        request(
+            "write_file",
+            {"path": "README.md", "content": "x"},
+            sink,
+            entrypoint="coding-deepgent-frontend",
+        ),
+        lambda _request: ToolMessage(content="should not run", tool_call_id="call-1"),
+    )
+
+    assert isinstance(result, ToolMessage)
+    assert result.status == "error"
+    assert str(result.content) == "No writes today"
+    assert [event.kind for event in sink.snapshot()] == ["permission_denied"]
 
 
 def test_tool_guard_blocks_git_commit_when_feedback_requires_lint_first() -> None:

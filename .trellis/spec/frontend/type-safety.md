@@ -17,6 +17,9 @@ Status: `Active` for `coding-deepgent/frontend/cli`
 - Optional props should explicitly include `undefined` when passed through from state.
 - Streaming payloads must use the same `message_id` across `assistant_delta`
   and the final `assistant_message`.
+- HITL payloads must preserve `permission_requested.request_id` end-to-end:
+  for LangGraph interrupt-backed frontend flows, this id is the interrupt id and
+  `permission_decision.request_id` must echo it unchanged on resume.
 
 ## Real Examples
 
@@ -29,3 +32,4 @@ Status: `Active` for `coding-deepgent/frontend/cli`
 - `any` payloads crossing the bridge without validation
 - adding event types only on one side of the Python/TS boundary
 - permissive alias/fallback parsing for protocol fields
+- rewriting or regenerating interrupt-backed `request_id` values in the UI layer

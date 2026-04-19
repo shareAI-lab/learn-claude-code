@@ -6,7 +6,7 @@ from typing import Any
 from langchain.agents.middleware import AgentMiddleware
 from langchain.messages import ToolMessage
 from langchain.tools.tool_node import ToolCallRequest
-from langgraph.types import Command
+from langgraph.types import Command, interrupt
 
 from coding_deepgent.compact.tool_results import maybe_persist_large_tool_result
 from coding_deepgent.hooks.dispatcher import dispatch_context_hook
@@ -86,6 +86,20 @@ class ToolGuardMiddleware(AgentMiddleware):
         tool_call_id = request.tool_call.get("id")
 
         if not decision.allowed:
+            if (
+                decision.code == ToolPolicyCode.PERMISSION_REQUIRED
+                and _frontend_hitl_enabled(request.runtime)
+            ):
+                resolution = interrupt(
+                    _permission_interrupt_payload(request=request, decision=decision)
+                )
+                return self._handle_permission_interrupt_resolution(
+                    request=request,
+                    decision=decision,
+                    tool_call_id=str(tool_call_id or ""),
+                    resolution=resolution,
+                    handler=handler,
+                )
             phase = (
                 "permission_ask"
                 if decision.code == ToolPolicyCode.PERMISSION_REQUIRED
@@ -107,6 +121,21 @@ class ToolGuardMiddleware(AgentMiddleware):
                 status="error",
             )
 
+        return self._execute_allowed_tool_call(
+            request=request,
+            decision=decision,
+            tool_call_id=str(tool_call_id or ""),
+            handler=handler,
+        )
+
+    def _execute_allowed_tool_call(
+        self,
+        *,
+        request: ToolCallRequest,
+        decision: ToolPolicyDecision,
+        tool_call_id: str,
+        handler: Callable[[ToolCallRequest], ToolMessage | Command[Any]],
+    ) -> ToolMessage | Command[Any]:
         hook_outcome = self._dispatch_hook(
             request=request,
             event="PreToolUse",
@@ -118,7 +147,7 @@ class ToolGuardMiddleware(AgentMiddleware):
         if hook_outcome is not None and hook_outcome.blocked:
             return ToolMessage(
                 content=hook_outcome.reason or "PreToolUse hook blocked execution.",
-                tool_call_id=str(tool_call_id or ""),
+                tool_call_id=tool_call_id,
                 status="error",
             )
 
@@ -155,6 +184,49 @@ class ToolGuardMiddleware(AgentMiddleware):
             },
         )
         return result
+
+    def _handle_permission_interrupt_resolution(
+        self,
+        *,
+        request: ToolCallRequest,
+        decision: ToolPolicyDecision,
+        tool_call_id: str,
+        resolution: Any,
+        handler: Callable[[ToolCallRequest], ToolMessage | Command[Any]],
+    ) -> ToolMessage | Command[Any]:
+        approve, message = _normalize_permission_resolution(
+            resolution,
+            tool_name=str(request.tool_call["name"]),
+        )
+        if approve:
+            return self._execute_allowed_tool_call(
+                request=request,
+                decision=decision,
+                tool_call_id=tool_call_id,
+                handler=handler,
+            )
+
+        rejected = ToolMessage(
+            content=message or f"User rejected `{request.tool_call['name']}`",
+            tool_call_id=tool_call_id,
+            status="error",
+        )
+        self._emit(
+            request=request,
+            phase="permission_denied",
+            decision=decision,
+            result=rejected,
+        )
+        self._dispatch_hook(
+            request=request,
+            event="PermissionDenied",
+            data={
+                "tool": str(request.tool_call["name"]),
+                "policy_code": decision.code.value,
+                "message": str(rejected.content),
+            },
+        )
+        return rejected
 
     def _emit(
         self,
@@ -272,3 +344,50 @@ def _bounded_tool_failure_message(error: Exception) -> str:
         detail = detail[:240]
         return f"Error: {type(error).__name__}: {detail}"
     return f"Error: {type(error).__name__}"
+
+
+def _frontend_hitl_enabled(runtime: object) -> bool:
+    context = getattr(runtime, "context", None)
+    entrypoint = getattr(context, "entrypoint", "")
+    return isinstance(entrypoint, str) and entrypoint.startswith(
+        "coding-deepgent-frontend"
+    )
+
+
+def _permission_interrupt_payload(
+    *,
+    request: ToolCallRequest,
+    decision: ToolPolicyDecision,
+) -> dict[str, object]:
+    return {
+        "kind": "permission_request",
+        "tool": str(request.tool_call["name"]),
+        "description": decision.message,
+        "options": ["approve", "reject"],
+    }
+
+
+def _normalize_permission_resolution(
+    resolution: Any,
+    *,
+    tool_name: str,
+) -> tuple[bool, str | None]:
+    if isinstance(resolution, bool):
+        return resolution, None
+    if isinstance(resolution, str):
+        normalized = resolution.strip().lower()
+        if normalized in {"approve", "approved", "allow", "allowed", "true"}:
+            return True, None
+        if normalized in {"reject", "rejected", "deny", "denied", "false"}:
+            return False, f"User rejected `{tool_name}`"
+    if isinstance(resolution, dict):
+        decision = str(
+            resolution.get("decision", resolution.get("type", "reject"))
+        ).strip().lower()
+        message = resolution.get("message")
+        normalized_message = message if isinstance(message, str) and message else None
+        if decision == "approve":
+            return True, normalized_message
+        if decision == "reject":
+            return False, normalized_message or f"User rejected `{tool_name}`"
+    raise ValueError(f"Unsupported permission resolution payload for `{tool_name}`")

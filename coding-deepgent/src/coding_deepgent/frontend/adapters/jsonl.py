@@ -8,9 +8,11 @@ from coding_deepgent.settings import Settings, load_settings
 
 from coding_deepgent.frontend.producer import (
     BridgeSession,
+    PermissionResumeRunner,
     PromptRunner,
+    build_default_bridge_runners,
     build_default_prompt_runner,
-    build_fake_prompt_runner,
+    build_fake_bridge_runners,
 )
 from coding_deepgent.frontend.protocol import (
     FrontendEvent,
@@ -26,11 +28,20 @@ def run_jsonl_bridge(
     *,
     settings: Settings | None = None,
     prompt_runner: PromptRunner | None = None,
+    permission_resume_runner: PermissionResumeRunner | None = None,
 ) -> None:
     active_settings = settings or load_settings()
+    active_prompt_runner = prompt_runner
+    active_permission_resume_runner = permission_resume_runner
+    if active_prompt_runner is None and active_permission_resume_runner is None:
+        (
+            active_prompt_runner,
+            active_permission_resume_runner,
+        ) = build_default_bridge_runners(active_settings, hitl=True)
     session = BridgeSession(
         settings=active_settings,
-        prompt_runner=prompt_runner or build_default_prompt_runner(active_settings),
+        prompt_runner=active_prompt_runner or build_default_prompt_runner(active_settings),
+        permission_resume_runner=active_permission_resume_runner,
     )
     for line in input_stream:
         if not line.strip():
@@ -46,11 +57,24 @@ def run_jsonl_bridge(
 
 
 def run_stdio_bridge(*, fake: bool = False) -> None:
-    runner = build_fake_prompt_runner() if fake else None
-    run_jsonl_bridge(sys.stdin, sys.stdout, prompt_runner=runner)
+    if fake:
+        runner, resume_runner = build_fake_bridge_runners()
+        run_jsonl_bridge(
+            sys.stdin,
+            sys.stdout,
+            prompt_runner=runner,
+            permission_resume_runner=resume_runner,
+        )
+        return
+    runner, resume_runner = build_default_bridge_runners(load_settings(), hitl=True)
+    run_jsonl_bridge(
+        sys.stdin,
+        sys.stdout,
+        prompt_runner=runner,
+        permission_resume_runner=resume_runner,
+    )
 
 
 def _emit(output_stream: TextIO, event: FrontendEvent) -> None:
     output_stream.write(serialize_frontend_event(event) + "\n")
     output_stream.flush()
-

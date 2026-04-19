@@ -24,11 +24,20 @@ Run focused Python tests from `coding-deepgent` when bridge/protocol behavior ch
 pytest -q tests/frontend/test_frontend_protocol.py tests/frontend/test_frontend_bridge.py tests/frontend/test_frontend_event_mapping.py
 ```
 
+When frontend HITL / permission pause-resume behavior changes, also include:
+
+```bash
+pytest -q tests/tool_system/test_tool_system_middleware.py
+```
+
 ## Test Expectations
 
 - TS tests should cover protocol parsing and reducer behavior.
 - Python tests should cover strict protocol validation, bridge event order,
   streaming deltas, and event mapping.
+- For interrupt-backed permission flows, Python tests should cover
+  `permission_requested` emission, `permission_decision` resume, and bounded
+  reject behavior.
 - Smoke test the fake interactive CLI in a TTY when changing input/exit behavior.
 
 ## Anti-Patterns

@@ -9,22 +9,27 @@ from .adapters.jsonl import run_jsonl_bridge, run_stdio_bridge
 from .producer import (
     BridgeSession,
     EventEmitter,
+    PermissionResumeRunner,
     PromptRunner,
     PromptRunResult,
     _run_streaming_prompt,
+    build_default_bridge_runners,
     build_default_prompt_runner,
+    build_fake_bridge_runners,
     build_fake_prompt_runner,
 )
 
 __all__ = [
     "BridgeSession",
     "EventEmitter",
+    "PermissionResumeRunner",
     "PromptRunner",
     "PromptRunResult",
     "_run_streaming_prompt",
+    "build_default_bridge_runners",
     "build_default_prompt_runner",
+    "build_fake_bridge_runners",
     "build_fake_prompt_runner",
     "run_jsonl_bridge",
     "run_stdio_bridge",
 ]
-

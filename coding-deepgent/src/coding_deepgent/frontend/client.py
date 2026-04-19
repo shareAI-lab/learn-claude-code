@@ -6,7 +6,15 @@ from collections.abc import Generator
 
 from coding_deepgent.settings import Settings, load_settings
 
-from .producer import BridgeSession, PromptRunner, build_default_prompt_runner, build_fake_prompt_runner
+from .producer import (
+    BridgeSession,
+    PermissionResumeRunner,
+    PromptRunner,
+    build_default_bridge_runners,
+    build_default_prompt_runner,
+    build_fake_bridge_runners,
+    build_fake_prompt_runner,
+)
 from .protocol import FrontendEvent, FrontendInput, SubmitPromptInput
 
 
@@ -23,15 +31,28 @@ class FrontendClient:
         *,
         settings: Settings | None = None,
         prompt_runner: PromptRunner | None = None,
+        permission_resume_runner: PermissionResumeRunner | None = None,
         fake: bool = False,
     ) -> None:
         active_settings = settings or load_settings()
-        runner = prompt_runner or (
-            build_fake_prompt_runner() if fake else build_default_prompt_runner(active_settings)
+        runner = prompt_runner
+        resume_runner = permission_resume_runner
+        if runner is None and resume_runner is None:
+            if fake:
+                runner, resume_runner = build_fake_bridge_runners()
+            else:
+                runner, resume_runner = build_default_bridge_runners(
+                    active_settings, hitl=True
+                )
+        active_runner = runner or (
+            build_fake_prompt_runner()
+            if fake
+            else build_default_prompt_runner(active_settings)
         )
         self._session = BridgeSession(
             settings=active_settings,
-            prompt_runner=runner,
+            prompt_runner=active_runner,
+            permission_resume_runner=resume_runner,
         )
         self._lock = threading.Lock()
 

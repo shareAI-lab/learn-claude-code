@@ -90,6 +90,9 @@ eligibility, and runtime-pressure metadata, read
   - logging
   - usage tracking
   - state injection
+- For HITL approval flows, prefer official LangGraph `interrupt()` plus
+  `Command(resume=...)` with a checkpointer and stable `thread_id` instead of a
+  custom waiting loop.
 - Keep business-specific tool rules in tool schema/description, not middleware.
 - Use `before_agent` / `after_agent` for once-per-invocation behavior.
 - Use `wrap_model_call` / `wrap_tool_call` when logic must run around each call.

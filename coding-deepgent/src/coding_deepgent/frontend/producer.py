@@ -5,9 +5,10 @@ import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any
+from typing import Any, Literal
 
 from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
+from langgraph.types import Command
 
 from coding_deepgent import cli_service
 from coding_deepgent.agent_runtime_service import (
@@ -49,6 +50,7 @@ class PromptRunResult:
     text: str
     runtime_events: tuple[RuntimeEvent, ...] = ()
     recovery_brief: str | None = None
+    pending_permissions: tuple[PendingPermissionRequest, ...] = ()
 
 
 EventEmitter = Callable[[FrontendEvent], None]
@@ -56,15 +58,34 @@ PromptRunner = Callable[
     [str, list[dict[str, Any]], dict[str, Any], str, str, EventEmitter],
     PromptRunResult,
 ]
+PermissionResumeRunner = Callable[
+    [dict[str, Any], list[dict[str, Any]], dict[str, Any], str, str, EventEmitter],
+    PromptRunResult,
+]
+
+FRONTEND_HITL_ENTRYPOINT = "coding-deepgent-frontend"
+
+
+@dataclass(frozen=True)
+class PendingPermissionRequest:
+    request_id: str
+    tool: str
+    description: str
+    options: tuple[Literal["approve", "reject"], ...] = ("approve", "reject")
 
 
 @dataclass
 class BridgeSession:
     settings: Settings
     prompt_runner: PromptRunner
+    permission_resume_runner: PermissionResumeRunner | None = None
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     history: list[dict[str, Any]] = field(default_factory=list)
     session_state: dict[str, Any] = field(default_factory=default_runtime_state)
+    pending_permission_requests: dict[str, PendingPermissionRequest] = field(
+        default_factory=dict
+    )
+    pending_assistant_message_id: str | None = None
     started: bool = False
 
     def handle(self, request: FrontendInput, emit: EventEmitter) -> bool:
@@ -72,13 +93,7 @@ class BridgeSession:
             self._handle_prompt(request, emit)
             return False
         if request.type == "permission_decision":
-            emit(
-                PermissionResolvedEvent(
-                    request_id=request.request_id,
-                    decision=request.decision,
-                    message=request.message,
-                )
-            )
+            self._handle_permission_decision(request, emit)
             return False
         if request.type == "interrupt":
             emit(
@@ -125,6 +140,111 @@ class BridgeSession:
             )
             return
 
+        if result.pending_permissions:
+            self.pending_assistant_message_id = assistant_id
+            self.pending_permission_requests = {
+                permission.request_id: permission
+                for permission in result.pending_permissions
+            }
+            for permission in result.pending_permissions:
+                emit(
+                    PermissionRequestedEvent(
+                        request_id=permission.request_id,
+                        tool=permission.tool,
+                        description=permission.description,
+                        options=list(permission.options),
+                    )
+                )
+            return
+
+        self.pending_assistant_message_id = None
+        self.pending_permission_requests.clear()
+        self._emit_completed_run(result, assistant_id=assistant_id, emit=emit)
+
+    def _handle_permission_decision(self, request, emit: EventEmitter) -> None:
+        pending = self.pending_permission_requests.get(request.request_id)
+        if pending is None:
+            emit(
+                ProtocolErrorEvent(
+                    error=f"Unknown permission request id: {request.request_id}"
+                )
+            )
+            return
+
+        emit(
+            PermissionResolvedEvent(
+                request_id=request.request_id,
+                decision=request.decision,
+                message=request.message,
+            )
+        )
+
+        assistant_id = self.pending_assistant_message_id
+        if assistant_id is None:
+            self.pending_permission_requests.clear()
+            emit(
+                ProtocolErrorEvent(
+                    error="Missing pending assistant message id for permission resume"
+                )
+            )
+            return
+
+        if self.permission_resume_runner is None:
+            self.pending_permission_requests.pop(request.request_id, None)
+            return
+
+        try:
+            result = self.permission_resume_runner(
+                {
+                    request.request_id: {
+                        "decision": request.decision,
+                        "message": request.message,
+                    }
+                },
+                self.history,
+                self.session_state,
+                self.session_id,
+                assistant_id,
+                emit,
+            )
+        except Exception as exc:
+            self.pending_assistant_message_id = None
+            self.pending_permission_requests.clear()
+            emit(
+                RunFailedEvent(
+                    session_id=self.session_id,
+                    error=_bounded_error(exc),
+                )
+            )
+            return
+
+        if result.pending_permissions:
+            self.pending_permission_requests = {
+                permission.request_id: permission
+                for permission in result.pending_permissions
+            }
+            for permission in result.pending_permissions:
+                emit(
+                    PermissionRequestedEvent(
+                        request_id=permission.request_id,
+                        tool=permission.tool,
+                        description=permission.description,
+                        options=list(permission.options),
+                    )
+                )
+            return
+
+        self.pending_assistant_message_id = None
+        self.pending_permission_requests.clear()
+        self._emit_completed_run(result, assistant_id=assistant_id, emit=emit)
+
+    def _emit_completed_run(
+        self,
+        result: PromptRunResult,
+        *,
+        assistant_id: str,
+        emit: EventEmitter,
+    ) -> None:
         for event in runtime_events_to_frontend(result.runtime_events):
             emit(event)
         emit(todo_snapshot_from_state(self.session_state))
@@ -134,14 +254,24 @@ class BridgeSession:
         emit(RunFinishedEvent(session_id=self.session_id))
 
 
-def build_default_prompt_runner(settings: Settings) -> PromptRunner:
-    from coding_deepgent.app import agent_loop, build_agent, build_container, build_runtime_invocation
+@dataclass
+class _DefaultFrontendBridgeRunner:
+    settings: Settings
+    hitl: bool = False
+    emitted_events: int = 0
 
-    container = build_container()
-    event_sink = container.runtime.event_sink()
-    emitted_events = 0
+    def __post_init__(self) -> None:
+        self.settings = _frontend_runner_settings(self.settings, hitl=self.hitl)
+        self.container = _build_container_for_settings(self.settings)
+        from coding_deepgent.app import agent_loop, build_agent, build_runtime_invocation
+
+        self._agent_loop = agent_loop
+        self._build_agent = build_agent
+        self._build_runtime_invocation = build_runtime_invocation
+        self._event_sink = self.container.runtime.event_sink()
 
     def run_prompt(
+        self,
         prompt: str,
         history: list[dict[str, Any]],
         session_state: dict[str, Any],
@@ -149,53 +279,80 @@ def build_default_prompt_runner(settings: Settings) -> PromptRunner:
         assistant_message_id: str,
         emit: EventEmitter,
     ) -> PromptRunResult:
-        nonlocal emitted_events
         if not _force_nonstreaming():
             try:
                 return _run_streaming_prompt(
-                    settings=settings,
+                    settings=self.settings,
                     prompt=prompt,
                     history=history,
                     session_state=session_state,
                     session_id=session_id,
                     assistant_message_id=assistant_message_id,
                     emit=emit,
-                    container=container,
-                    event_sink=event_sink,
-                    emitted_events=lambda: emitted_events,
-                    set_emitted_events=lambda value: _set_emitted_events(value),
-                    build_agent=build_agent,
-                    build_runtime_invocation=build_runtime_invocation,
+                    container=self.container,
+                    event_sink=self._event_sink,
+                    emitted_events=lambda: self.emitted_events,
+                    set_emitted_events=self._set_emitted_events,
+                    build_agent=self._build_agent,
+                    build_runtime_invocation=self._build_runtime_invocation,
                 )
             except (AttributeError, TypeError, NotImplementedError):
                 pass
 
         result = cli_service.run_once(
-            settings=settings,
+            settings=self.settings,
             prompt=prompt,
-            run_agent=partial(agent_loop, container=container),
+            run_agent=partial(self._agent_loop, container=self.container),
             history=history,
             session_state=session_state,
             session_id=session_id,
         )
-        snapshot = _event_sink_snapshot(event_sink)
-        new_events = snapshot[emitted_events:]
-        emitted_events = len(snapshot)
+        snapshot = _event_sink_snapshot(self._event_sink)
+        new_events = snapshot[self.emitted_events :]
+        self.emitted_events = len(snapshot)
         return PromptRunResult(
             text=result,
             runtime_events=tuple(new_events),
-            recovery_brief=_recovery_brief(settings, session_id),
+            recovery_brief=_recovery_brief(self.settings, session_id),
         )
 
-    def _set_emitted_events(value: int) -> None:
-        nonlocal emitted_events
-        emitted_events = value
+    def resume_permission(
+        self,
+        resume_values: dict[str, Any],
+        history: list[dict[str, Any]],
+        session_state: dict[str, Any],
+        session_id: str,
+        assistant_message_id: str,
+        emit: EventEmitter,
+    ) -> PromptRunResult:
+        if _force_nonstreaming():
+            raise RuntimeError("Frontend permission resume requires streaming mode.")
+        return _resume_streaming_prompt(
+            settings=self.settings,
+            resume_values=resume_values,
+            history=history,
+            session_state=session_state,
+            session_id=session_id,
+            assistant_message_id=assistant_message_id,
+            emit=emit,
+            container=self.container,
+            event_sink=self._event_sink,
+            emitted_events=lambda: self.emitted_events,
+            set_emitted_events=self._set_emitted_events,
+            build_agent=self._build_agent,
+            build_runtime_invocation=self._build_runtime_invocation,
+        )
 
-    return run_prompt
+    def _set_emitted_events(self, value: int) -> None:
+        self.emitted_events = value
 
 
-def build_fake_prompt_runner() -> PromptRunner:
+@dataclass
+class _FakeFrontendBridgeRunner:
+    pending_prompt: str | None = None
+
     def run_prompt(
+        self,
         prompt: str,
         history: list[dict[str, Any]],
         session_state: dict[str, Any],
@@ -205,6 +362,84 @@ def build_fake_prompt_runner() -> PromptRunner:
     ) -> PromptRunResult:
         del session_id
         history.append({"role": "user", "content": prompt})
+        if "permission" in prompt.lower():
+            self.pending_prompt = prompt
+            return PromptRunResult(
+                text="",
+                pending_permissions=(
+                    PendingPermissionRequest(
+                        request_id=f"fake-permission-{uuid.uuid4().hex[:8]}",
+                        tool="fake_write",
+                        description="Fake permission request; no destructive action ran.",
+                    ),
+                ),
+            )
+        return self._complete_fake_prompt(
+            prompt=prompt,
+            assistant_message_id=assistant_message_id,
+            session_state=session_state,
+            emit=emit,
+        )
+
+    def resume_permission(
+        self,
+        resume_values: dict[str, Any],
+        history: list[dict[str, Any]],
+        session_state: dict[str, Any],
+        session_id: str,
+        assistant_message_id: str,
+        emit: EventEmitter,
+    ) -> PromptRunResult:
+        del history, session_id
+        prompt = self.pending_prompt or "permission"
+        self.pending_prompt = None
+        decision_payload: Any = next(iter(resume_values.values()), {})
+        if isinstance(decision_payload, dict):
+            decision = str(decision_payload.get("decision", "reject")).strip().lower()
+            message = decision_payload.get("message")
+        else:
+            decision = str(decision_payload).strip().lower()
+            message = None
+        if decision != "approve":
+            error = message if isinstance(message, str) and message else "Fake permission request rejected."
+            emit(
+                ToolFailedEvent(
+                    tool_call_id="fake-write-call",
+                    name="fake_write",
+                    error=error,
+                )
+            )
+            return PromptRunResult(
+                text="Fake response: permission rejected.",
+                runtime_events=(
+                    RuntimeEvent(
+                        kind="permission_denied",
+                        message="Fake permission rejected.",
+                        session_id="fake",
+                        metadata={
+                            "source": "frontend_bridge",
+                            "tool": "fake_write",
+                            "policy_code": "permission_required",
+                            "permission_behavior": "ask",
+                        },
+                    ),
+                ),
+            )
+        return self._complete_fake_prompt(
+            prompt=prompt,
+            assistant_message_id=assistant_message_id,
+            session_state=session_state,
+            emit=emit,
+        )
+
+    def _complete_fake_prompt(
+        self,
+        *,
+        prompt: str,
+        assistant_message_id: str,
+        session_state: dict[str, Any],
+        emit: EventEmitter,
+    ) -> PromptRunResult:
         emit(
             ToolStartedEvent(
                 tool_call_id=f"fake-tool-{uuid.uuid4().hex[:8]}",
@@ -212,21 +447,12 @@ def build_fake_prompt_runner() -> PromptRunner:
                 summary="Preparing fake response.",
             )
         )
-        if "permission" in prompt.lower():
-            emit(
-                PermissionRequestedEvent(
-                    request_id=f"fake-permission-{uuid.uuid4().hex[:8]}",
-                    tool="fake_write",
-                    description="Fake permission request; no destructive action ran.",
-                )
-            )
         prefix = "Fake response: "
         for chunk in (prefix, prompt):
             emit(AssistantDeltaEvent(message_id=assistant_message_id, text=chunk))
         if "fail" in prompt.lower():
             raise RuntimeError("Fake streaming failure after partial output.")
         response = f"Fake response: {prompt}"
-        history.append({"role": "assistant", "content": response})
         session_state["todos"] = [
             {
                 "content": "Review frontend request",
@@ -258,11 +484,34 @@ def build_fake_prompt_runner() -> PromptRunner:
             recovery_brief="Fake recovery brief: bridge protocol is healthy.",
         )
 
-    return run_prompt
+
+def build_default_bridge_runners(
+    settings: Settings,
+    *,
+    hitl: bool = False,
+) -> tuple[PromptRunner, PermissionResumeRunner]:
+    runner = _DefaultFrontendBridgeRunner(settings=settings, hitl=hitl)
+    return runner.run_prompt, runner.resume_permission
 
 
+def build_default_prompt_runner(
+    settings: Settings,
+    *,
+    hitl: bool = False,
+) -> PromptRunner:
+    return build_default_bridge_runners(settings, hitl=hitl)[0]
 
-def _run_streaming_prompt(    *,
+
+def build_fake_bridge_runners() -> tuple[PromptRunner, PermissionResumeRunner]:
+    runner = _FakeFrontendBridgeRunner()
+    return runner.run_prompt, runner.resume_permission
+
+
+def build_fake_prompt_runner() -> PromptRunner:
+    return build_fake_bridge_runners()[0]
+
+def _run_streaming_prompt(
+    *,
     settings: Settings,
     prompt: str,
     history: list[dict[str, Any]],
@@ -277,9 +526,85 @@ def _run_streaming_prompt(    *,
     build_agent: Callable[..., Any],
     build_runtime_invocation: Callable[..., Any],
 ) -> PromptRunResult:
+    return _stream_graph_run(
+        settings=settings,
+        graph_input_factory=lambda normalized: {
+            "messages": normalized,
+            **session_payload(session_state),
+        },
+        prompt=prompt,
+        history=history,
+        session_state=session_state,
+        session_id=session_id,
+        assistant_message_id=assistant_message_id,
+        emit=emit,
+        container=container,
+        event_sink=event_sink,
+        emitted_events=emitted_events,
+        set_emitted_events=set_emitted_events,
+        build_agent=build_agent,
+        build_runtime_invocation=build_runtime_invocation,
+        append_user_prompt=True,
+    )
+
+
+def _resume_streaming_prompt(
+    *,
+    settings: Settings,
+    resume_values: dict[str, Any],
+    history: list[dict[str, Any]],
+    session_state: dict[str, Any],
+    session_id: str,
+    assistant_message_id: str,
+    emit: EventEmitter,
+    container: Any,
+    event_sink: object,
+    emitted_events: Callable[[], int],
+    set_emitted_events: Callable[[int], None],
+    build_agent: Callable[..., Any],
+    build_runtime_invocation: Callable[..., Any],
+) -> PromptRunResult:
+    return _stream_graph_run(
+        settings=settings,
+        graph_input_factory=lambda _normalized: Command(resume=resume_values),
+        prompt=None,
+        history=history,
+        session_state=session_state,
+        session_id=session_id,
+        assistant_message_id=assistant_message_id,
+        emit=emit,
+        container=container,
+        event_sink=event_sink,
+        emitted_events=emitted_events,
+        set_emitted_events=set_emitted_events,
+        build_agent=build_agent,
+        build_runtime_invocation=build_runtime_invocation,
+        append_user_prompt=False,
+    )
+
+
+def _stream_graph_run(
+    *,
+    settings: Settings,
+    graph_input_factory: Callable[[list[dict[str, Any]]], Any],
+    prompt: str | None,
+    history: list[dict[str, Any]],
+    session_state: dict[str, Any],
+    session_id: str,
+    assistant_message_id: str,
+    emit: EventEmitter,
+    container: Any,
+    event_sink: object,
+    emitted_events: Callable[[], int],
+    set_emitted_events: Callable[[int], None],
+    build_agent: Callable[..., Any],
+    build_runtime_invocation: Callable[..., Any],
+    append_user_prompt: bool,
+) -> PromptRunResult:
     context = _recording_context(settings, session_id, history)
-    history.append({"role": "user", "content": prompt})
-    context.store.append_message(context.session, role="user", content=prompt)
+    if append_user_prompt and prompt is not None:
+        history.append({"role": "user", "content": prompt})
+        context.store.append_message(context.session, role="user", content=prompt)
 
     invocation = build_runtime_invocation(
         container=container,
@@ -299,12 +624,18 @@ def _run_streaming_prompt(    *,
                 },
             )
         )
-    payload = {"messages": normalized, **session_payload(session_state)}
     compiled_agent = resolve_compiled_agent(container, build_agent)
 
     final_state: dict[str, Any] | None = None
     delta_text: list[str] = []
-    for part in _stream_agent_parts(compiled_agent, payload, invocation):
+    graph_input = graph_input_factory(normalized)
+    for part in _stream_agent_parts(compiled_agent, graph_input, invocation):
+        pending_permissions = _pending_permissions_from_stream_part(part)
+        if pending_permissions:
+            return PromptRunResult(
+                text="",
+                pending_permissions=tuple(pending_permissions),
+            )
         for frontend_event in _frontend_events_from_stream_part(
             part, assistant_message_id=assistant_message_id
         ):
@@ -368,7 +699,7 @@ def _recording_context(
 
 def _stream_agent_parts(
     compiled_agent: Any,
-    payload: dict[str, Any],
+    payload: Any,
     invocation: Any,
 ) -> Iterable[Any]:
     stream = compiled_agent.stream
@@ -418,9 +749,57 @@ def _stream_part_type_and_data(part: Any) -> tuple[str, Any]:
 
 def _state_from_stream_part(part: Any) -> dict[str, Any] | None:
     part_type, data = _stream_part_type_and_data(part)
-    if part_type == "values" and isinstance(data, dict):
+    if part_type == "values" and isinstance(data, dict) and "__interrupt__" not in data:
         return data
     return None
+
+
+def _pending_permissions_from_stream_part(
+    part: Any,
+) -> list[PendingPermissionRequest]:
+    part_type, data = _stream_part_type_and_data(part)
+    if part_type not in {"updates", "values"} or not isinstance(data, dict):
+        return []
+    return _pending_permissions_from_interrupts(data.get("__interrupt__"))
+
+
+def _pending_permissions_from_interrupts(
+    raw_interrupts: Any,
+) -> list[PendingPermissionRequest]:
+    if isinstance(raw_interrupts, tuple | list):
+        interrupts = list(raw_interrupts)
+    elif raw_interrupts is None:
+        return []
+    else:
+        interrupts = [raw_interrupts]
+
+    requests: list[PendingPermissionRequest] = []
+    for interrupt in interrupts:
+        request_id = getattr(interrupt, "id", None)
+        payload = getattr(interrupt, "value", None)
+        if not isinstance(request_id, str) or not request_id.strip():
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if payload.get("kind") != "permission_request":
+            continue
+        tool = payload.get("tool")
+        description = payload.get("description")
+        options = payload.get("options", ("approve", "reject"))
+        if not isinstance(tool, str) or not isinstance(description, str):
+            continue
+        normalized_options = tuple(
+            option for option in options if option in {"approve", "reject"}
+        )
+        requests.append(
+            PendingPermissionRequest(
+                request_id=request_id,
+                tool=tool,
+                description=description,
+                options=normalized_options or ("approve", "reject"),
+            )
+        )
+    return requests
 
 
 def _events_from_update_data(data: Any) -> list[FrontendEvent]:
@@ -532,3 +911,27 @@ def _bounded_error(error: Exception) -> str:
     if not detail:
         detail = type(error).__name__
     return detail[:500]
+
+
+def _frontend_runner_settings(settings: Settings, *, hitl: bool) -> Settings:
+    if not hitl:
+        return settings
+    updates: dict[str, Any] = {"entrypoint": FRONTEND_HITL_ENTRYPOINT}
+    if settings.checkpointer_backend == "none":
+        updates["checkpointer_backend"] = "memory"
+    return settings.model_copy(update=updates)
+
+
+def _build_container_for_settings(settings: Settings) -> Any:
+    from langchain.agents import create_agent
+
+    from coding_deepgent import bootstrap
+    from coding_deepgent.settings import build_openai_model
+
+    container = bootstrap.build_container(
+        settings_loader=lambda: settings,
+        model_factory=build_openai_model,
+        create_agent_factory=create_agent,
+    )
+    bootstrap.validate_container_startup(container=container)
+    return container
