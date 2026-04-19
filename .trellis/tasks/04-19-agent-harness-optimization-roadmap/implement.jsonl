@@ -1,0 +1,8 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "runtime/tool/subagent tests protect LangChain-native seams"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "test cleanup must preserve product boundary coverage"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "frontend protocol and CLI tests must stay synchronized"}
+{"file": ".trellis/spec/guides/mainline-scope-guide.md", "reason": "keep cleanup scoped to coding-deepgent product tests"}
+{"file": ".trellis/spec/guides/architecture-posture-guide.md", "reason": "prefer clean long-term test layout over compatibility clutter"}

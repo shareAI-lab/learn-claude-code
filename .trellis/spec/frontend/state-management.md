@@ -1,30 +1,32 @@
 # Frontend State Management
 
-Status: `Deferred`
+Status: `Active` for `coding-deepgent/frontend/cli`
 
-Current mainline is `coding-deepgent/`, not frontend/web product work.
+## State Ownership
 
-Only activate this spec when frontend state becomes part of the product
-mainline. Do not infer product state rules from tutorial/reference UI code.
+- Python owns runtime/session/tool/todo facts.
+- TypeScript owns display state derived from `FrontendEvent` payloads.
+- `src/bridge/reducer.ts` is the canonical event-to-UI-state reducer.
+- Components may own small local interaction state, such as the current prompt input.
 
-## Activation Requirements
+## Rules
 
-- User explicitly requests frontend/web product work.
-- The task identifies real state ownership boundaries.
-- State rules can be derived from actual product code.
-
-## What to Capture
-
-- When to use local component state
-- When to lift state up
-- How server data is loaded and cached
-- How URL state, form state, and derived state are handled
-- Which state libraries or framework primitives are preferred
+- Use `useReducer(reduceFrontendEvent, initialUiState)` for bridge events.
+- Do not mutate `UiState` in place.
+- Do not store Python subprocess handles in React state; keep them in bridge classes.
+- Keep reducer behavior deterministic and covered by TS tests.
+- Keep long-term/session persistence in Python, not frontend local storage.
+- Local-only UI actions such as `/help` and `/clear` may use reducer actions,
+  but Python runtime facts must still arrive through `FrontendEvent`.
 
 ## Real Examples
 
-- Add 2-3 state management examples from the codebase
+- `coding-deepgent/frontend/cli/src/bridge/reducer.ts`
+- `coding-deepgent/frontend/cli/src/app.tsx`
+- `coding-deepgent/frontend/cli/src/components/prompt-input.tsx`
 
 ## Anti-Patterns
 
-- List patterns the project avoids
+- components directly editing `messages`, `todos`, or `pendingPermissions`
+- deriving product truth from terminal text
+- duplicating Python session persistence in TS state

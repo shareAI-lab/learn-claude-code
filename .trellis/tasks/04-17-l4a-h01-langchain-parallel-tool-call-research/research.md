@@ -25,7 +25,7 @@ Local product code:
 - `coding-deepgent/src/coding_deepgent/tool_system/capabilities.py`
 - `coding-deepgent/src/coding_deepgent/tool_system/middleware.py`
 - `coding-deepgent/src/coding_deepgent/todo/middleware.py`
-- `coding-deepgent/tests/test_planning.py`
+- `coding-deepgent/tests/tasks/test_planning.py`
 
 ## What LangChain Already Guarantees
 

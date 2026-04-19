@@ -6,14 +6,15 @@
 
 ## Current Status
 
-The current working mainline is `coding-deepgent/`, which is a Python
-LangChain/LangGraph product surface.
+The current working mainline is `coding-deepgent/`.
 
-Frontend/web assets are reference-only by default unless a task explicitly
-targets them. Do not treat `web/` or tutorial UI code as the current product
-implementation target.
+Product frontend work is now active only for:
 
-This directory is retained as a placeholder for future frontend-mainline work.
+- `coding-deepgent/frontend/cli` — TypeScript React/Ink CLI frontend
+- `coding-deepgent/src/coding_deepgent/frontend` — Python JSONL bridge/protocol backend
+
+The root `web/` app remains tutorial/reference-only unless a task explicitly
+promotes it to product Web work.
 
 ---
 
@@ -21,18 +22,18 @@ This directory is retained as a placeholder for future frontend-mainline work.
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | App, page, component, and hook organization | Deferred |
-| [Component Guidelines](./component-guidelines.md) | Component patterns, props, and composition | Deferred |
+| [Directory Structure](./directory-structure.md) | CLI app, protocol, component, and bridge organization | Active |
+| [Component Guidelines](./component-guidelines.md) | Component patterns, props, and composition | Active |
 | [Hook Guidelines](./hook-guidelines.md) | Custom hook naming, dependencies, and side effects | Deferred |
-| [State Management](./state-management.md) | Local, shared, server, and derived state patterns | Deferred |
-| [Type Safety](./type-safety.md) | TypeScript conventions and type organization | Deferred |
-| [Quality Guidelines](./quality-guidelines.md) | Testing, accessibility, linting, and review expectations | Deferred |
+| [State Management](./state-management.md) | Local event reducer and bridge-driven state patterns | Active |
+| [Type Safety](./type-safety.md) | TypeScript protocol and UI state conventions | Active |
+| [Quality Guidelines](./quality-guidelines.md) | Testing, typecheck, and review expectations | Active |
 
 ---
 
 ## Reactivation Rule
 
-Only fill these frontend specs when:
+Only expand these frontend specs when:
 
 1. a task explicitly targets frontend/web product work, and
 2. the target is no longer reference-only, and

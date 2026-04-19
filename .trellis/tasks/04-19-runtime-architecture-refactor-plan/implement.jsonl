@@ -1,0 +1,11 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/tasks/04-19-runtime-architecture-refactor-plan/prd.md", "reason": "Integrated runtime reshape delivery contract"}
+{"file": ".trellis/tasks/04-19-r1-runtime-role-agent-factory-seam/prd.md", "reason": "R1 runtime role and factory seam requirements"}
+{"file": ".trellis/tasks/04-19-r2-split-subagent-domain-responsibilities/prd.md", "reason": "R2 subagent module split requirements"}
+{"file": ".trellis/tasks/04-19-r3-background-run-service-hardening/prd.md", "reason": "R3 background run service requirements"}
+{"file": ".trellis/tasks/04-19-r4-h13-h14-readiness-gate/prd.md", "reason": "R4 H13 H14 readiness gate requirements"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "LangChain-native runtime/tool/middleware rules"}
+{"file": ".trellis/spec/backend/project-infrastructure-foundation-contracts.md", "reason": "Runtime/session/task/subagent infrastructure contracts"}
+{"file": ".trellis/spec/backend/task-workflow-contracts.md", "reason": "Subagent/fork/background task workflow contracts"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Domain ownership and module placement rules"}

@@ -336,14 +336,14 @@ Recommended order:
 
 Focused test families:
 
-* `coding-deepgent/tests/test_tool_system_registry.py`
-* `coding-deepgent/tests/test_tool_system_middleware.py`
-* `coding-deepgent/tests/test_tools.py`
-* `coding-deepgent/tests/test_tasks.py`
-* `coding-deepgent/tests/test_subagents.py`
-* `coding-deepgent/tests/test_mcp.py`
-* `coding-deepgent/tests/test_tool_result_storage.py`
-* `coding-deepgent/tests/test_runtime_pressure.py`
+* `coding-deepgent/tests/tool_system/test_tool_system_registry.py`
+* `coding-deepgent/tests/tool_system/test_tool_system_middleware.py`
+* `coding-deepgent/tests/filesystem/test_tools.py`
+* `coding-deepgent/tests/tasks/test_tasks.py`
+* `coding-deepgent/tests/subagents/test_subagents.py`
+* `coding-deepgent/tests/extensions/test_mcp.py`
+* `coding-deepgent/tests/tool_system/test_tool_result_storage.py`
+* `coding-deepgent/tests/compact/test_runtime_pressure.py`
 
 ## Discussion Status
 

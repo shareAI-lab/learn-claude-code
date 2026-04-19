@@ -218,6 +218,7 @@ __marimo__/
 web/node_modules/
 web/.next/
 web/out/
+coding-deepgent/frontend/cli/node_modules/
 .vercel
 .env*.local
 test_providers.py

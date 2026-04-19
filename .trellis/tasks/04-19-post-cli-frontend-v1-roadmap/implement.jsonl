@@ -1,0 +1,7 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": ".trellis/spec/guides/staged-execution-guide.md", "reason": "Integrated staged execution checkpoints"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "React/Ink reducer state ownership"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "Streaming and HITL runtime seam boundaries"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Protocol type sync across Python and TS"}

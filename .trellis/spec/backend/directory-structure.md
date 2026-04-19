@@ -44,7 +44,8 @@ coding-deepgent/src/coding_deepgent/
 ├── hooks/                    # lifecycle/event hook seam
 ├── mcp/                      # MCP config/load/resource seams
 ├── plugins/                  # local plugin manifest schemas/registry/loader
-└── renderers/                # terminal/rendering helpers
+├── renderers/                # terminal/rendering helpers
+└── frontend/                 # renderer-neutral frontend protocol, producer, and adapters
 ```
 
 ---
@@ -61,6 +62,8 @@ New behavior should land in the domain package that owns the product concept:
 - tool exposure or tool guard behavior -> `tool_system/`
 - task graph or plan artifacts -> `tasks/`
 - model-facing context pressure behavior -> `compact/`
+- renderer-neutral UI event production -> `frontend/producer.py`
+- transport-specific frontend bridges -> `frontend/adapters/`
 
 Do not add unrelated behavior to `app.py`, `cli.py`, or `bootstrap.py` just
 because those files are easy to find.
@@ -131,6 +134,18 @@ Do not spread model/schema/prompt/runtime wiring across unrelated modules.
 For implementation-specific rules, read
 `langchain-native-guidelines.md`.
 
+### 7. Frontend producer/adapters stay one-way
+
+`frontend/producer.py` may depend on runtime/session/tool domains to produce
+renderer-neutral events.
+
+`frontend/adapters/*` may depend on `frontend/producer.py` and protocol types to
+serve specific transports such as JSONL or future SSE.
+
+Runtime/domain packages must not import `frontend/adapters/*` or
+`frontend/bridge.py`. This keeps CLI/Web transport concerns out of the agent
+runtime.
+
 ---
 
 ## Naming And Placement Conventions
@@ -157,6 +172,14 @@ For implementation-specific rules, read
   instead of scattering it across runtime/app modules.
 - `coding-deepgent/src/coding_deepgent/containers/app.py`
   composes the runtime without owning product rules.
+- `coding-deepgent/src/coding_deepgent/frontend/producer.py`
+  produces renderer-neutral frontend events.
+- `coding-deepgent/src/coding_deepgent/frontend/adapters/jsonl.py`
+  owns the stdio JSONL transport used by the React/Ink CLI.
+- `coding-deepgent/src/coding_deepgent/frontend/runs.py`
+  owns frontend run lifecycle for future network consumers.
+- `coding-deepgent/src/coding_deepgent/frontend/stream_bridge.py`
+  owns the replayable event bridge used by future SSE/gateway consumers.
 
 ---
 
@@ -167,3 +190,4 @@ For implementation-specific rules, read
 - treating tutorial directory structure as a template for product layout
 - merging unrelated concepts into `sessions/` because they are "stateful"
 - using `tool_system/` as a dumping ground for product logic
+- making runtime/domain modules depend on CLI/Web transport adapters

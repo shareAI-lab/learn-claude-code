@@ -1,30 +1,31 @@
 # Frontend Type Safety
 
-Status: `Deferred`
+Status: `Active` for `coding-deepgent/frontend/cli`
 
-Current mainline is `coding-deepgent/`, not frontend/web product work.
+## Type Ownership
 
-Only activate this spec when frontend TypeScript becomes part of product
-implementation or review.
+- Python protocol validation lives in `coding_deepgent.frontend.protocol`.
+- TypeScript protocol types live in `frontend/cli/src/bridge/protocol.ts`.
+- TS state types live in `frontend/cli/src/bridge/reducer.ts`.
 
-## Activation Requirements
+## Rules
 
-- User explicitly requests frontend/web product work.
-- There are actual product-facing types or API payloads to document.
-- Runtime validation expectations are known from code or explicit decision.
-
-## What to Capture
-
-- Where shared types live
-- Prop and state typing patterns
-- API response typing patterns
-- Runtime validation expectations
-- When to use unions, enums, and utility types
+- `FrontendEvent` and `FrontendInput` should be discriminated unions by `type`.
+- Keep `strict`, `noUncheckedIndexedAccess`, and `exactOptionalPropertyTypes` enabled.
+- Python protocol models should reject extra fields.
+- Runtime payload changes require Python protocol tests and TS reducer/protocol tests.
+- Optional props should explicitly include `undefined` when passed through from state.
+- Streaming payloads must use the same `message_id` across `assistant_delta`
+  and the final `assistant_message`.
 
 ## Real Examples
 
-- Add 2-3 type usage examples from the codebase
+- `coding-deepgent/frontend/cli/src/bridge/protocol.ts`
+- `coding-deepgent/frontend/cli/src/bridge/reducer.ts`
+- `coding-deepgent/src/coding_deepgent/frontend/protocol.py`
 
 ## Anti-Patterns
 
-- List patterns the project avoids
+- `any` payloads crossing the bridge without validation
+- adding event types only on one side of the Python/TS boundary
+- permissive alias/fallback parsing for protocol fields

@@ -1,0 +1,7 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": ".gemini/commands/trellis/check-frontend.toml", "reason": "Frontend check spec"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "review frontend protocol validation after test moves"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "review test cleanup against product verification rules"}
+{"file": ".trellis/spec/guides/mainline-scope-guide.md", "reason": "review moved tests stay in product mainline"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "review runtime/tool/subagent coverage still protects official seams"}

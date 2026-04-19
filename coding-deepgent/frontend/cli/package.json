@@ -1,0 +1,28 @@
+{
+  "name": "@coding-deepgent/cli-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "coding-deepgent-ui": "./src/index.tsx"
+  },
+  "scripts": {
+    "dev": "CODING_DEEPGENT_UI_WORKDIR=../.. PYTHONPATH=src tsx src/index.tsx",
+    "dev:fake": "CODING_DEEPGENT_UI_FAKE=1 CODING_DEEPGENT_UI_WORKDIR=../.. PYTHONPATH=src tsx src/index.tsx --fake",
+    "start": "npm run dev",
+    "start:fake": "npm run dev:fake",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ink": "^6.8.0",
+    "react": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "@types/react": "^19.2.7",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.15"
+  }
+}

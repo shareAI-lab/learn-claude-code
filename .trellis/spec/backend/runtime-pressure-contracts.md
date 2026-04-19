@@ -48,8 +48,8 @@ class RuntimePressureMiddleware(AgentMiddleware):
 
 ### 5. Tests Required
 
-- `coding-deepgent/tests/test_runtime_pressure.py`
-- `coding-deepgent/tests/test_app.py`
+- `coding-deepgent/tests/compact/test_runtime_pressure.py`
+- `coding-deepgent/tests/runtime/test_app.py`
 
 Required assertion points:
 
@@ -107,7 +107,7 @@ def snip_messages(
 
 ### 5. Tests Required
 
-- `coding-deepgent/tests/test_runtime_pressure.py`
+- `coding-deepgent/tests/compact/test_runtime_pressure.py`
 
 Required assertion points:
 
@@ -280,9 +280,9 @@ class RuntimePressureMiddleware(AgentMiddleware):
 
 ### 5. Tests Required
 
-- `coding-deepgent/tests/test_runtime_pressure.py`
-- `coding-deepgent/tests/test_app.py`
-- `coding-deepgent/tests/test_memory_integration.py`
+- `coding-deepgent/tests/compact/test_runtime_pressure.py`
+- `coding-deepgent/tests/runtime/test_app.py`
+- `coding-deepgent/tests/memory/test_memory_integration.py`
 
 Required assertion points:
 
@@ -421,10 +421,10 @@ def collapse_live_messages_with_result(
 
 ### 5. Tests Required
 
-- `coding-deepgent/tests/test_runtime_pressure.py`
-- `coding-deepgent/tests/test_compact_summarizer.py`
-- `coding-deepgent/tests/test_app.py`
-- `coding-deepgent/tests/test_sessions.py`
+- `coding-deepgent/tests/compact/test_runtime_pressure.py`
+- `coding-deepgent/tests/compact/test_compact_summarizer.py`
+- `coding-deepgent/tests/runtime/test_app.py`
+- `coding-deepgent/tests/sessions/test_sessions.py`
 
 Required assertion points:
 
@@ -639,9 +639,9 @@ def reactive_compact_messages(
 
 ### 5. Tests Required
 
-- `coding-deepgent/tests/test_runtime_pressure.py`
-- `coding-deepgent/tests/test_compact_summarizer.py`
-- `coding-deepgent/tests/test_app.py`
+- `coding-deepgent/tests/compact/test_runtime_pressure.py`
+- `coding-deepgent/tests/compact/test_compact_summarizer.py`
+- `coding-deepgent/tests/runtime/test_app.py`
 
 Required assertion points:
 
@@ -702,7 +702,7 @@ Required assertion points:
 
 ### 4. Tests Required
 
-- `coding-deepgent/tests/test_subagents.py`
+- `coding-deepgent/tests/subagents/test_subagents.py`
 
 ## Scenario: Runtime Pressure Recovery Summary
 
@@ -726,7 +726,7 @@ Required assertion points:
 
 ### 3. Tests Required
 
-- `coding-deepgent/tests/test_session_contributions.py`
+- `coding-deepgent/tests/sessions/test_session_contributions.py`
 - any focused recovery brief rendering regressions touched by the change
 
 ## Scenario: Live Runtime Pressure Observability
@@ -806,9 +806,9 @@ Required assertion points:
 
 ### 4. Tests Required
 
-- `coding-deepgent/tests/test_runtime_pressure.py`
-- existing runtime event tests in `coding-deepgent/tests/test_hooks.py`
-- existing runtime event evidence tests in `coding-deepgent/tests/test_tool_system_middleware.py`
+- `coding-deepgent/tests/compact/test_runtime_pressure.py`
+- existing runtime event tests in `coding-deepgent/tests/extensions/test_hooks.py`
+- existing runtime event evidence tests in `coding-deepgent/tests/tool_system/test_tool_system_middleware.py`
 
 ## Scenario: Env-Gated Prompt/API Dump
 
@@ -857,4 +857,4 @@ def dump_model_request_if_enabled(
 
 ### 5. Tests Required
 
-- `coding-deepgent/tests/test_runtime_pressure.py`
+- `coding-deepgent/tests/compact/test_runtime_pressure.py`

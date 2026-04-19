@@ -1,29 +1,38 @@
 # Frontend Quality Guidelines
 
-Status: `Deferred`
+Status: `Active` for `coding-deepgent/frontend/cli`
 
-Current mainline is `coding-deepgent/`, not frontend/web product work.
+## Required Checks
 
-Only activate this spec when frontend/web becomes a product target.
+Run from `coding-deepgent/frontend/cli`:
 
-## Activation Requirements
+```bash
+npm run typecheck
+npm test
+```
 
-- User explicitly requests frontend/web product work.
-- The relevant package scripts and checks are identified.
-- Quality expectations are based on product needs, not tutorial/reference UI.
+For repo-local product smoke, run from `coding-deepgent`:
 
-## What to Capture
+```bash
+PYTHONPATH=src python3 -m coding_deepgent ui-bridge --fake
+PYTHONPATH=src python3 -m coding_deepgent ui --fake
+```
 
-- Required lint and typecheck commands
-- Test expectations
-- Accessibility expectations
-- Responsive behavior expectations
-- Code review standards
+Run focused Python tests from `coding-deepgent` when bridge/protocol behavior changes:
 
-## Real Examples
+```bash
+pytest -q tests/frontend/test_frontend_protocol.py tests/frontend/test_frontend_bridge.py tests/frontend/test_frontend_event_mapping.py
+```
 
-- Add 2-3 examples that show the expected quality level
+## Test Expectations
+
+- TS tests should cover protocol parsing and reducer behavior.
+- Python tests should cover strict protocol validation, bridge event order,
+  streaming deltas, and event mapping.
+- Smoke test the fake interactive CLI in a TTY when changing input/exit behavior.
 
 ## Anti-Patterns
 
-- List patterns the project avoids
+- relying only on manual terminal testing
+- changing protocol payloads without updating both Python and TS tests
+- adding unbounded terminal output snapshots as tests

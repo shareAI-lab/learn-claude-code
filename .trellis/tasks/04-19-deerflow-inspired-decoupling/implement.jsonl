@@ -1,0 +1,7 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Frontend CLI package and protocol layout"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Backend domain ownership and adapter boundary"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Protocol type sync"}
+{"file": ".trellis/spec/guides/architecture-posture-guide.md", "reason": "Clean producer adapter architecture"}

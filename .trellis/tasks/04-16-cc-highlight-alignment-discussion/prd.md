@@ -425,11 +425,11 @@ H01 工具模块可以在计划层收束为四个 buckets：
 * `coding-deepgent/src/coding_deepgent/tool_system/capabilities.py`
 * `coding-deepgent/src/coding_deepgent/containers/app.py`
 * `coding-deepgent/src/coding_deepgent/containers/tool_system.py`
-* `coding-deepgent/tests/test_skills.py`
-* `coding-deepgent/tests/test_mcp.py`
-* `coding-deepgent/tests/test_plugins.py`
-* `coding-deepgent/tests/test_hooks.py`
-* `coding-deepgent/tests/test_tool_system_registry.py`
+* `coding-deepgent/tests/extensions/test_skills.py`
+* `coding-deepgent/tests/extensions/test_mcp.py`
+* `coding-deepgent/tests/extensions/test_plugins.py`
+* `coding-deepgent/tests/extensions/test_hooks.py`
+* `coding-deepgent/tests/tool_system/test_tool_system_registry.py`
 
 ### Highlight completion matrix
 
@@ -547,7 +547,7 @@ Deferred:
 
 * `coding-deepgent/src/coding_deepgent/subagents/tools.py`
 * `coding-deepgent/src/coding_deepgent/subagents/schemas.py`
-* `coding-deepgent/tests/test_subagents.py`
+* `coding-deepgent/tests/subagents/test_subagents.py`
 * `coding-deepgent/src/coding_deepgent/runtime/context.py`
 * `coding-deepgent/src/coding_deepgent/runtime/invocation.py`
 * `coding-deepgent/src/coding_deepgent/tasks/*`
@@ -687,9 +687,9 @@ agent definition/tool projection contract。
   * `is_read_only_bash(command)` uses `shlex.split`, rejects simple metacharacter tokens, allowlists first word
   * `_hard_safety_decision` calls `command_policy`
   * `_mode_decision` treats read-only bash as allow, write-like bash as ask/deny by mode
-* `coding-deepgent/tests/test_permissions.py`
+* `coding-deepgent/tests/permissions/test_permissions.py`
   * covers simple read-only bash, write-like bash, dangerous substring, mode behavior
-* `coding-deepgent/tests/test_tools.py`
+* `coding-deepgent/tests/filesystem/test_tools.py`
   * covers runtime-owned workdir and blocking `rm -rf /`
 
 ### Shell safety gap map

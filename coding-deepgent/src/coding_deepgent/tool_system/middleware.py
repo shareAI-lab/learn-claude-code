@@ -8,7 +8,7 @@ from langchain.messages import ToolMessage
 from langchain.tools.tool_node import ToolCallRequest
 from langgraph.types import Command
 
-from coding_deepgent.compact import maybe_persist_large_tool_result
+from coding_deepgent.compact.tool_results import maybe_persist_large_tool_result
 from coding_deepgent.hooks.dispatcher import dispatch_context_hook
 from coding_deepgent.hooks.events import HookEventName
 from coding_deepgent.memory import evaluate_feedback_enforcement

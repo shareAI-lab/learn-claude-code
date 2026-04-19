@@ -17,8 +17,8 @@ Reviewed against:
 - `coding-deepgent/src/coding_deepgent/tool_system/middleware.py`
 - `coding-deepgent/src/coding_deepgent/compact/tool_results.py`
 - `coding-deepgent/src/coding_deepgent/compact/runtime_pressure.py`
-- `coding-deepgent/tests/test_tool_result_storage.py`
-- `coding-deepgent/tests/test_tool_system_registry.py`
+- `coding-deepgent/tests/tool_system/test_tool_result_storage.py`
+- `coding-deepgent/tests/tool_system/test_tool_system_registry.py`
 
 ## Current Opt-In Set
 

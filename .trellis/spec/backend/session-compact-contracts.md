@@ -564,35 +564,35 @@ Expected:
 
 Required focused tests:
 
-- `coding-deepgent/tests/test_cli.py::test_sessions_resume_uses_recovery_brief_continuation_history`
-- `coding-deepgent/tests/test_cli.py::test_sessions_resume_can_use_manual_compact_summary`
-- `coding-deepgent/tests/test_cli.py::test_sessions_resume_can_generate_manual_compact_summary`
-- `coding-deepgent/tests/test_cli.py::test_sessions_resume_rejects_manual_and_generated_compact_together`
-- `coding-deepgent/tests/test_cli.py::test_sessions_resume_rejects_compact_options_without_prompt`
-- `coding-deepgent/tests/test_cli.py::test_sessions_resume_rejects_compact_instructions_without_generation`
-- `coding-deepgent/tests/test_cli.py::test_run_once_records_new_and_resumed_session_transcript`
-- `coding-deepgent/tests/test_cli.py::test_run_once_records_compact_metadata_without_message_index_skew`
-- `coding-deepgent/tests/test_cli.py::test_selected_continuation_history_uses_loaded_compacted_history`
-- `coding-deepgent/tests/test_cli.py::test_selected_continuation_history_prefers_loaded_collapsed_history`
-- `coding-deepgent/tests/test_cli.py::test_sessions_resume_defaults_to_latest_compacted_continuation_when_available`
-- `coding-deepgent/tests/test_compact_artifacts.py`
-- `coding-deepgent/tests/test_compact_summarizer.py`
-- `coding-deepgent/tests/test_message_projection.py`
-- `coding-deepgent/tests/test_sessions.py::test_compact_record_roundtrip_does_not_enter_history`
-- `coding-deepgent/tests/test_sessions.py::test_collapse_record_roundtrip_does_not_enter_history`
-- `coding-deepgent/tests/test_sessions.py::test_sidechain_message_roundtrip_stays_out_of_parent_history`
-- `coding-deepgent/tests/test_sessions.py::test_load_session_collapsed_history_uses_newest_non_overlapping_collapses`
-- `coding-deepgent/tests/test_sessions.py::test_load_session_collapsed_history_falls_back_to_raw_on_invalid_refs`
-- `coding-deepgent/tests/test_sessions.py::test_compression_view_exposes_raw_projection_and_timeline`
-- `coding-deepgent/tests/test_sessions.py::test_compression_view_can_force_raw_projection`
-- `coding-deepgent/tests/test_sessions.py::test_load_session_ignores_invalid_compact_records`
-- `coding-deepgent/tests/test_sessions.py::test_load_session_compacted_history_falls_back_to_raw_history_on_invalid_tail_range`
-- `coding-deepgent/tests/test_sessions.py::test_load_session_compacted_history_uses_newest_valid_compact_record`
-- `coding-deepgent/tests/test_sessions.py::test_load_session_compacted_history_uses_latest_valid_compact_record`
-- `coding-deepgent/tests/test_sessions.py::test_recovery_brief_renders_verification_provenance_only`
-- `coding-deepgent/tests/test_runtime_pressure.py::test_runtime_pressure_middleware_persists_collapse_record_when_projection_exists`
-- `coding-deepgent/tests/test_memory.py::test_memory_quality_policy_rejects_transient_and_duplicate_entries`
-- `coding-deepgent/tests/test_memory_integration.py::test_save_memory_tool_rejects_transient_memory_via_create_agent_runtime`
+- `coding-deepgent/tests/cli/test_cli.py::test_sessions_resume_uses_recovery_brief_continuation_history`
+- `coding-deepgent/tests/cli/test_cli.py::test_sessions_resume_can_use_manual_compact_summary`
+- `coding-deepgent/tests/cli/test_cli.py::test_sessions_resume_can_generate_manual_compact_summary`
+- `coding-deepgent/tests/cli/test_cli.py::test_sessions_resume_rejects_manual_and_generated_compact_together`
+- `coding-deepgent/tests/cli/test_cli.py::test_sessions_resume_rejects_compact_options_without_prompt`
+- `coding-deepgent/tests/cli/test_cli.py::test_sessions_resume_rejects_compact_instructions_without_generation`
+- `coding-deepgent/tests/cli/test_cli.py::test_run_once_records_new_and_resumed_session_transcript`
+- `coding-deepgent/tests/cli/test_cli.py::test_run_once_records_compact_metadata_without_message_index_skew`
+- `coding-deepgent/tests/cli/test_cli.py::test_selected_continuation_history_uses_loaded_compacted_history`
+- `coding-deepgent/tests/cli/test_cli.py::test_selected_continuation_history_prefers_loaded_collapsed_history`
+- `coding-deepgent/tests/cli/test_cli.py::test_sessions_resume_defaults_to_latest_compacted_continuation_when_available`
+- `coding-deepgent/tests/compact/test_compact_artifacts.py`
+- `coding-deepgent/tests/compact/test_compact_summarizer.py`
+- `coding-deepgent/tests/compact/test_message_projection.py`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_compact_record_roundtrip_does_not_enter_history`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_collapse_record_roundtrip_does_not_enter_history`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_sidechain_message_roundtrip_stays_out_of_parent_history`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_load_session_collapsed_history_uses_newest_non_overlapping_collapses`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_load_session_collapsed_history_falls_back_to_raw_on_invalid_refs`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_compression_view_exposes_raw_projection_and_timeline`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_compression_view_can_force_raw_projection`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_load_session_ignores_invalid_compact_records`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_load_session_compacted_history_falls_back_to_raw_history_on_invalid_tail_range`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_load_session_compacted_history_uses_newest_valid_compact_record`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_load_session_compacted_history_uses_latest_valid_compact_record`
+- `coding-deepgent/tests/sessions/test_sessions.py::test_recovery_brief_renders_verification_provenance_only`
+- `coding-deepgent/tests/compact/test_runtime_pressure.py::test_runtime_pressure_middleware_persists_collapse_record_when_projection_exists`
+- `coding-deepgent/tests/memory/test_memory.py::test_memory_quality_policy_rejects_transient_and_duplicate_entries`
+- `coding-deepgent/tests/memory/test_memory_integration.py::test_save_memory_tool_rejects_transient_memory_via_create_agent_runtime`
 
 Required assertion points:
 
@@ -718,5 +718,5 @@ def project_messages_with_stats(
 
 ### 5. Tests Required
 
-- `coding-deepgent/tests/test_message_projection.py`
-- `coding-deepgent/tests/test_agent_runtime_service.py`
+- `coding-deepgent/tests/compact/test_message_projection.py`
+- `coding-deepgent/tests/runtime/test_agent_runtime_service.py`

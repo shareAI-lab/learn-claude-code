@@ -304,8 +304,8 @@ Stage 3 should deliver a working skeleton, not only folders:
 
 Files:
 - `pyproject.toml`
-- `coding-deepgent/tests/test_structure.py`
-- `coding-deepgent/tests/test_contract.py`
+- `coding-deepgent/tests/structure/test_structure.py`
+- `coding-deepgent/tests/structure/test_contract.py`
 
 Actions:
 - Add dependency/dependency-absence tests.

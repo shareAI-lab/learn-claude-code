@@ -4,6 +4,8 @@ from collections.abc import Sequence
 from typing import Any, Callable
 
 from coding_deepgent.prompting import build_prompt_context
+from coding_deepgent.runtime import RuntimeAgentBuildRequest, RuntimeAgentRole
+from coding_deepgent.runtime.agent_factory import create_runtime_agent
 from coding_deepgent.settings import Settings
 from coding_deepgent.startup import StartupContractStatus
 
@@ -42,16 +44,20 @@ def create_compiled_agent(
     checkpointer: Any,
     store: Any,
 ) -> Any:
-    return create_agent_factory(
-        model=model,
-        tools=list(tools),
-        system_prompt=system_prompt,
-        middleware=list(middleware),
-        state_schema=state_schema,
-        context_schema=context_schema,
-        checkpointer=checkpointer,
-        store=store,
-        name="coding-deepgent",
+    return create_runtime_agent(
+        RuntimeAgentBuildRequest(
+            role=RuntimeAgentRole.MAIN,
+            model=model,
+            tools=tools,
+            system_prompt=system_prompt,
+            middleware=middleware,
+            state_schema=state_schema,
+            context_schema=context_schema,
+            checkpointer=checkpointer,
+            store=store,
+            name="coding-deepgent",
+        ),
+        create_agent_factory=create_agent_factory,
     )
 
 

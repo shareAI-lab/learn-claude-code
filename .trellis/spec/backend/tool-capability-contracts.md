@@ -324,16 +324,16 @@ Expected:
 
 Required focused test families:
 
-- `coding-deepgent/tests/test_tool_system_registry.py`
-- `coding-deepgent/tests/test_tool_system_middleware.py`
-- `coding-deepgent/tests/test_tool_search.py`
+- `coding-deepgent/tests/tool_system/test_tool_system_registry.py`
+- `coding-deepgent/tests/tool_system/test_tool_system_middleware.py`
+- `coding-deepgent/tests/tool_system/test_tool_search.py`
 - domain-specific schema tests, for example:
-  - `coding-deepgent/tests/test_tools.py`
-  - `coding-deepgent/tests/test_tasks.py`
-  - `coding-deepgent/tests/test_subagents.py`
-  - `coding-deepgent/tests/test_memory.py`
-  - `coding-deepgent/tests/test_skills.py`
-  - `coding-deepgent/tests/test_mcp.py`
+  - `coding-deepgent/tests/filesystem/test_tools.py`
+  - `coding-deepgent/tests/tasks/test_tasks.py`
+  - `coding-deepgent/tests/subagents/test_subagents.py`
+  - `coding-deepgent/tests/memory/test_memory.py`
+  - `coding-deepgent/tests/extensions/test_skills.py`
+  - `coding-deepgent/tests/extensions/test_mcp.py`
 
 Required assertion points:
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import subprocess
 import sys
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -9,7 +11,7 @@ from typer.main import get_command
 from typing import cast
 
 from coding_deepgent import cli_service
-from coding_deepgent.app import agent_loop, build_container
+from coding_deepgent.frontend.bridge import run_stdio_bridge
 from coding_deepgent.logging_config import configure_logging
 from coding_deepgent.memory.backend import MemoryJobStatus, migrate_memory_schema
 from coding_deepgent.memory.schemas import MemoryType
@@ -34,6 +36,12 @@ memory_app = typer.Typer(help="Manage durable long-term memory backend and jobs.
 app.add_typer(config_app, name="config")
 app.add_typer(sessions_app, name="sessions")
 app.add_typer(memory_app, name="memory")
+
+
+def agent_loop(*args: Any, **kwargs: Any) -> str:
+    from coding_deepgent.app import agent_loop
+
+    return agent_loop(*args, **kwargs)
 
 
 def build_cli_runtime() -> cli_service.CliRuntime:
@@ -241,8 +249,37 @@ def doctor() -> None:
     typer.echo(render_doctor_table(checks))
 
 
+@app.command("ui")
+def ui(
+    fake: bool = typer.Option(
+        False,
+        "--fake",
+        help="Start the React/Ink CLI frontend with deterministic fake responses.",
+    ),
+) -> None:
+    frontend_dir = Path(__file__).resolve().parents[2] / "frontend" / "cli"
+    if not frontend_dir.exists():
+        raise ClickException(f"Frontend CLI package not found: {frontend_dir}")
+    script = "start:fake" if fake else "start"
+    result = subprocess.run(["npm", "run", script], cwd=frontend_dir)
+    raise typer.Exit(result.returncode)
+
+
+@app.command("ui-bridge")
+def ui_bridge(
+    fake: bool = typer.Option(
+        False,
+        "--fake",
+        help="Run the frontend JSONL bridge with deterministic fake responses.",
+    ),
+) -> None:
+    run_stdio_bridge(fake=fake)
+
+
 @memory_app.command("migrate")
 def memory_migrate() -> None:
+    from coding_deepgent.app import build_container
+
     container = build_container()
     migrate_memory_schema(container.memory_backend.engine())
     typer.echo("Memory backend schema is ready.")
@@ -261,6 +298,8 @@ def memory_jobs(
     ),
     limit: int = typer.Option(20, "--limit", min=1, max=100),
 ) -> None:
+    from coding_deepgent.app import build_container
+
     container = build_container()
     settings = build_cli_runtime().settings_loader()
     status_filter = MemoryJobStatus(status) if status is not None else None
@@ -290,6 +329,8 @@ def memory_records(
     ),
     limit: int = typer.Option(20, "--limit", min=1, max=100),
 ) -> None:
+    from coding_deepgent.app import build_container
+
     container = build_container()
     settings = build_cli_runtime().settings_loader()
     records = container.memory_backend.service().list_records(
@@ -309,6 +350,8 @@ def memory_records(
 
 @memory_app.command("agent-scopes")
 def memory_agent_scopes() -> None:
+    from coding_deepgent.app import build_container
+
     container = build_container()
     settings = build_cli_runtime().settings_loader()
     scopes = container.memory_backend.service().list_agent_scopes(
@@ -323,6 +366,8 @@ def memory_agent_scopes() -> None:
 
 @memory_app.command("worker-run-once")
 def memory_worker_run_once() -> None:
+    from coding_deepgent.app import build_container
+
     container = build_container()
     job = container.memory_backend.service().process_next_job()
     if job is None:

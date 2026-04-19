@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 import uuid
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Protocol
 
 from langchain.tools import ToolRuntime, tool
@@ -11,11 +12,13 @@ from coding_deepgent.sessions.records import SessionContext
 from coding_deepgent.sessions.store_jsonl import JsonlSessionStore
 from coding_deepgent.subagents.schemas import (
     BackgroundSubagentRun,
+    BackgroundRuntimeSnapshot,
     BackgroundSubagentSendInput,
     BackgroundSubagentStatusInput,
     BackgroundSubagentStopInput,
     RunBackgroundSubagentInput,
 )
+from coding_deepgent.subagents.forking import fingerprint_text, tool_surface_snapshot
 from coding_deepgent.subagents.tools import (
     resume_fork_task,
     resume_subagent_task,
@@ -36,6 +39,12 @@ class BackgroundRunStore(Protocol):
     def get(self, namespace: tuple[str, ...], key: str) -> object | None: ...
 
     def search(self, namespace: tuple[str, ...]) -> Iterable[object]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class BackgroundWorkerHandle:
+    thread: threading.Thread
+    snapshot: BackgroundRuntimeSnapshot
 
 
 def _store(runtime: ToolRuntime) -> BackgroundRunStore:
@@ -82,6 +91,40 @@ def _runtime_workdir(runtime: ToolRuntime) -> str:
     return str(workdir) if workdir is not None else ""
 
 
+def _runtime_snapshot(
+    runtime: ToolRuntime,
+    *,
+    parent_thread_id: str,
+) -> BackgroundRuntimeSnapshot:
+    context = getattr(runtime, "context", None)
+    session_id = str(getattr(context, "session_id", parent_thread_id) or parent_thread_id)
+    entrypoint = str(getattr(context, "entrypoint", "unknown") or "unknown")
+    agent_name = str(getattr(context, "agent_name", "coding-deepgent") or "coding-deepgent")
+    rendered_prompt = getattr(context, "rendered_system_prompt", None)
+    rendered_prompt_fingerprint = (
+        fingerprint_text(rendered_prompt)
+        if isinstance(rendered_prompt, str) and rendered_prompt.strip()
+        else None
+    )
+    projection = getattr(context, "visible_tool_projection", None)
+    tool_pool_fingerprint: str | None = None
+    if projection is not None:
+        try:
+            tool_pool_fingerprint = tool_surface_snapshot(projection).fingerprint
+        except Exception:
+            tool_pool_fingerprint = None
+    return BackgroundRuntimeSnapshot(
+        session_id=session_id,
+        parent_thread_id=parent_thread_id,
+        workdir=_runtime_workdir(runtime),
+        entrypoint=entrypoint,
+        agent_name=agent_name,
+        has_session_context=isinstance(getattr(context, "session_context", None), SessionContext),
+        rendered_prompt_fingerprint=rendered_prompt_fingerprint,
+        tool_pool_fingerprint=tool_pool_fingerprint,
+    )
+
+
 def _append_notification(
     runtime: ToolRuntime,
     record: BackgroundSubagentRun,
@@ -118,6 +161,9 @@ def _append_notification(
             "status": record.status,
             "pending_inputs": len(record.pending_inputs),
             "total_invocations": record.total_invocations,
+            "runtime_snapshot": record.runtime_snapshot.model_dump()
+            if record.runtime_snapshot is not None
+            else None,
         },
     )
 
@@ -159,11 +205,11 @@ def _terminal_progress(record: BackgroundSubagentRun) -> str:
 class BackgroundSubagentManager:
     def __init__(self) -> None:
         self._lock = threading.RLock()
-        self._workers: dict[str, threading.Thread] = {}
+        self._workers: dict[str, BackgroundWorkerHandle] = {}
 
     def is_active(self, run_id: str) -> bool:
         worker = self._workers.get(run_id)
-        return worker is not None and worker.is_alive()
+        return worker is not None and worker.thread.is_alive()
 
     def start_subagent(
         self,
@@ -178,6 +224,7 @@ class BackgroundSubagentManager:
         run_id = f"bgrun-{uuid.uuid4().hex[:12]}"
         parent_thread_id = _runtime_thread_id(runtime)
         child_thread_id = f"{parent_thread_id}:{agent_type}:{run_id}"
+        runtime_snapshot = _runtime_snapshot(runtime, parent_thread_id=parent_thread_id)
         record = BackgroundSubagentRun(
             run_id=run_id,
             mode="background_subagent",
@@ -191,6 +238,7 @@ class BackgroundSubagentManager:
             effective_max_turns=min(max_turns or definition.max_turns, definition.max_turns),
             model_profile=definition.model_profile,
             plan_id=plan_id,
+            runtime_snapshot=runtime_snapshot,
             pending_inputs=[task],
             progress_summary="Queued background subagent run.",
             summary_text="Queued background subagent run.",
@@ -209,6 +257,7 @@ class BackgroundSubagentManager:
         parent_thread_id = _runtime_thread_id(runtime)
         child_thread_id = f"{parent_thread_id}:fork:{run_id}"
         effective_max_turns = 25 if max_turns is None else min(max_turns, 25)
+        runtime_snapshot = _runtime_snapshot(runtime, parent_thread_id=parent_thread_id)
         record = BackgroundSubagentRun(
             run_id=run_id,
             mode="background_fork",
@@ -220,6 +269,7 @@ class BackgroundSubagentManager:
             workdir=_runtime_workdir(runtime),
             requested_max_turns=max_turns,
             effective_max_turns=effective_max_turns,
+            runtime_snapshot=runtime_snapshot,
             pending_inputs=[intent],
             progress_summary="Queued background fork run.",
             summary_text="Queued background fork run.",
@@ -314,18 +364,30 @@ class BackgroundSubagentManager:
 
     def _spawn_worker(self, *, run_id: str, runtime: ToolRuntime) -> None:
         worker = self._workers.get(run_id)
-        if worker is not None and worker.is_alive():
+        if worker is not None and worker.thread.is_alive():
             return
+        record = get_background_run(_store(runtime), run_id)
+        snapshot = record.runtime_snapshot or _runtime_snapshot(
+            runtime,
+            parent_thread_id=record.parent_thread_id,
+        )
         thread = threading.Thread(
             target=self._worker,
-            kwargs={"run_id": run_id, "runtime": runtime},
+            kwargs={"run_id": run_id, "runtime": runtime, "snapshot": snapshot},
             daemon=True,
             name=f"coding-deepgent-background-agent-{run_id}",
         )
-        self._workers[run_id] = thread
+        self._workers[run_id] = BackgroundWorkerHandle(thread=thread, snapshot=snapshot)
         thread.start()
 
-    def _worker(self, *, run_id: str, runtime: ToolRuntime) -> None:
+    def _worker(
+        self,
+        *,
+        run_id: str,
+        runtime: ToolRuntime,
+        snapshot: BackgroundRuntimeSnapshot,
+    ) -> None:
+        del snapshot  # durable facts live on the run record; live runtime drives current invoke.
         try:
             while True:
                 with self._lock:

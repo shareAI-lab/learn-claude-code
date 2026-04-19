@@ -1,0 +1,8 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Focused Python validation expectations"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "CLI and bridge error boundaries"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Backend ownership for frontend bridge modules"}
+{"file": ".trellis/spec/guides/cc-alignment-guide.md", "reason": "cc source-backed frontend alignment boundary"}
+{"file": ".trellis/spec/guides/staged-execution-guide.md", "reason": "Integrated CLI frontend staged execution"}

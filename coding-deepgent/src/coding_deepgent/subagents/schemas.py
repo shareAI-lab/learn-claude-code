@@ -287,6 +287,19 @@ class BackgroundSubagentStopInput(BaseModel):
     runtime: ToolRuntime
 
 
+class BackgroundRuntimeSnapshot(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: str = Field(..., min_length=1)
+    parent_thread_id: str = Field(..., min_length=1)
+    workdir: str = Field(..., min_length=1)
+    entrypoint: str = Field(..., min_length=1)
+    agent_name: str = Field(..., min_length=1)
+    has_session_context: bool = False
+    rendered_prompt_fingerprint: str | None = Field(default=None, min_length=1)
+    tool_pool_fingerprint: str | None = Field(default=None, min_length=1)
+
+
 class ResumeSubagentInput(BaseModel):
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
@@ -352,6 +365,7 @@ class BackgroundSubagentRun(BaseModel):
     rendered_prompt_fingerprint: str | None = None
     tool_pool_fingerprint: str | None = None
     placeholder_layout_version: str | None = None
+    runtime_snapshot: BackgroundRuntimeSnapshot | None = None
     recent_activities: list[str] = Field(default_factory=list)
     latest_result: str | None = None
     error: str | None = None

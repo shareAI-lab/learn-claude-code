@@ -133,8 +133,8 @@ Expected:
 
 ### 6. Tests Required
 
-- `coding-deepgent/tests/test_tool_result_storage.py`
-- `coding-deepgent/tests/test_tool_system_middleware.py::test_tool_guard_persists_large_tool_output_for_eligible_tools`
+- `coding-deepgent/tests/tool_system/test_tool_result_storage.py`
+- `coding-deepgent/tests/tool_system/test_tool_system_middleware.py::test_tool_guard_persists_large_tool_output_for_eligible_tools`
 
 Required assertion points:
 

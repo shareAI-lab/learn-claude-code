@@ -243,7 +243,7 @@ Detailed tool contracts live in
 | collapse | Live collapse is useful pressure mitigation but is a temporary projection concept, not a durable session concept. | spec gap risk | Any durable collapse store must first explain why it is not just compact history with different trigger metadata. |
 | runtime pressure | Middleware-level staged rewrite is LangChain-native and testable. | architecture-correct | Keep ordering, fail-open behavior, bounded evidence, and prompt-too-long retry tests as mandatory. |
 | task | Durable task/plan graph is correctly separate from TodoWrite. | architecture-correct | Do not add workflow semantics to todo state or transcript evidence. |
-| subagent | Built-in `general`/`verifier`/`explore`/`plan`, repo-local and plugin-provided child definitions, fork continuity, sidechain-thread resume, bounded background runs, and deferred-discovery lifecycle controls are local slices with read-only tool allowlists and structured result envelopes; they are not a team runtime. | architecture gap for future cc | Mailbox/coordinator/team execution still require new task/subagent specs, not more string payloads in `run_subagent` or deferred lifecycle bridges. |
+| subagent | Built-in `general`/`verifier`/`explore`/`plan`, repo-local and plugin-provided child definitions, fork continuity, sidechain-thread resume, bounded background runs, and deferred-discovery lifecycle controls are local slices with read-only tool allowlists and structured result envelopes; they are not a team runtime. Runtime role/factory seams now distinguish main/subagent/fork construction, while `coordinator`/`worker` are reserved future roles only. | architecture gap for future cc | Mailbox/coordinator/team execution still require new task/subagent/team specs, not more string payloads in `run_subagent`, `run_fork`, or deferred lifecycle bridges. |
 | hooks | Local sync hooks are a safe foundation. | process/spec gap for extension lifecycle | Keep plugin/async/remote hooks deferred until a concrete lifecycle and trust contract exists. |
 | memory | Scoped memory quality gate is good; durable backend depth is not yet sufficient for process-surviving cross-session claims. | architecture gap | Add durable store backend contract before expanding memory extraction or claiming richer cc memory parity. |
 
@@ -260,6 +260,27 @@ Detailed tool contracts live in
 - LangGraph checkpointer/store, JSONL transcript, and `RuntimeState` snapshots
   are separate mechanisms; future work must not blur them into one "session
   state" concept.
+
+#### H13 / H14 Readiness Gate
+
+Before implementing mailbox, `SendMessage`, Scratchpad, or coordinator-worker
+runtime behavior, future tasks must verify:
+
+- `run_subagent` and `run_fork` public schemas remain free of mailbox,
+  coordinator, worker, team, Scratchpad, and message-routing fields.
+- `coordinator` and `worker` are represented as runtime roles without
+  overloading `subagent` or `fork`.
+- coordinator tool projection is restricted by capability/role projection, not
+  by prompt-only instructions.
+- worker tool projection excludes team management and coordinator-only tools.
+- background run state distinguishes durable run records, bounded runtime
+  snapshots, and process-local worker handles before message delivery is added.
+- team/Scratchpad state has an owning future domain such as `teams/` or
+  `orchestration/`; it must not be hidden inside `sessions/`, `tool_system/`,
+  or `subagents/tools.py`.
+
+If any of these conditions are not true, open a runtime-readiness cleanup task
+before implementing H13/H14 behavior.
 
 #### Spec Findings
 
@@ -384,26 +405,26 @@ Expected:
 Use focused tests first, then broaden only when coupling changes.
 
 - Transcript/session/compact:
-  - `coding-deepgent/tests/test_sessions.py`
-  - `coding-deepgent/tests/test_cli.py`
-  - `coding-deepgent/tests/test_compact_artifacts.py`
-  - `coding-deepgent/tests/test_message_projection.py`
+  - `coding-deepgent/tests/sessions/test_sessions.py`
+  - `coding-deepgent/tests/cli/test_cli.py`
+  - `coding-deepgent/tests/compact/test_compact_artifacts.py`
+  - `coding-deepgent/tests/compact/test_message_projection.py`
 - Runtime pressure/collapse:
-  - `coding-deepgent/tests/test_runtime_pressure.py`
-  - `coding-deepgent/tests/test_compact_summarizer.py`
-  - `coding-deepgent/tests/test_app.py`
+  - `coding-deepgent/tests/compact/test_runtime_pressure.py`
+  - `coding-deepgent/tests/compact/test_compact_summarizer.py`
+  - `coding-deepgent/tests/runtime/test_app.py`
 - Task/subagent/workflow:
-  - `coding-deepgent/tests/test_tasks.py`
-  - `coding-deepgent/tests/test_subagents.py`
-  - `coding-deepgent/tests/test_tool_system_registry.py`
+  - `coding-deepgent/tests/tasks/test_tasks.py`
+  - `coding-deepgent/tests/subagents/test_subagents.py`
+  - `coding-deepgent/tests/tool_system/test_tool_system_registry.py`
 - Hooks/evidence:
-  - `coding-deepgent/tests/test_hooks.py`
-  - `coding-deepgent/tests/test_tool_system_middleware.py`
-  - `coding-deepgent/tests/test_session_contributions.py`
+  - `coding-deepgent/tests/extensions/test_hooks.py`
+  - `coding-deepgent/tests/tool_system/test_tool_system_middleware.py`
+  - `coding-deepgent/tests/sessions/test_session_contributions.py`
 - Memory:
-  - `coding-deepgent/tests/test_memory.py`
-  - `coding-deepgent/tests/test_memory_context.py`
-  - `coding-deepgent/tests/test_memory_integration.py`
+  - `coding-deepgent/tests/memory/test_memory.py`
+  - `coding-deepgent/tests/memory/test_memory_context.py`
+  - `coding-deepgent/tests/memory/test_memory_integration.py`
 
 ### 10. Wrong vs Correct
 

@@ -1,0 +1,44 @@
+{
+  "id": "r1-runtime-role-agent-factory-seam",
+  "name": "r1-runtime-role-agent-factory-seam",
+  "title": "R1 runtime role and agent factory seam",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-19",
+  "completedAt": "2026-04-19",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-19-runtime-architecture-refactor-plan",
+  "relatedFiles": [],
+  "notes": "Completed R1: introduced runtime roles and runtime agent factory seam; main/subagent/fork construction now routes through the seam without retaining subagents.tools.create_agent compatibility.",
+  "meta": {}
+}

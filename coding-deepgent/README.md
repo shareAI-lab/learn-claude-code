@@ -61,6 +61,33 @@ The stage-3 runtime-foundation CLI keeps the legacy `--prompt` path while adding
 - `coding-deepgent sessions list` — render the current session index view
 - `coding-deepgent sessions resume <session-id> --prompt "..."` — continue a recorded session when a session provider is wired
 - `coding-deepgent doctor` — verify CLI/rendering/logging dependencies locally
+- `coding-deepgent ui` — start the React/Ink CLI frontend
+- `coding-deepgent ui-bridge` — JSONL backend bridge for the React/Ink frontend
+
+The React/Ink CLI frontend lives in `frontend/cli` and talks to the Python
+runtime through the JSONL adapter exposed by `ui-bridge`.
+
+Frontend backend layering:
+
+- `coding_deepgent.frontend.protocol` — renderer-neutral events and inputs
+- `coding_deepgent.frontend.producer` — runtime event producer
+- `coding_deepgent.frontend.adapters.jsonl` — stdio JSONL transport for CLI
+- `coding_deepgent.frontend.adapters.sse` — SSE formatter/consumer for future Web
+- `coding_deepgent.frontend.client` — embedded Python client for scripts/tests
+- `coding_deepgent.frontend.runs` — background run lifecycle
+- `coding_deepgent.frontend.stream_bridge` — replayable in-memory event bridge
+- `coding_deepgent.frontend.bridge` — backward-compatible import shim
+
+Development commands:
+
+- `coding-deepgent ui --fake` — start the interactive CLI against a deterministic fake bridge
+- `coding-deepgent ui` — start the interactive CLI against the Python runtime
+- `npm --prefix frontend/cli run dev:fake` — start the interactive CLI against a deterministic fake bridge
+- `npm --prefix frontend/cli run dev` — start the interactive CLI against the Python runtime
+
+The frontend protocol supports live assistant deltas and permission request
+events. Real HITL tool gating requires a runtime pause/resume seam and should
+not be treated as complete only because the UI can display approval prompts.
 
 Rich table renderers live in `coding_deepgent.renderers.text`, and local structured logging setup lives in `coding_deepgent.logging_config`.
 

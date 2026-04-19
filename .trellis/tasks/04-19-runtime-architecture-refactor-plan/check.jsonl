@@ -1,0 +1,12 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": ".trellis/tasks/04-19-runtime-architecture-refactor-plan/prd.md", "reason": "Check against integrated runtime reshape delivery contract"}
+{"file": ".trellis/tasks/04-19-r1-runtime-role-agent-factory-seam/prd.md", "reason": "Check R1 runtime role and factory seam requirements"}
+{"file": ".trellis/tasks/04-19-r2-split-subagent-domain-responsibilities/prd.md", "reason": "Check R2 subagent module split requirements"}
+{"file": ".trellis/tasks/04-19-r3-background-run-service-hardening/prd.md", "reason": "Check R3 background run service requirements"}
+{"file": ".trellis/tasks/04-19-r4-h13-h14-readiness-gate/prd.md", "reason": "Check R4 H13 H14 readiness gate requirements"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "Check LangChain-native runtime/tool/middleware rules"}
+{"file": ".trellis/spec/backend/project-infrastructure-foundation-contracts.md", "reason": "Check runtime/session/task/subagent infrastructure contracts"}
+{"file": ".trellis/spec/backend/task-workflow-contracts.md", "reason": "Check subagent/fork/background task workflow contracts"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Check domain ownership and module placement rules"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Check backend quality and validation expectations"}
