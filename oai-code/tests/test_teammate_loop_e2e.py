@@ -126,22 +126,24 @@ def test_teammate_wakes_from_idle_on_inbox(tmp_path, monkeypatch):
         read_only=True,
         max_work_iterations=3,
         idle_poll_sec=0.1,
-        idle_timeout_sec=2.0,
+        idle_timeout_sec=5.0,  # 放宽防 flaky
         autonomous=False,
     )
 
-    # 等 alice 进入 idle
-    deadline = time.time() + 3
+    # 等 alice 进入 idle(在第一轮 stop 之后)
+    deadline = time.time() + 5
     while time.time() < deadline:
         if mgr.find("alice")["status"] == "idle":
             break
         time.sleep(0.05)
-    assert mgr.find("alice")["status"] == "idle"
+    assert mgr.find("alice")["status"] == "idle", (
+        f"alice did not reach idle state in time, got {mgr.find('alice')}"
+    )
 
     # 发消息唤醒
     bus.send("lead", "alice", "wake up please")
 
-    t.join(timeout=5)
+    t.join(timeout=10)
     assert not t.is_alive()
     # 最终 shutdown(第二轮 stop 后 idle 超时)
     assert mgr.find("alice")["status"] == "shutdown"

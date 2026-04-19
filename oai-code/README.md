@@ -200,6 +200,7 @@ Agent Loop（Agent 主循环）每轮调 LLM **之前**要做三件事：
 - **M2** ✅ Session 持久化 + resume / 后台任务 / MCP stdio 客户端 / Slash 完整集（103 测试）
 - **M3** ✅ MCP sse+http / 退出总结 / 多 Agent 协作（s09 总线 + s10 协议 + s11 自治）/ PyPI 构建就绪（156 测试）
 - **M4** ✅ 队友 auto-compact / BackgroundKill / AskUserQuestion / MultiEdit / Plan Mode / WebFetch（212 测试）
-- **M5** ⏳ Worktree 隔离 / MCP 真实 E2E / 队友 loop 录制回归 / UI 加固 / 真实 PyPI 发布
+- **M5** ✅ Worktree 隔离 / MCP 真实 E2E / 队友 loop 录制 / UI 加固 / 0.1.0 版本转正（241 测试）
+- **未来** MCP sse/http E2E / Worktree×Session 交互 / LSP 或 WebSearch / 真实 PyPI 推送
 
 每个里程碑均有 [溯源](./docs/milestones/) 与 [验收报告](./docs/milestones/) 两份文档。
