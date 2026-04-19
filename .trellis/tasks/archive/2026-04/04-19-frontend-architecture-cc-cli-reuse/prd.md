@@ -44,12 +44,12 @@
 
 ## Acceptance Criteria (evolving)
 
-* [ ] 明确 CLI v1 完工范围。
-* [ ] 明确哪些 cc CLI 行为应复用/对齐，哪些不应照搬。
-* [ ] 明确 CLI 与未来 Web 端共享的核心边界。
-* [ ] 形成可拆分的小 PR 实施计划。
-* [ ] PRD 记录 source-backed cc alignment matrix。
-* [ ] PRD 明确 Acceptance Targets / Planned Features / Planned Extensions。
+* [x] 明确 CLI v1 完工范围。
+* [x] 明确哪些 cc CLI 行为应复用/对齐，哪些不应照搬。
+* [x] 明确 CLI 与未来 Web 端共享的核心边界。
+* [x] 形成可拆分的小 PR 实施计划。
+* [x] PRD 记录 source-backed cc alignment matrix。
+* [x] PRD 明确 Acceptance Targets / Planned Features / Planned Extensions。
 
 ## Definition of Done (team quality bar)
 
@@ -488,6 +488,20 @@ This task counts as complete when:
 * Full LangGraph HITL interrupt integration if not completed in Stage 5.
 * Richer cc component parity: transcript search, virtualized long history, command palette, slash commands, full task navigation, theme customization.
 * Packaging polish: single installer, published npm package, binary wrappers.
+
+## Final Closeout (2026-04-19)
+
+This brainstorm is complete and has been implemented beyond the original CLI v1
+target:
+
+* React/Ink CLI package exists under `coding-deepgent/frontend/cli`.
+* Python JSONL bridge and renderer-neutral frontend protocol exist under
+  `coding_deepgent.frontend`.
+* Real streaming and same-process CLI permission HITL pause/resume have been
+  implemented and validated in later focused tasks.
+* Product shortcut `coding-deepgent-ui` now exists.
+* Future browser/Web remains an explicit follow-up over the producer/adapter
+  boundary, not a reason to keep this planning task active.
 
 ## Stop Conditions For This Integrated Pass
 

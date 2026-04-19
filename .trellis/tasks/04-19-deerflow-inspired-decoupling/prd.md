@@ -56,11 +56,11 @@
 
 ## Acceptance Criteria (evolving)
 
-* [ ] 明确 DeerFlow 架构模式如何映射到 `coding-deepgent`。
-* [ ] 明确目标目录/模块边界。
-* [ ] 明确 staged implementation plan。
-* [ ] 明确哪些现在做、哪些留给 Web/HTML 阶段。
-* [ ] 形成一个可以进入 Task Workflow 的计划。
+* [x] 明确 DeerFlow 架构模式如何映射到 `coding-deepgent`。
+* [x] 明确目标目录/模块边界。
+* [x] 明确 staged implementation plan。
+* [x] 明确哪些现在做、哪些留给 Web/HTML 阶段。
+* [x] 形成一个可以进入 Task Workflow 的计划。
 
 ## Definition of Done
 
@@ -421,3 +421,20 @@ Boundary findings:
 * Physical harness package split remains deferred.
 * Gateway/SSE and HTML/Web remain deferred.
 * `frontend.bridge` remains only for backwards compatibility; new imports should prefer `producer` or `adapters.jsonl`.
+
+## Final Closeout (2026-04-19)
+
+This brainstorm is complete. The recommended producer/adapter split and
+RunManager/StreamBridge/SSE foundation have already been implemented:
+
+* shared producer: `coding_deepgent.frontend.producer`
+* CLI JSONL adapter: `coding_deepgent.frontend.adapters.jsonl`
+* embedded client: `coding_deepgent.frontend.client`
+* run lifecycle: `coding_deepgent.frontend.runs`
+* replayable event bridge: `coding_deepgent.frontend.stream_bridge`
+* SSE adapter/gateway foundation: `coding_deepgent.frontend.adapters.sse` and
+  `coding_deepgent.frontend.gateway`
+
+Remaining Web work should start from a new focused task, such as a gateway HITL
+resume endpoint or browser UI, rather than keeping this architecture brainstorm
+active.
