@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
 
 class CompactConfig(BaseModel):
@@ -129,8 +129,18 @@ class Config(BaseModel):
             return None
         return os.environ.get(self.api_key_env)
 
+    # M5-1: 运行时可被 EnterWorktree 工具覆盖指向 worktree 目录。
+    # 用 PrivateAttr 避免污染 settings.json。
+    _workspace_override: Path | None = PrivateAttr(default=None)
+
     def workspace_root(self) -> Path:
+        if self._workspace_override is not None:
+            return self._workspace_override
         return Path.cwd()
+
+    def set_workspace_override(self, path: Path | None) -> None:
+        """内部 API,EnterWorktree / ExitWorktree 使用。传 None 表示恢复默认(cwd)。"""
+        self._workspace_override = path
 
     def derive_for_role(self, role_name: str) -> "Config":
         """派生出某个 role 专用的 Config。

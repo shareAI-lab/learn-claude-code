@@ -29,11 +29,31 @@ from .tools.builtin import register_builtins
 from .tools.compact_tool import register_compact
 from .tools.plan_mode import PlanModeState, register_plan_mode
 from .tools.web import register_webfetch
+from .tools.worktree import register_worktree
 from .tools.skills import discover_skills, register_load_skill
 from .tools.subagent import register_task_tool
 from .tools.tasks import TaskStore, register_tasks
 from .tools.todo import TodoManager, register_todo
 from .ui.repl import Repl
+
+
+def _maybe_resume_worktree(cfg) -> None:
+    """M5-1: 启动时若 state.json 显示 active,把 workspace_root 恢复到 worktree 路径。"""
+    import json
+    from pathlib import Path
+
+    state_path = Path.cwd() / ".oaic" / "worktrees" / "state.json"
+    if not state_path.exists():
+        return
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+    if state.get("active"):
+        p = Path(state.get("path", ""))
+        if p.is_dir():
+            cfg.set_workspace_override(p)
+            print(f"[worktree] resumed session '{state.get('name')}' at {p}")
 
 
 def _build_cli_overrides(args: argparse.Namespace) -> dict[str, Any]:
@@ -236,6 +256,10 @@ def main(argv: list[str] | None = None) -> int:
 
     # WebFetch (M4-6)
     register_webfetch(registry, cfg)
+
+    # Worktree (M5-1): 启动时恢复之前未 exit 的 worktree session
+    register_worktree(registry, cfg)
+    _maybe_resume_worktree(cfg)
 
     # Session 持久化
     session_store = SessionStore(cfg)
