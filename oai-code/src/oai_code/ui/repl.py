@@ -90,6 +90,9 @@ class Repl:
     # ---------- Callback 渲染 ----------
 
     def _cb(self) -> LoopCallbacks:
+        # M5-4: 给每个进行中的 tool_call 记个开始时间,完成时显示耗时
+        call_start: dict[str, float] = {}
+
         def on_text(delta: str) -> None:
             if not self._in_text_block:
                 self.console.print("[bold green]assistant[/] ", end="")
@@ -100,18 +103,32 @@ class Repl:
             if self._in_text_block:
                 self.console.print()
                 self._in_text_block = False
+            call_start[c.id] = time.monotonic()
             args_preview = (
                 json.dumps(c.arguments, ensure_ascii=False)[:120]
                 if self.cfg.ui.show_tool_args
                 else ""
             )
             self.console.print(
-                f"[yellow]⏵ {c.name}[/] [dim]{args_preview}[/]"
+                f"[yellow]⚙[/] [bold]{c.name}[/] [dim]{args_preview}[/]"
             )
 
         def on_tool_result(c: ToolCall, r: ToolResult) -> None:
+            elapsed = time.monotonic() - call_start.pop(c.id, time.monotonic())
+            elapsed_str = (
+                f"{int(elapsed * 1000)}ms" if elapsed < 1 else f"{elapsed:.1f}s"
+            )
+            is_error = r.content.startswith("Error:")
+            icon = "[red]✗[/]" if is_error else "[green]✓[/]"
+            self.console.print(
+                f"  {icon} [dim]{c.name} · {elapsed_str}[/]"
+            )
+            # TodoWrite 特殊渲染:用 rich Table
+            if c.name == "TodoWrite" and not is_error:
+                self._render_todo_result(r.content)
+                return
             snippet = r.content[:300].replace("\n", "\n    ")
-            if r.content.startswith("Error:"):
+            if is_error:
                 self.console.print(f"    [red]{snippet}[/]")
             else:
                 self.console.print(f"    [dim]{snippet}[/]")
@@ -121,6 +138,37 @@ class Repl:
             on_tool_call=on_tool_call,
             on_tool_result=on_tool_result,
         )
+
+    def _render_todo_result(self, content: str) -> None:
+        """把 TodoWrite 返回的纯文本清单用 rich 图标重绘。
+
+        输入格式(见 tools/todo.py):
+            [ ] pending item
+            [>] in_progress item  <-- doing ...
+            [x] completed item
+
+            (N/M completed)
+        """
+        from rich.text import Text
+
+        for raw in content.splitlines():
+            stripped = raw.strip()
+            if not stripped:
+                self.console.print()
+                continue
+            if stripped.startswith("[ ]"):
+                body = stripped[3:].lstrip()
+                self.console.print(Text("  ○ ", style="dim") + Text(body))
+            elif stripped.startswith("[>]"):
+                body = stripped[3:].lstrip()
+                self.console.print(Text("  ● ", style="yellow bold") + Text(body, style="bold"))
+            elif stripped.startswith("[x]"):
+                body = stripped[3:].lstrip()
+                self.console.print(Text("  ✓ ", style="green") + Text(body, style="dim"))
+            elif stripped.startswith("(") and "completed" in stripped:
+                self.console.print(f"  [dim]{stripped}[/]")
+            else:
+                self.console.print(f"  [dim]{raw}[/]")
 
     # ---------- 主循环 ----------
 
