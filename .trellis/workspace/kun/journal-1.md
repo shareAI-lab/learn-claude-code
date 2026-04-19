@@ -684,3 +684,41 @@ Added a minimal browser UI over `coding-deepgent ui-gateway`, wiring the new SSE
 ### Next Steps
 
 - None - task complete
+
+
+## Session 17: Release validation and ui-gateway dependency cleanup
+
+**Date**: 2026-04-19
+**Task**: Release validation and ui-gateway dependency cleanup
+
+### Summary
+
+Validated the current frontend gateway release candidate, fixed the optional web dependency packaging gap, and archived the Trellis cleanup task.
+
+### Main Changes
+
+- Validated the `coding-deepgent` release candidate changes around `ui-gateway`, frontend gateway, and the minimal web shell.
+- Confirmed focused Python, frontend CLI, static, and fake smoke checks passed.
+- Closed the release blocker where `ui-gateway` depended on `fastapi` / `uvicorn` without declaring them in project metadata.
+- Added the optional `web` dependency group, CLI missing-dependency guidance, README install notes, and regression coverage for the gateway runtime loader.
+- Archived `04-19-backend-next-step-release-validation-pr-cleanup` after writing the implementation checkpoint into the task PRD.
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7a80b8c` | (see git log) |
+| `8af4f5b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
