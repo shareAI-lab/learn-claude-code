@@ -18,6 +18,7 @@ from .config import load_config
 from .llm.client import LLMClient
 from .agent.system_prompt import build_system_prompt
 from .context import auto_compact
+from .mcp import MCPManager
 from .session import SessionStore
 from .tools.registry import ToolRegistry
 from .tools.background import BackgroundManager, register_background
@@ -173,6 +174,14 @@ def main(argv: list[str] | None = None) -> int:
     bg_manager = BackgroundManager(cfg)
     register_background(registry, bg_manager)
 
+    # MCP (stdio only for M2): 启动 enabled 的 server,把它们的 tools 加入 registry
+    mcp_manager: MCPManager | None = None
+    if cfg.mcp_servers:
+        mcp_manager = MCPManager(cfg)
+        started = mcp_manager.start()
+        if started:
+            mcp_manager.register_into(registry)
+
     # 预先计算 system prompt,注入 skills 目录
     system_prompt = build_system_prompt(cfg, skills=skills)
 
@@ -222,6 +231,7 @@ def main(argv: list[str] | None = None) -> int:
         summarize_llm=summarize_llm, pending_compact=pending_compact,
         session_store=session_store, resumed_messages=resumed_messages,
         background_manager=bg_manager,
+        mcp_manager=mcp_manager,
     )
     try:
         repl.run()

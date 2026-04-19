@@ -14,6 +14,7 @@ dependencies = [
     "prompt_toolkit>=3.0",
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
+    "mcp>=1.27.0",
 ]
 
 [project.optional-dependencies]

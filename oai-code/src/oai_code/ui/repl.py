@@ -34,6 +34,7 @@ class Repl:
         session_store=None,
         resumed_messages: list[dict] | None = None,
         background_manager=None,
+        mcp_manager=None,
     ):
         self.cfg = cfg
         self.llm = llm
@@ -46,6 +47,7 @@ class Repl:
         self._session_store = session_store
         self._resumed_messages = resumed_messages
         self._bg_manager = background_manager
+        self._mcp_manager = mcp_manager
         self.console = Console()
         self.state = self._new_state()
         if self._pending_compact is not None:
@@ -183,7 +185,7 @@ class Repl:
         if head == "/help":
             self.console.print(
                 "[bold]commands[/]: "
-                "/help  /clear  /compact  /tools  /todos  /tasks  /bg [id]  "
+                "/help  /clear  /compact  /tools  /todos  /tasks  /bg [id]  /mcp  "
                 "/models [model-id]  /provider <name>  "
                 "/sessions  /resume <id|latest>  "
                 "/quit"
@@ -228,6 +230,11 @@ class Repl:
                 self.console.print("[dim](no background manager)[/]")
             else:
                 self.console.print(self._bg_manager.check(arg or None))
+        elif head == "/mcp":
+            if self._mcp_manager is None:
+                self.console.print("[dim](no mcp servers configured)[/]")
+            else:
+                self.console.print(self._mcp_manager.summary())
         elif head == "/models":
             if not arg:
                 self._list_models()
