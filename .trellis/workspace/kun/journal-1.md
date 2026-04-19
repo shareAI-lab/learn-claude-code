@@ -722,3 +722,41 @@ Validated the current frontend gateway release candidate, fixed the optional web
 ### Next Steps
 
 - None - task complete
+
+
+## Session 18: Full mypy validation cleanup for PR 220
+
+**Date**: 2026-04-19
+**Task**: Full mypy validation cleanup for PR 220
+
+### Summary
+
+Cleared the branch-wide mypy gap in coding-deepgent tests, updated PR #220 validation status, and archived the Trellis cleanup task.
+
+### Main Changes
+
+- Cleared the branch-level `mypy coding-deepgent/src/coding_deepgent coding-deepgent/tests` validation gap that was previously called out in PR #220.
+- Tightened typed test fakes in `tests/compact/test_runtime_pressure.py` so model requests, runtimes, and handler responses satisfy LangChain static contracts without changing runtime behavior.
+- Fixed the `ToolGuardMiddleware` request fake in `tests/memory/test_memory_module_closeout.py` and the untyped emitted-event list in `tests/frontend/test_frontend_bridge.py`.
+- Re-ran branch validation and updated PR #220 to remove the old Known Validation Gap section.
+- Archived `04-19-full-mypy-validation-cleanup` after recording the final checkpoint and verification results.
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c4d91ae` | (see git log) |
+| `3b08964` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
