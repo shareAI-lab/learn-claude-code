@@ -184,11 +184,20 @@ class Repl:
         arg = parts[1].strip() if len(parts) > 1 else ""
         if head == "/help":
             self.console.print(
-                "[bold]commands[/]: "
-                "/help  /clear  /compact  /tools  /todos  /tasks  /bg [id]  /mcp  "
-                "/models [model-id]  /provider <name>  "
-                "/sessions  /resume <id|latest>  "
-                "/quit"
+                "[bold]session[/]:      "
+                "/sessions  /resume <id|latest>  /save  /clear  /compact"
+            )
+            self.console.print(
+                "[bold]inspect[/]:      "
+                "/tools  /todos  /tasks  /bg [id]  /mcp  /system  /history [N]  /debug"
+            )
+            self.console.print(
+                "[bold]model[/]:        "
+                "/models [model-id]  /provider <name>"
+            )
+            self.console.print(
+                "[bold]other[/]:        "
+                "/help  /quit"
             )
         elif head == "/clear":
             self.state = self._new_state()
@@ -235,6 +244,26 @@ class Repl:
                 self.console.print("[dim](no mcp servers configured)[/]")
             else:
                 self.console.print(self._mcp_manager.summary())
+        elif head == "/save":
+            if self._session_store is None:
+                self.console.print("[dim](no session store)[/]")
+            else:
+                n = self._session_store.append_new_messages(self.state.messages)
+                self.console.print(
+                    f"[green]✓[/] saved session [cyan]{self._session_store.session_id}[/] "
+                    f"[dim]({n} new messages flushed)[/]"
+                )
+        elif head == "/debug":
+            self._debug = not getattr(self, "_debug", False)
+            self._print_debug_status()
+        elif head == "/system":
+            self._print_system()
+        elif head == "/history":
+            try:
+                n = int(arg) if arg else 10
+            except ValueError:
+                n = 10
+            self._print_history(n)
         elif head == "/models":
             if not arg:
                 self._list_models()
@@ -291,6 +320,50 @@ class Repl:
             f"[green]✓[/] provider → [cyan]{self.cfg.provider}[/] "
             f"model=[cyan]{self.cfg.model}[/]"
         )
+
+    def _print_debug_status(self) -> None:
+        from ..context import estimate_tokens
+
+        on = getattr(self, "_debug", False)
+        n_msgs = len(self.state.messages)
+        tokens = estimate_tokens(self.state.messages)
+        self.console.print(
+            f"[bold]debug[/]: {'on' if on else 'off'}  "
+            f"messages=[cyan]{n_msgs}[/]  "
+            f"est_tokens=[cyan]{tokens}[/]  "
+            f"ctx_limit=[cyan]{self.cfg.context_window}[/]"
+        )
+
+    def _print_system(self) -> None:
+        sys_msgs = [m for m in self.state.messages if m.get("role") == "system"]
+        if not sys_msgs:
+            self.console.print("[dim](no system message)[/]")
+            return
+        content = sys_msgs[0].get("content", "") or ""
+        preview = content[:2000]
+        more = f"\n[dim]... ({len(content) - 2000} more chars)[/]" if len(content) > 2000 else ""
+        self.console.print(f"[bold]system prompt[/] [dim]({len(content)} chars)[/]:")
+        self.console.print(preview + more)
+
+    def _print_history(self, n: int) -> None:
+        if n <= 0:
+            n = 10
+        msgs = self.state.messages[-n:]
+        if not msgs:
+            self.console.print("[dim](no history)[/]")
+            return
+        for m in msgs:
+            role = m.get("role", "?")
+            content = m.get("content", "")
+            if isinstance(content, str):
+                preview = content[:200].replace("\n", " ")
+            else:
+                preview = str(content)[:200]
+            color = {"user": "green", "assistant": "cyan", "tool": "yellow", "system": "magenta"}.get(role, "white")
+            extra = ""
+            if m.get("tool_calls"):
+                extra = f" [dim](+{len(m['tool_calls'])} tool_calls)[/]"
+            self.console.print(f"[{color}]{role:>9}[/] {preview}{extra}")
 
     def _list_sessions(self) -> None:
         if self._session_store is None:
