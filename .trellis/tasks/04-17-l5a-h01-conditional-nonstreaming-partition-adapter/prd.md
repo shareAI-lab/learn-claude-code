@@ -12,9 +12,21 @@ Implement or explicitly reject H01-#4 non-streaming concurrency partition adapte
 
 ## Acceptance Criteria
 
-* [ ] `L4-a` research is cited.
-* [ ] Either a spec-only decision is recorded or adapter tests prove ordered results and exclusive unsafe tools.
-* [ ] No custom query loop or streaming tool executor is introduced.
+* [x] `L4-a` research is cited.
+* [x] A spec-only rejection decision is recorded because `L4-b` / `L4-c` did not expose a concrete capability-aware partitioning failure.
+* [x] No custom query loop or streaming tool executor is introduced.
+
+## Resolution (2026-04-19)
+
+* Cited source: `.trellis/tasks/04-17-l4a-h01-langchain-parallel-tool-call-research/research.md`
+* `L4-a` established that LangChain `ToolNode` already provides non-streaming parallel tool execution with preserved output ordering.
+* `L4-b` pairing/failure tests and `L4-c` persistence audit did not expose a repo-level failure that requires capability-aware partitioning.
+* Decision: explicitly reject implementing a local partition adapter for now and close this task as a spec-only follow-up.
+
+## Verification
+
+* `L4-a` research, `L4-b` tests, and `L4-c` audit all remain consistent with keeping runtime execution LangChain-native.
+* No product runtime code changes were required for this task.
 
 ## Dependencies
 

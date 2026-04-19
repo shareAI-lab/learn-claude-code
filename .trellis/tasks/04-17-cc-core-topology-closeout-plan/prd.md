@@ -75,7 +75,7 @@ Current source of truth:
 * [x] H19 vertical closeout is represented as done, not as the next planning blocker.
 * [x] `L1-c` is represented as done, not as the next planning blocker.
 * [x] `L2-a` is documented as the only next implementation entry point.
-* [ ] `L2-a` has been executed through normal Trellis task workflow.
+* [x] Remaining topology items were executed through normal Trellis task workflow, with `L5-a` explicitly closed as unnecessary based on completed `L4-a` / `L4-b` / `L4-c` evidence.
 
 ## Checkpoint: H19 Closeout
 
@@ -350,6 +350,12 @@ Boundary:
 
 Decision:
 - terminal
+
+## Final Closeout Decision (2026-04-19)
+
+* `L5-a` is now explicitly closed as a spec-only rejection task rather than a pending implementation item.
+* The closeout decision is backed by `L4-a` research showing upstream LangChain `ToolNode` already satisfies the non-streaming parallel baseline, plus `L4-b` / `L4-c` validation that found no concrete capability-aware partitioning failure.
+* This parent topology plan is therefore complete and can be archived without adding a local non-streaming partition adapter.
 
 ## Out of Scope
 
