@@ -197,7 +197,7 @@ class Repl:
             )
             self.console.print(
                 "[bold]other[/]:        "
-                "/help  /quit"
+                "/help  /quit [--summary]  /exit-summary"
             )
         elif head == "/clear":
             self.state = self._new_state()
@@ -281,10 +281,25 @@ class Repl:
                 "tools: " + ", ".join(self.registry.allowed_names())
             )
         elif head == "/quit" or head == "/exit":
+            if arg == "--summary":
+                self._do_exit_summary()
+            raise EOFError
+        elif head == "/exit-summary":
+            self._do_exit_summary()
             raise EOFError
         else:
             self.console.print(f"[red]unknown command: {head}[/]")
         return True
+
+    def _do_exit_summary(self) -> None:
+        if self._summarize_llm is None:
+            self.console.print("[yellow]![/] summarize_llm not configured,skip")
+            return
+        from ..memory import summarize_to_memory
+
+        self.console.print("[dim]generating exit summary to .oaic/MEMORY.md ...[/]")
+        out = summarize_to_memory(self.state.messages, self.cfg, self._summarize_llm)
+        self.console.print(f"[green]✓[/] {out}")
 
     # ---------- 运行时切换 ----------
 
