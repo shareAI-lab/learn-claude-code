@@ -1,0 +1,112 @@
+<mxfile host="app.diagrams.net" modified="2026-04-11T16:30:00.000Z" agent="Mozilla/5.0" etag="ecommerce-return" version="22.1.0" type="device">
+  <diagram name="电商退货流程" id="ecommerce-return-flow">
+    <mxGraphModel dx="1434" dy="780" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- 用户申请退货 -->
+        <mxCell id="step1" value="用户申请&lt;br&gt;退货" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;spacingTop=6;spacingBottom=6;" vertex="1" parent="1">
+          <mxGeometry x="520" y="40" width="160" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- 客服审核 -->
+        <mxCell id="step2" value="客服审核" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;spacingTop=6;spacingBottom=6;" vertex="1" parent="1">
+          <mxGeometry x="520" y="150" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 审核结果 -->
+        <mxCell id="decision1" value="审核结果" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=14;spacingTop=2;spacingBottom=2;" vertex="1" parent="1">
+          <mxGeometry x="540" y="250" width="120" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 拒绝退货 1 -->
+        <mxCell id="reject1" value="拒绝退货" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;spacingTop=6;spacingBottom=6;" vertex="1" parent="1">
+          <mxGeometry x="760" y="260" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 用户寄回商品 -->
+        <mxCell id="step3" value="用户寄回&lt;br&gt;商品" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;spacingTop=6;spacingBottom=6;" vertex="1" parent="1">
+          <mxGeometry x="520" y="380" width="160" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- 仓库验收 -->
+        <mxCell id="step4" value="仓库验收" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;spacingTop=6;spacingBottom=6;" vertex="1" parent="1">
+          <mxGeometry x="520" y="490" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 验收结果 -->
+        <mxCell id="decision2" value="验收结果" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=14;spacingTop=2;spacingBottom=2;" vertex="1" parent="1">
+          <mxGeometry x="540" y="590" width="120" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 拒绝退货 2 -->
+        <mxCell id="reject2" value="拒绝退货" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;spacingTop=6;spacingBottom=6;" vertex="1" parent="1">
+          <mxGeometry x="760" y="600" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 退款完成 -->
+        <mxCell id="step5" value="退款完成" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;spacingTop=6;spacingBottom=6;" vertex="1" parent="1">
+          <mxGeometry x="520" y="740" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 连线：申请 -> 审核 -->
+        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="step1" target="step2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 连线：审核 -> 审核结果 -->
+        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="step2" target="decision1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 连线：审核结果 -> 拒绝1 -->
+        <mxCell id="e3" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#b85450;strokeWidth=2;endArrow=block;endFill=1;fontSize=12;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="decision1" target="reject1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="660" y="290" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 连线：审核结果 -> 寄回商品 -->
+        <mxCell id="e4" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=2;endArrow=block;endFill=1;fontSize=12;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="decision1" target="step3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="330" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 连线：寄回 -> 验收 -->
+        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="step3" target="step4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 连线：验收 -> 验收结果 -->
+        <mxCell id="e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="step4" target="decision2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 连线：验收结果 -> 拒绝2 -->
+        <mxCell id="e7" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#b85450;strokeWidth=2;endArrow=block;endFill=1;fontSize=12;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="decision2" target="reject2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="660" y="630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 连线：验收结果 -> 退款 -->
+        <mxCell id="e8" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=2;endArrow=block;endFill=1;fontSize=12;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="decision2" target="step5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="670" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
