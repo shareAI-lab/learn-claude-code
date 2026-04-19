@@ -18,7 +18,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
+from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamablehttp_client
 
 from ..config.models import Config, MCPServerConfig
 from ..tools.registry import Tool, ToolRegistry
@@ -99,8 +101,8 @@ class MCPManager:
         for name, sc in self.cfg.mcp_servers.items():
             if not sc.enabled:
                 continue
-            if sc.type != "stdio":
-                print(f"[mcp:{name}] skipped: only 'stdio' supported in M2")
+            if sc.type not in ("stdio", "sse", "http"):
+                print(f"[mcp:{name}] skipped: unknown transport '{sc.type}'")
                 continue
             try:
                 await self._connect(name, sc)
@@ -108,18 +110,37 @@ class MCPManager:
                 print(f"[mcp:{name}] connect failed: {type(e).__name__}: {e}")
 
     async def _connect(self, name: str, sc: MCPServerConfig) -> None:
-        if not sc.command:
-            raise RuntimeError("mcp server missing 'command'")
-        env = _resolve_env(sc.env) if sc.env else None
-        params = StdioServerParameters(command=sc.command, args=sc.args, env=env)
-        read, write = await self._stack.enter_async_context(stdio_client(params))
+        if sc.type == "stdio":
+            if not sc.command:
+                raise RuntimeError("stdio mcp server missing 'command'")
+            env = _resolve_env(sc.env) if sc.env else None
+            params = StdioServerParameters(command=sc.command, args=sc.args, env=env)
+            ctx = stdio_client(params)
+            streams = await self._stack.enter_async_context(ctx)
+            read, write = streams[0], streams[1]
+        elif sc.type == "sse":
+            if not sc.url:
+                raise RuntimeError("sse mcp server missing 'url'")
+            headers = _resolve_env(sc.headers) if sc.headers else None
+            ctx = sse_client(sc.url, headers=headers, timeout=sc.timeout_sec)
+            read, write = await self._stack.enter_async_context(ctx)
+        elif sc.type == "http":
+            if not sc.url:
+                raise RuntimeError("http mcp server missing 'url'")
+            headers = _resolve_env(sc.headers) if sc.headers else None
+            ctx = streamablehttp_client(sc.url, headers=headers, timeout=sc.timeout_sec)
+            streams = await self._stack.enter_async_context(ctx)
+            read, write = streams[0], streams[1]  # (read, write, get_session_id)
+        else:
+            raise RuntimeError(f"unknown mcp transport '{sc.type}'")
+
         session = await self._stack.enter_async_context(ClientSession(read, write))
         await asyncio.wait_for(session.initialize(), timeout=sc.timeout_sec)
         result = await asyncio.wait_for(session.list_tools(), timeout=sc.timeout_sec)
         self._handles[name] = MCPServerHandle(
             server_name=name, cfg=sc, session=session, tools=list(result.tools)
         )
-        print(f"[mcp:{name}] connected; {len(result.tools)} tools")
+        print(f"[mcp:{name}] connected via {sc.type}; {len(result.tools)} tools")
 
     def stop(self) -> None:
         if self._loop is None:

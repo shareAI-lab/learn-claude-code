@@ -65,3 +65,53 @@ def test_summary_empty():
     cfg = load_config(cli_overrides={"model": "test", "provider": "custom"})
     mgr = MCPManager(cfg)
     assert "no mcp servers" in mgr.summary()
+
+
+# ---------- M3-1: sse/http transport error paths ----------
+
+
+@pytest.mark.asyncio
+async def test_connect_sse_missing_url_raises(tmp_path, monkeypatch):
+    from oai_code.config import load_config
+    from oai_code.config.models import MCPServerConfig
+    from oai_code.mcp import MCPManager
+
+    monkeypatch.chdir(tmp_path)
+    cfg = load_config(cli_overrides={"model": "test", "provider": "custom"})
+    mgr = MCPManager(cfg)
+    # 假装 stack 已起,只测分支逻辑
+    import contextlib
+    mgr._stack = contextlib.AsyncExitStack()
+    await mgr._stack.__aenter__()
+    try:
+        with pytest.raises(RuntimeError, match="missing 'url'"):
+            await mgr._connect("x", MCPServerConfig(type="sse", url=None))
+    finally:
+        await mgr._stack.__aexit__(None, None, None)
+
+
+@pytest.mark.asyncio
+async def test_connect_http_missing_url_raises(tmp_path, monkeypatch):
+    from oai_code.config import load_config
+    from oai_code.config.models import MCPServerConfig
+    from oai_code.mcp import MCPManager
+
+    monkeypatch.chdir(tmp_path)
+    cfg = load_config(cli_overrides={"model": "test", "provider": "custom"})
+    mgr = MCPManager(cfg)
+    import contextlib
+    mgr._stack = contextlib.AsyncExitStack()
+    await mgr._stack.__aenter__()
+    try:
+        with pytest.raises(RuntimeError, match="missing 'url'"):
+            await mgr._connect("x", MCPServerConfig(type="http", url=None))
+    finally:
+        await mgr._stack.__aexit__(None, None, None)
+
+
+def test_accepted_transports():
+    from oai_code.config.models import MCPServerConfig
+
+    # Pydantic 层面接受这三种
+    for t in ("stdio", "sse", "http"):
+        MCPServerConfig(type=t)
