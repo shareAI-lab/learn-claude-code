@@ -29,6 +29,7 @@ from .tools.builtin import register_builtins
 from .tools.compact_tool import register_compact
 from .tools.plan_mode import PlanModeState, register_plan_mode
 from .tools.web import register_webfetch
+from .tools.web_search import register_web_search
 from .tools.worktree import register_worktree
 from .tools.skills import discover_skills, register_load_skill
 from .tools.subagent import register_task_tool
@@ -256,6 +257,9 @@ def main(argv: list[str] | None = None) -> int:
 
     # WebFetch (M4-6)
     register_webfetch(registry, cfg)
+
+    # WebSearch (M6-1): bing.cn 后端,无 key
+    register_web_search(registry, cfg)
 
     # Worktree (M5-1): 启动时恢复之前未 exit 的 worktree session
     register_worktree(registry, cfg)
