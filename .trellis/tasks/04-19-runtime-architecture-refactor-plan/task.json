@@ -37,7 +37,6 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "04-19-r3-background-run-service-hardening",
     "04-19-r4-h13-h14-readiness-gate"
   ],
   "parent": null,
