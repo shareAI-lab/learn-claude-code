@@ -9,6 +9,7 @@ from ..tools.registry import Tool, ToolRegistry
 from .bus import MessageBus
 from .manager import TeammateManager
 from .loop import start_teammate_loop
+from .protocol import ProtocolTracker
 
 
 LEAD_NAME = "lead"
@@ -22,7 +23,10 @@ def register_team_tools(
     bus: MessageBus,
     manager: TeammateManager,
     parent_registry: ToolRegistry,
+    tracker: ProtocolTracker | None = None,
 ) -> None:
+    if tracker is None:
+        tracker = ProtocolTracker()
     def _spawn(**kw) -> str:
         name = kw["name"]
         role = kw["role"]
@@ -120,6 +124,46 @@ def register_team_tools(
             description="List all teammates with their current status.",
             input_schema={"type": "object", "properties": {}},
             handler=lambda **_: manager.render(),
+        )
+    )
+
+    registry.register(
+        Tool(
+            name="ShutdownRequest",
+            description=(
+                "Ask a teammate to shut down gracefully. Returns a request_id; "
+                "the teammate will acknowledge and terminate after finishing its "
+                "current step."
+            ),
+            requires=["delegate"],
+            input_schema={
+                "type": "object",
+                "properties": {"teammate": {"type": "string"}},
+                "required": ["teammate"],
+            },
+            handler=lambda **kw: tracker.send_shutdown(bus, LEAD_NAME, kw["teammate"]),
+        )
+    )
+
+    registry.register(
+        Tool(
+            name="PlanApproval",
+            description=(
+                "Review a teammate-submitted plan: approve or reject with "
+                "feedback. The request_id should be taken from the inbox message."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "request_id": {"type": "string"},
+                    "approve": {"type": "boolean"},
+                    "feedback": {"type": "string"},
+                },
+                "required": ["request_id", "approve"],
+            },
+            handler=lambda **kw: tracker.review_plan(
+                bus, LEAD_NAME, kw["request_id"], kw["approve"], kw.get("feedback", "")
+            ),
         )
     )
 
