@@ -863,3 +863,36 @@ Implemented the first Circle 1 Wave 2 runtime-exposing surfaces pack: added sess
 ### Next Steps
 
 - None - task complete
+
+
+## Session 22: Complete Circle 1 Wave 2 control surfaces pack
+
+**Date**: 2026-04-20
+**Task**: Complete Circle 1 Wave 2 control surfaces pack
+
+### Summary
+
+Added real Wave 2 control surfaces: local file-backed runtime store, CLI tasks/plans commands, active-TUI background subagent control inputs and snapshots, updated contracts/docs, validated full Python and TS suites, and archived the Wave 2 control-surfaces task.
+
+### Main Changes
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c9c38e4` | (see git log) |
+| `1c2fa7c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
