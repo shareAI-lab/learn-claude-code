@@ -82,6 +82,7 @@ def run_turn(
     callbacks: LoopCallbacks | None = None,
     stream: bool = True,
     summarize_llm: LLMClient | None = None,
+    background_manager=None,
     _system_override: str | None = None,
     _max_iterations: int | None = None,
 ) -> None:
@@ -105,6 +106,24 @@ def run_turn(
             if cb.on_text_delta:
                 cb.on_text_delta("\n[auto-compact triggered]\n")
             state.messages = auto_compact(state.messages, cfg, summarize_llm)
+
+        # 回流后台任务结果
+        if background_manager is not None:
+            done = background_manager.drain()
+            if done:
+                lines = []
+                for t in done:
+                    lines.append(
+                        f"[bg:{t.id}] {t.status}: {t.description}\n{t.result[:500]}"
+                    )
+                state.messages.append(
+                    {
+                        "role": "user",
+                        "content": "<background-results>\n"
+                        + "\n---\n".join(lines)
+                        + "\n</background-results>",
+                    }
+                )
         if cb.on_iteration:
             cb.on_iteration(i)
 

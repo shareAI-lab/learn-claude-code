@@ -33,6 +33,7 @@ class Repl:
         pending_compact: dict | None = None,
         session_store=None,
         resumed_messages: list[dict] | None = None,
+        background_manager=None,
     ):
         self.cfg = cfg
         self.llm = llm
@@ -44,6 +45,7 @@ class Repl:
         self._pending_compact = pending_compact
         self._session_store = session_store
         self._resumed_messages = resumed_messages
+        self._bg_manager = background_manager
         self.console = Console()
         self.state = self._new_state()
         if self._pending_compact is not None:
@@ -142,6 +144,7 @@ class Repl:
                     callbacks=self._cb(),
                     stream=self.cfg.ui.stream,
                     summarize_llm=self._summarize_llm,
+                    background_manager=self._bg_manager,
                 )
             except Interrupted:
                 self.console.print("\n[yellow]⟂ interrupted[/]")
@@ -180,7 +183,7 @@ class Repl:
         if head == "/help":
             self.console.print(
                 "[bold]commands[/]: "
-                "/help  /clear  /compact  /tools  /todos  /tasks  "
+                "/help  /clear  /compact  /tools  /todos  /tasks  /bg [id]  "
                 "/models [model-id]  /provider <name>  "
                 "/sessions  /resume <id|latest>  "
                 "/quit"
@@ -220,6 +223,11 @@ class Repl:
                 self.console.print("[red]usage: /resume <id|latest>[/]")
             else:
                 self._do_resume(arg)
+        elif head == "/bg":
+            if self._bg_manager is None:
+                self.console.print("[dim](no background manager)[/]")
+            else:
+                self.console.print(self._bg_manager.check(arg or None))
         elif head == "/models":
             if not arg:
                 self._list_models()

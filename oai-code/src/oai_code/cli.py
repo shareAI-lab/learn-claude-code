@@ -20,6 +20,7 @@ from .agent.system_prompt import build_system_prompt
 from .context import auto_compact
 from .session import SessionStore
 from .tools.registry import ToolRegistry
+from .tools.background import BackgroundManager, register_background
 from .tools.builtin import register_builtins
 from .tools.compact_tool import register_compact
 from .tools.skills import discover_skills, register_load_skill
@@ -72,6 +73,7 @@ def _run_once(
     pending_compact: dict | None = None,
     session_store=None,
     resumed_messages: list[dict] | None = None,
+    background_manager=None,
 ) -> int:
     state = AgentState()
     if resumed_messages:
@@ -104,6 +106,7 @@ def _run_once(
             callbacks=LoopCallbacks(on_text_delta=on_text, on_tool_call=on_tool),
             stream=cfg.ui.stream,
             summarize_llm=summarize_llm,
+            background_manager=background_manager,
         )
     except Interrupted:
         print("\n[interrupted]", file=sys.stderr)
@@ -167,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
     register_task_tool(registry, cfg=subagent_cfg, llm=subagent_llm)
     skills = discover_skills(cfg)
     register_load_skill(registry, skills)
+    bg_manager = BackgroundManager(cfg)
+    register_background(registry, bg_manager)
 
     # 预先计算 system prompt,注入 skills 目录
     system_prompt = build_system_prompt(cfg, skills=skills)
@@ -209,12 +214,14 @@ def main(argv: list[str] | None = None) -> int:
             cfg, llm, registry, args.prompt, system_prompt,
             summarize_llm=summarize_llm, pending_compact=pending_compact,
             session_store=session_store, resumed_messages=resumed_messages,
+            background_manager=bg_manager,
         )
 
     repl = Repl(
         cfg, llm, registry, todo_mgr, task_store, system_prompt,
         summarize_llm=summarize_llm, pending_compact=pending_compact,
         session_store=session_store, resumed_messages=resumed_messages,
+        background_manager=bg_manager,
     )
     try:
         repl.run()
