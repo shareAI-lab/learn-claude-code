@@ -23,7 +23,11 @@ from coding_deepgent.runtime import RuntimeEvent, default_runtime_state
 from coding_deepgent.sessions.service import recorded_session_store
 from coding_deepgent.settings import Settings
 
-from .event_mapping import runtime_events_to_frontend, todo_snapshot_from_state
+from .event_mapping import (
+    runtime_events_to_frontend,
+    task_snapshot_from_store,
+    todo_snapshot_from_state,
+)
 from .protocol import (
     AssistantDeltaEvent,
     AssistantMessageEvent,
@@ -38,6 +42,8 @@ from .protocol import (
     RuntimeEventPayload,
     SessionStartedEvent,
     SubmitPromptInput,
+    TaskItemPayload,
+    TaskSnapshotEvent,
     ToolFailedEvent,
     ToolFinishedEvent,
     ToolStartedEvent,
@@ -51,6 +57,7 @@ class PromptRunResult:
     runtime_events: tuple[RuntimeEvent, ...] = ()
     recovery_brief: str | None = None
     pending_permissions: tuple[PendingPermissionRequest, ...] = ()
+    task_snapshot: tuple[TaskItemPayload, ...] = ()
 
 
 EventEmitter = Callable[[FrontendEvent], None]
@@ -72,6 +79,20 @@ class PendingPermissionRequest:
     tool: str
     description: str
     options: tuple[Literal["approve", "reject"], ...] = ("approve", "reject")
+
+
+def _task_snapshot_items(container: Any) -> tuple[TaskItemPayload, ...]:
+    runtime = getattr(container, "runtime", None)
+    if runtime is None:
+        return ()
+    store_provider = getattr(runtime, "store", None)
+    if not callable(store_provider):
+        return ()
+    try:
+        store = store_provider()
+    except Exception:
+        return ()
+    return tuple(task_snapshot_from_store(store).items)
 
 
 @dataclass
@@ -248,6 +269,7 @@ class BridgeSession:
         for event in runtime_events_to_frontend(result.runtime_events):
             emit(event)
         emit(todo_snapshot_from_state(self.session_state))
+        emit(TaskSnapshotEvent(items=list(result.task_snapshot)))
         emit(AssistantMessageEvent(message_id=assistant_id, text=result.text))
         if result.recovery_brief:
             emit(RecoveryBriefEvent(text=result.recovery_brief))
@@ -314,6 +336,7 @@ class _DefaultFrontendBridgeRunner:
             text=result,
             runtime_events=tuple(new_events),
             recovery_brief=_recovery_brief(self.settings, session_id),
+            task_snapshot=_task_snapshot_items(self.container),
         )
 
     def resume_permission(
@@ -482,6 +505,7 @@ class _FakeFrontendBridgeRunner:
             text=response,
             runtime_events=(event,),
             recovery_brief="Fake recovery brief: bridge protocol is healthy.",
+            task_snapshot=(),
         )
 
 
@@ -671,6 +695,7 @@ def _stream_graph_run(
     return PromptRunResult(
         text=final_text,
         recovery_brief=_recovery_brief(settings, session_id),
+        task_snapshot=_task_snapshot_items(container),
     )
 
 

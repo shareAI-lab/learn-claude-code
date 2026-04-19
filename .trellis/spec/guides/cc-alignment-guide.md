@@ -28,6 +28,12 @@ source-backed alignment matrix.
 If you cannot explain the concrete local effect, do not align by default.
 Mark the behavior as `defer` or `do-not-copy`.
 
+For the current mainline, the default target order is:
+
+1. real Claude Code public behavior
+2. `cc-haha` source-backed implementation reference
+3. high-quality analogous OSS, only when the first two are insufficient
+
 ---
 
 ## Required Pre-Code Workflow
@@ -38,14 +44,82 @@ Mark the behavior as `defer` or `do-not-copy`.
    - What concrete user/runtime/safety/reliability/maintainability effect should appear locally?
 3. **Identify cc-haha reference points**
    - List exact source files and, when practical, symbols/functions.
-4. **Extract functional essence**
+4. **Check real Claude Code public behavior**
+   - Note the public behavior, docs, or visible runtime artifact you are
+     actually trying to match.
+5. **Extract functional essence**
    - What problem does the cc behavior solve?
    - What state does it own?
    - What model-visible surface does it change?
-5. **Separate essence from product detail**
+6. **Separate essence from product detail**
    - keep the essence
    - copy product detail only if it creates a concrete local benefit now
-6. **Write the alignment matrix before implementation**
+7. **Write the alignment matrix before implementation**
+
+If `cc-haha` source is missing or incomplete for the relevant capability:
+
+8. **Run OSS fallback research before implementation**
+   - inspect 2-4 high-quality analogous OSS systems
+   - summarize the implementation patterns they use
+   - record why `cc-haha` evidence was insufficient
+   - state which local design was chosen and what remains inferred
+
+## Evidence Ladder
+
+Use this evidence order explicitly:
+
+1. **Claude Code public behavior**
+   - official docs
+   - public product surfaces
+   - reproducible visible behavior
+   - public runtime artifacts
+2. **`cc-haha` source**
+   - files, symbols, docs, comments, and observable behavior
+3. **Analogous OSS**
+   - high-quality open-source systems in the same capability family
+4. **Secondary analysis**
+   - books, blogs, third-party explanations
+
+Rules:
+
+* real Claude Code public behavior is the top-level parity target
+* `cc-haha` is the default implementation reference when it matches or explains
+  the target behavior
+* analogous OSS is required when Claude Code public behavior and `cc-haha`
+  source do not sufficiently explain how to implement the feature
+* secondary analysis is useful context, but must not overrule stronger evidence
+
+## Missing-Source Workflow
+
+When a capability does not have enough accessible source:
+
+1. name the exact source gap
+2. state what public Claude Code behavior is still visible
+3. inspect 2-4 high-quality OSS systems
+4. summarize what each system contributes
+5. write the local choice into the PRD before implementation
+
+Required PRD add-on shape:
+
+```md
+## Source Gap
+
+- target behavior:
+- Claude Code public evidence:
+- `cc-haha` evidence:
+- why those are insufficient:
+
+## Analogous OSS Review
+
+- project A:
+- project B:
+
+## Local Decision
+
+- chosen design:
+- why it fits locally:
+- what remains inferred:
+```
 
 ---
 
@@ -157,7 +231,10 @@ Evidence should prove both:
 
 Avoid:
 
+- using `cc-haha` as if it were automatically the highest target even when
+  real Claude Code public behavior says otherwise
 - implementing from memory without inspecting source
+- jumping directly from a source gap to local design without OSS fallback
 - copying file names without functional intent
 - line-for-line cloning when LangChain has a simpler primitive
 - treating secondary analysis as stronger than source behavior

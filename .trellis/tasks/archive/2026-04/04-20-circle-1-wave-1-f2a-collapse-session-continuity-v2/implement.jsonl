@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/plans/coding-deepgent-full-cc-parity-roadmap.md", "reason": "Circle 1 and workflow acceptance target for this slice"}
+{"file": ".trellis/tasks/04-20-circle-1-wave-1-f2-context-session-memory-continuity/prd.md", "reason": "Parent family decision and recommended next slice"}
+{"file": ".trellis/spec/guides/cc-alignment-guide.md", "reason": "Parity evidence ladder and missing-source workflow"}

@@ -30,6 +30,7 @@ def test_frontend_client_stream_prompt_yields_fake_events(tmp_path: Path) -> Non
         "tool_finished",
         "runtime_event",
         "todo_snapshot",
+        "task_snapshot",
         "assistant_message",
         "recovery_brief",
         "run_finished",

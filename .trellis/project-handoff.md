@@ -1,17 +1,27 @@
 # coding-deepgent Project Handoff
 
-Updated: 2026-04-19
+Updated: 2026-04-20
 Primary branch: `codex/stage-12-14-context-compact-foundation`
 Primary PR: `#220` `https://github.com/shareAI-lab/learn-claude-code/pull/220`
 
 ## Product Goal
 
-`coding-deepgent` is the product track that should implement the essential `cc-haha` / Claude Code runtime logic through LangChain/LangGraph-native primitives, while staying professional-grade, modular, maintainable, and non-demo.
+`coding-deepgent` is the product track that should progressively approach real
+Claude Code public behavior in a professional local coding-agent product, while
+using:
+
+* `cc-haha` as the primary open-source implementation reference
+* LangChain/LangGraph-native architecture for hidden implementation where that
+  does not block important local product behavior
+
+The old `Approach A MVP` line is now historical baseline evidence, not the
+default stop condition.
 
 Canonical goal/backlog docs:
 
-* `.trellis/tasks/04-14-redefine-coding-deepgent-final-goal/prd.md`
-* `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+* `.trellis/tasks/archive/2026-04/04-14-redefine-coding-deepgent-final-goal/prd.md`
+* `.trellis/plans/coding-deepgent-full-cc-parity-roadmap.md`
+* `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md` (historical MVP dashboard)
 
 ## Minimal Resume Procedure
 
@@ -22,9 +32,10 @@ When starting a new `coding-deepgent` session, do this in order:
 
 1. Read this file.
 2. Read only these canonical docs:
-   * `.trellis/tasks/04-14-redefine-coding-deepgent-final-goal/prd.md`
-   * `.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+   * `.trellis/tasks/archive/2026-04/04-14-redefine-coding-deepgent-final-goal/prd.md`
+   * `.trellis/plans/coding-deepgent-full-cc-parity-roadmap.md`
    * `coding-deepgent/PROJECT_PROGRESS.md`
+   * `.trellis/spec/guides/cc-alignment-guide.md`
    * `.trellis/spec/backend/runtime-context-compaction-contracts.md`
    * `.trellis/spec/backend/task-workflow-contracts.md`
 3. Refresh live state only with:
@@ -53,11 +64,20 @@ This file is a compact resume entrypoint, not a full project history.
 
 ## Current Mainline
 
-Current mainline has focused on:
+Current mainline historical baseline has focused on:
 
 * context / compact / session / recovery hardening
 * durable task / workflow hardening
 * cc-highlight topology closeout for H01, H11/H12, and H19
+
+Current default direction has now changed:
+
+* treat the MVP closeout line as verified baseline
+* stop using MVP closeout as the default product finish line
+* begin Circle 1 of the full local daily-driver parity roadmap
+* prioritize runtime/core parity before broad CLI/TUI polish
+* evaluate progress primarily through three representative workflows rather
+  than only by highlight checklist closeout
 
 Latest completed stage families:
 
@@ -210,23 +230,35 @@ Core domains:
 
 Next planned direction:
 
-* run final release validation / PR cleanup for the now-completed backend-next-step roadmap rather than opening another backend feature family by default
+* start Circle 1 / Wave 2: runtime-exposing CLI/TUI surfaces
+* use the completed Wave 1 checkpoint in
+  `.trellis/plans/coding-deepgent-circle-1-wave-1-runtime-core-plan.md`
+  as the runtime baseline
 
 Intent:
 
-* keep `L5-a` conditional and avoid reviving it by default
-* treat Stage 1 ToolSearch/deferred discovery and Stage 2 subagent contract consolidation as complete unless a concrete local failure reopens them
-* do not reopen H13/H14/H21/H22 without a new source-backed PRD
+* use real Claude Code public behavior as the top-level target
+* use `cc-haha` as the default open-source reference
+* use OSS fallback research when both are insufficient
+* keep Circle 1 focused on local daily-driver parity, not mailbox/team-runtime or remote/daemon surfaces
+* do not reopen Wave 1 runtime-core scope unless a regression or concrete
+  daily-driver blocker appears
 
 ## Planning Gate
 
 Before any new stage implementation begins, the proposal must state:
 
+* the Circle (`Circle 1` or later) it belongs to
+* the representative workflow(s) it improves
 * the concrete function being added or changed
 * the concrete user/system benefit it brings
+* the target Claude Code behavior
+* the `cc-haha` source evidence when available
+* whether OSS fallback research was needed
 * why the benefit is worth the added complexity now
 
-“Closer to cc” alone is not sufficient.
+“Closer to cc” alone is not sufficient; the proposal must name the target
+behavior and evidence tier.
 
 ## Persistent User Requirement
 

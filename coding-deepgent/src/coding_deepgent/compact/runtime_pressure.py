@@ -20,6 +20,7 @@ from coding_deepgent.sessions.store_jsonl import JsonlSessionStore
 from coding_deepgent.sessions.session_memory import (
     compact_summary_assist_text,
     read_session_memory_artifact,
+    session_memory_metrics,
     update_session_memory_from_summary,
 )
 from coding_deepgent.tool_system.capabilities import CapabilityRegistry
@@ -963,9 +964,9 @@ def collapse_live_messages_with_result(
         for message in messages
         if not _is_live_pressure_artifact_message(message)
     ]
-    keep_start = _adjust_keep_start_for_live_tool_pairs(
+    keep_start = _collapse_keep_start_index(
         clean_messages,
-        max(0, len(clean_messages) - keep_recent_messages),
+        keep_recent_messages=keep_recent_messages,
     )
     collapsed_source = clean_messages[:keep_start]
     preserved_tail = clean_messages[keep_start:]
@@ -1354,9 +1355,9 @@ def _has_collapsible_source(
         for message in messages
         if not _is_live_pressure_artifact_message(message)
     ]
-    keep_start = _adjust_keep_start_for_live_tool_pairs(
+    keep_start = _collapse_keep_start_index(
         clean_messages,
-        max(0, len(clean_messages) - keep_recent_messages),
+        keep_recent_messages=keep_recent_messages,
     )
     return keep_start > 0
 
@@ -1427,6 +1428,39 @@ def _adjust_keep_start_for_live_tool_pairs(
             if not missing:
                 break
     return adjusted
+
+
+def _collapse_keep_start_index(
+    messages: Sequence[BaseMessage], *, keep_recent_messages: int
+) -> int:
+    start_index = _adjust_keep_start_for_live_tool_pairs(
+        messages,
+        max(0, len(messages) - keep_recent_messages),
+    )
+    return _adjust_keep_start_for_assistant_round(messages, start_index)
+
+
+def _adjust_keep_start_for_assistant_round(
+    messages: Sequence[BaseMessage], start_index: int
+) -> int:
+    """Avoid cutting the preserved tail in the middle of a recent assistant round.
+
+    Public `cc-haha` evidence shows compaction/collapse logic prefers
+    assistant API-round boundaries rather than arbitrary message cuts. Locally
+    we do not have the same message-id topology, but we can still avoid
+    splitting a recent assistant-led work unit by snapping backward to the
+    nearest preceding assistant message when the preserved tail currently starts
+    on a non-assistant message.
+    """
+
+    if start_index <= 0 or start_index >= len(messages):
+        return start_index
+    if isinstance(messages[start_index], AIMessage):
+        return start_index
+    for index in range(start_index - 1, -1, -1):
+        if isinstance(messages[index], AIMessage):
+            return index
+    return start_index
 
 
 def _restored_persisted_output_paths(
@@ -1596,9 +1630,12 @@ def _session_memory_assist_text(
     artifact = read_session_memory_artifact(state)
     if artifact is None:
         return None
+    metrics = session_memory_metrics(_messages_as_compact_dicts(messages))
     return compact_summary_assist_text(
         artifact,
-        current_message_count=len(_messages_as_compact_dicts(messages)),
+        current_message_count=metrics.message_count,
+        current_token_count=metrics.estimated_token_count,
+        current_tool_call_count=metrics.tool_call_count,
     )
 
 

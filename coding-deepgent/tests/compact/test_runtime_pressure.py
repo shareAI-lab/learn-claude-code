@@ -661,6 +661,29 @@ def test_collapse_live_messages_with_summary_preserves_tool_pair_in_tail() -> No
     assert isinstance(collapsed[3], ToolMessage)
 
 
+def test_collapse_live_messages_with_summary_preserves_recent_assistant_round() -> None:
+    messages = [
+        HumanMessage(content="old request"),
+        _read_call("call-1"),
+        ToolMessage(content="result", tool_call_id="call-1"),
+        AIMessage(content="assistant checkpoint"),
+        HumanMessage(content="latest user prompt"),
+    ]
+
+    collapsed = collapse_live_messages_with_summary(
+        messages,
+        summary="Earlier work was collapsed.",
+        keep_recent_messages=1,
+    )
+
+    assert str(collapsed[0].content).startswith(LIVE_COLLAPSE_BOUNDARY_PREFIX)
+    assert str(collapsed[1].content).startswith(LIVE_COLLAPSE_SUMMARY_PREFIX)
+    assert isinstance(collapsed[2], AIMessage)
+    assert collapsed[2].content == "assistant checkpoint"
+    assert isinstance(collapsed[3], HumanMessage)
+    assert collapsed[3].content == "latest user prompt"
+
+
 def test_compact_live_messages_with_summary_preserves_tool_pair_in_tail() -> None:
     messages = [
         HumanMessage(content="old request"),
@@ -924,6 +947,60 @@ def test_runtime_pressure_middleware_persists_collapse_record_when_projection_ex
     collapse_metadata = loaded.collapses[0].metadata
     assert collapse_metadata is not None
     assert collapse_metadata["source"] == "runtime_pressure"
+
+
+def test_runtime_pressure_middleware_persists_collapse_record_using_assistant_round_boundary(
+    tmp_path: Path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    context = runtime_context(
+        tmp_path,
+        session_store=store,
+        transcript_projection=TranscriptProjection(
+            entries=(
+                ("msg-000000",),
+                ("msg-000001",),
+                ("msg-000002",),
+                ("msg-000003",),
+                ("msg-000004",),
+            )
+        ),
+    )
+    assert context.session_context is not None
+    store.append_message(context.session_context, role="assistant", content="assistant one")
+    store.append_message(context.session_context, role="user", content="tool result one")
+    store.append_message(context.session_context, role="assistant", content="assistant two")
+    store.append_message(context.session_context, role="user", content="latest user prompt")
+    middleware = RuntimePressureMiddleware(
+        registry=build_default_registry(include_discovery=True),
+        collapse_threshold_tokens=10,
+        keep_recent_messages_after_collapse=1,
+        auto_compact_threshold_tokens=None,
+    )
+    request = _request(
+        model=FakeSummarizer("<summary>Generated collapse summary.</summary>"),
+        messages=[
+            HumanMessage(content="x" * 5000),
+            _read_call("call-1"),
+            ToolMessage(content="result", tool_call_id="call-1"),
+            AIMessage(content="assistant checkpoint"),
+            HumanMessage(content="latest user prompt"),
+        ],
+        context=context,
+    )
+
+    middleware.wrap_model_call(request, lambda active_request: _ok_response())
+
+    loaded = store.load_session(session_id="session-1", workdir=tmp_path)
+
+    assert loaded.summary.collapse_count == 1
+    assert loaded.collapses[0].start_message_id == "msg-000000"
+    assert loaded.collapses[0].end_message_id == "msg-000002"
+    assert loaded.collapses[0].covered_message_ids == (
+        "msg-000000",
+        "msg-000001",
+        "msg-000002",
+    )
 
 
 def test_runtime_pressure_middleware_drains_collapse_projection_before_reactive_compact(

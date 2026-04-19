@@ -81,6 +81,7 @@ def test_jsonl_bridge_runs_prompt_and_emits_ordered_events(tmp_path: Path) -> No
         "user_message",
         "runtime_event",
         "todo_snapshot",
+        "task_snapshot",
         "assistant_message",
         "recovery_brief",
         "run_finished",
@@ -94,7 +95,8 @@ def test_jsonl_bridge_runs_prompt_and_emits_ordered_events(tmp_path: Path) -> No
             "activeForm": "Implementing UI",
         }
     ]
-    assert events[4]["text"].startswith("done for ")
+    assert events[4]["items"] == []
+    assert events[5]["text"].startswith("done for ")
 
 
 def test_jsonl_bridge_reports_protocol_errors_and_continues(tmp_path: Path) -> None:
@@ -167,6 +169,7 @@ def test_jsonl_bridge_streams_runner_events_before_final_message(tmp_path: Path)
         "assistant_delta",
         "tool_finished",
         "todo_snapshot",
+        "task_snapshot",
         "assistant_message",
         "run_finished",
     ]
@@ -287,11 +290,13 @@ def test_jsonl_bridge_resumes_after_permission_decision(tmp_path: Path) -> None:
         "permission_resolved",
         "assistant_delta",
         "todo_snapshot",
+        "task_snapshot",
         "assistant_message",
         "run_finished",
     ]
     assert events[2]["request_id"] == "perm-1"
     assert events[5]["items"] == []
+    assert events[6]["items"] == []
 
 
 def test_streaming_prompt_returns_pending_permission_requests(tmp_path: Path) -> None:

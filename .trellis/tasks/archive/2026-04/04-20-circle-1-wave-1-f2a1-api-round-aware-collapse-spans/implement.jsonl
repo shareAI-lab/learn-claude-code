@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/tasks/04-20-circle-1-wave-1-f2a-collapse-session-continuity-v2/prd.md", "reason": "Parent slice defines why API-round-aware collapse spans are the next continuity target"}
+{"file": ".trellis/spec/guides/cc-alignment-guide.md", "reason": "Evidence ladder and source-gap workflow for this parity slice"}

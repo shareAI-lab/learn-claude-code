@@ -4,6 +4,7 @@ from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from .contributions import (
@@ -85,18 +86,49 @@ def session_memory_status(
     artifact: SessionMemoryArtifact,
     *,
     current_message_count: int,
+    current_token_count: int = 0,
+    current_tool_call_count: int = 0,
+    min_message_delta: int = DEFAULT_SESSION_MEMORY_UPDATE_MESSAGE_DELTA,
+    min_token_delta: int = DEFAULT_SESSION_MEMORY_UPDATE_TOKEN_DELTA,
+    min_tool_call_delta: int = DEFAULT_SESSION_MEMORY_UPDATE_TOOL_CALL_DELTA,
 ) -> SessionMemoryStatus:
-    return "stale" if artifact.message_count < current_message_count else "current"
+    if min_message_delta < 1 or min_token_delta < 1 or min_tool_call_delta < 1:
+        raise ValueError("session memory thresholds must be at least 1")
+    if current_message_count - artifact.message_count >= min_message_delta:
+        return "stale"
+    if (
+        artifact.token_count is not None
+        and current_token_count - artifact.token_count >= min_token_delta
+    ):
+        return "stale"
+    if (
+        artifact.tool_call_count is not None
+        and current_tool_call_count - artifact.tool_call_count >= min_tool_call_delta
+    ):
+        return "stale"
+    return "current"
 
 
 def compact_summary_assist_text(
     artifact: SessionMemoryArtifact | None,
     *,
     current_message_count: int,
+    current_token_count: int = 0,
+    current_tool_call_count: int = 0,
 ) -> str | None:
     if artifact is None:
         return None
-    if session_memory_status(artifact, current_message_count=current_message_count) != "current":
+    if artifact.message_count < current_message_count:
+        return None
+    if (
+        session_memory_status(
+            artifact,
+            current_message_count=current_message_count,
+            current_token_count=current_token_count,
+            current_tool_call_count=current_tool_call_count,
+        )
+        != "current"
+    ):
         return None
     return (
         "Session memory artifact:\n"
@@ -110,9 +142,14 @@ def render_session_memory_line(
     artifact: SessionMemoryArtifact,
     *,
     current_message_count: int,
+    current_token_count: int = 0,
+    current_tool_call_count: int = 0,
 ) -> str:
     status = session_memory_status(
-        artifact, current_message_count=current_message_count
+        artifact,
+        current_message_count=current_message_count,
+        current_token_count=current_token_count,
+        current_tool_call_count=current_tool_call_count,
     )
     return (
         f"- [{status}] {artifact.content} "
@@ -147,7 +184,7 @@ def should_refresh_session_memory(
 
 
 def session_memory_metrics(
-    messages: Sequence[dict[str, Any] | SessionMessage],
+    messages: Sequence[dict[str, Any] | SessionMessage | BaseMessage],
 ) -> SessionMemoryMetrics:
     return SessionMemoryMetrics(
         message_count=len(messages),
@@ -156,14 +193,25 @@ def session_memory_metrics(
     )
 
 
-def _estimated_message_tokens(message: dict[str, Any] | SessionMessage) -> int:
+def _estimated_message_tokens(message: dict[str, Any] | SessionMessage | BaseMessage) -> int:
     text = _message_text(message)
     if not text:
         return 0
     return max(1, (len(text) + 3) // 4)
 
 
-def _message_text(message: dict[str, Any] | SessionMessage) -> str:
+def _message_text(message: dict[str, Any] | SessionMessage | BaseMessage) -> str:
+    if isinstance(message, AIMessage):
+        parts = [str(message.content or "")]
+        if message.tool_calls:
+            parts.extend(
+                f"{call.get('name', '')} {call.get('args', {})}" for call in message.tool_calls
+            )
+        return "\n".join(part for part in parts if part).strip()
+    if isinstance(message, ToolMessage):
+        return str(message.content or "").strip()
+    if isinstance(message, BaseMessage):
+        return str(getattr(message, "content", "")).strip()
     if isinstance(message, SessionMessage):
         content = message.content
     else:
@@ -171,20 +219,28 @@ def _message_text(message: dict[str, Any] | SessionMessage) -> str:
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        parts: list[str] = []
+        text_parts: list[str] = []
         for block in content:
             if not isinstance(block, dict):
                 continue
             text = block.get("text")
             if isinstance(text, str):
-                parts.append(text)
+                text_parts.append(text)
             elif isinstance(block.get("content"), str):
-                parts.append(str(block["content"]))
-        return "\n".join(parts)
+                text_parts.append(str(block["content"]))
+        return "\n".join(text_parts)
     return str(content)
 
 
-def _message_tool_call_count(message: dict[str, Any] | SessionMessage) -> int:
+def _message_tool_call_count(
+    message: dict[str, Any] | SessionMessage | BaseMessage,
+) -> int:
+    if isinstance(message, AIMessage):
+        return len(message.tool_calls)
+    if isinstance(message, ToolMessage):
+        return 0
+    if isinstance(message, BaseMessage):
+        return 0
     if isinstance(message, SessionMessage):
         content = message.content
         tool_calls: Any = None
@@ -217,13 +273,16 @@ def runtime_state_contribution() -> RuntimeStateContribution:
 def recovery_brief_contribution() -> RecoveryBriefContribution:
     def render(loaded_session: LoadedSession) -> RecoveryBriefSection:
         artifact = read_session_memory_artifact(loaded_session.state)
+        metrics = session_memory_metrics(loaded_session.history)
         lines = (
             ("- none",)
             if artifact is None
             else (
                 render_session_memory_line(
                     artifact,
-                    current_message_count=loaded_session.summary.message_count,
+                    current_message_count=metrics.message_count,
+                    current_token_count=metrics.estimated_token_count,
+                    current_tool_call_count=metrics.tool_call_count,
                 ),
             )
         )
@@ -234,9 +293,12 @@ def recovery_brief_contribution() -> RecoveryBriefContribution:
 
 def compact_assist_contribution() -> CompactAssistContribution:
     def render(loaded_session: LoadedSession) -> str | None:
+        metrics = session_memory_metrics(loaded_session.history)
         return compact_summary_assist_text(
             read_session_memory_artifact(loaded_session.state),
-            current_message_count=loaded_session.summary.message_count,
+            current_message_count=metrics.message_count,
+            current_token_count=metrics.estimated_token_count,
+            current_tool_call_count=metrics.tool_call_count,
         )
 
     return CompactAssistContribution(name=SESSION_MEMORY_STATE_KEY, render=render)

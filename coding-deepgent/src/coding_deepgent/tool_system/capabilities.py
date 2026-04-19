@@ -676,6 +676,25 @@ def build_builtin_capabilities(
                 tags=("subagent", "background", "read"),
             )
         )
+    if "subagent_list" in tool_by_name:
+        capabilities.append(
+            ToolCapability(
+                name="subagent_list",
+                tool=tool_by_name["subagent_list"],
+                domain="subagents",
+                family="subagents",
+                mutation="read",
+                execution="plain_tool",
+                read_only=True,
+                destructive=False,
+                concurrency_safe=True,
+                source="builtin",
+                trusted=True,
+                exposure="deferred",
+                rendering_result="tool_message",
+                tags=("subagent", "background", "read", "list"),
+            )
+        )
     if "subagent_send_input" in tool_by_name:
         capabilities.append(
             ToolCapability(

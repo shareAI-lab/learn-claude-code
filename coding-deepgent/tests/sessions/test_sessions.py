@@ -384,6 +384,9 @@ def test_recovery_brief_marks_stale_session_memory_status(tmp_path) -> None:
     context = store.create_session(workdir=workdir)
     store.append_message(context, role="user", content="resume")
     store.append_message(context, role="assistant", content="continued")
+    store.append_message(context, role="user", content="follow up")
+    store.append_message(context, role="assistant", content="more work")
+    store.append_message(context, role="user", content="final prompt")
     store.append_state_snapshot(
         context,
         state={

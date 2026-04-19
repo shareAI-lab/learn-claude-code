@@ -1,0 +1,44 @@
+{
+  "id": "circle-1-wave-1-f4-observability-recovery-visibility",
+  "name": "circle-1-wave-1-f4-observability-recovery-visibility",
+  "title": "Circle 1 Wave 1 F4 observability-recovery visibility",
+  "description": "Improve observability, evidence, and recovery visibility as supporting infrastructure for daily-driver parity.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P1",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-20",
+  "completedAt": "2026-04-20",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "04-20-full-cc-parity-roadmap",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

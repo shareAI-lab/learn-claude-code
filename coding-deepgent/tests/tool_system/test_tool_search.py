@@ -6,6 +6,7 @@ from typing import Any, cast
 
 import pytest
 from dependency_injector import providers
+from langgraph.types import Command
 from langchain.tools import tool
 from pydantic import ValidationError
 
@@ -27,6 +28,11 @@ from coding_deepgent.tool_system.deferred import (
 @tool("audit_tool", description="Audit one candidate by query.")
 def audit_tool(query: str) -> str:
     return f"audit:{query}"
+
+
+@tool("update_tool", description="Update one candidate by query.")
+def update_tool(query: str) -> Command:
+    return Command(update={"audit_query": query})
 
 
 @tool("mcp__docs__lookup", description="Lookup docs by query.")
@@ -90,6 +96,7 @@ def test_tool_search_returns_deferred_builtin_subagent_controls(tmp_path: Path) 
     names = [item.name for item in result.matches]
     assert result.total_deferred_tools >= 6
     assert "run_subagent_background" in names
+    assert "subagent_list" in names
     assert "subagent_status" in names
 
 
@@ -145,7 +152,40 @@ def test_invoke_deferred_tool_executes_custom_deferred_capability(tmp_path: Path
         runtime,
     )
 
-    assert output == "audit:safety check"
+    assert str(output.content) == "audit:safety check"
+
+
+def test_invoke_deferred_tool_preserves_command_update_results(tmp_path: Path) -> None:
+    base_registry = product_registry(tmp_path)
+    deferred_capability = ToolCapability(
+        name="update_tool",
+        tool=update_tool,
+        domain="demo",
+        read_only=False,
+        destructive=False,
+        concurrency_safe=False,
+        source="builtin",
+        trusted=True,
+        family="demo",
+        mutation="orchestration",
+        execution="plain_tool",
+        exposure="deferred",
+        rendering_result="command",
+    )
+    registry = build_capability_registry(
+        builtin_capabilities=tuple(base_registry.metadata().values()),
+        extension_capabilities=(deferred_capability,),
+    )
+    runtime = runtime_for(registry, workdir=tmp_path)
+
+    output = cast(Any, invoke_deferred_tool).func(
+        "update_tool",
+        {"query": "state sync"},
+        runtime,
+    )
+
+    assert isinstance(output, Command)
+    assert output.update == {"audit_query": "state sync"}
 
 
 def test_invoke_deferred_tool_executes_deferred_mcp_capability(tmp_path: Path) -> None:
@@ -169,4 +209,4 @@ def test_invoke_deferred_tool_executes_deferred_mcp_capability(tmp_path: Path) -
         runtime,
     )
 
-    assert output == "docs:tool search"
+    assert str(output.content) == "docs:tool search"

@@ -308,11 +308,15 @@ def invoke_deferred_tool(
     tool_name: str,
     arguments: dict[str, Any],
     runtime: ToolRuntime,
-) -> str:
+) -> ToolMessage | Command[Any]:
     registry = _runtime_registry(runtime)
     capability = registry.get(tool_name)
     if capability is None or capability.exposure != "deferred" or not capability.enabled:
-        return f"Error: Unknown deferred tool `{tool_name}`."
+        return ToolMessage(
+            content=f"Error: Unknown deferred tool `{tool_name}`.",
+            tool_call_id=str(getattr(runtime, "tool_call_id", "") or ""),
+            status="error",
+        )
 
     tool_policy = _runtime_policy(runtime)
     context = getattr(runtime, "context", None)
@@ -341,7 +345,5 @@ def invoke_deferred_tool(
         ),
     )
     if isinstance(result, Command):
-        raise RuntimeError(
-            "Deferred tool bridge does not support command-update tools"
-        )
-    return str(result.content)
+        return result
+    return result

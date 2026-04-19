@@ -20,6 +20,7 @@ from .session_memory import (
     runtime_state_contribution,
 )
 from .runtime_pressure import recovery_brief_contribution as runtime_pressure_recovery_brief_contribution
+from .subagent_activity import recovery_brief_contribution as subagent_activity_recovery_brief_contribution
 
 RUNTIME_STATE_CONTRIBUTIONS: tuple[RuntimeStateContribution, ...] = (
     long_term_memory_runtime_state_contribution(),
@@ -31,6 +32,7 @@ RECOVERY_BRIEF_CONTRIBUTIONS: tuple[RecoveryBriefContribution, ...] = (
     long_term_memory_recovery_brief_contribution(),
     recovery_brief_contribution(),
     runtime_pressure_recovery_brief_contribution(),
+    subagent_activity_recovery_brief_contribution(),
 )
 
 RESUME_CONTEXT_CONTRIBUTIONS: tuple[RecoveryBriefContribution, ...] = (

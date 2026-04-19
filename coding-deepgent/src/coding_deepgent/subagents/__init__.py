@@ -1,6 +1,7 @@
 from .schemas import (
     AgentDefinition,
     BackgroundSubagentRun,
+    BackgroundSubagentListInput,
     BackgroundRuntimeSnapshot,
     BackgroundSubagentSendInput,
     BackgroundSubagentStatusInput,
@@ -21,6 +22,7 @@ from .schemas import (
 )
 from .background import (
     run_subagent_background,
+    subagent_list,
     subagent_send_input,
     subagent_stop,
     subagent_status,
@@ -58,6 +60,7 @@ from .tools import (
 __all__ = [
     "AgentDefinition",
     "BackgroundSubagentRun",
+    "BackgroundSubagentListInput",
     "BackgroundRuntimeSnapshot",
     "BackgroundSubagentSendInput",
     "BackgroundSubagentStatusInput",
@@ -100,6 +103,7 @@ __all__ = [
     "run_fork_task",
     "run_subagent",
     "run_subagent_task",
+    "subagent_list",
     "subagent_send_input",
     "subagent_stop",
     "subagent_status",

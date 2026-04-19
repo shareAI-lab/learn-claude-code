@@ -41,6 +41,7 @@ EXPECTED_MAIN_TOOL_NAMES = [
 EXPECTED_DEFERRED_TOOL_NAMES = [
     "run_subagent_background",
     "subagent_status",
+    "subagent_list",
     "subagent_send_input",
     "subagent_stop",
     "resume_subagent",

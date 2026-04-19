@@ -382,6 +382,10 @@ def collapse_live_messages_with_result(
   4. preserved recent tail messages
 - If the preserved tail starts with a `ToolMessage`, the helper must include the
   matching prior `AIMessage` tool call when present.
+- Collapse preserved-tail selection should avoid splitting a recent
+  assistant-led work unit when possible. A local implementation may snap the
+  preserved tail backward to the nearest assistant-round boundary instead of
+  preserving only an arbitrary message-count suffix.
 - Collapse summaries remain live model-facing artifacts and must not be
   persisted as session compact records.
 - When the runtime has both:
@@ -438,6 +442,8 @@ Required assertion points:
   metadata such as trigger, restored path count, and estimated token counts
 - restoration message includes collapsed-away persisted-output paths when present
 - tool-call/tool-result tail pairing is preserved
+- preserved tail may snap backward to a recent assistant-round boundary to keep
+  continuity stronger than a pure message-count suffix
 - collapse runs before auto-compact in the middleware pipeline
 
 ## Scenario: Live Auto-Compact And Restoration

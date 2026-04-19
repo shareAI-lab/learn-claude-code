@@ -214,8 +214,9 @@ def append_sidechain_message(
   those layers are already injected earlier in the runtime assembly order.
 - When `LoadedSession.state["session_memory"]` contains a valid artifact,
   `render_recovery_brief()` must render it in a dedicated `Current-session memory:`
-  section and mark it `current` or `stale` based on the stored `message_count`
-  versus `LoadedSession.summary.message_count`.
+  section and mark it `current` or `stale` using the local freshness policy:
+  `message_count` deltas are mandatory, and stored `token_count` /
+  `tool_call_count` should also participate when available.
 - Invalid `session_memory` state must be ignored rather than breaking session
   load or resume.
 - Feature-specific recovery sections should enter through registered
@@ -248,6 +249,9 @@ def append_sidechain_message(
 - It must pass the loaded history into `generate_compact_summary()` through the fakeable summarizer seam.
 - When a current valid session-memory artifact exists, `generate_compact_summary()`
   may receive it as a bounded assist text.
+- Compact assist must stay conservative: if the artifact `message_count` already
+  lags behind the current message count, it must not be passed as assist text
+  even if token/tool-call thresholds have not yet crossed the stale boundary.
 - Stale or invalid session-memory artifacts must not be passed to the summarizer
   as compact assist text.
 - Feature-specific assist text should enter through registered

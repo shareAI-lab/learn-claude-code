@@ -1,12 +1,22 @@
 # coding-deepgent Deferred Boundary Refresh ADR
 
-Status: active
-Updated: 2026-04-18
+Status: historical MVP boundary reference
+Updated: 2026-04-20
 Supersedes: Stage 29 deferred-boundary checkpoint in
 `.trellis/tasks/archive/2026-04/04-15-stage-29-deferred-boundary-adr-mvp-release-checklist/prd.md`
 Scope: `coding-deepgent/` Approach A MVP boundary after 2026-04-17/18 H01, H11/H12, and H19 closeout work
 
+Superseded as the default planning boundary by:
+
+* `.trellis/plans/coding-deepgent-full-cc-parity-roadmap.md`
+
 ## Purpose
+
+Historical note:
+
+This ADR still records which boundaries were intentionally deferred under the
+old `Approach A MVP` line. It remains useful as a historical boundary decision,
+but it no longer defines the default direction for future product planning.
 
 This ADR refreshes the old Stage 29 deferred-boundary note with the concrete
 boundaries established by the recent closeout tasks:

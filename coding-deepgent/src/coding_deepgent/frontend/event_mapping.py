@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, cast
 
 from coding_deepgent.runtime import RuntimeEvent
+from coding_deepgent.tasks.store import TaskStore, list_tasks
 
 from .protocol import (
     RuntimeEventPayload,
+    TaskItemPayload,
+    TaskSnapshotEvent,
     TodoItemPayload,
     TodoSnapshotEvent,
     ToolFailedEvent,
@@ -39,6 +42,26 @@ def todo_snapshot_from_state(state: Mapping[str, Any]) -> TodoSnapshotEvent:
                 )
             )
     return TodoSnapshotEvent(items=items)
+
+
+def task_snapshot_from_store(store: object | None) -> TaskSnapshotEvent:
+    if store is None:
+        return TaskSnapshotEvent(items=[])
+    try:
+        records = list_tasks(cast(TaskStore, store))
+    except Exception:
+        return TaskSnapshotEvent(items=[])
+    return TaskSnapshotEvent(
+        items=[
+            TaskItemPayload(
+                id=record.id,
+                content=record.title,
+                status=record.status,
+                owner=record.owner,
+            )
+            for record in records
+        ]
+    )
 
 
 def runtime_events_to_frontend(
@@ -113,4 +136,3 @@ def _safe_metadata(metadata: Mapping[str, Any]) -> dict[str, Any]:
         if isinstance(value, str | int | float | bool) or value is None:
             safe[str(key)] = value
     return safe
-

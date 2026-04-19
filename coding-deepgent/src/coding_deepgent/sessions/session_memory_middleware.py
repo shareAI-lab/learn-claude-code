@@ -12,6 +12,7 @@ from coding_deepgent.context_payloads import (
 )
 from coding_deepgent.sessions.session_memory import (
     read_session_memory_artifact,
+    session_memory_metrics,
     session_memory_status,
 )
 
@@ -26,6 +27,7 @@ class SessionMemoryContextMiddleware(AgentMiddleware):
         artifact = read_session_memory_artifact(request.state)
         if artifact is None:
             return handler(request)
+        metrics = session_memory_metrics(request.messages)
 
         payloads = [
             ContextPayload(
@@ -35,7 +37,10 @@ class SessionMemoryContextMiddleware(AgentMiddleware):
                 text=_render_current_session_memory(
                     artifact.content,
                     status=session_memory_status(
-                        artifact, current_message_count=len(request.messages)
+                        artifact,
+                        current_message_count=metrics.message_count,
+                        current_token_count=metrics.estimated_token_count,
+                        current_tool_call_count=metrics.tool_call_count,
                     ),
                 ),
             )

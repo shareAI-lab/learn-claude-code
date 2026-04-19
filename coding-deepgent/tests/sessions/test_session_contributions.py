@@ -26,9 +26,15 @@ from coding_deepgent.sessions.records import (
 from coding_deepgent.sessions.runtime_pressure import (
     recovery_brief_contribution as runtime_pressure_recovery_brief_contribution,
 )
+from coding_deepgent.sessions.subagent_activity import (
+    recovery_brief_contribution as subagent_activity_recovery_brief_contribution,
+)
 from coding_deepgent.sessions.session_memory import (
     SESSION_MEMORY_STATE_KEY,
+    compact_summary_assist_text,
     compact_summary_update_contribution,
+    read_session_memory_artifact,
+    session_memory_status,
     should_refresh_session_memory,
     session_memory_metrics,
 )
@@ -232,6 +238,73 @@ def test_session_memory_refresh_policy_uses_token_and_tool_call_pressure() -> No
     )
 
 
+def test_session_memory_status_uses_token_and_tool_call_pressure() -> None:
+    state = {
+        SESSION_MEMORY_STATE_KEY: {
+            "content": "recent",
+            "source": "manual",
+            "message_count": 10,
+            "token_count": 100,
+            "tool_call_count": 1,
+            "updated_at": "2026-04-15T00:00:00Z",
+        }
+    }
+    artifact = read_session_memory_artifact(state)
+
+    assert artifact is not None
+    assert (
+        session_memory_status(
+            artifact,
+            current_message_count=10,
+            current_token_count=5100,
+            current_tool_call_count=1,
+        )
+        == "stale"
+    )
+    assert (
+        session_memory_status(
+            artifact,
+            current_message_count=10,
+            current_token_count=100,
+            current_tool_call_count=4,
+        )
+        == "stale"
+    )
+    assert (
+        session_memory_status(
+            artifact,
+            current_message_count=11,
+            current_token_count=150,
+            current_tool_call_count=1,
+        )
+        == "current"
+    )
+
+
+def test_compact_summary_assist_text_skips_stale_token_pressure() -> None:
+    state = {
+        SESSION_MEMORY_STATE_KEY: {
+            "content": "recent",
+            "source": "manual",
+            "message_count": 10,
+            "token_count": 100,
+            "tool_call_count": 1,
+            "updated_at": "2026-04-15T00:00:00Z",
+        }
+    }
+    artifact = read_session_memory_artifact(state)
+    assert artifact is not None
+    assert (
+        compact_summary_assist_text(
+            artifact,
+            current_message_count=10,
+            current_token_count=5100,
+            current_tool_call_count=1,
+        )
+        is None
+    )
+
+
 def test_session_memory_metrics_estimates_tokens_and_tool_calls() -> None:
     metrics = session_memory_metrics(
         [
@@ -320,4 +393,52 @@ def test_runtime_pressure_recovery_brief_contribution_counts_events() -> None:
     assert section == RecoveryBriefSection(
         title="Runtime pressure:",
         lines=("- microcompact: 1", "- auto_compact: 2"),
+    )
+
+
+def test_subagent_activity_recovery_brief_contribution_lists_recent_notifications() -> None:
+    loaded = _loaded_session_with_evidence(
+        [
+            SessionEvidence(
+                kind="subagent_notification",
+                summary="Old background subagent completed.",
+                status="completed",
+                created_at="2026-04-15T00:00:00Z",
+            ),
+            SessionEvidence(
+                kind="runtime_event",
+                summary="Unrelated runtime event.",
+                status="completed",
+                created_at="2026-04-15T00:00:01Z",
+            ),
+            SessionEvidence(
+                kind="subagent_notification",
+                summary="Background fork completed.",
+                status="completed",
+                created_at="2026-04-15T00:00:02Z",
+            ),
+            SessionEvidence(
+                kind="subagent_notification",
+                summary="Background subagent failed.",
+                status="failed",
+                created_at="2026-04-15T00:00:03Z",
+            ),
+            SessionEvidence(
+                kind="subagent_notification",
+                summary="Background fork cancelled.",
+                status="cancelled",
+                created_at="2026-04-15T00:00:04Z",
+            ),
+        ]
+    )
+
+    section = subagent_activity_recovery_brief_contribution().render(loaded)
+
+    assert section == RecoveryBriefSection(
+        title="Subagent activity:",
+        lines=(
+            "- [completed] Background fork completed.",
+            "- [failed] Background subagent failed.",
+            "- [cancelled] Background fork cancelled.",
+        ),
     )

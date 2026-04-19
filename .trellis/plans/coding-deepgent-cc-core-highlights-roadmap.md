@@ -1,11 +1,23 @@
 <!-- Created on 2026-04-14 during Trellis brainstorm for redefining coding-deepgent final goal. -->
 # coding-deepgent CC Core Highlights Roadmap
 
-Status: active canonical dashboard
+Status: historical MVP dashboard
+Updated: 2026-04-20
 Scope: `coding-deepgent/` product track only
-Evidence policy: every highlight must be source-backed against `/root/claude-code-haha` before implementation
+Superseded as default planning target by:
+
+* `.trellis/plans/coding-deepgent-full-cc-parity-roadmap.md`
+
+Evidence policy at the time of this roadmap: every highlight must be
+source-backed against `/root/claude-code-haha` before implementation
 
 ## Purpose
+
+Historical note:
+
+This document remains the canonical record of the old `Approach A MVP` closeout
+dashboard. It is still useful when reviewing how the MVP line was defined and
+closed, but it is no longer the default roadmap for future product planning.
 
 This document replaces a slow per-system approval loop with a source-backed highlight backlog.
 

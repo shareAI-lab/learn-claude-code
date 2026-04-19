@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -51,6 +52,7 @@ from coding_deepgent.subagents import (
     run_fork_task,
     run_subagent,
     run_subagent_task,
+    subagent_list,
     subagent_send_input,
     subagent_stop,
     subagent_status,
@@ -455,6 +457,59 @@ def test_run_subagent_background_and_status(monkeypatch, tmp_path: Path) -> None
     assert current.notified is True
     loaded = session_store.load_session(session_id="session-1", workdir=workdir)
     assert loaded.evidence[-1].kind == "subagent_notification"
+
+
+def test_subagent_list_reports_active_and_terminal_background_runs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    task_store = InMemoryStore()
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+    runtime = runtime_with_recorded_session(
+        task_store,
+        session_store=JsonlSessionStore(tmp_path / "sessions"),
+        workdir=workdir,
+    )
+    release = threading.Event()
+
+    def slow_agent(**_kwargs):
+        def invoke(_payload, **_invoke_kwargs):
+            release.wait(timeout=2)
+            return {"messages": [{"role": "assistant", "content": "background result"}]}
+
+        return SimpleNamespace(invoke=invoke)
+
+    patch_runtime_agent_factory(monkeypatch, slow_agent)
+    monkeypatch.setattr(subagent_tools, "build_openai_model", lambda **_kwargs: object())
+
+    started = BackgroundSubagentRun.model_validate_json(
+        cast(Any, run_subagent_background).func(
+            "Inspect in background",
+            runtime,
+            agent_type="general",
+        )
+    )
+
+    active = json.loads(cast(Any, subagent_list).func(runtime))
+    assert [run["run_id"] for run in active["runs"]] == [started.run_id]
+
+    release.set()
+    for _ in range(20):
+        current = BackgroundSubagentRun.model_validate_json(
+            cast(Any, subagent_status).func(started.run_id, runtime)
+        )
+        if current.status == "completed":
+            break
+        time.sleep(0.05)
+    else:
+        raise AssertionError("background run did not complete")
+
+    active_after_completion = json.loads(cast(Any, subagent_list).func(runtime))
+    assert active_after_completion["runs"] == []
+
+    all_runs = json.loads(cast(Any, subagent_list).func(runtime, include_terminal=True))
+    assert [run["run_id"] for run in all_runs["runs"]] == [started.run_id]
 
 
 def test_run_fork_background_and_status(monkeypatch, tmp_path: Path) -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import threading
 import uuid
 from collections.abc import Iterable
@@ -11,6 +12,7 @@ from langchain.tools import ToolRuntime, tool
 from coding_deepgent.sessions.records import SessionContext
 from coding_deepgent.sessions.store_jsonl import JsonlSessionStore
 from coding_deepgent.subagents.schemas import (
+    BackgroundSubagentListInput,
     BackgroundSubagentRun,
     BackgroundRuntimeSnapshot,
     BackgroundSubagentSendInput,
@@ -280,6 +282,22 @@ class BackgroundSubagentManager:
     def status(self, *, run_id: str, runtime: ToolRuntime) -> BackgroundSubagentRun:
         with self._lock:
             return get_background_run(_store(runtime), run_id)
+
+    def list_runs(
+        self, *, runtime: ToolRuntime, include_terminal: bool = False
+    ) -> tuple[BackgroundSubagentRun, ...]:
+        with self._lock:
+            records = [
+                BackgroundSubagentRun.model_validate(_item_value(item))
+                for item in _store(runtime).search(BACKGROUND_SUBAGENT_NAMESPACE)
+            ]
+        if not include_terminal:
+            records = [
+                record
+                for record in records
+                if record.status not in TERMINAL_BACKGROUND_STATUSES
+            ]
+        return tuple(sorted(records, key=lambda record: record.run_id))
 
     def send_input(
         self,
@@ -599,6 +617,19 @@ def run_subagent_background(
 )
 def subagent_status(run_id: str, runtime: ToolRuntime) -> str:
     return BACKGROUND_SUBAGENT_MANAGER.status(run_id=run_id, runtime=runtime).model_dump_json()
+
+
+@tool(
+    "subagent_list",
+    args_schema=BackgroundSubagentListInput,
+    description="List background subagent and background fork runs.",
+)
+def subagent_list(runtime: ToolRuntime, include_terminal: bool = False) -> str:
+    runs = BACKGROUND_SUBAGENT_MANAGER.list_runs(
+        runtime=runtime,
+        include_terminal=include_terminal,
+    )
+    return json.dumps({"runs": [run.model_dump() for run in runs]})
 
 
 @tool(

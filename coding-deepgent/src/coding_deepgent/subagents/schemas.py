@@ -264,6 +264,16 @@ class BackgroundSubagentStatusInput(BaseModel):
     runtime: ToolRuntime
 
 
+class BackgroundSubagentListInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    runtime: ToolRuntime
+    include_terminal: bool = Field(
+        default=False,
+        description="Include completed, failed, and cancelled background runs.",
+    )
+
+
 class BackgroundSubagentSendInput(BaseModel):
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 

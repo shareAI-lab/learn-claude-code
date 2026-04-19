@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/project-handoff.md", "reason": "Current canonical handoff to update from MVP-only resume to full parity direction"}
+{"file": ".trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md", "reason": "Current active MVP dashboard to supersede with full parity roadmap"}
+{"file": ".trellis/plans/coding-deepgent-deferred-boundary-refresh-adr.md", "reason": "Current active MVP deferred-boundary ADR to downgrade to historical boundary"}
+{"file": ".trellis/spec/guides/cc-alignment-guide.md", "reason": "Canonical alignment workflow guide; add evidence ladder and OSS fallback rule"}

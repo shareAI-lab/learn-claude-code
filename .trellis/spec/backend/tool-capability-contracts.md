@@ -85,7 +85,7 @@ def invoke_deferred_tool(
     tool_name: str,
     arguments: dict[str, Any],
     runtime: ToolRuntime,
-) -> str: ...
+) -> ToolMessage | Command[Any]: ...
 ```
 
 Required five-factor protocol for every registered tool:
@@ -205,9 +205,9 @@ Where:
   shared `ToolGuardMiddleware` path so permission policy, hook dispatch,
   bounded failure shaping, and large-output persistence still apply to the real
   target tool.
-- Deferred execution is for `plain_tool`, `child_agent_bridge`, `fork_bridge`,
-  and similarly bounded tool surfaces. `command_update` tools should not move
-  behind the deferred bridge without a new explicit contract.
+- Deferred execution may preserve the real bounded result contract of the
+  target capability, including `ToolMessage` and `Command(update=...)`, rather
+  than degrading all deferred tools to plain string results.
 - Do not overload `child_only` or `extension` to mean deferred schema loading.
 - MCP/plugin tools must preserve source/trust metadata so permission and
   observability can distinguish builtin from extension behavior.
@@ -234,6 +234,7 @@ Where:
 | `ToolSearch` query matches deferred tools | result returns exact names plus full JSON parameter schemas |
 | `invoke_deferred_tool` targets unknown or non-deferred tool | bounded error result; no direct execution |
 | `invoke_deferred_tool` targets a denied deferred capability | shared policy path still returns bounded `ToolMessage(status="error")` |
+| deferred capability returns `Command(update=...)` | deferred bridge preserves the `Command` result instead of throwing a runtime error |
 
 ### 5. Good / Base / Bad Cases
 
