@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>coding-deepgent web ui</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f3f6fb;
+        --panel: #ffffff;
+        --border: #d9e1ec;
+        --text: #17212f;
+        --muted: #65758b;
+        --accent: #0f62fe;
+        --accent-soft: #d9e7ff;
+        --success: #18794e;
+        --warning: #9a6700;
+        --danger: #b42318;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          "SFMono-Regular",
+          "Consolas",
+          "Liberation Mono",
+          "Menlo",
+          monospace;
+        background: linear-gradient(180deg, #f6f8fc 0%, #eef3f9 100%);
+        color: var(--text);
+      }
+
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+
+      .header {
+        margin-bottom: 16px;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .header p {
+        margin: 8px 0 0;
+        color: var(--muted);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 16px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05);
+      }
+
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      input,
+      textarea,
+      button {
+        font: inherit;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: #fff;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 10px 16px;
+        background: var(--accent);
+        color: white;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #e8eef7;
+        color: var(--text);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .status {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: var(--accent-soft);
+        color: var(--text);
+        font-size: 13px;
+      }
+
+      .message-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 480px;
+      }
+
+      .message {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        background: #fff;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .message header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .message.user {
+        border-color: #cfe0ff;
+        background: #f7fbff;
+      }
+
+      .message.assistant {
+        border-color: #d6f0df;
+        background: #f6fffa;
+      }
+
+      .message.tool {
+        border-color: #eadfff;
+        background: #fbf8ff;
+      }
+
+      .message.runtime {
+        border-color: #f3debf;
+        background: #fffaf2;
+      }
+
+      .message.error {
+        border-color: #f6d1cb;
+        background: #fff7f5;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 4px 8px;
+        font-size: 11px;
+        background: #eef3f9;
+      }
+
+      .sidebar-section h2 {
+        margin: 0 0 10px;
+        font-size: 14px;
+      }
+
+      .sidebar-section pre,
+      .sidebar-section ul {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .sidebar-section ul {
+        padding-left: 18px;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .permission {
+        border-color: #f2d48b;
+        background: #fffbef;
+      }
+
+      @media (max-width: 960px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="header">
+        <h1>coding-deepgent web ui</h1>
+        <p>Minimal browser shell over the frontend SSE gateway.</p>
+      </div>
+
+      <div class="layout">
+        <section class="panel stack">
+          <div>
+            <label for="thread-id">Thread ID</label>
+            <input id="thread-id" placeholder="Leave blank to auto-generate" />
+          </div>
+          <div>
+            <label for="prompt">Prompt</label>
+            <textarea id="prompt" placeholder="Ask coding-deepgent something..."></textarea>
+          </div>
+          <div class="controls">
+            <button id="send">Run</button>
+            <button id="clear" class="secondary">Clear</button>
+            <span id="run-meta" class="muted"></span>
+          </div>
+          <div id="status" class="status">Ready.</div>
+          <div id="messages" class="message-list"></div>
+        </section>
+
+        <aside class="stack">
+          <section class="panel sidebar-section">
+            <h2>Todo Snapshot</h2>
+            <ul id="todos">
+              <li class="muted">No todos yet.</li>
+            </ul>
+          </section>
+          <section class="panel sidebar-section">
+            <h2>Recovery Brief</h2>
+            <pre id="recovery" class="muted">No recovery brief yet.</pre>
+          </section>
+          <section class="panel sidebar-section">
+            <h2>Permission</h2>
+            <div id="permission" class="muted">No pending permission.</div>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      const state = {
+        eventSource: null,
+        assistantById: new Map(),
+        pendingPermission: null,
+      };
+
+      const elements = {
+        threadId: document.getElementById("thread-id"),
+        prompt: document.getElementById("prompt"),
+        send: document.getElementById("send"),
+        clear: document.getElementById("clear"),
+        status: document.getElementById("status"),
+        messages: document.getElementById("messages"),
+        todos: document.getElementById("todos"),
+        recovery: document.getElementById("recovery"),
+        permission: document.getElementById("permission"),
+        runMeta: document.getElementById("run-meta"),
+      };
+
+      function setStatus(text) {
+        elements.status.textContent = text;
+      }
+
+      function appendMessage(kind, title, text, meta) {
+        const card = document.createElement("article");
+        card.className = `message ${kind}`;
+        const header = document.createElement("header");
+        const titleNode = document.createElement("strong");
+        titleNode.textContent = title;
+        const metaNode = document.createElement("span");
+        metaNode.textContent = meta || "";
+        header.append(titleNode, metaNode);
+        const body = document.createElement("div");
+        body.textContent = text;
+        card.append(header, body);
+        elements.messages.append(card);
+        card.scrollIntoView({ block: "end" });
+        return body;
+      }
+
+      function upsertAssistant(messageId, text, streaming) {
+        let entry = state.assistantById.get(messageId);
+        if (!entry) {
+          const body = appendMessage("assistant", "Assistant", "", streaming ? "streaming" : "");
+          entry = { body };
+          state.assistantById.set(messageId, entry);
+        }
+        entry.body.textContent = text;
+      }
+
+      function renderTodos(items) {
+        elements.todos.innerHTML = "";
+        if (!items.length) {
+          const li = document.createElement("li");
+          li.className = "muted";
+          li.textContent = "No todos yet.";
+          elements.todos.append(li);
+          return;
+        }
+        for (const item of items) {
+          const li = document.createElement("li");
+          const suffix =
+            item.status === "in_progress" && item.activeForm
+              ? ` (${item.activeForm})`
+              : "";
+          li.textContent = `[${item.status}] ${item.content}${suffix}`;
+          elements.todos.append(li);
+        }
+      }
+
+      function renderPermission(permission) {
+        if (!permission) {
+          elements.permission.className = "muted";
+          elements.permission.textContent = "No pending permission.";
+          return;
+        }
+        elements.permission.className = "message permission";
+        elements.permission.innerHTML = `
+          <header><strong>${permission.tool}</strong><span>pending</span></header>
+          <div>${permission.description}</div>
+          <div class="muted" style="margin-top:10px;">
+            This web shell currently visualizes permission requests only. True runtime HITL gating is not wired yet.
+          </div>
+        `;
+      }
+
+      function handleEvent(eventName, payload) {
+        switch (eventName) {
+          case "metadata":
+            elements.runMeta.textContent = `${payload.run_id} / ${payload.thread_id}`;
+            break;
+          case "session_started":
+            setStatus(`Session started: ${payload.session_id}`);
+            break;
+          case "user_message":
+            appendMessage("user", "You", payload.text);
+            break;
+          case "assistant_delta": {
+            const current = state.assistantById.get(payload.message_id)?.body.textContent || "";
+            upsertAssistant(payload.message_id, current + payload.text, true);
+            setStatus("Streaming assistant output...");
+            break;
+          }
+          case "assistant_message":
+            upsertAssistant(payload.message_id, payload.text, false);
+            break;
+          case "tool_started":
+            appendMessage("tool", `Tool: ${payload.name}`, payload.summary || "started");
+            break;
+          case "tool_finished":
+            appendMessage("tool", `Tool: ${payload.name}`, payload.preview || "completed");
+            break;
+          case "tool_failed":
+            appendMessage("error", `Tool failed: ${payload.name}`, payload.error);
+            break;
+          case "runtime_event":
+            appendMessage(
+              payload.kind.includes("error") ? "error" : "runtime",
+              payload.kind,
+              payload.message
+            );
+            break;
+          case "todo_snapshot":
+            renderTodos(payload.items || []);
+            break;
+          case "recovery_brief":
+            elements.recovery.textContent = payload.text || "";
+            break;
+          case "permission_requested":
+            state.pendingPermission = { ...payload, runId: state.currentRunId };
+            renderPermission(state.pendingPermission);
+            setStatus(`Waiting for permission: ${payload.tool}`);
+            break;
+          case "permission_resolved":
+            appendMessage("runtime", "Permission", payload.message || `Decision: ${payload.decision}`);
+            state.pendingPermission = null;
+            renderPermission(null);
+            break;
+          case "run_failed":
+            appendMessage("error", "Run failed", payload.error);
+            setStatus(`Failed: ${payload.error}`);
+            break;
+          case "run_finished":
+            setStatus(`Run finished: ${payload.status}`);
+            if (state.eventSource) {
+              state.eventSource.close();
+              state.eventSource = null;
+            }
+            break;
+          default:
+            appendMessage("runtime", eventName, JSON.stringify(payload));
+        }
+      }
+
+      async function startRun() {
+        const prompt = elements.prompt.value.trim();
+        const threadId = elements.threadId.value.trim();
+        if (!prompt) {
+          setStatus("Prompt is required.");
+          return;
+        }
+
+        if (state.eventSource) {
+          state.eventSource.close();
+          state.eventSource = null;
+        }
+
+        state.assistantById.clear();
+        state.pendingPermission = null;
+        renderPermission(null);
+        setStatus("Creating run...");
+
+        const response = await fetch("/api/runs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt,
+            thread_id: threadId || undefined,
+          }),
+        });
+
+        const payload = await response.json();
+        if (!response.ok) {
+          setStatus(payload.detail || "Failed to create run.");
+          return;
+        }
+
+        state.currentRunId = payload.run_id;
+        if (!threadId) {
+          elements.threadId.value = payload.thread_id;
+        }
+        setStatus("Connecting stream...");
+
+        const eventSource = new EventSource(`/api/runs/${payload.run_id}/stream`);
+        state.eventSource = eventSource;
+
+        eventSource.addEventListener("end", () => {
+          setStatus("Stream closed.");
+          eventSource.close();
+        });
+
+        eventSource.onmessage = (messageEvent) => {
+          const payload = JSON.parse(messageEvent.data);
+          handleEvent("message", payload);
+        };
+
+        const namedEvents = [
+          "metadata",
+          "session_started",
+          "user_message",
+          "assistant_delta",
+          "assistant_message",
+          "tool_started",
+          "tool_finished",
+          "tool_failed",
+          "runtime_event",
+          "todo_snapshot",
+          "recovery_brief",
+          "permission_requested",
+          "permission_resolved",
+          "run_finished",
+          "run_failed",
+          "error",
+        ];
+
+        for (const name of namedEvents) {
+          eventSource.addEventListener(name, (messageEvent) => {
+            const payload = JSON.parse(messageEvent.data);
+            handleEvent(name, payload);
+          });
+        }
+
+        eventSource.onerror = () => {
+          setStatus("Stream connection error.");
+        };
+      }
+
+      elements.send.addEventListener("click", startRun);
+      elements.clear.addEventListener("click", () => {
+        elements.messages.innerHTML = "";
+        state.assistantById.clear();
+        renderTodos([]);
+        elements.recovery.textContent = "No recovery brief yet.";
+        renderPermission(null);
+        setStatus("Cleared.");
+      });
+    </script>
+  </body>
+  </html>

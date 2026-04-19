@@ -63,6 +63,7 @@ The stage-3 runtime-foundation CLI keeps the legacy `--prompt` path while adding
 - `coding-deepgent doctor` — verify CLI/rendering/logging dependencies locally
 - `coding-deepgent ui` — start the React/Ink CLI frontend
 - `coding-deepgent ui-bridge` — JSONL backend bridge for the React/Ink frontend
+- `coding-deepgent ui-gateway` — start the future-Web SSE gateway foundation
 
 The React/Ink CLI frontend lives in `frontend/cli` and talks to the Python
 runtime through the JSONL adapter exposed by `ui-bridge`.
@@ -78,10 +79,16 @@ Frontend backend layering:
 - `coding_deepgent.frontend.stream_bridge` — replayable in-memory event bridge
 - `coding_deepgent.frontend.bridge` — backward-compatible import shim
 
+Current minimal web shell:
+
+- `coding-deepgent/frontend/web/index.html` — static browser UI
+- served by `coding-deepgent ui-gateway` at `/ui`
+
 Development commands:
 
 - `coding-deepgent ui --fake` — start the interactive CLI against a deterministic fake bridge
 - `coding-deepgent ui` — start the interactive CLI against the Python runtime
+- `coding-deepgent ui-gateway --fake` — start the SSE gateway and open `http://127.0.0.1:2027/ui`
 - `npm --prefix frontend/cli run dev:fake` — start the interactive CLI against a deterministic fake bridge
 - `npm --prefix frontend/cli run dev` — start the interactive CLI against the Python runtime
 

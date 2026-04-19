@@ -124,6 +124,7 @@ def test_help_lists_runtime_foundation_commands() -> None:
     assert "config" in result.stdout
     assert "doctor" in result.stdout
     assert "ui" in result.stdout
+    assert "ui-gateway" in result.stdout
 
 
 def test_config_show_redacts_api_key(monkeypatch) -> None:
@@ -155,6 +156,23 @@ def test_ui_command_runs_frontend_script(monkeypatch) -> None:
     assert result.exit_code == 0
     assert captured["args"] == ["npm", "run", "start:fake"]
     assert str(captured["cwd"]).endswith("coding-deepgent/frontend/cli")
+
+
+def test_ui_gateway_command_runs_uvicorn(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(app, *, host, port):
+        captured["app"] = app
+        captured["host"] = host
+        captured["port"] = port
+
+    monkeypatch.setattr("uvicorn.run", fake_run)
+
+    result = runner.invoke(cli.app, ["ui-gateway", "--fake", "--host", "0.0.0.0", "--port", "3030"])
+
+    assert result.exit_code == 0
+    assert captured["host"] == "0.0.0.0"
+    assert captured["port"] == 3030
 
 
 def _empty_history(session_id: str):

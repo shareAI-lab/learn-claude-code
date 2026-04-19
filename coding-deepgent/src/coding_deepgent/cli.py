@@ -276,6 +276,23 @@ def ui_bridge(
     run_stdio_bridge(fake=fake)
 
 
+@app.command("ui-gateway")
+def ui_gateway(
+    fake: bool = typer.Option(
+        False,
+        "--fake",
+        help="Start the frontend SSE gateway with deterministic fake responses.",
+    ),
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(2027, "--port", min=1, max=65535),
+) -> None:
+    import uvicorn
+
+    from coding_deepgent.frontend.gateway import create_app
+
+    uvicorn.run(create_app(fake=fake), host=host, port=port)
+
+
 @memory_app.command("migrate")
 def memory_migrate() -> None:
     from coding_deepgent.app import build_container

@@ -4,13 +4,15 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from coding_deepgent.settings import Settings, load_settings
 
 from .adapters.sse import sse_consumer
+from .producer import PromptRunner
 from .runs import FrontendRunConflictError, FrontendRunService, RunRecord
+from .web import load_web_ui_html
 
 
 class RunCreateRequest(BaseModel):
@@ -31,9 +33,14 @@ def create_app(
     *,
     fake: bool = False,
     settings: Settings | None = None,
+    prompt_runner: PromptRunner | None = None,
 ) -> FastAPI:
     active_settings = settings or load_settings()
-    service = FrontendRunService(settings=active_settings, fake=fake)
+    service = FrontendRunService(
+        settings=active_settings,
+        fake=fake,
+        prompt_runner=prompt_runner,
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -49,6 +56,10 @@ def create_app(
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "healthy", "service": "coding-deepgent-frontend-gateway"}
+
+    @app.get("/ui", response_class=HTMLResponse)
+    async def web_ui() -> HTMLResponse:
+        return HTMLResponse(load_web_ui_html())
 
     @app.post("/api/runs", response_model=RunResponse)
     async def create_run(body: RunCreateRequest) -> RunResponse:
@@ -115,4 +126,3 @@ def _record_to_response(record: RunRecord) -> RunResponse:
         "error": record.error,
     }
     return RunResponse(**payload)
-

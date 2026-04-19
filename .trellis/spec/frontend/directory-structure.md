@@ -2,10 +2,11 @@
 
 Status: `Active` for `coding-deepgent/frontend/cli`
 
-Current product frontend target:
+Current product frontend targets:
 
 ```text
 coding-deepgent/frontend/cli
+coding-deepgent/frontend/web
 ```
 
 Root `web/` remains reference-only.
@@ -14,6 +15,8 @@ Root `web/` remains reference-only.
 
 ```text
 coding-deepgent/frontend/
+├── web/
+│   └── index.html             # minimal browser shell over SSE gateway
 ├── protocol/                  # renderer-neutral JSONL contract docs
 └── cli/                       # React/Ink CLI frontend package
     ├── package.json
@@ -58,6 +61,7 @@ coding-deepgent/src/coding_deepgent/frontend/
 - `coding-deepgent/frontend/cli/src/bridge/protocol.ts`
 - `coding-deepgent/frontend/cli/src/bridge/reducer.ts`
 - `coding-deepgent/frontend/cli/src/components/message-list.tsx`
+- `coding-deepgent/frontend/web/index.html`
 - `coding-deepgent/src/coding_deepgent/frontend/producer.py`
 - `coding-deepgent/src/coding_deepgent/frontend/adapters/jsonl.py`
 - `coding-deepgent/src/coding_deepgent/frontend/client.py`
