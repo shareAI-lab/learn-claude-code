@@ -93,9 +93,12 @@
 | `SpawnTeammate/SendMessage/ReadInbox/Broadcast` | s09-s11 | 多 agent 协作（v1 可选开关） |
 
 ### 4.3 `oai_code/context/` — 上下文管理
-- **microcompact**：每轮 LLM 调用前清理旧的 tool_result
-- **auto-compact**：超过阈值时 LLM 摘要 + 落盘 transcript
-- 阈值按**模型 context window 百分比**而非硬编码（100k → 按模型动态）
+- **microcompact**：每轮 LLM 调用前的量化规则
+  - 保留最近 **N=3** 轮完整 tool_result 原文
+  - 更早的 tool_result：体积 > **4KB** 时落盘到 `.oaic/blobs/<hash>.txt`，in-memory 替换为 `[evicted: Read .oaic/blobs/<hash>.txt]`
+  - 所有 user 文本消息与 assistant 消息（含 tool_calls 结构）**永不删除**
+- **auto-compact**：超过阈值时 LLM 摘要 + 落盘完整 transcript 到 `.oaic/transcripts/`
+- 阈值按**模型 context window 百分比**（默认 75%），而非硬编码 100k
 
 ### 4.4 `oai_code/session/` — 会话与持久化
 - 项目根目录下自动创建 `.oaic/`：
@@ -119,14 +122,18 @@
 - 通过 `.oaic/settings.json` 配置 MCP servers
 - 启动时把 MCP 工具清单并入 tool registry
 - 工具命名加前缀 `mcp__<server>__<tool>` 避免冲突
+- **长度策略**：部分模型 / 网关限制 tool name ≤ 64 字符。拼接后超限时取 `mcp__<server>__<sha1(tool)[:8]>`，并在 registry 保存双向映射；向模型暴露的 description 里附原始名，便于人工排错
 
 ### 4.8 `oai_code/ui/` — 终端交互
 - REPL：`rich.live.Live` 流式渲染 + `prompt_toolkit` 多行输入 / 历史 / 补全
 - Slash 命令：`/compact` `/tasks` `/team` `/resume` `/clear` `/model` `/help`
-- `Ctrl-C` 打断当前工具但不退出；`Ctrl-D` 退出
+- **中断语义**（两层）：
+  - 一次 `Ctrl-C`：取消当前 in-flight HTTP 流 + 本地工具执行；若已产生 `tool_calls` 但尚未回灌 `tool_result`，为**每个未完成的 tool_use_id 补一条 `tool_result: "[interrupted by user]"`**，然后追加一条 `user: "<interrupted/>"` 让模型知晓；保持 messages 合法、避免「半条 assistant + 无 tool_result」的畸形历史
+  - 两次 `Ctrl-C`（1s 内）：退出进程；`Ctrl-D` 同效
 
 ### 4.9 `oai_code/config/` — 配置系统
-- 三级优先级：CLI flag > 项目 `.oaic/settings.json` > 用户 `~/.oaic/settings.json` > 环境变量
+- **四级优先级**（高 → 低）：CLI flag > 项目 `.oaic/settings.json` > 用户 `~/.oaic/settings.json` > 环境变量
+- 环境变量仅作**默认值来源**，不与 JSON 字段同级 merge；JSON 里缺失字段才 fallback 到 env
 - 典型字段：
   ```json
   {
@@ -158,6 +165,13 @@
 
 **关键不变式**：所有 tool 调用失败都转为字符串形式的 tool_result 回传，**不抛到 loop 外**，避免半截对话污染历史。
 
+**并行 tool_calls 策略**（默认开启，按下列规则降级为串行）：
+- 写同一文件路径的多个 `Write` / `Edit` / `Bash`（命令含重定向到同路径）→ 按出现顺序串行
+- 任一工具是 `Bash` 且后续工具存在 `Read`/`Grep` 读同路径 → 串行
+- 后台类（`BackgroundRun`、`SpawnTeammate`）与其余工具之间不串行化（它们本就异步）
+- 其余情况走并发，最大并行度由 `config.parallel_tools`（默认 4）限制
+- 提供全局开关 `config.serial_only = true` 兜底给 parallel tool calls 支持不稳的模型
+
 ---
 
 ## 6. OpenAI 兼容性与 Claude Code 语义的桥接
@@ -175,9 +189,28 @@
 
 这样做的好处：**用户能把现有的 `CLAUDE.md`、skills、MCP 配置几乎无缝迁移过来**，而我们不用碰 Anthropic SDK。
 
+> **真源约束**：上表是方向，工具字段/错误格式/role 映射的最终规格以 `TOOLS.md` 为**唯一真源**；设计文档与 TOOLS.md 冲突时以后者为准。
+>
+> **关于 Responses API**：v1 仅封装 Chat Completions。Responses API 虽是 OpenAI 新方向，但大多数第三方兼容网关（DeepSeek / Qwen / OpenRouter / Ollama / vLLM）仍只实现 Chat Completions，过早抽象会增加分叉维护成本。待兼容生态迁移完成后再在 `llm/` 下增加 `responses_client.py`。
+
 ---
 
-## 7. 目录结构（v1 规划）
+## 7. 安全边界与密钥处理
+
+### 7.1 威胁模型（v1 立场）
+- **仓库信任**：默认信任当前工作目录（允许 `git`、`npm`、`pip` 等），但所有 shell 命令仍受 `Bash` 的 deny-list + 超时约束
+- **MCP 子进程**：启动时**只继承白名单环境变量**（默认 `PATH`、`HOME`、`LANG`、`*_API_KEY`），其余显式 drop；必要时在 settings 里给每个 server 单独加 env
+- **路径越界**：所有文件类工具走 `safe_path()`，拒绝 `denied_paths` 命中项（默认 `~/.ssh`、`~/.aws`、`~/.gnupg`、`.env*`）
+- **权限标签**（预埋，v1 仅白名单实现）：每个工具声明 `requires: [network|write|exec]`，为 M2+ 的 `allow/deny/ask` 三态留扩展点；开放问题 2 的结论并入此处
+
+### 7.2 密钥与日志
+- `api_key_env` 是唯一推荐方式；禁止在 settings.json 里明文写 key
+- 写 session jsonl 前过一次**脱敏滤镜**：`Authorization`、`api_key`、`.env` 文件内容、`openai.api_key=` 形式一律替换为 `[REDACTED]`
+- debug 日志默认脱敏；`--debug-raw` flag 才输出原文，仅写到 `.oaic/debug/` 且不随 session 走
+
+---
+
+## 8. 目录结构（v1 规划）
 
 ```
 oai-code/
@@ -218,7 +251,7 @@ oai-code/
 
 ---
 
-## 8. 路线图
+## 9. 路线图
 
 **M0 — 骨架（1 周）**
 - CLI 入口 + REPL + 流式渲染
@@ -241,17 +274,30 @@ oai-code/
 **M3 — 可选**
 - 多 agent teammate（s09-s11）
 - Worktree 隔离（s12）
-- 发布到 PyPI
+- 发布到 PyPI（包名 `oai-code`、CLI `oaic`；发布前需检索 PyPI 占用，结论**待确认**）
 
 ---
 
-## 9. 开放问题（需要后续确认）
+## 10. 质量与测试
 
-1. **并行工具调用**：部分国产模型对 parallel tool calls 支持不完善，是否需要内置「串行模式开关」？
-2. **权限模型**：是否照抄 Claude Code 的 `allow/deny/ask` 三态权限，还是先用白名单？
-3. **多模态**：第一版是否支持图片输入？（`Read` 工具读 PNG/PDF）
-4. **Windows 支持**：Bash 工具在 Windows 上用 PowerShell 还是 WSL？v1 是否只保证 macOS/Linux？
+| 层次 | 手段 | 触发时机 |
+|------|------|---------|
+| 工具 schema | `pytest` + JSON Schema 校验所有 builtin tool 的 input_schema 合法 | 每次 PR |
+| LLM 协议 | 用 `respx` / `vcrpy` 录制各 provider 的 Chat Completions 响应 → snapshot 回放 | 每次 PR |
+| 工具集成 | 每个 builtin 工具至少 1 条端到端用例（真实 tmpdir + 真实 shell） | 每次 PR |
+| 黄金对话 | 固定几个 seed prompt（"读 README 并改一行"、"跑测试并修失败"），录制轨迹做回归对比 | M1 结束起每周跑 |
+| 中断安全 | 单测覆盖 Ctrl-C 在 HTTP 流中 / 工具执行中 / 并行 tool_calls 中的 messages 合法性 | M0 结束必须过 |
+| 脱敏 | 单测覆盖日志 / session 里 API key、`.env` 内容不外泄 | 每次 PR |
 
 ---
 
-> **下一步**：确认本文件后，拆分出 `TOOLS.md`（工具 schema 全集）和 `CONFIG.md`（配置字段全集），然后进入 M0 骨架实现。
+## 11. 开放问题（结论或待定）
+
+1. **并行工具调用**：✅ **已决策** —— 默认并行 + 同路径串行规则（见 §5）；兜底开关 `serial_only`
+2. **权限模型**：✅ **已决策** —— v1 走静态白名单（`allowed_tools` + `denied_paths`），工具预埋 `requires` 标签；`allow/deny/ask` 三态排到 M2
+3. **多模态**：⏸ **v1 不做** —— `Read` 仅处理文本；PNG/PDF 返回 `[binary, N bytes]` 占位。M3 评估
+4. **Windows 支持**：⏸ **v1 只保证 macOS/Linux** —— Bash 工具不封装 PowerShell；Windows 用户走 WSL
+
+---
+
+> **下一步**：确认本文件后，拆分出 `TOOLS.md`（工具 schema 全集，作为真源）和 `CONFIG.md`（配置字段全集），然后进入 M0 骨架实现。
