@@ -37,7 +37,6 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "04-17-l2a-h11-h12-agent-definition-general-runtime",
     "04-17-l2b-h19-compact-observability-events",
     "04-17-l2c-h01-role-based-tool-projection",
     "04-17-l3a-h11-h12-subagent-sidechain-transcript",
