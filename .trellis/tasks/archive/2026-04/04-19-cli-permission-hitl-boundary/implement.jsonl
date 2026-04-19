@@ -1,0 +1,8 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "Interrupt/resume must stay LangGraph-native."}
+{"file": ".trellis/spec/backend/project-infrastructure-foundation-contracts.md", "reason": "HITL touches runtime invocation, thread_id, and checkpointer boundary."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Reject path must remain bounded and frontend-safe."}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Protocol changes require dual-side contract sync."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Bridge/protocol changes need focused Python and TS validation."}

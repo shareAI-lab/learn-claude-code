@@ -1,0 +1,6 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": ".gemini/commands/trellis/check-frontend.toml", "reason": "Frontend check spec"}
+{"file": ".trellis/spec/backend/langchain-native-guidelines.md", "reason": "Review that HITL uses interrupt/checkpointer instead of custom runtime loops."}
+{"file": ".trellis/spec/backend/project-infrastructure-foundation-contracts.md", "reason": "Review thread_id/checkpointer ownership and same-process durability boundary."}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Review Python/TS protocol parity."}
