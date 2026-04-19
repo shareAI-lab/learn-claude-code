@@ -18,6 +18,7 @@ from .config import load_config
 from .llm.client import LLMClient
 from .tools.registry import ToolRegistry
 from .tools.builtin import register_builtins
+from .tools.todo import TodoManager, register_todo
 from .ui.repl import Repl
 
 
@@ -94,11 +95,13 @@ def main(argv: list[str] | None = None) -> int:
     llm = LLMClient(cfg)
     registry = ToolRegistry(cfg)
     register_builtins(registry)
+    todo_mgr = TodoManager()
+    register_todo(registry, todo_mgr)
 
     if args.prompt:
         return _run_once(cfg, llm, registry, args.prompt)
 
-    repl = Repl(cfg, llm, registry)
+    repl = Repl(cfg, llm, registry, todo_mgr)
     try:
         repl.run()
     except (KeyboardInterrupt, EOFError):

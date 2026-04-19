@@ -25,10 +25,12 @@ class Repl:
         cfg: Config,
         llm: LLMClient,
         registry: ToolRegistry,
+        todo_mgr=None,
     ):
         self.cfg = cfg
         self.llm = llm
         self.registry = registry
+        self.todo_mgr = todo_mgr
         self.console = Console()
         self.state = AgentState()
 
@@ -142,13 +144,18 @@ class Repl:
         if head == "/help":
             self.console.print(
                 "[bold]commands[/]: "
-                "/help  /clear  /tools  "
+                "/help  /clear  /tools  /todos  "
                 "/models [model-id]  /provider <name>  "
                 "/quit"
             )
         elif head == "/clear":
             self.state = AgentState()
             self.console.print("[dim]conversation cleared[/]")
+        elif head == "/todos":
+            if self.todo_mgr is None:
+                self.console.print("[dim](todo manager not available)[/]")
+            else:
+                self.console.print(self.todo_mgr.render())
         elif head == "/models":
             if not arg:
                 self._list_models()
