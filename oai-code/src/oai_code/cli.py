@@ -18,6 +18,7 @@ from .config import load_config
 from .llm.client import LLMClient
 from .tools.registry import ToolRegistry
 from .tools.builtin import register_builtins
+from .tools.subagent import register_task_tool
 from .tools.tasks import TaskStore, register_tasks
 from .tools.todo import TodoManager, register_todo
 from .ui.repl import Repl
@@ -100,6 +101,7 @@ def main(argv: list[str] | None = None) -> int:
     register_todo(registry, todo_mgr)
     task_store = TaskStore(cfg)
     register_tasks(registry, task_store)
+    register_task_tool(registry, cfg=cfg, llm=llm)
 
     if args.prompt:
         return _run_once(cfg, llm, registry, args.prompt)

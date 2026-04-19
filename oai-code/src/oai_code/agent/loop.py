@@ -81,17 +81,20 @@ def run_turn(
     registry: ToolRegistry,
     callbacks: LoopCallbacks | None = None,
     stream: bool = True,
+    _system_override: str | None = None,
+    _max_iterations: int | None = None,
 ) -> None:
     """追加一轮用户输入,跑到本轮结束(finish_reason != tool_calls)。"""
     if not state.system:
-        state.system = build_system_prompt(cfg)
+        state.system = _system_override or build_system_prompt(cfg)
         state.messages.insert(0, {"role": "system", "content": state.system})
 
     state.messages.append({"role": "user", "content": user_input})
 
     cb = callbacks or LoopCallbacks()
+    max_iter = _max_iterations or MAX_ITERATIONS
 
-    for i in range(MAX_ITERATIONS):
+    for i in range(max_iter):
         if cb.on_iteration:
             cb.on_iteration(i)
 
@@ -146,7 +149,7 @@ def run_turn(
     state.messages.append(
         {
             "role": "user",
-            "content": f"<system-note>stopped after {MAX_ITERATIONS} iterations</system-note>",
+            "content": f"<system-note>stopped after {max_iter} iterations</system-note>",
         }
     )
 
