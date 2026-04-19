@@ -760,3 +760,25 @@ agent definition/tool projection contract。
 * 当前必须保留 `filesystem` / `permissions` / `tool_system` 的 LangChain-native policy/middleware seam，避免未来重做入口。
 * 不引入复杂 Bash parser、classifier、sandbox、ask approval UI、permission suggestion persistence。
 * 若后续亮点需要更强 shell safety，按独立任务补 deterministic shell safety core，而不是把复杂逻辑临时塞进 generic `PermissionManager`。
+
+## Final Closeout (2026-04-19)
+
+This brainstorm is complete and should not stay active as a development task.
+Its useful outputs have been absorbed into later canonical artifacts and
+implementation tasks:
+
+* H01/H02/H11/H12/H19 discussion produced source-backed gap maps and staged
+  implementation direction.
+* H01 closeout now includes five-factor `ToolCapability`, role projection,
+  dynamic/deferred tool discovery, tool pairing/failure coverage, result
+  persistence audit, and conditional/spec-only `L5-a`.
+* H11/H12 closeout now includes `AgentDefinition`, read-only `general` /
+  `verifier`, sidechain transcript audit, explicit fork/fork-resume surfaces,
+  and deferred lifecycle tooling.
+* H19 closeout now includes queued event sink/logger, compact observability,
+  query_error/token_budget/API dump events, and roadmap/dashboard refresh.
+* Remaining shell-hardening / coordinator / remote / daemon items are captured
+  as deferred or future focused work in the canonical roadmap and deferred ADR.
+
+Future work should open a new focused implementation PRD rather than continuing
+this broad highlight-alignment discussion.

@@ -39,9 +39,9 @@
 
 ## Acceptance Criteria (evolving)
 
-* [ ] 能指出 H11/H12/H13/H14 哪些已经被 source-backed 讨论覆盖。
-* [ ] 能指出 Ch09 哪些要求已讨论、哪些未讨论或未满足。
-* [ ] 能指出如果把“多 agent”扩大到 Ch10，目前哪些仍明显不满足。
+* [x] 能指出 H11/H12/H13/H14 哪些已经被 source-backed 讨论覆盖。
+* [x] 能指出 Ch09 哪些要求已讨论、哪些未讨论或未满足。
+* [x] 能指出如果把“多 agent”扩大到 Ch10，目前哪些仍明显不满足。
 
 ## Definition of Done (team quality bar)
 
@@ -460,9 +460,24 @@ Fork 最小 cache-safe contract 的推荐草案：
 
 ### Acceptance Criteria
 
-* [ ] 子 agent 过程可在 parent session 中被审计
-* [ ] fork 与普通 subagent 是两条清晰分开的入口
-* [ ] same-config sibling fork 的关键前缀 contract 已固定
-* [ ] tool surface identity 不是 name-only，而是模型可见表面的稳定快照
-* [ ] placeholder/result continuity seam 已固定，不需要未来靠桥接层补救
-* [ ] H13/H14 多智能体编排仍明确保持 out of scope
+* [x] 子 agent 过程可在 parent session 中被审计
+* [x] fork 与普通 subagent 是两条清晰分开的入口
+* [x] same-config sibling fork 的关键前缀 contract 已固定
+* [x] tool surface identity 不是 name-only，而是模型可见表面的稳定快照
+* [x] placeholder/result continuity seam 已固定，不需要未来靠桥接层补救
+* [x] H13/H14 多智能体编排仍明确保持 out of scope
+
+## Final Closeout (2026-04-19)
+
+This Ch09/Ch10 review is complete and should no longer remain active:
+
+* The review separated Ch09 subagent/fork requirements from Ch10
+  coordinator/mailbox requirements.
+* The local Ch09 MVP path was subsequently implemented through the topology
+  closeout: `AgentDefinition`, read-only `general` / `verifier`, sidechain
+  transcript audit, explicit fork surfaces, background/fork status tooling, and
+  resume/fork-resume boundary hardening.
+* The canonical roadmap now marks H11 and H12 as implemented for the local MVP
+  slice, while H13/H14 coordinator/mailbox remain explicitly deferred.
+* Any future Ch10 work should open a new source-backed coordinator/mailbox PRD
+  rather than reopening this review task.
