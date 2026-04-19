@@ -252,6 +252,12 @@ oai-code/
 - TodoWrite + Tasks 持久化 + Subagent + Skills + CLAUDE.md 记忆
 - 上下文 compact（micro + auto）
 - 项目/用户双级配置
+- **分角色模型**（对齐 Claude Code 静态分配策略）：
+  - `roles.main`：主对话模型（用户选的 profile）—— 一次会话内不中途切换
+  - `roles.summarize`：auto-compact / microcompact 摘要用（默认推荐小模型，如 `fenbi-mini`）
+  - `roles.subagent`：Task 工具派发的子 agent（可与 main 相同，或显式指定）
+  - 配置结构见 `CONFIG.md`（M1 开工时补充 `roles` 字段总表）
+  - **不做动态路由**：不在 loop 中按任务难度切换模型（理由：KV cache 作废 / 风格跳变 / 工具协议差异；Claude Code 也未采用）
 
 **M2 — 高级能力（1-2 周）**
 - 后台任务 + 通知回流
