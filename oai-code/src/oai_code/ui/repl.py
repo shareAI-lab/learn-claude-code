@@ -26,11 +26,13 @@ class Repl:
         llm: LLMClient,
         registry: ToolRegistry,
         todo_mgr=None,
+        task_store=None,
     ):
         self.cfg = cfg
         self.llm = llm
         self.registry = registry
         self.todo_mgr = todo_mgr
+        self.task_store = task_store
         self.console = Console()
         self.state = AgentState()
 
@@ -144,7 +146,7 @@ class Repl:
         if head == "/help":
             self.console.print(
                 "[bold]commands[/]: "
-                "/help  /clear  /tools  /todos  "
+                "/help  /clear  /tools  /todos  /tasks  "
                 "/models [model-id]  /provider <name>  "
                 "/quit"
             )
@@ -156,6 +158,11 @@ class Repl:
                 self.console.print("[dim](todo manager not available)[/]")
             else:
                 self.console.print(self.todo_mgr.render())
+        elif head == "/tasks":
+            if self.task_store is None:
+                self.console.print("[dim](task store not available)[/]")
+            else:
+                self.console.print(self.task_store.list_all())
         elif head == "/models":
             if not arg:
                 self._list_models()
