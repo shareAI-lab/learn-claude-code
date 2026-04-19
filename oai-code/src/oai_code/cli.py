@@ -28,6 +28,7 @@ from .tools.background import BackgroundManager, register_background
 from .tools.builtin import register_builtins
 from .tools.compact_tool import register_compact
 from .tools.plan_mode import PlanModeState, register_plan_mode
+from .tools.web import register_webfetch
 from .tools.skills import discover_skills, register_load_skill
 from .tools.subagent import register_task_tool
 from .tools.tasks import TaskStore, register_tasks
@@ -232,6 +233,9 @@ def main(argv: list[str] | None = None) -> int:
     # Plan Mode: EnterPlanMode 设 flag, ExitPlanMode 通过 AskUserQuestion 要审批
     plan_state = PlanModeState()
     register_plan_mode(registry, state=plan_state, ask_fn=_dispatch_ask)
+
+    # WebFetch (M4-6)
+    register_webfetch(registry, cfg)
 
     # Session 持久化
     session_store = SessionStore(cfg)
