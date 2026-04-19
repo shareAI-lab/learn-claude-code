@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.oaic/
+dist/
+build/
+*.egg-info/
+.env
+uv.lock

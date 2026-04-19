@@ -1,0 +1,42 @@
+[project]
+name = "oai-code"
+version = "0.1.0dev0"
+description = "OpenAI-compatible coding agent CLI — Claude Code 替代品"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "zhouyunfei" }]
+
+dependencies = [
+    "openai>=1.30",
+    "pydantic>=2.6",
+    "rich>=13.7",
+    "prompt_toolkit>=3.0",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+]
+
+[project.scripts]
+oaic = "oai_code.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/oai_code"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple"
+default = true
