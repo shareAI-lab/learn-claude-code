@@ -18,7 +18,7 @@
   * fake JSONL bridge smoke -> passed
   * fake React/Ink PTY smoke -> passed
 * Current true gaps:
-  * Real bridge still wraps existing non-streaming `run_once`; protocol/UI already supports `assistant_delta`.
+  * Real bridge now prefers a true streaming runner by default and keeps explicit non-streaming fallback behind the existing bridge boundary.
   * Permission UI/protocol exists, but Python permission runtime still treats `ask` as tool error rather than true HITL pause/resume.
   * Browser Web app is not implemented.
   * CLI package is dev-run capable but not polished as a single installed binary/distribution.
@@ -47,8 +47,8 @@
 
 * [x] 明确下一阶段主目标：CLI 完善优先。
 * [x] 明确哪些功能进入下一阶段，哪些继续排除。
-* [ ] 形成可直接执行的一阶段计划。
-* [ ] 识别需要更新的 specs/tests。
+* [x] 形成可直接执行的一阶段计划。
+* [x] 识别需要更新的 specs/tests。
 
 ## Definition of Done (team quality bar)
 
@@ -67,18 +67,18 @@
 
 ### Constraints from current implementation
 
-* Python bridge: `coding_deepgent.frontend.bridge` currently emits ordered events around existing `cli_service.run_once`.
+* Python bridge: `coding_deepgent.frontend.producer.build_default_prompt_runner()` now prefers `_run_streaming_prompt()` and falls back to `cli_service.run_once` only when streaming is unavailable or explicitly disabled.
 * TS frontend: `frontend/cli/src/bridge/reducer.ts` already supports `assistant_delta` and permission queue.
 * Protocol docs already reserve `permission_decision`, `assistant_delta`, `runtime_event`, `tool_*`, `todo_snapshot`, and `recovery_brief`.
 * The old Python Typer CLI remains a backend/debug fallback.
 
 ### Feasible next-stage approaches
 
-**Approach A: Real Streaming First** (Recommended)
+**Approach A: Real Streaming First** (Completed)
 
 * How: add a streaming bridge mode that maps LangChain/LangGraph `messages`, `updates`, and `custom` stream parts into existing `assistant_delta`, `tool_*`, and `runtime_event` events.
-* Pros: biggest UX jump; makes CLI feel like a real cc-like frontend; benefits future Web because stream protocol becomes real.
-* Cons: touches runtime invocation path and may expose LangChain streaming edge cases.
+* Outcome: this is now implemented in the current mainline and validated through focused Python/TS tests plus JSONL fake-bridge smoke.
+* Consequence: the next CLI completion decision should move to HITL permission and packaging/productization.
 
 **Approach B: HITL Permission First**
 
@@ -131,37 +131,63 @@
 
 Within CLI Completion Pack:
 
-1. Real Streaming: makes the CLI materially better immediately and validates event ordering.
-2. HITL Permission: safety-critical and uses the already-present permission panel/protocol.
-3. Packaging Polish: make the CLI easy to run once bridge shape stabilizes.
+1. Real Streaming: completed in product code and validated on 2026-04-19.
+2. HITL Permission: next safety-critical step using the already-present permission panel/protocol.
+3. Packaging Polish: make the CLI easy to run once permission/runtime shape stabilizes.
 4. Core cc-like CLI polish: transcript/search/slash commands only where they rely on stable streaming/HITL data.
 
-## Candidate Next Task: Real Streaming Bridge
+## Validation Update (2026-04-19)
+
+Focused validation confirmed that the streaming bridge called out above is no
+longer a pending gap:
+
+* `coding_deepgent.frontend.producer` already contains `_run_streaming_prompt()`
+  plus the default streaming-first runner selection.
+* `coding_deepgent.frontend.protocol` and
+  `frontend/cli/src/bridge/protocol.ts` already share the
+  `assistant_delta` / `assistant_message` contract.
+* `frontend/cli/src/bridge/reducer.ts` already aggregates deltas by
+  `message_id`.
+* Validation run:
+  * `pytest -q tests/frontend/test_frontend_bridge.py tests/frontend/test_frontend_protocol.py tests/frontend/test_frontend_runs.py tests/frontend/test_frontend_client.py tests/frontend/test_frontend_gateway.py tests/frontend/test_stream_bridge.py` -> `19 passed`
+  * `npm --prefix coding-deepgent/frontend/cli test` -> `8 passed`
+  * `npm --prefix coding-deepgent/frontend/cli run typecheck` -> passed
+  * fake `ui-bridge --fake` smoke confirmed ordered `assistant_delta` then final `assistant_message`
+
+Specs/tests implicated by this stage:
+
+* `.trellis/spec/backend/langchain-native-guidelines.md`
+* `.trellis/spec/frontend/type-safety.md`
+* `.trellis/spec/frontend/quality-guidelines.md`
+* `tests/frontend/test_frontend_bridge.py`
+* `tests/frontend/test_frontend_protocol.py`
+* `frontend/cli/src/__tests__/reducer.test.ts`
+* `frontend/cli/src/__tests__/protocol.test.ts`
+
+## Candidate Next Task: HITL Permission Boundary
 
 ### Goal
 
-Make `coding-deepgent-ui` stream assistant tokens and tool/progress updates live instead of waiting for the final `run_once` result.
+Turn frontend-visible permission requests from the current error-style
+visibility into a true pause/resume boundary only if it can be done without
+replacing the LangChain/LangGraph-native runtime seam.
 
 ### Acceptance Targets
 
-* Interactive CLI shows assistant text incrementally through `assistant_delta`.
-* Tool/model progress appears during the run through existing event types.
-* Non-streaming bridge remains available only as an explicit fallback path.
-* Fake streaming tests and at least one local real bridge path validate event ordering.
+* `permission_requested` represents a real pending decision, not only a rendered
+  tool failure.
+* Approval or rejection resumes the run through a documented boundary.
+* If the current runtime cannot safely support this without deeper checkpoint
+  work, the task must stop with a recorded architecture boundary instead of
+  adding a fake local shim.
 
 ### Planned Features
 
-* Add streaming prompt runner in Python bridge.
-* Map LangChain/LangGraph stream parts to `FrontendEvent`.
-* Add fake streaming runner for deterministic tests.
-* Extend TS reducer tests for interleaved deltas/tool events.
-* Update protocol docs with ordering guarantees.
-
-### Planned Extensions
-
-* HITL permission pause/resume.
-* Web stream transport.
-* Richer tool-specific renderers.
+* Trace the current permission `ask` path through Python runtime and frontend
+  protocol.
+* Decide whether LangGraph interrupt/checkpoint surfaces are sufficient.
+* Implement safe resume only if boundary remains clear and testable.
+* Otherwise, record the blocker and shift to packaging/productization.
 
 ## Decision (ADR-lite)
 
