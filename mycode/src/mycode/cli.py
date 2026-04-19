@@ -23,6 +23,7 @@ from .session import SessionStore
 from .team import MessageBus, TeammateManager
 from .team.tools import register_team_tools
 from .tools.registry import ToolRegistry
+from .tools.ask_expert import register_ask_expert
 from .tools.ask_user import non_interactive_ask, register_ask_user
 from .tools.background import BackgroundManager, register_background
 from .tools.builtin import register_builtins
@@ -190,6 +191,10 @@ def main(argv: list[str] | None = None) -> int:
     subagent_cfg = cfg.derive_for_role("subagent")
     subagent_llm = LLMClient(subagent_cfg)
 
+    # expert LLM 走 roles.expert,AskExpertModel 用(M6-2)
+    expert_cfg = cfg.derive_for_role("expert")
+    expert_llm = LLMClient(expert_cfg)
+
     registry = ToolRegistry(cfg)
     register_builtins(registry)
     todo_mgr = TodoManager()
@@ -260,6 +265,9 @@ def main(argv: list[str] | None = None) -> int:
 
     # WebSearch (M6-1): bing.cn 后端,无 key
     register_web_search(registry, cfg)
+
+    # AskExpertModel (M6-2): 硬题升级到 expert 模型
+    register_ask_expert(registry, cfg=expert_cfg, expert_llm=expert_llm)
 
     # Worktree (M5-1): 启动时恢复之前未 exit 的 worktree session
     register_worktree(registry, cfg)

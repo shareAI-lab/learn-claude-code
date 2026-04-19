@@ -61,11 +61,18 @@ class RoleConfig(BaseModel):
 
 
 class RolesConfig(BaseModel):
-    """分角色模型: main(主对话) / summarize(压缩摘要) / subagent(子 agent)。"""
+    """分角色模型: main / summarize / subagent / expert。
+
+    - main:      主对话(用户选的 profile)
+    - summarize: 压缩 / 退出总结(通常配小模型)
+    - subagent:  Task 工具派发的子 agent
+    - expert:    AskExpertModel 硬题升级(通常配更强的模型)
+    """
 
     main: RoleConfig = Field(default_factory=RoleConfig)
     summarize: RoleConfig = Field(default_factory=RoleConfig)
     subagent: RoleConfig = Field(default_factory=RoleConfig)
+    expert: RoleConfig = Field(default_factory=RoleConfig)
 
 
 class Config(BaseModel):
