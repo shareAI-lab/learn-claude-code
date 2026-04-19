@@ -47,9 +47,29 @@ PROFILES: dict[str, Profile] = {
         "api_key_env": "VLLM_API_KEY",
         "default_query": None,
     },
+    # fenbi 内部网关,默认中档模型
     "fenbi": {
         "base_url": "http://keapi-inner.fenbilantian.com/agi/api/openai/v1",
         "model": "pa/gpt-5.4",
+        "api_key_env": "FENBI_API_KEY",
+        "default_query": {"service_provider": "ppio"},
+    },
+    # fenbi 快捷 profile: 从弱到强
+    "fenbi-mini": {
+        "base_url": "http://keapi-inner.fenbilantian.com/agi/api/openai/v1",
+        "model": "pa/gpt-5.4-mini",
+        "api_key_env": "FENBI_API_KEY",
+        "default_query": {"service_provider": "ppio"},
+    },
+    "fenbi-sonnet": {
+        "base_url": "http://keapi-inner.fenbilantian.com/agi/api/openai/v1",
+        "model": "pa/claude-sonnet-4-6",
+        "api_key_env": "FENBI_API_KEY",
+        "default_query": {"service_provider": "ppio"},
+    },
+    "fenbi-glm": {
+        "base_url": "http://keapi-inner.fenbilantian.com/agi/api/openai/v1",
+        "model": "zai-org/glm-5-turbo",
         "api_key_env": "FENBI_API_KEY",
         "default_query": {"service_provider": "ppio"},
     },

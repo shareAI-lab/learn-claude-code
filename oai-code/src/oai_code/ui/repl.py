@@ -138,17 +138,33 @@ class Repl:
             return False
         parts = cmd.split(maxsplit=1)
         head = parts[0]
+        arg = parts[1].strip() if len(parts) > 1 else ""
         if head == "/help":
             self.console.print(
-                "[bold]/help[/]  commands: /help /clear /model /tools /quit"
+                "[bold]commands[/]: "
+                "/help  /clear  /tools  "
+                "/model [id]  /provider <name>  /models  "
+                "/quit"
             )
         elif head == "/clear":
             self.state = AgentState()
             self.console.print("[dim]conversation cleared[/]")
         elif head == "/model":
-            self.console.print(
-                f"provider=[cyan]{self.cfg.provider}[/] model=[cyan]{self.cfg.model}[/]"
-            )
+            if not arg:
+                self.console.print(
+                    f"provider=[cyan]{self.cfg.provider}[/] model=[cyan]{self.cfg.model}[/]"
+                )
+            else:
+                self._switch_model(arg)
+        elif head == "/provider":
+            if not arg:
+                self.console.print(
+                    "[red]usage: /provider <name>[/]  (see /models)"
+                )
+            else:
+                self._switch_provider(arg)
+        elif head == "/models":
+            self._list_models()
         elif head == "/tools":
             self.console.print(
                 "tools: " + ", ".join(self.registry.allowed_names())
@@ -158,6 +174,52 @@ class Repl:
         else:
             self.console.print(f"[red]unknown command: {head}[/]")
         return True
+
+    # ---------- 运行时切换 ----------
+
+    def _switch_model(self, model_id: str) -> None:
+        """只换 model 字段,其他保留。"""
+        self.cfg.model = model_id
+        self.llm = LLMClient(self.cfg)
+        self.console.print(
+            f"[green]✓[/] model → [cyan]{self.cfg.model}[/] "
+            f"[dim](provider={self.cfg.provider})[/]"
+        )
+
+    def _switch_provider(self, name: str) -> None:
+        """切换到另一个 profile,base_url / model / api_key_env / default_query 一起换。"""
+        from ..llm.providers import PROFILES, get_profile
+
+        if name not in PROFILES:
+            self.console.print(
+                f"[red]unknown provider: {name}[/]  (available: {', '.join(PROFILES)})"
+            )
+            return
+        profile = get_profile(name)
+        self.cfg.provider = name
+        for key in ("base_url", "model", "api_key_env", "default_query"):
+            if profile.get(key) is not None:
+                setattr(self.cfg, key, profile[key])
+        if self.cfg.resolved_api_key() is None:
+            self.console.print(
+                f"[yellow]![/] warning: ${self.cfg.api_key_env} is empty"
+            )
+        self.llm = LLMClient(self.cfg)
+        self.console.print(
+            f"[green]✓[/] provider → [cyan]{self.cfg.provider}[/] "
+            f"model=[cyan]{self.cfg.model}[/]"
+        )
+
+    def _list_models(self) -> None:
+        from ..llm.providers import PROFILES
+
+        rows = []
+        for name, p in PROFILES.items():
+            mark = "●" if name == self.cfg.provider else " "
+            model = p.get("model") or "-"
+            rows.append(f"  {mark} [cyan]{name:<14}[/] {model}")
+        self.console.print("[bold]available providers[/]:")
+        self.console.print("\n".join(rows))
 
     def _print_banner(self) -> None:
         self.console.print(
