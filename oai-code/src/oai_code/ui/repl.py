@@ -28,6 +28,9 @@ class Repl:
         todo_mgr=None,
         task_store=None,
         system_prompt: str | None = None,
+        *,
+        summarize_llm: LLMClient | None = None,
+        pending_compact: dict | None = None,
     ):
         self.cfg = cfg
         self.llm = llm
@@ -35,8 +38,12 @@ class Repl:
         self.todo_mgr = todo_mgr
         self.task_store = task_store
         self._system_prompt = system_prompt
+        self._summarize_llm = summarize_llm
+        self._pending_compact = pending_compact
         self.console = Console()
         self.state = self._new_state()
+        if self._pending_compact is not None:
+            self._pending_compact["state"] = self.state
 
         history_dir = cfg.workspace_root() / ".oaic"
         history_dir.mkdir(exist_ok=True)
@@ -121,6 +128,7 @@ class Repl:
                     registry=self.registry,
                     callbacks=self._cb(),
                     stream=self.cfg.ui.stream,
+                    summarize_llm=self._summarize_llm,
                 )
             except Interrupted:
                 self.console.print("\n[yellow]⟂ interrupted[/]")
@@ -156,13 +164,28 @@ class Repl:
         if head == "/help":
             self.console.print(
                 "[bold]commands[/]: "
-                "/help  /clear  /tools  /todos  /tasks  "
+                "/help  /clear  /compact  /tools  /todos  /tasks  "
                 "/models [model-id]  /provider <name>  "
                 "/quit"
             )
         elif head == "/clear":
             self.state = self._new_state()
+            if self._pending_compact is not None:
+                self._pending_compact["state"] = self.state
             self.console.print("[dim]conversation cleared[/]")
+        elif head == "/compact":
+            if self._summarize_llm is None:
+                self.console.print("[red]summarize_llm not configured[/]")
+            else:
+                from ..context import auto_compact
+
+                before = len(self.state.messages)
+                self.state.messages = auto_compact(
+                    self.state.messages, self.cfg, self._summarize_llm
+                )
+                self.console.print(
+                    f"[dim]compacted: {before} → {len(self.state.messages)} messages[/]"
+                )
         elif head == "/todos":
             if self.todo_mgr is None:
                 self.console.print("[dim](todo manager not available)[/]")

@@ -17,8 +17,10 @@ from .agent.loop import AgentState, Interrupted, LoopCallbacks, run_turn
 from .config import load_config
 from .llm.client import LLMClient
 from .agent.system_prompt import build_system_prompt
+from .context import auto_compact
 from .tools.registry import ToolRegistry
 from .tools.builtin import register_builtins
+from .tools.compact_tool import register_compact
 from .tools.skills import discover_skills, register_load_skill
 from .tools.subagent import register_task_tool
 from .tools.tasks import TaskStore, register_tasks
@@ -55,11 +57,22 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _run_once(cfg, llm, registry, prompt_text: str, system_prompt: str | None = None) -> int:
+def _run_once(
+    cfg,
+    llm,
+    registry,
+    prompt_text: str,
+    system_prompt: str | None = None,
+    *,
+    summarize_llm=None,
+    pending_compact: dict | None = None,
+) -> int:
     state = AgentState()
     if system_prompt:
         state.system = system_prompt
         state.messages.insert(0, {"role": "system", "content": system_prompt})
+    if pending_compact is not None:
+        pending_compact["state"] = state
     import sys as _sys
 
     def on_text(delta: str) -> None:
@@ -78,6 +91,7 @@ def _run_once(cfg, llm, registry, prompt_text: str, system_prompt: str | None = 
             registry=registry,
             callbacks=LoopCallbacks(on_text_delta=on_text, on_tool_call=on_tool),
             stream=cfg.ui.stream,
+            summarize_llm=summarize_llm,
         )
     except Interrupted:
         print("\n[interrupted]", file=sys.stderr)
@@ -99,24 +113,54 @@ def main(argv: list[str] | None = None) -> int:
         print("oaic: model is required (set via --model or provider profile)", file=sys.stderr)
         return 2
 
-    llm = LLMClient(cfg)
+    # main LLM 走 roles.main(未填则继承顶层)
+    main_cfg = cfg.derive_for_role("main")
+    llm = LLMClient(main_cfg)
+
+    # summarize LLM 走 roles.summarize,用于 auto/manual compact
+    summarize_cfg = cfg.derive_for_role("summarize")
+    summarize_llm = LLMClient(summarize_cfg)
+
+    # subagent LLM 走 roles.subagent
+    subagent_cfg = cfg.derive_for_role("subagent")
+    subagent_llm = LLMClient(subagent_cfg)
+
     registry = ToolRegistry(cfg)
     register_builtins(registry)
     todo_mgr = TodoManager()
     register_todo(registry, todo_mgr)
     task_store = TaskStore(cfg)
     register_tasks(registry, task_store)
-    register_task_tool(registry, cfg=cfg, llm=llm)
+    register_task_tool(registry, cfg=subagent_cfg, llm=subagent_llm)
     skills = discover_skills(cfg)
     register_load_skill(registry, skills)
 
     # 预先计算 system prompt,注入 skills 目录
     system_prompt = build_system_prompt(cfg, skills=skills)
 
-    if args.prompt:
-        return _run_once(cfg, llm, registry, args.prompt, system_prompt)
+    # Compact 工具的触发器 —— 闭包里绑定 agent state,REPL/run_once 各自注入
+    pending_compact: dict[str, object] = {"state": None}
 
-    repl = Repl(cfg, llm, registry, todo_mgr, task_store, system_prompt)
+    def trigger_compact() -> str:
+        state = pending_compact.get("state")
+        if state is None:
+            return "Error: no active conversation state"
+        before = len(state.messages)
+        state.messages = auto_compact(state.messages, cfg, summarize_llm)
+        return f"Compacted: {before} → {len(state.messages)} messages"
+
+    register_compact(registry, trigger_compact_fn=trigger_compact)
+
+    if args.prompt:
+        return _run_once(
+            cfg, llm, registry, args.prompt, system_prompt,
+            summarize_llm=summarize_llm, pending_compact=pending_compact,
+        )
+
+    repl = Repl(
+        cfg, llm, registry, todo_mgr, task_store, system_prompt,
+        summarize_llm=summarize_llm, pending_compact=pending_compact,
+    )
     try:
         repl.run()
     except (KeyboardInterrupt, EOFError):

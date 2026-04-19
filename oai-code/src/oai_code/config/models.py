@@ -50,6 +50,24 @@ class UIConfig(BaseModel):
     confirm_destructive: bool = True
 
 
+class RoleConfig(BaseModel):
+    """单个角色的模型覆盖。未填字段从顶层继承。"""
+
+    provider: str | None = None
+    base_url: str | None = None
+    model: str | None = None
+    api_key_env: str | None = None
+    default_query: dict[str, str] | None = None
+
+
+class RolesConfig(BaseModel):
+    """分角色模型: main(主对话) / summarize(压缩摘要) / subagent(子 agent)。"""
+
+    main: RoleConfig = Field(default_factory=RoleConfig)
+    summarize: RoleConfig = Field(default_factory=RoleConfig)
+    subagent: RoleConfig = Field(default_factory=RoleConfig)
+
+
 class Config(BaseModel):
     """根配置对象。"""
 
@@ -94,6 +112,7 @@ class Config(BaseModel):
     team: TeamConfig = Field(default_factory=TeamConfig)
     mcp_servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
     ui: UIConfig = Field(default_factory=UIConfig)
+    roles: RolesConfig = Field(default_factory=RolesConfig)
 
     @field_validator("base_url")
     @classmethod
@@ -112,3 +131,31 @@ class Config(BaseModel):
 
     def workspace_root(self) -> Path:
         return Path.cwd()
+
+    def derive_for_role(self, role_name: str) -> "Config":
+        """派生出某个 role 专用的 Config。
+
+        顺序:
+        1. 从顶层 Config 复制一份
+        2. 若 roles.<name>.provider 指定,按 provider profile 填充 base_url/model/api_key_env/default_query
+        3. 再用 roles.<name> 中显式给出的字段覆盖
+        """
+        from ..llm.providers import get_profile
+
+        base = self.model_copy(deep=True)
+        role: RoleConfig = getattr(self.roles, role_name, None)
+        if role is None:
+            return base
+        # provider 指定 → 用该 profile 的默认值重置四元组
+        if role.provider:
+            base.provider = role.provider
+            profile = get_profile(role.provider)
+            for k in ("base_url", "model", "api_key_env", "default_query"):
+                if profile.get(k) is not None:
+                    setattr(base, k, profile[k])
+        # 显式字段覆盖
+        for k in ("base_url", "model", "api_key_env", "default_query"):
+            v = getattr(role, k, None)
+            if v is not None:
+                setattr(base, k, v)
+        return base

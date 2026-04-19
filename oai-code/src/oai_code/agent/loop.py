@@ -81,6 +81,7 @@ def run_turn(
     registry: ToolRegistry,
     callbacks: LoopCallbacks | None = None,
     stream: bool = True,
+    summarize_llm: LLMClient | None = None,
     _system_override: str | None = None,
     _max_iterations: int | None = None,
 ) -> None:
@@ -94,7 +95,16 @@ def run_turn(
     cb = callbacks or LoopCallbacks()
     max_iter = _max_iterations or MAX_ITERATIONS
 
+    # 延迟 import 避免循环依赖
+    from ..context import auto_compact, microcompact, should_auto_compact
+
     for i in range(max_iter):
+        # 压缩: 先 microcompact,再按阈值决定 auto-compact
+        microcompact(state.messages, cfg)
+        if summarize_llm is not None and should_auto_compact(state.messages, cfg):
+            if cb.on_text_delta:
+                cb.on_text_delta("\n[auto-compact triggered]\n")
+            state.messages = auto_compact(state.messages, cfg, summarize_llm)
         if cb.on_iteration:
             cb.on_iteration(i)
 
