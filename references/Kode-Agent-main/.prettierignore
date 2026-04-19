@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+
+# Build outputs
+cli.mjs
+dist/
+build/
+out/
+
+# Misc
+.git/
+.DS_Store
+coverage/
+.idea/
+.vscode/
+*.log

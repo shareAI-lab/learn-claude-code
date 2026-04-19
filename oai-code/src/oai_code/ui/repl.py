@@ -143,17 +143,15 @@ class Repl:
             self.console.print(
                 "[bold]commands[/]: "
                 "/help  /clear  /tools  "
-                "/model [id]  /provider <name>  /models  "
+                "/models [model-id]  /provider <name>  "
                 "/quit"
             )
         elif head == "/clear":
             self.state = AgentState()
             self.console.print("[dim]conversation cleared[/]")
-        elif head == "/model":
+        elif head == "/models":
             if not arg:
-                self.console.print(
-                    f"provider=[cyan]{self.cfg.provider}[/] model=[cyan]{self.cfg.model}[/]"
-                )
+                self._list_models()
             else:
                 self._switch_model(arg)
         elif head == "/provider":
@@ -163,8 +161,6 @@ class Repl:
                 )
             else:
                 self._switch_provider(arg)
-        elif head == "/models":
-            self._list_models()
         elif head == "/tools":
             self.console.print(
                 "tools: " + ", ".join(self.registry.allowed_names())
@@ -218,8 +214,16 @@ class Repl:
             mark = "●" if name == self.cfg.provider else " "
             model = p.get("model") or "-"
             rows.append(f"  {mark} [cyan]{name:<14}[/] {model}")
+        self.console.print(
+            f"[bold]current[/]: provider=[cyan]{self.cfg.provider}[/] "
+            f"model=[cyan]{self.cfg.model}[/]"
+        )
         self.console.print("[bold]available providers[/]:")
         self.console.print("\n".join(rows))
+        self.console.print(
+            "[dim]tip: /models <model-id> to switch model; "
+            "/provider <name> to switch profile[/]"
+        )
 
     def _print_banner(self) -> None:
         self.console.print(

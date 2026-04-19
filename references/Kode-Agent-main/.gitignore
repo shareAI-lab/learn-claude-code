@@ -1,0 +1,26 @@
+.DS_Store
+.env
+.env.*.local
+
+node_modules/
+dist/
+coverage/
+
+.tmp/
+.tmp-*/
+.tmp-kode-config/
+
+*.log
+
+# Local task files
+todo_tasks.json
+todo_tasks_detail.md
+
+# Private config
+CLAUDE.md
+.claude/
+.kode/
+
+# Test files
+main.js
+

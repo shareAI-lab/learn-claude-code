@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+bun run format:check
+bun run typecheck

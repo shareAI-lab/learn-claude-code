@@ -1,0 +1,160 @@
+name: Stable Release (tags)
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: stable-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag_name: ${{ steps.ver.outputs.tag_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.18.1'
+
+      - name: Validate tag matches package.json version
+        id: ver
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="${GITHUB_REF_NAME}"
+          if [ "v${VERSION}" != "${TAG}" ]; then
+            echo "Tag '${TAG}' does not match package.json version '${VERSION}'"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "tag_name=${TAG}" >> "${GITHUB_OUTPUT}"
+
+  build-binaries:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: bun-linux-x64
+            asset: kode-linux-x64
+          - os: ubuntu-latest
+            target: bun-linux-arm64
+            asset: kode-linux-arm64
+          - os: macos-latest
+            target: bun-darwin-x64
+            asset: kode-darwin-x64
+          - os: macos-latest
+            target: bun-darwin-arm64
+            asset: kode-darwin-arm64
+          - os: windows-latest
+            target: bun-windows-x64
+            asset: kode-win32-x64.exe
+    runs-on: ${{ matrix.os }}
+    env:
+      KODE_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.18.1'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install
+        run: bun install
+
+      - name: Build binary
+        run: bun build src/entrypoints/index.ts --compile --target=${{ matrix.target }} --format=esm --outfile=${{ matrix.asset }}
+
+      - name: Make binary executable
+        if: runner.os != 'Windows'
+        run: chmod +x ${{ matrix.asset }}
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+          if-no-files-found: error
+
+  publish-npm:
+    needs: verify
+    runs-on: ubuntu-latest
+    env:
+      KODE_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.18.1'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install
+        run: bun install
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test
+        run: bun test
+
+      - name: Build (npm)
+        run: bun run build:npm
+
+      - name: Prepublish check
+        run: bun run scripts/prepublish-check.js
+
+      - name: "Publish npm (dist-tag: latest)"
+        run: npm publish --access public --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  release:
+    needs: [verify, build-binaries, publish-npm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create checksums
+        run: |
+          find artifacts -type f -maxdepth 2 -print0 | sort -z | xargs -0 shasum -a 256 > checksums-sha256.txt
+          echo "Checksums:"
+          head -n 20 checksums-sha256.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.verify.outputs.tag_name }}
+          name: ${{ needs.verify.outputs.tag_name }}
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            artifacts/**/*
+            checksums-sha256.txt
