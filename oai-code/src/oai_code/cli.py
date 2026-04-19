@@ -101,8 +101,8 @@ def main(argv: list[str] | None = None) -> int:
     repl = Repl(cfg, llm, registry)
     try:
         repl.run()
-    except KeyboardInterrupt:
-        return 130
+    except (KeyboardInterrupt, EOFError):
+        return 0
     return 0
 
 
