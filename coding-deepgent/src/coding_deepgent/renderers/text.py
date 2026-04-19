@@ -203,6 +203,98 @@ def render_session_inspect_view(
     return "\n".join(lines).rstrip()
 
 
+def render_session_history_table(
+    view: SessionInspectView,
+    *,
+    limit: int = 50,
+) -> str:
+    return "\n".join(["Raw Transcript Visibility", *_raw_lines(view, limit=limit)])
+
+
+def render_session_projection_table(
+    view: SessionInspectView,
+    *,
+    limit: int = 50,
+) -> str:
+    return "\n".join(
+        [
+            f"Model Projection ({view.projection_mode})",
+            *_projection_lines(view, limit=limit),
+        ]
+    )
+
+
+def render_session_timeline_table(
+    view: SessionInspectView,
+    *,
+    limit: int = 50,
+) -> str:
+    return "\n".join(["Compression Timeline", *_timeline_lines(view, limit=limit)])
+
+
+def render_evidence_table(
+    title: str,
+    evidence: Sequence[Mapping[str, Any]],
+    *,
+    limit: int = 50,
+) -> str:
+    if not evidence:
+        return f"No {title.lower()} recorded."
+    table = Table(title=title, box=box.SIMPLE_HEAVY)
+    table.add_column("Created", no_wrap=True)
+    table.add_column("Kind", style="cyan", no_wrap=True)
+    table.add_column("Status", no_wrap=True)
+    table.add_column("Subject", no_wrap=True)
+    table.add_column("Summary")
+    for item in evidence[:limit]:
+        table.add_row(
+            str(item.get("created_at", "-")),
+            str(item.get("kind", "-")),
+            str(item.get("status", "-")),
+            str(item.get("subject", "-") or "-"),
+            _preview(item.get("summary", "")),
+        )
+    rendered = _render_table(table)
+    if len(evidence) > limit:
+        rendered = f"{rendered}\n... {len(evidence) - limit} more"
+    return rendered
+
+
+def render_extension_table(
+    title: str,
+    rows: Sequence[Mapping[str, Any]],
+) -> str:
+    if not rows:
+        return f"No {title.lower()} recorded."
+    table = Table(title=title, box=box.SIMPLE_HEAVY)
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("Status", no_wrap=True)
+    table.add_column("Description")
+    table.add_column("Path")
+    for row in rows:
+        table.add_row(
+            str(row.get("name", "unknown")),
+            str(row.get("status", "-")),
+            _preview(row.get("description", "")),
+            str(row.get("path", "-")),
+        )
+    return _render_table(table)
+
+
+def render_acceptance_table(rows: Sequence[Mapping[str, Any]]) -> str:
+    table = Table(title="Circle 1 Acceptance", box=box.SIMPLE_HEAVY)
+    table.add_column("Check", style="cyan", no_wrap=True)
+    table.add_column("Status", no_wrap=True)
+    table.add_column("Detail")
+    for row in rows:
+        table.add_row(
+            str(row.get("name", "unknown")),
+            str(row.get("status", "unknown")),
+            str(row.get("detail", "")),
+        )
+    return _render_table(table)
+
+
 def _session_memory_line(view: SessionInspectView) -> str:
     memory = view.session_memory
     if memory.status == "missing":

@@ -212,6 +212,27 @@ Where:
 - MCP/plugin tools must preserve source/trust metadata so permission and
   observability can distinguish builtin from extension behavior.
 
+#### Local Extension Debug Surfaces
+
+Circle 1 local extension seams must be user-debuggable through CLI surfaces:
+
+```bash
+coding-deepgent skills list|inspect|validate|debug
+coding-deepgent mcp list|inspect|validate|debug
+coding-deepgent hooks list|inspect|validate|debug
+coding-deepgent plugins list|inspect|validate|debug
+```
+
+- These commands are inspect/validate/debug surfaces only; they must not install
+  packages, enable marketplace entries, mutate plugin state, or start a daemon.
+- `skills` commands use the same local `SKILL.md` loader as the `load_skill`
+  tool.
+- `mcp` commands use the same `.mcp.json` parser as runtime MCP loading.
+- `hooks` commands expose the supported local sync hook event names and do not
+  imply a file-backed hook plugin system.
+- `plugins validate` must validate manifest declarations against known local
+  tool and skill names instead of trusting manifest text.
+
 ### 4. Validation & Error Matrix
 
 | Case | Expected behavior |

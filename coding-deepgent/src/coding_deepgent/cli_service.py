@@ -15,8 +15,12 @@ from coding_deepgent.compact import (
     generate_compact_summary,
 )
 from coding_deepgent.logging_config import safe_environment_snapshot
+from coding_deepgent.mcp import langchain_mcp_adapters_available, load_local_mcp_config
+from coding_deepgent.plugins import PluginRegistry, discover_local_plugins
 from coding_deepgent.settings import Settings, load_settings
 from coding_deepgent.settings import build_openai_model as build_model
+from coding_deepgent.skills import discover_local_skills
+from coding_deepgent.hooks import HookEventName
 from coding_deepgent.tasks import (
     PlanArtifact,
     TaskStatus,
@@ -34,6 +38,7 @@ from coding_deepgent.sessions import (
     LoadedSession,
     SessionLoadError,
     SessionMessage,
+    SessionEvidence,
     TranscriptProjection,
     build_recovery_brief,
     build_resume_context_message,
@@ -138,6 +143,189 @@ def load_session(settings: Settings, session_id: str) -> LoadedSession:
         return load_recorded_session(settings, session_id)
     except SessionLoadError as exc:
         raise KeyError(str(exc)) from exc
+
+
+def session_evidence_rows(
+    loaded: LoadedSession,
+    *,
+    kind: str | None = None,
+    event_kind: str | None = None,
+) -> list[dict[str, Any]]:
+    rows = [_evidence_row(item) for item in loaded.evidence]
+    if kind is not None:
+        rows = [row for row in rows if row["kind"] == kind]
+    if event_kind is not None:
+        rows = [
+            row
+            for row in rows
+            if isinstance(row.get("metadata"), dict)
+            and row["metadata"].get("event_kind") == event_kind
+        ]
+    return rows
+
+
+def permission_evidence_rows(loaded: LoadedSession) -> list[dict[str, Any]]:
+    rows = session_evidence_rows(loaded, kind="runtime_event")
+    return [
+        row
+        for row in rows
+        if isinstance(row.get("metadata"), dict)
+        and row["metadata"].get("event_kind") in {"permission_denied", "hook_blocked"}
+    ]
+
+
+def _evidence_row(item: SessionEvidence) -> dict[str, Any]:
+    return {
+        "kind": item.kind,
+        "summary": item.summary,
+        "status": item.status,
+        "created_at": item.created_at,
+        "subject": item.subject,
+        "metadata": item.metadata or {},
+    }
+
+
+def skill_rows(settings: Settings) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": skill.metadata.name,
+            "status": "valid",
+            "description": skill.metadata.description,
+            "path": str(skill.path),
+        }
+        for skill in discover_local_skills(
+            workdir=settings.workdir,
+            skill_dir=settings.skill_dir,
+        )
+    ]
+
+
+def skill_detail(settings: Settings, name: str) -> dict[str, Any]:
+    for row in skill_rows(settings):
+        if row["name"] == name:
+            return row
+    raise KeyError(f"Unknown skill: {name}")
+
+
+def mcp_rows(settings: Settings) -> list[dict[str, Any]]:
+    loaded = load_local_mcp_config(workdir=settings.workdir)
+    if loaded is None:
+        return []
+    return [
+        {
+            "name": name,
+            "status": "configured",
+            "description": f"{server.transport}",
+            "path": str(loaded.path),
+        }
+        for name, server in loaded.config.mcpServers.items()
+    ]
+
+
+def mcp_detail(settings: Settings, name: str) -> dict[str, Any]:
+    loaded = load_local_mcp_config(workdir=settings.workdir)
+    if loaded is None:
+        raise KeyError(f"Unknown MCP server: {name}")
+    server = loaded.config.mcpServers.get(name)
+    if server is None:
+        raise KeyError(f"Unknown MCP server: {name}")
+    return {
+        "name": name,
+        "status": "configured",
+        "transport": server.transport,
+        "command": server.command,
+        "args": list(server.args),
+        "url": server.url,
+        "path": str(loaded.path),
+        "adapter_available": langchain_mcp_adapters_available(),
+    }
+
+
+def hook_rows() -> list[dict[str, Any]]:
+    events: tuple[HookEventName, ...] = (
+        "SessionStart",
+        "UserPromptSubmit",
+        "PreToolUse",
+        "PostToolUse",
+        "PermissionDenied",
+        "PreCompact",
+        "PostCompact",
+    )
+    return [
+        {
+            "name": event,
+            "status": "supported",
+            "description": "local sync hook event",
+            "path": "runtime LocalHookRegistry",
+        }
+        for event in events
+    ]
+
+
+def hook_detail(name: str) -> dict[str, Any]:
+    for row in hook_rows():
+        if row["name"] == name:
+            return row
+    raise KeyError(f"Unknown hook event: {name}")
+
+
+def plugin_rows(settings: Settings) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": plugin.manifest.name,
+            "status": "valid",
+            "description": plugin.manifest.description,
+            "path": str(plugin.path),
+        }
+        for plugin in discover_local_plugins(
+            workdir=settings.workdir,
+            plugin_dir=settings.plugin_dir,
+        )
+    ]
+
+
+def plugin_detail(settings: Settings, name: str) -> dict[str, Any]:
+    for plugin in discover_local_plugins(
+        workdir=settings.workdir,
+        plugin_dir=settings.plugin_dir,
+    ):
+        if plugin.manifest.name == name:
+            return {
+                "name": plugin.manifest.name,
+                "description": plugin.manifest.description,
+                "version": plugin.manifest.version,
+                "skills": list(plugin.manifest.skills),
+                "tools": list(plugin.manifest.tools),
+                "resources": list(plugin.manifest.resources),
+                "agents": list(plugin.manifest.agents),
+                "path": str(plugin.path),
+            }
+    raise KeyError(f"Unknown plugin: {name}")
+
+
+def validate_plugins(settings: Settings) -> list[dict[str, Any]]:
+    plugins = discover_local_plugins(
+        workdir=settings.workdir,
+        plugin_dir=settings.plugin_dir,
+    )
+    registry = PluginRegistry(plugins)
+    container = _build_container_for_settings(settings)
+    known_tools = set(container.capability_registry().names())
+    known_skills = {
+        row["name"]
+        for row in skill_rows(settings)
+        if isinstance(row.get("name"), str)
+    }
+    registry.validate(known_tools=known_tools, known_skills=known_skills)
+    return [
+        {
+            "name": item.plugin_name,
+            "status": "valid",
+            "description": f"tools={len(item.tools)} skills={len(item.skills)} resources={len(item.resources)} agents={len(item.agents)}",
+            "path": "",
+        }
+        for item in registry.declarations()
+    ]
 
 
 def task_records(

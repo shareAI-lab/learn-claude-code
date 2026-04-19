@@ -339,6 +339,59 @@ def test_sessions_inspect_renders_projection_visibility(
     assert "msg-000000 role=user hidden" in result.stdout
 
 
+def test_sessions_history_projection_timeline_and_events_commands(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    context = store.create_session(workdir=workdir, session_id="session-ux")
+    store.append_message(context, role="user", content="first")
+    store.append_message(context, role="assistant", content="second")
+    store.append_collapse(
+        context,
+        trigger="threshold_tokens",
+        summary="First collapsed.",
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
+    )
+    store.append_evidence(
+        context,
+        kind="runtime_event",
+        summary="Tool write_file denied by permission_denied.",
+        status="denied",
+        metadata={"event_kind": "permission_denied", "source": "tool_guard"},
+    )
+    loaded = store.load_session(session_id="session-ux", workdir=workdir)
+    runtime = cli_service.CliRuntime(
+        settings_loader=load_settings,
+        list_sessions=lambda: [],
+        load_session=lambda session_id: loaded,
+        run_prompt=_unused_run_prompt,
+        doctor_checks=lambda: [],
+    )
+    monkeypatch.setattr(cli, "build_cli_runtime", lambda: runtime)
+
+    history = runner.invoke(cli.app, ["sessions", "history", "session-ux"])
+    projection = runner.invoke(cli.app, ["sessions", "projection", "session-ux"])
+    timeline = runner.invoke(cli.app, ["sessions", "timeline", "session-ux"])
+    events = runner.invoke(cli.app, ["sessions", "events", "session-ux"])
+    permissions = runner.invoke(cli.app, ["sessions", "permissions", "session-ux"])
+
+    assert history.exit_code == 0
+    assert "Raw Transcript Visibility" in history.stdout
+    assert projection.exit_code == 0
+    assert "Model Projection (collapse)" in projection.stdout
+    assert timeline.exit_code == 0
+    assert "Compression Timeline" in timeline.stdout
+    assert events.exit_code == 0
+    assert "Tool write_file denied" in events.stdout
+    assert permissions.exit_code == 0
+    assert "permission_denied" in permissions.stdout
+
+
 def test_tasks_list_renders_durable_task_table(monkeypatch) -> None:
     monkeypatch.setattr(
         cli_service,
@@ -457,6 +510,62 @@ def test_plans_list_and_save_use_cli_service(monkeypatch) -> None:
     assert saved["metadata"] == {"phase": "wave2b"}
     assert saved["task_ids"] == ["task-1"]
     assert "Control plan" in save_result.stdout
+
+
+def test_extension_and_acceptance_commands_use_cli_service(monkeypatch) -> None:
+    monkeypatch.setattr(
+        cli_service,
+        "skill_rows",
+        lambda settings: [
+            {
+                "name": "demo",
+                "status": "valid",
+                "description": "Demo skill",
+                "path": "/tmp/skills/demo/SKILL.md",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        cli_service,
+        "mcp_rows",
+        lambda settings: [
+            {
+                "name": "docs",
+                "status": "configured",
+                "description": "stdio",
+                "path": "/tmp/.mcp.json",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        cli_service,
+        "plugin_rows",
+        lambda settings: [
+            {
+                "name": "demo_plugin",
+                "status": "valid",
+                "description": "Demo plugin",
+                "path": "/tmp/plugins/demo/plugin.json",
+            }
+        ],
+    )
+
+    skills = runner.invoke(cli.app, ["skills", "list"])
+    mcp = runner.invoke(cli.app, ["mcp", "list"])
+    hooks = runner.invoke(cli.app, ["hooks", "list"])
+    plugins = runner.invoke(cli.app, ["plugins", "list"])
+    acceptance = runner.invoke(cli.app, ["acceptance", "circle1"])
+
+    assert skills.exit_code == 0
+    assert "demo" in skills.stdout
+    assert mcp.exit_code == 0
+    assert "docs" in mcp.stdout
+    assert hooks.exit_code == 0
+    assert "UserPromptSubmit" in hooks.stdout
+    assert plugins.exit_code == 0
+    assert "demo_plugin" in plugins.stdout
+    assert acceptance.exit_code == 0
+    assert "workflow_a_repository_takeover" in acceptance.stdout
 
 
 def test_sessions_resume_uses_recovery_brief_continuation_history(

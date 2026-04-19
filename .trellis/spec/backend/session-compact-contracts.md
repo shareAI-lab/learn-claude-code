@@ -21,6 +21,12 @@ coding-deepgent sessions resume SESSION_ID --prompt TEXT --session-memory TEXT
 coding-deepgent sessions resume SESSION_ID --prompt TEXT --compact-summary SUMMARY [--compact-keep-last N]
 coding-deepgent sessions resume SESSION_ID --prompt TEXT --generate-compact-summary [--compact-instructions TEXT] [--compact-keep-last N] [--session-memory TEXT]
 coding-deepgent sessions inspect SESSION_ID [--projection selected|raw|compact|collapse] [--limit N] [--no-recovery] [--no-model] [--no-raw]
+coding-deepgent sessions history SESSION_ID [--limit N]
+coding-deepgent sessions projection SESSION_ID [--projection selected|raw|compact|collapse] [--limit N]
+coding-deepgent sessions timeline SESSION_ID [--limit N]
+coding-deepgent sessions evidence SESSION_ID [--kind KIND] [--limit N]
+coding-deepgent sessions events SESSION_ID [--event-kind EVENT_KIND] [--limit N]
+coding-deepgent sessions permissions SESSION_ID [--limit N]
 ```
 
 #### Python Service Seams
@@ -206,6 +212,15 @@ def build_session_inspect_view(
     projection_mode: Literal["selected", "raw", "compact", "collapse"] = "selected",
 ) -> SessionInspectView: ...
 
+def session_evidence_rows(
+    loaded: LoadedSession,
+    *,
+    kind: str | None = None,
+    event_kind: str | None = None,
+) -> list[dict[str, Any]]: ...
+
+def permission_evidence_rows(loaded: LoadedSession) -> list[dict[str, Any]]: ...
+
 def append_sidechain_message(
     context: SessionContext,
     *,
@@ -276,6 +291,12 @@ def append_sidechain_message(
   mode that resume would use.
 - Invalid projection values must fail at the CLI boundary with a user-facing
   error rather than falling back silently.
+- `sessions history`, `sessions projection`, and `sessions timeline` are
+  read-only views over the same `SessionInspectView`; they must not re-interpret
+  compact/collapse state separately.
+- `sessions evidence`, `sessions events`, and `sessions permissions` must render
+  bounded evidence rows. Permission/history views must filter from persisted
+  evidence metadata and must not read provider logs or raw prompt dumps.
 
 #### Manual Compact Continuation History
 

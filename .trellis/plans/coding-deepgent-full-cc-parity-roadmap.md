@@ -235,6 +235,13 @@ Implemented checkpoint:
   * CLI now exposes durable `tasks/*` and `plans/*` control surfaces
   * TUI bridge now exposes live background-subagent control for the active
     frontend process
+* `2026-04-20`: final Wave 2/Circle 1 UX pack
+  * CLI exposes session history/projection/timeline/evidence/events/permissions
+    views
+  * CLI exposes local skills/MCP/hooks/plugins list/inspect/validate/debug
+    surfaces
+  * deterministic `acceptance circle1` harness records the Circle 1 workflow
+    boundary
 
 #### Wave 3: Usable Local Extension Seams
 
@@ -256,6 +263,14 @@ Not required in Circle 1:
 
 * full install/enable lifecycle parity
 * distribution/marketplace experience
+
+Implemented checkpoint:
+
+* `2026-04-20`: usable local extension inspect/debug seams
+  * `skills`, `mcp`, `hooks`, and `plugins` have local CLI inspect/validate/debug
+    surfaces
+  * no marketplace, install/enable lifecycle, daemon, or remote extension
+    control was added
 
 ## Circle 2: Expanded Product Parity
 

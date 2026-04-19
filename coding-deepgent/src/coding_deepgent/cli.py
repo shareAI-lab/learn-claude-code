@@ -10,17 +10,24 @@ from click.exceptions import ClickException
 from typer.main import get_command
 
 from coding_deepgent import cli_service
+from coding_deepgent.acceptance import circle1_acceptance_checks
 from coding_deepgent.frontend.bridge import run_stdio_bridge
 from coding_deepgent.logging_config import configure_logging
 from coding_deepgent.memory.backend import MemoryJobStatus, migrate_memory_schema
 from coding_deepgent.memory.schemas import MemoryType
 from coding_deepgent.renderers.text import (
+    render_acceptance_table,
     render_config_table,
     render_doctor_table,
+    render_evidence_table,
+    render_extension_table,
     render_object_detail,
     render_plan_table,
+    render_session_history_table,
     render_session_inspect_view,
+    render_session_projection_table,
     render_session_table,
+    render_session_timeline_table,
     render_task_table,
 )
 from coding_deepgent.rendering import extract_text
@@ -38,11 +45,21 @@ config_app = typer.Typer(help="Inspect resolved configuration.")
 sessions_app = typer.Typer(help="Inspect or resume recorded sessions.")
 tasks_app = typer.Typer(help="Inspect and control durable task records.")
 plans_app = typer.Typer(help="Inspect and control durable plan artifacts.")
+skills_app = typer.Typer(help="Inspect and validate local skills.")
+mcp_app = typer.Typer(help="Inspect and validate local MCP configuration.")
+hooks_app = typer.Typer(help="Inspect supported local hook events.")
+plugins_app = typer.Typer(help="Inspect and validate local plugin manifests.")
+acceptance_app = typer.Typer(help="Run deterministic acceptance harnesses.")
 memory_app = typer.Typer(help="Manage durable long-term memory backend and jobs.")
 app.add_typer(config_app, name="config")
 app.add_typer(sessions_app, name="sessions")
 app.add_typer(tasks_app, name="tasks")
 app.add_typer(plans_app, name="plans")
+app.add_typer(skills_app, name="skills")
+app.add_typer(mcp_app, name="mcp")
+app.add_typer(hooks_app, name="hooks")
+app.add_typer(plugins_app, name="plugins")
+app.add_typer(acceptance_app, name="acceptance")
 app.add_typer(memory_app, name="memory")
 
 
@@ -286,6 +303,137 @@ def plans_save(
     typer.echo(render_object_detail("Plan", record.model_dump()))
 
 
+@skills_app.command("list")
+def skills_list() -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_extension_table("Skills", cli_service.skill_rows(settings)))
+
+
+@skills_app.command("inspect")
+def skills_inspect(name: str = typer.Argument(..., help="Skill name.")) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        detail = cli_service.skill_detail(settings, name)
+    except (KeyError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Skill", detail))
+
+
+@skills_app.command("validate")
+def skills_validate() -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        rows = cli_service.skill_rows(settings)
+    except (OSError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_extension_table("Skills", rows))
+
+
+@skills_app.command("debug")
+def skills_debug(name: str = typer.Argument(..., help="Skill name.")) -> None:
+    skills_inspect(name)
+
+
+@mcp_app.command("list")
+def mcp_list() -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_extension_table("MCP Servers", cli_service.mcp_rows(settings)))
+
+
+@mcp_app.command("inspect")
+def mcp_inspect(name: str = typer.Argument(..., help="MCP server name.")) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        detail = cli_service.mcp_detail(settings, name)
+    except (KeyError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("MCP Server", detail))
+
+
+@mcp_app.command("validate")
+def mcp_validate() -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        rows = cli_service.mcp_rows(settings)
+    except (OSError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_extension_table("MCP Servers", rows))
+
+
+@mcp_app.command("debug")
+def mcp_debug(name: str = typer.Argument(..., help="MCP server name.")) -> None:
+    mcp_inspect(name)
+
+
+@hooks_app.command("list")
+def hooks_list() -> None:
+    typer.echo(render_extension_table("Hooks", cli_service.hook_rows()))
+
+
+@hooks_app.command("inspect")
+def hooks_inspect(name: str = typer.Argument(..., help="Hook event name.")) -> None:
+    try:
+        detail = cli_service.hook_detail(name)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Hook", detail))
+
+
+@hooks_app.command("validate")
+def hooks_validate() -> None:
+    typer.echo(render_extension_table("Hooks", cli_service.hook_rows()))
+
+
+@hooks_app.command("debug")
+def hooks_debug(name: str = typer.Argument(..., help="Hook event name.")) -> None:
+    hooks_inspect(name)
+
+
+@plugins_app.command("list")
+def plugins_list() -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_extension_table("Plugins", cli_service.plugin_rows(settings)))
+
+
+@plugins_app.command("inspect")
+def plugins_inspect(name: str = typer.Argument(..., help="Plugin name.")) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        detail = cli_service.plugin_detail(settings, name)
+    except (KeyError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Plugin", detail))
+
+
+@plugins_app.command("validate")
+def plugins_validate() -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        rows = cli_service.validate_plugins(settings)
+    except (OSError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_extension_table("Plugins", rows))
+
+
+@plugins_app.command("debug")
+def plugins_debug(name: str = typer.Argument(..., help="Plugin name.")) -> None:
+    plugins_inspect(name)
+
+
+@acceptance_app.command("circle1")
+def acceptance_circle1() -> None:
+    settings = build_cli_runtime().settings_loader()
+    rows = [
+        {
+            "name": check.name,
+            "status": check.status,
+            "detail": check.detail,
+        }
+        for check in circle1_acceptance_checks(settings)
+    ]
+    typer.echo(render_acceptance_table(rows))
+
+
 @sessions_app.command("inspect")
 def sessions_inspect(
     session_id: str = typer.Argument(..., help="Session identifier to inspect."),
@@ -335,6 +483,106 @@ def sessions_inspect(
             limit=limit,
         )
     )
+
+
+@sessions_app.command("history")
+def sessions_history(
+    session_id: str = typer.Argument(..., help="Session identifier to inspect."),
+    limit: int = typer.Option(50, "--limit", min=1, max=500),
+) -> None:
+    runtime = build_cli_runtime()
+    try:
+        loaded = runtime.load_session(session_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    view = build_session_inspect_view(loaded, projection_mode="raw")
+    typer.echo(render_session_history_table(view, limit=limit))
+
+
+@sessions_app.command("projection")
+def sessions_projection(
+    session_id: str = typer.Argument(..., help="Session identifier to inspect."),
+    projection_mode: str = typer.Option(
+        "selected",
+        "--projection",
+        help="Projection to inspect: selected, raw, compact, or collapse.",
+    ),
+    limit: int = typer.Option(50, "--limit", min=1, max=500),
+) -> None:
+    runtime = build_cli_runtime()
+    try:
+        loaded = runtime.load_session(session_id)
+        mode = _projection_mode(projection_mode)
+    except (KeyError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+    view = build_session_inspect_view(loaded, projection_mode=mode)
+    typer.echo(render_session_projection_table(view, limit=limit))
+
+
+@sessions_app.command("timeline")
+def sessions_timeline(
+    session_id: str = typer.Argument(..., help="Session identifier to inspect."),
+    limit: int = typer.Option(50, "--limit", min=1, max=500),
+) -> None:
+    runtime = build_cli_runtime()
+    try:
+        loaded = runtime.load_session(session_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    view = build_session_inspect_view(loaded)
+    typer.echo(render_session_timeline_table(view, limit=limit))
+
+
+@sessions_app.command("evidence")
+def sessions_evidence(
+    session_id: str = typer.Argument(..., help="Session identifier to inspect."),
+    kind: str | None = typer.Option(None, "--kind", help="Optional evidence kind."),
+    limit: int = typer.Option(50, "--limit", min=1, max=500),
+) -> None:
+    runtime = build_cli_runtime()
+    try:
+        loaded = runtime.load_session(session_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    rows = cli_service.session_evidence_rows(loaded, kind=kind)
+    typer.echo(render_evidence_table("Session Evidence", rows, limit=limit))
+
+
+@sessions_app.command("events")
+def sessions_events(
+    session_id: str = typer.Argument(..., help="Session identifier to inspect."),
+    event_kind: str | None = typer.Option(
+        None,
+        "--event-kind",
+        help="Optional runtime event kind metadata filter.",
+    ),
+    limit: int = typer.Option(50, "--limit", min=1, max=500),
+) -> None:
+    runtime = build_cli_runtime()
+    try:
+        loaded = runtime.load_session(session_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    rows = cli_service.session_evidence_rows(
+        loaded,
+        kind="runtime_event",
+        event_kind=event_kind,
+    )
+    typer.echo(render_evidence_table("Runtime Events", rows, limit=limit))
+
+
+@sessions_app.command("permissions")
+def sessions_permissions(
+    session_id: str = typer.Argument(..., help="Session identifier to inspect."),
+    limit: int = typer.Option(50, "--limit", min=1, max=500),
+) -> None:
+    runtime = build_cli_runtime()
+    try:
+        loaded = runtime.load_session(session_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    rows = cli_service.permission_evidence_rows(loaded)
+    typer.echo(render_evidence_table("Permission And Hook Events", rows, limit=limit))
 
 
 @sessions_app.command("resume")

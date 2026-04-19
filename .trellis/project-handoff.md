@@ -197,6 +197,10 @@ Latest completed stages and what they changed:
   * runtime store now has a local `file` backend, making task/plan/runtime-store state survive process boundaries inside one workspace
   * `coding-deepgent tasks ...` and `coding-deepgent plans ...` now provide real user-facing control over the durable task/plan store
   * frontend bridge now supports `refresh_snapshots`, `run_background_subagent`, `subagent_send_input`, and `subagent_stop` for the active TUI process, plus `background_subagent_snapshot` visibility
+* `2026-04-20 Circle 1 completion pack`
+  * `coding-deepgent sessions history|projection|timeline|evidence|events|permissions` expose resume/history/projection/recovery state without raw JSONL inspection
+  * `coding-deepgent skills|mcp|hooks|plugins list|inspect|validate|debug` expose usable local extension inspect/debug seams
+  * `coding-deepgent acceptance circle1` records the deterministic local Circle 1 acceptance boundary for workflows A/B/C
 
 ## Current Active Topology
 
@@ -238,10 +242,9 @@ Core domains:
 
 Next planned direction:
 
-* continue Circle 1 / Wave 2 with richer resume/history selection UX and
-  permission/recovery history visibility
-* use the completed Wave 1 checkpoint and the two Wave 2 surface packs as the
-  runtime/UI baseline
+* Circle 1 local daily-driver parity is now implemented as the current baseline
+* next work should begin Circle 2 only after release/PR validation, or else
+  address concrete Circle 1 regressions found by acceptance workflows
 
 Intent:
 
