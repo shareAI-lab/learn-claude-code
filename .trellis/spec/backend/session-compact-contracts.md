@@ -20,6 +20,7 @@ coding-deepgent sessions resume SESSION_ID --prompt TEXT
 coding-deepgent sessions resume SESSION_ID --prompt TEXT --session-memory TEXT
 coding-deepgent sessions resume SESSION_ID --prompt TEXT --compact-summary SUMMARY [--compact-keep-last N]
 coding-deepgent sessions resume SESSION_ID --prompt TEXT --generate-compact-summary [--compact-instructions TEXT] [--compact-keep-last N] [--session-memory TEXT]
+coding-deepgent sessions inspect SESSION_ID [--projection selected|raw|compact|collapse] [--limit N] [--no-recovery] [--no-model] [--no-raw]
 ```
 
 #### Python Service Seams
@@ -172,6 +173,39 @@ def build_compression_view(
     projection_mode: Literal["selected", "raw", "compact", "collapse"] = "selected",
 ) -> CompressionView: ...
 
+class SessionMemoryInspect:
+    status: Literal["missing", "current", "stale"]
+    source: str | None
+    content: str | None
+    artifact_message_count: int | None
+    current_message_count: int
+    estimated_token_count: int
+    tool_call_count: int
+
+class SessionInspectView:
+    session_id: str
+    workdir: str
+    transcript_path: str
+    created_at: str | None
+    updated_at: str | None
+    message_count: int
+    evidence_count: int
+    compact_count: int
+    collapse_count: int
+    sidechain_count: int
+    recovery_brief: str
+    projection_mode: Literal["selected", "raw", "compact", "collapse"]
+    raw_messages: tuple[RawTranscriptMessageView, ...]
+    model_projection: tuple[ProjectionMessageView, ...]
+    timeline: tuple[CompressionTimelineEvent, ...]
+    session_memory: SessionMemoryInspect
+
+def build_session_inspect_view(
+    loaded: LoadedSession,
+    *,
+    projection_mode: Literal["selected", "raw", "compact", "collapse"] = "selected",
+) -> SessionInspectView: ...
+
 def append_sidechain_message(
     context: SessionContext,
     *,
@@ -222,6 +256,26 @@ def append_sidechain_message(
 - Feature-specific recovery sections should enter through registered
   `RecoveryBriefContribution` providers, not through one-off conditionals in
   `render_recovery_brief()`.
+
+#### Session Inspect Visibility
+
+- `sessions inspect` is read-only. It must not append messages, evidence,
+  compact events, collapse events, or state snapshots.
+- `sessions inspect` must use `build_session_inspect_view()` and the existing
+  `build_compression_view()` projection model instead of computing a second
+  compact/collapse interpretation in `cli.py`.
+- The inspect output must show:
+  - session identity and transcript path
+  - message/evidence/compact/collapse/sidechain counts
+  - selected projection mode and raw visible/hidden counts
+  - session-memory status using the same freshness policy as recovery briefs
+  - compression timeline
+  - model projection rows
+  - raw transcript visibility rows
+- `--projection selected` must resolve to the same effective raw/compact/collapse
+  mode that resume would use.
+- Invalid projection values must fail at the CLI boundary with a user-facing
+  error rather than falling back silently.
 
 #### Manual Compact Continuation History
 

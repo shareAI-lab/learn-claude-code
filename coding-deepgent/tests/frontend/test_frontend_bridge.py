@@ -231,6 +231,28 @@ def test_fake_bridge_can_surface_permission_request(tmp_path: Path) -> None:
     assert permission["options"] == ["approve", "reject"]
 
 
+def test_fake_bridge_emits_runtime_visibility_snapshots(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    settings.workdir.mkdir()
+    output = StringIO()
+
+    from coding_deepgent.frontend.bridge import build_fake_prompt_runner
+
+    run_jsonl_bridge(
+        ['{"type":"submit_prompt","text":"inspect runtime"}\n'],
+        output,
+        settings=settings,
+        prompt_runner=build_fake_prompt_runner(),
+    )
+
+    events = _events(output)
+    context = next(event for event in events if event["type"] == "context_snapshot")
+    subagents = next(event for event in events if event["type"] == "subagent_snapshot")
+    assert context["projection_mode"] == "raw"
+    assert context["session_memory_status"] == "missing"
+    assert subagents == {"type": "subagent_snapshot", "total": 0, "items": []}
+
+
 def test_jsonl_bridge_resumes_after_permission_decision(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     settings.workdir.mkdir()

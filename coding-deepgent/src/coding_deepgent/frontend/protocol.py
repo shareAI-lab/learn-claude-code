@@ -96,6 +96,33 @@ class TaskSnapshotEvent(StrictModel):
     items: list[TaskItemPayload]
 
 
+class ContextSnapshotEvent(StrictModel):
+    type: Literal["context_snapshot"] = "context_snapshot"
+    projection_mode: Literal["raw", "compact", "collapse"]
+    history_messages: int = Field(..., ge=0)
+    model_messages: int = Field(..., ge=0)
+    visible_messages: int = Field(..., ge=0)
+    hidden_messages: int = Field(..., ge=0)
+    compact_count: int = Field(..., ge=0)
+    collapse_count: int = Field(..., ge=0)
+    session_memory_status: Literal["missing", "current", "stale"]
+    latest_event: str | None = None
+
+
+class SubagentItemPayload(StrictModel):
+    created_at: str
+    agent_type: str
+    role: str
+    content: str
+    subagent_thread_id: str
+
+
+class SubagentSnapshotEvent(StrictModel):
+    type: Literal["subagent_snapshot"] = "subagent_snapshot"
+    total: int = Field(..., ge=0)
+    items: list[SubagentItemPayload]
+
+
 class RuntimeEventPayload(StrictModel):
     type: Literal["runtime_event"] = "runtime_event"
     kind: str
@@ -137,6 +164,8 @@ FrontendEvent: TypeAlias = Annotated[
     | PermissionResolvedEvent
     | TodoSnapshotEvent
     | TaskSnapshotEvent
+    | ContextSnapshotEvent
+    | SubagentSnapshotEvent
     | RuntimeEventPayload
     | RecoveryBriefEvent
     | RunFinishedEvent

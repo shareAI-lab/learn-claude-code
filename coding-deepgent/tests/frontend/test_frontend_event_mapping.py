@@ -3,11 +3,16 @@ from __future__ import annotations
 from langgraph.store.memory import InMemoryStore
 
 from coding_deepgent.frontend.event_mapping import (
+    context_snapshot_from_loaded,
     runtime_events_to_frontend,
+    subagent_snapshot_from_loaded,
     task_snapshot_from_store,
     todo_snapshot_from_state,
 )
 from coding_deepgent.runtime import RuntimeEvent
+from coding_deepgent.sessions import JsonlSessionStore
+from coding_deepgent.sessions.records import message_id_for_index
+from coding_deepgent.sessions.session_memory import write_session_memory_artifact
 from coding_deepgent.tasks import create_task
 
 
@@ -79,3 +84,63 @@ def test_task_snapshot_from_store_filters_to_active_task_records() -> None:
         ("Review tests", "pending", "kun"),
         ("Ship CLI", "pending", None),
     ]
+
+
+def test_context_snapshot_from_loaded_exposes_projection_counts(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+    context = store.create_session(workdir=workdir, session_id="session-1")
+    store.append_message(context, role="user", content="first")
+    store.append_message(context, role="assistant", content="second")
+    store.append_collapse(
+        context,
+        trigger="threshold_tokens",
+        summary="Earlier work collapsed.",
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
+    )
+    state = {"todos": [], "rounds_since_update": 0}
+    write_session_memory_artifact(
+        state,
+        content="Current focus.",
+        message_count=2,
+        token_count=2,
+        tool_call_count=0,
+    )
+    store.append_state_snapshot(context, state=state)
+    loaded = store.load_session(session_id="session-1", workdir=workdir)
+
+    snapshot = context_snapshot_from_loaded(loaded)
+
+    assert snapshot.projection_mode == "collapse"
+    assert snapshot.history_messages == 2
+    assert snapshot.model_messages == 3
+    assert snapshot.visible_messages == 1
+    assert snapshot.hidden_messages == 1
+    assert snapshot.collapse_count == 1
+    assert snapshot.session_memory_status == "current"
+    assert snapshot.latest_event == "collapse"
+
+
+def test_subagent_snapshot_from_loaded_limits_recent_sidechain_messages(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions")
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+    context = store.create_session(workdir=workdir, session_id="session-1")
+    store.append_message(context, role="user", content="first")
+    for index in range(3):
+        store.append_sidechain_message(
+            context,
+            agent_type="general",
+            role="assistant",
+            content=f"sidechain {index}",
+            subagent_thread_id=f"child-{index}",
+        )
+    loaded = store.load_session(session_id="session-1", workdir=workdir)
+
+    snapshot = subagent_snapshot_from_loaded(loaded, limit=2)
+
+    assert snapshot.total == 3
+    assert [item.content for item in snapshot.items] == ["sidechain 1", "sidechain 2"]

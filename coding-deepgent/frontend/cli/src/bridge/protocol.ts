@@ -13,6 +13,26 @@ export type TaskItemPayload = {
   owner?: string;
 };
 
+export type ContextSnapshotPayload = {
+  projection_mode: 'raw' | 'compact' | 'collapse';
+  history_messages: number;
+  model_messages: number;
+  visible_messages: number;
+  hidden_messages: number;
+  compact_count: number;
+  collapse_count: number;
+  session_memory_status: 'missing' | 'current' | 'stale';
+  latest_event?: string;
+};
+
+export type SubagentItemPayload = {
+  created_at: string;
+  agent_type: string;
+  role: string;
+  content: string;
+  subagent_thread_id: string;
+};
+
 export type FrontendEvent =
   | { type: 'session_started'; session_id: string; workdir: string }
   | { type: 'user_message'; id: string; text: string }
@@ -25,6 +45,8 @@ export type FrontendEvent =
   | { type: 'permission_resolved'; request_id: string; decision: 'approve' | 'reject'; message?: string }
   | { type: 'todo_snapshot'; items: TodoItemPayload[] }
   | { type: 'task_snapshot'; items: TaskItemPayload[] }
+  | ({ type: 'context_snapshot' } & ContextSnapshotPayload)
+  | { type: 'subagent_snapshot'; total: number; items: SubagentItemPayload[] }
   | { type: 'runtime_event'; kind: string; message: string; metadata?: Record<string, unknown> }
   | { type: 'recovery_brief'; text: string }
   | { type: 'run_finished'; session_id: string; status: 'completed' | 'exited' }
@@ -49,6 +71,8 @@ const EVENT_TYPES = new Set([
   'permission_resolved',
   'todo_snapshot',
   'task_snapshot',
+  'context_snapshot',
+  'subagent_snapshot',
   'runtime_event',
   'recovery_brief',
   'run_finished',
@@ -75,4 +99,3 @@ export function encodeFrontendInput(input: FrontendInput): string {
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
-

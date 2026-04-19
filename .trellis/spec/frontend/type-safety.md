@@ -17,6 +17,10 @@ Status: `Active` for `coding-deepgent/frontend/cli`
 - Optional props should explicitly include `undefined` when passed through from state.
 - Streaming payloads must use the same `message_id` across `assistant_delta`
   and the final `assistant_message`.
+- Runtime visibility snapshots must be typed on both sides of the bridge:
+  `context_snapshot` carries bounded projection counters and
+  `subagent_snapshot` carries bounded recent sidechain activity. Do not pass raw
+  transcript records through the TUI protocol.
 - HITL payloads must preserve `permission_requested.request_id` end-to-end:
   for LangGraph interrupt-backed frontend flows, this id is the interrupt id and
   `permission_decision.request_id` must echo it unchanged on resume.

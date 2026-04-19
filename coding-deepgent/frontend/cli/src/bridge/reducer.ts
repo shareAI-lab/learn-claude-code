@@ -1,4 +1,10 @@
-import type { FrontendEvent, TaskItemPayload, TodoItemPayload } from './protocol.js';
+import type {
+  ContextSnapshotPayload,
+  FrontendEvent,
+  SubagentItemPayload,
+  TaskItemPayload,
+  TodoItemPayload
+} from './protocol.js';
 
 export type MessageKind = 'user' | 'assistant' | 'tool' | 'system' | 'error';
 
@@ -23,6 +29,8 @@ export type UiState = {
   messages: UiMessage[];
   todos: TodoItemPayload[];
   tasks: TaskItemPayload[];
+  contextSnapshot?: ContextSnapshotPayload;
+  subagentSnapshot?: { total: number; items: SubagentItemPayload[] };
   pendingPermissions: PendingPermission[];
   recoveryBrief?: string;
   isRunning: boolean;
@@ -138,6 +146,26 @@ export function reduceFrontendEvent(state: UiState, event: UiAction): UiState {
       return { ...state, todos: event.items };
     case 'task_snapshot':
       return { ...state, tasks: event.items };
+    case 'context_snapshot':
+      return {
+        ...state,
+        contextSnapshot: {
+          projection_mode: event.projection_mode,
+          history_messages: event.history_messages,
+          model_messages: event.model_messages,
+          visible_messages: event.visible_messages,
+          hidden_messages: event.hidden_messages,
+          compact_count: event.compact_count,
+          collapse_count: event.collapse_count,
+          session_memory_status: event.session_memory_status,
+          ...(event.latest_event ? { latest_event: event.latest_event } : {})
+        }
+      };
+    case 'subagent_snapshot':
+      return {
+        ...state,
+        subagentSnapshot: { total: event.total, items: event.items }
+      };
     case 'runtime_event':
       return {
         ...state,

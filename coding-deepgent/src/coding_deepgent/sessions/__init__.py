@@ -1,9 +1,15 @@
 from .compression_view import (
     CompressionTimelineEvent,
     CompressionView,
+    ProjectionMode,
     ProjectionMessageView,
     RawTranscriptMessageView,
     build_compression_view,
+)
+from .inspection import (
+    SessionInspectView,
+    SessionMemoryInspect,
+    build_session_inspect_view,
 )
 from .langgraph import thread_config_for_session, thread_id_for_session
 from .ports import SessionStore
@@ -70,11 +76,15 @@ __all__ = [
     "JsonlSessionStore",
     "CompressionTimelineEvent",
     "CompressionView",
+    "ProjectionMode",
     "ProjectionMessageView",
     "RawTranscriptMessageView",
+    "SessionInspectView",
+    "SessionMemoryInspect",
     "apply_resume_state",
     "build_recovery_brief",
     "build_compression_view",
+    "build_session_inspect_view",
     "build_resume_context_message",
     "iso_timestamp_now",
     "list_recorded_sessions",

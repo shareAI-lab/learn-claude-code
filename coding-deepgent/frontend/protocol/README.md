@@ -29,6 +29,9 @@ to Python stdin.
 {"type":"permission_requested","request_id":"req-1","tool":"write_file","description":"Write app.py","options":["approve","reject"]}
 {"type":"permission_resolved","request_id":"req-1","decision":"approve"}
 {"type":"todo_snapshot","items":[{"content":"Build UI","status":"in_progress","activeForm":"Building UI"}]}
+{"type":"task_snapshot","items":[{"id":"task-1","content":"Ship inspect view","status":"in_progress"}]}
+{"type":"context_snapshot","projection_mode":"collapse","history_messages":8,"model_messages":5,"visible_messages":4,"hidden_messages":4,"compact_count":1,"collapse_count":1,"session_memory_status":"current","latest_event":"collapse"}
+{"type":"subagent_snapshot","total":1,"items":[{"created_at":"2026-04-20T00:00:00Z","agent_type":"general","role":"assistant","content":"Checked tests.","subagent_thread_id":"child-1"}]}
 {"type":"runtime_event","kind":"query_error","message":"Query failed.","metadata":{}}
 {"type":"recovery_brief","text":"Session: ..."}
 {"type":"run_finished","session_id":"session-1","status":"completed"}
@@ -73,6 +76,9 @@ Current Web foundation:
 - `assistant_delta` may be emitted zero or more times for one `message_id`.
 - `assistant_message` finalizes the assistant text for that `message_id`.
 - Tool events may interleave with assistant deltas.
+- Snapshot events such as `todo_snapshot`, `task_snapshot`,
+  `context_snapshot`, and `subagent_snapshot` describe the latest known runtime
+  state for the completed turn; consumers should replace prior snapshot state.
 - `run_failed` may appear after partial deltas if execution fails mid-stream.
 - `run_finished` closes a prompt turn.
 - `protocol_error` describes malformed bridge input/output and does not imply the

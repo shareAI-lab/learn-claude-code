@@ -1,0 +1,9 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": ".trellis/spec/backend/runtime-context-compaction-contracts.md", "reason": "Runtime compact session contract index"}
+{"file": ".trellis/project-handoff.md", "reason": "Current coding-deepgent mainline state and next recommended Wave 2 task"}
+{"file": ".trellis/spec/guides/cc-alignment-guide.md", "reason": "cc-haha alignment and OSS fallback rules"}
+{"file": ".trellis/plans/coding-deepgent-full-cc-parity-roadmap.md", "reason": "Circle 1 Wave 2 roadmap contract"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Frontend reducer state ownership for new snapshot events"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Frontend protocol type contract for new events"}

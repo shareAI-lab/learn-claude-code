@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from coding_deepgent.runtime import RuntimeEvent
+from coding_deepgent.sessions import LoadedSession, build_session_inspect_view
 from coding_deepgent.tasks.store import TaskStore, list_tasks
 
 from .protocol import (
+    ContextSnapshotEvent,
     RuntimeEventPayload,
+    SubagentItemPayload,
+    SubagentSnapshotEvent,
     TaskItemPayload,
     TaskSnapshotEvent,
     TodoItemPayload,
@@ -16,6 +20,8 @@ from .protocol import (
     ToolFinishedEvent,
     ToolStartedEvent,
 )
+
+ContextProjectionMode = Literal["raw", "compact", "collapse"]
 
 
 def todo_snapshot_from_state(state: Mapping[str, Any]) -> TodoSnapshotEvent:
@@ -61,6 +67,43 @@ def task_snapshot_from_store(store: object | None) -> TaskSnapshotEvent:
             )
             for record in records
         ]
+    )
+
+
+def context_snapshot_from_loaded(loaded: LoadedSession) -> ContextSnapshotEvent:
+    view = build_session_inspect_view(loaded)
+    latest_event = view.timeline[-1].event_type if view.timeline else None
+    return ContextSnapshotEvent(
+        projection_mode=cast(ContextProjectionMode, view.projection_mode),
+        history_messages=len(view.raw_messages),
+        model_messages=len(view.model_projection),
+        visible_messages=view.visible_raw_count,
+        hidden_messages=view.hidden_raw_count,
+        compact_count=view.compact_count,
+        collapse_count=view.collapse_count,
+        session_memory_status=view.session_memory.status,
+        latest_event=latest_event,
+    )
+
+
+def subagent_snapshot_from_loaded(
+    loaded: LoadedSession,
+    *,
+    limit: int = 5,
+) -> SubagentSnapshotEvent:
+    messages = loaded.sidechain_messages[-limit:] if limit > 0 else []
+    return SubagentSnapshotEvent(
+        total=len(loaded.sidechain_messages),
+        items=[
+            SubagentItemPayload(
+                created_at=message.created_at,
+                agent_type=message.agent_type,
+                role=message.role,
+                content=message.content[:500],
+                subagent_thread_id=message.subagent_thread_id,
+            )
+            for message in messages
+        ],
     )
 
 

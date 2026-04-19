@@ -1,0 +1,44 @@
+{
+  "id": "coding-deepgent-circle-1-wave-2-runtime-surfaces",
+  "name": "coding-deepgent-circle-1-wave-2-runtime-surfaces",
+  "title": "Circle 1 Wave 2 Runtime-Exposing CLI TUI Surfaces",
+  "description": "",
+  "status": "completed",
+  "dev_type": "fullstack",
+  "scope": "coding-deepgent-circle-1-wave-2-runtime-surfaces",
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-20",
+  "completedAt": "2026-04-20",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

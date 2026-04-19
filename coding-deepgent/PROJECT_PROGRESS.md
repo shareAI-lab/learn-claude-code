@@ -25,13 +25,15 @@ tracker anymore.
 Canonical live status is now:
 
 - Approach A MVP closeout completed through `Stage 29`
-- `H13/H14/H21/H22` remain deferred out of MVP
-- current recommended next task: `release validation / PR cleanup for Approach A MVP`
+- `Circle 1 / Wave 1` runtime-core parity checkpoint is implemented
+- current implementation line: `Circle 1 / Wave 2` runtime-exposing CLI/TUI surfaces
+- still deferred out of Circle 1: mailbox/coordinator/team-runtime, remote/IDE,
+  daemon/cron, and full marketplace/install lifecycle
 
 For the live source of truth, use:
 
 - `../.trellis/project-handoff.md`
-- `../.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+- `../.trellis/plans/coding-deepgent-full-cc-parity-roadmap.md`
 
 ## Project-wide architecture reshape (S1 skeleton)
 

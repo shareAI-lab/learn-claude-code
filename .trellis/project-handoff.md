@@ -189,6 +189,10 @@ Latest completed stages and what they changed:
   * H01 now includes `ToolSearch` plus `invoke_deferred_tool` so deferred builtin and MCP capabilities can stay off the initial main tool list while remaining discoverable and executable through the shared policy/middleware path
   * advanced subagent lifecycle controls (`run_subagent_background`, `subagent_status`, `subagent_send_input`, `subagent_stop`, `resume_subagent`, `resume_fork`) now live on the deferred discovery surface instead of the initial main tool surface
   * MCP capabilities now default to the deferred discovery surface, while preserving source/trust metadata and registry validation
+* `2026-04-20 Circle 1 Wave 2 runtime-exposing surfaces pack`
+  * `coding-deepgent sessions inspect` renders loaded-session metadata, recovery brief, selected raw/compact/collapse projection mode, compression timeline, model projection rows, raw transcript visibility, and current-session memory freshness
+  * frontend protocol now includes `context_snapshot` and `subagent_snapshot` events so runtime projection and sidechain activity can reach renderer-neutral consumers without exposing raw JSONL records
+  * React/Ink CLI now renders context, durable task, and subagent panels from reducer state in addition to todo, permission, message, and recovery surfaces
 
 ## Current Active Topology
 
@@ -230,10 +234,11 @@ Core domains:
 
 Next planned direction:
 
-* start Circle 1 / Wave 2: runtime-exposing CLI/TUI surfaces
-* use the completed Wave 1 checkpoint in
-  `.trellis/plans/coding-deepgent-circle-1-wave-1-runtime-core-plan.md`
-  as the runtime baseline
+* continue Circle 1 / Wave 2 with runtime-controlling CLI/TUI surfaces:
+  task/plan command UX, richer resume/history selection UX, subagent/fork
+  control affordances, and permission/recovery history visibility
+* use the completed Wave 1 checkpoint and first Wave 2 surfaces pack as the
+  runtime/UI baseline
 
 Intent:
 

@@ -51,6 +51,46 @@ describe('frontend reducer', () => {
     ]);
   });
 
+  it('stores runtime visibility snapshots', () => {
+    let state = reduceFrontendEvent(initialUiState, {
+      type: 'task_snapshot',
+      items: [{ id: 'task-1', content: 'Inspect context', status: 'in_progress' }]
+    });
+    state = reduceFrontendEvent(state, {
+      type: 'context_snapshot',
+      projection_mode: 'collapse',
+      history_messages: 8,
+      model_messages: 5,
+      visible_messages: 4,
+      hidden_messages: 4,
+      compact_count: 1,
+      collapse_count: 1,
+      session_memory_status: 'current',
+      latest_event: 'collapse'
+    });
+    state = reduceFrontendEvent(state, {
+      type: 'subagent_snapshot',
+      total: 1,
+      items: [
+        {
+          created_at: '2026-04-20T00:00:00Z',
+          agent_type: 'general',
+          role: 'assistant',
+          content: 'Checked tests.',
+          subagent_thread_id: 'child-1'
+        }
+      ]
+    });
+
+    expect(state.tasks).toEqual([
+      { id: 'task-1', content: 'Inspect context', status: 'in_progress' }
+    ]);
+    expect(state.contextSnapshot?.projection_mode).toBe('collapse');
+    expect(state.contextSnapshot?.session_memory_status).toBe('current');
+    expect(state.subagentSnapshot?.total).toBe(1);
+    expect(state.subagentSnapshot?.items[0]?.content).toBe('Checked tests.');
+  });
+
   it('handles interleaved streaming and tool events', () => {
     let state = reduceFrontendEvent(initialUiState, { type: 'user_message', id: 'u1', text: 'run' });
     state = reduceFrontendEvent(state, { type: 'assistant_delta', message_id: 'a1', text: 'working' });

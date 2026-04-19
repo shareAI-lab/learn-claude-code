@@ -14,7 +14,10 @@ from coding_deepgent import cli_service
 from coding_deepgent.compact import COMPACT_BOUNDARY_PREFIX, COMPACT_SUMMARY_PREFIX
 from coding_deepgent.sessions import JsonlSessionStore, SessionMessage
 from coding_deepgent.sessions.records import message_id_for_index
-from coding_deepgent.sessions.session_memory import SESSION_MEMORY_STATE_KEY
+from coding_deepgent.sessions.session_memory import (
+    SESSION_MEMORY_STATE_KEY,
+    write_session_memory_artifact,
+)
 from coding_deepgent.settings import Settings, load_settings
 
 runner = CliRunner()
@@ -278,6 +281,60 @@ def test_sessions_list_uses_runtime_provider(monkeypatch) -> None:
     assert "session-1" in result.stdout
     assert "2026-04-13T00:00:00Z" in result.stdout
     assert "/tmp/work" in result.stdout
+
+
+def test_sessions_inspect_renders_projection_visibility(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions-store")
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    context = store.create_session(workdir=workdir, session_id="session-inspect")
+    store.append_message(context, role="user", content="first")
+    store.append_message(context, role="assistant", content="second")
+    store.append_collapse(
+        context,
+        trigger="threshold_tokens",
+        summary="First message collapsed.",
+        start_message_id=message_id_for_index(0),
+        end_message_id=message_id_for_index(0),
+        covered_message_ids=[message_id_for_index(0)],
+    )
+    state = {"todos": [], "rounds_since_update": 0}
+    write_session_memory_artifact(
+        state,
+        content="Current focus is inspect.",
+        message_count=2,
+        token_count=2,
+        tool_call_count=0,
+    )
+    store.append_state_snapshot(context, state=state)
+    loaded = store.load_session(session_id="session-inspect", workdir=workdir)
+    runtime = cli_service.CliRuntime(
+        settings_loader=load_settings,
+        list_sessions=lambda: [],
+        load_session=lambda session_id: loaded,
+        run_prompt=_unused_run_prompt,
+        doctor_checks=lambda: [],
+    )
+    monkeypatch.setattr(cli, "build_cli_runtime", lambda: runtime)
+
+    result = runner.invoke(
+        cli.app,
+        ["sessions", "inspect", "session-inspect", "--limit", "5"],
+    )
+
+    assert result.exit_code == 0
+    assert "Session Inspect" in result.stdout
+    assert "projection: mode=collapse" in result.stdout
+    assert "session_memory: current" in result.stdout
+    assert "Compression Timeline" in result.stdout
+    assert "collapse-0 collapse" in result.stdout
+    assert "Model Projection" in result.stdout
+    assert "source=collapse_summary" in result.stdout
+    assert "Raw Transcript Visibility" in result.stdout
+    assert "msg-000000 role=user hidden" in result.stdout
 
 
 def test_sessions_resume_uses_recovery_brief_continuation_history(

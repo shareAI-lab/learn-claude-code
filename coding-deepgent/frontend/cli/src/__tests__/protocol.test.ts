@@ -11,6 +11,18 @@ describe('frontend protocol', () => {
     }
   });
 
+  it('parses runtime visibility snapshot events', () => {
+    const event = parseFrontendEvent(
+      '{"type":"context_snapshot","projection_mode":"compact","history_messages":8,"model_messages":5,"visible_messages":4,"hidden_messages":4,"compact_count":1,"collapse_count":0,"session_memory_status":"stale","latest_event":"compact"}'
+    );
+
+    expect(event.type).toBe('context_snapshot');
+    if (event.type === 'context_snapshot') {
+      expect(event.projection_mode).toBe('compact');
+      expect(event.session_memory_status).toBe('stale');
+    }
+  });
+
   it('rejects unknown frontend events', () => {
     expect(() => parseFrontendEvent('{"type":"unknown"}')).toThrow(/unknown frontend event type/);
   });
@@ -21,4 +33,3 @@ describe('frontend protocol', () => {
     );
   });
 });
-

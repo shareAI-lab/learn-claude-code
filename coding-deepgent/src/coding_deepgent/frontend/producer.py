@@ -20,17 +20,21 @@ from coding_deepgent.agent_runtime_service import (
 from coding_deepgent.compact import compact_record_from_messages, project_messages_with_stats
 from coding_deepgent.rendering import latest_assistant_text
 from coding_deepgent.runtime import RuntimeEvent, default_runtime_state
+from coding_deepgent.sessions import LoadedSession
 from coding_deepgent.sessions.service import recorded_session_store
 from coding_deepgent.settings import Settings
 
 from .event_mapping import (
+    context_snapshot_from_loaded,
     runtime_events_to_frontend,
+    subagent_snapshot_from_loaded,
     task_snapshot_from_store,
     todo_snapshot_from_state,
 )
 from .protocol import (
     AssistantDeltaEvent,
     AssistantMessageEvent,
+    ContextSnapshotEvent,
     FrontendEvent,
     FrontendInput,
     PermissionResolvedEvent,
@@ -42,6 +46,7 @@ from .protocol import (
     RuntimeEventPayload,
     SessionStartedEvent,
     SubmitPromptInput,
+    SubagentSnapshotEvent,
     TaskItemPayload,
     TaskSnapshotEvent,
     ToolFailedEvent,
@@ -58,6 +63,8 @@ class PromptRunResult:
     recovery_brief: str | None = None
     pending_permissions: tuple[PendingPermissionRequest, ...] = ()
     task_snapshot: tuple[TaskItemPayload, ...] = ()
+    context_snapshot: ContextSnapshotEvent | None = None
+    subagent_snapshot: SubagentSnapshotEvent | None = None
 
 
 EventEmitter = Callable[[FrontendEvent], None]
@@ -270,6 +277,10 @@ class BridgeSession:
             emit(event)
         emit(todo_snapshot_from_state(self.session_state))
         emit(TaskSnapshotEvent(items=list(result.task_snapshot)))
+        if result.context_snapshot is not None:
+            emit(result.context_snapshot)
+        if result.subagent_snapshot is not None:
+            emit(result.subagent_snapshot)
         emit(AssistantMessageEvent(message_id=assistant_id, text=result.text))
         if result.recovery_brief:
             emit(RecoveryBriefEvent(text=result.recovery_brief))
@@ -332,11 +343,17 @@ class _DefaultFrontendBridgeRunner:
         snapshot = _event_sink_snapshot(self._event_sink)
         new_events = snapshot[self.emitted_events :]
         self.emitted_events = len(snapshot)
+        recovery_brief, context_snapshot, subagent_snapshot = _session_visibility(
+            self.settings,
+            session_id,
+        )
         return PromptRunResult(
             text=result,
             runtime_events=tuple(new_events),
-            recovery_brief=_recovery_brief(self.settings, session_id),
+            recovery_brief=recovery_brief,
             task_snapshot=_task_snapshot_items(self.container),
+            context_snapshot=context_snapshot,
+            subagent_snapshot=subagent_snapshot,
         )
 
     def resume_permission(
@@ -506,6 +523,17 @@ class _FakeFrontendBridgeRunner:
             runtime_events=(event,),
             recovery_brief="Fake recovery brief: bridge protocol is healthy.",
             task_snapshot=(),
+            context_snapshot=ContextSnapshotEvent(
+                projection_mode="raw",
+                history_messages=2,
+                model_messages=2,
+                visible_messages=2,
+                hidden_messages=0,
+                compact_count=0,
+                collapse_count=0,
+                session_memory_status="missing",
+            ),
+            subagent_snapshot=SubagentSnapshotEvent(total=0, items=[]),
         )
 
 
@@ -692,10 +720,16 @@ def _stream_graph_run(
         status="completed",
         subject="frontend.ui_bridge.stream",
     )
+    recovery_brief, context_snapshot, subagent_snapshot = _session_visibility(
+        settings,
+        session_id,
+    )
     return PromptRunResult(
         text=final_text,
-        recovery_brief=_recovery_brief(settings, session_id),
+        recovery_brief=recovery_brief,
         task_snapshot=_task_snapshot_items(container),
+        context_snapshot=context_snapshot,
+        subagent_snapshot=subagent_snapshot,
     )
 
 
@@ -924,11 +958,34 @@ def _event_sink_snapshot(event_sink: object) -> tuple[RuntimeEvent, ...]:
 
 
 def _recovery_brief(settings: Settings, session_id: str) -> str | None:
-    try:
-        loaded = cli_service.load_session(settings, session_id)
-    except Exception:
+    loaded = _loaded_session_or_none(settings, session_id)
+    if loaded is None:
         return None
     return cli_service.recovery_brief_text(loaded)
+
+
+def _session_visibility(
+    settings: Settings,
+    session_id: str,
+) -> tuple[str | None, ContextSnapshotEvent | None, SubagentSnapshotEvent | None]:
+    loaded = _loaded_session_or_none(settings, session_id)
+    if loaded is None:
+        return None, None, None
+    return (
+        cli_service.recovery_brief_text(loaded),
+        context_snapshot_from_loaded(loaded),
+        subagent_snapshot_from_loaded(loaded),
+    )
+
+
+def _loaded_session_or_none(
+    settings: Settings,
+    session_id: str,
+) -> LoadedSession | None:
+    try:
+        return cli_service.load_session(settings, session_id)
+    except Exception:
+        return None
 
 
 def _bounded_error(error: Exception) -> str:

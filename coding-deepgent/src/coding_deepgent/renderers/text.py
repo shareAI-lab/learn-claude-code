@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from io import StringIO
+import json
 from typing import Any
 
 from rich import box
 from rich.console import Console
 from rich.table import Table
+
+from coding_deepgent.sessions.inspection import SessionInspectView
 
 _RENDER_WIDTH = 140
 
@@ -64,3 +67,145 @@ def render_doctor_table(checks: Sequence[Mapping[str, Any]]) -> str:
             str(check.get("detail", "")),
         )
     return _render_table(table)
+
+
+def render_session_inspect_view(
+    view: SessionInspectView,
+    *,
+    show_recovery: bool = True,
+    show_model: bool = True,
+    show_raw: bool = True,
+    limit: int = 20,
+) -> str:
+    lines: list[str] = ["Session Inspect", ""]
+    lines.extend(
+        [
+            f"session_id: {view.session_id}",
+            f"workdir: {view.workdir}",
+            f"transcript: {view.transcript_path}",
+            f"created_at: {view.created_at or '-'}",
+            f"updated_at: {view.updated_at or '-'}",
+            (
+                "counts: "
+                f"messages={view.message_count} "
+                f"evidence={view.evidence_count} "
+                f"compacts={view.compact_count} "
+                f"collapses={view.collapse_count} "
+                f"sidechain={view.sidechain_count}"
+            ),
+            (
+                "projection: "
+                f"mode={view.projection_mode} "
+                f"model_messages={len(view.model_projection)} "
+                f"raw_visible={view.visible_raw_count} "
+                f"raw_hidden={view.hidden_raw_count}"
+            ),
+            _session_memory_line(view),
+        ]
+    )
+    if show_recovery:
+        lines.extend(("", "Recovery Brief", _indent(view.recovery_brief)))
+    lines.extend(("", "Compression Timeline"))
+    lines.extend(_timeline_lines(view, limit=limit))
+    if show_model:
+        lines.extend(("", "Model Projection"))
+        lines.extend(_projection_lines(view, limit=limit))
+    if show_raw:
+        lines.extend(("", "Raw Transcript Visibility"))
+        lines.extend(_raw_lines(view, limit=limit))
+    return "\n".join(lines).rstrip()
+
+
+def _session_memory_line(view: SessionInspectView) -> str:
+    memory = view.session_memory
+    if memory.status == "missing":
+        return (
+            "session_memory: missing "
+            f"(messages={memory.current_message_count}; "
+            f"tokens~={memory.estimated_token_count}; tools={memory.tool_call_count})"
+        )
+    return (
+        f"session_memory: {memory.status} "
+        f"source={memory.source or '-'} "
+        f"artifact_messages={memory.artifact_message_count} "
+        f"current_messages={memory.current_message_count} "
+        f"tokens~={memory.estimated_token_count} "
+        f"tools={memory.tool_call_count} "
+        f"preview={_preview(memory.content)}"
+    )
+
+
+def _timeline_lines(view: SessionInspectView, *, limit: int) -> list[str]:
+    if not view.timeline:
+        return ["- none"]
+    rows = []
+    for event in view.timeline[:limit]:
+        affected = ",".join(event.affected_message_ids) or "-"
+        tools = ",".join(event.affected_tool_call_ids) or "-"
+        rows.append(
+            "- "
+            f"{event.event_id} {event.event_type} "
+            f"trigger={event.trigger or '-'} "
+            f"source={event.source or '-'} "
+            f"messages={affected} "
+            f"tools={tools} "
+            f"summary={_preview(event.summary)}"
+        )
+    return _with_limit(rows, len(view.timeline), limit)
+
+
+def _projection_lines(view: SessionInspectView, *, limit: int) -> list[str]:
+    if not view.model_projection:
+        return ["- none"]
+    rows = []
+    for index, message in enumerate(view.model_projection[:limit]):
+        source_id = message.message_id or message.event_id or "-"
+        covered = ",".join(message.covered_message_ids) or "-"
+        rows.append(
+            "- "
+            f"#{index} role={message.role} source={message.source} "
+            f"id={source_id} covers={covered} "
+            f"preview={_preview(message.content)}"
+        )
+    return _with_limit(rows, len(view.model_projection), limit)
+
+
+def _raw_lines(view: SessionInspectView, *, limit: int) -> list[str]:
+    if not view.raw_messages:
+        return ["- none"]
+    rows = []
+    for message in view.raw_messages[:limit]:
+        visibility = "visible" if message.model_visible else "hidden"
+        hidden_by = ",".join(message.hidden_by_event_ids) or "-"
+        rows.append(
+            "- "
+            f"{message.message_id} role={message.role} {visibility} "
+            f"hidden_by={hidden_by} preview={_preview(message.content)}"
+        )
+    return _with_limit(rows, len(view.raw_messages), limit)
+
+
+def _with_limit(rows: list[str], total: int, limit: int) -> list[str]:
+    if total > limit:
+        rows.append(f"- ... {total - limit} more")
+    return rows
+
+
+def _indent(text: str) -> str:
+    return "\n".join(f"  {line}" if line else "" for line in text.splitlines())
+
+
+def _preview(value: Any, *, limit: int = 120) -> str:
+    if value is None:
+        text = ""
+    elif isinstance(value, str):
+        text = value
+    else:
+        try:
+            text = json.dumps(value, ensure_ascii=True, sort_keys=True)
+        except TypeError:
+            text = str(value)
+    text = " ".join(text.split())
+    if len(text) > limit:
+        return f"{text[: limit - 3]}..."
+    return text

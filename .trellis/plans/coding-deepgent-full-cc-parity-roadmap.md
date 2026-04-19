@@ -222,6 +222,15 @@ Why second:
 * but the first CLI/TUI focus is on high-value runtime-exposing surfaces, not
   broad aesthetic cloning
 
+Implemented checkpoint:
+
+* `2026-04-20`: first runtime-exposing surfaces pack
+  * `sessions inspect` exposes loaded-session recovery/projection/timeline/raw
+    visibility/session-memory state
+  * frontend protocol exposes `context_snapshot` and `subagent_snapshot`
+  * React/Ink CLI renders context, task, and subagent panels from typed reducer
+    state
+
 #### Wave 3: Usable Local Extension Seams
 
 Priority modules:

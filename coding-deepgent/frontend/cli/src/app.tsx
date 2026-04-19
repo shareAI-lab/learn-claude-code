@@ -4,11 +4,14 @@ import type { BridgeClient } from './bridge/python-process.js';
 import { initialUiState, reduceFrontendEvent } from './bridge/reducer.js';
 import type { FrontendInput } from './bridge/protocol.js';
 import { MessageList } from './components/message-list.js';
+import { ContextPanel } from './components/context-panel.js';
 import { PermissionPanel } from './components/permission-panel.js';
 import { PromptInput } from './components/prompt-input.js';
 import { SessionPanel } from './components/session-panel.js';
 import { SpinnerLine } from './components/spinner.js';
 import { StatusFooter } from './components/status-footer.js';
+import { SubagentPanel } from './components/subagent-panel.js';
+import { TaskPanel } from './components/task-panel.js';
 import { TodoPanel } from './components/todo-panel.js';
 
 export function App({ bridge }: { bridge: BridgeClient }): React.ReactNode {
@@ -46,7 +49,10 @@ export function App({ bridge }: { bridge: BridgeClient }): React.ReactNode {
     <Box flexDirection="column" paddingX={1}>
       <Text color="cyan">coding-deepgent</Text>
       <SessionPanel recoveryBrief={state.recoveryBrief} />
+      <ContextPanel snapshot={state.contextSnapshot} />
       <TodoPanel todos={state.todos} />
+      <TaskPanel tasks={state.tasks} />
+      <SubagentPanel snapshot={state.subagentSnapshot} />
       <PermissionPanel permissions={state.pendingPermissions} send={send} />
       <MessageList messages={state.messages} />
       <SpinnerLine active={state.isRunning} />

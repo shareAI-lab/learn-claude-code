@@ -8,6 +8,9 @@ Status: `Active` for `coding-deepgent/frontend/cli`
 - TypeScript owns display state derived from `FrontendEvent` payloads.
 - `src/bridge/reducer.ts` is the canonical event-to-UI-state reducer.
 - Components may own small local interaction state, such as the current prompt input.
+- Runtime facts such as todo/task/context/subagent snapshots are replace-latest
+  state. Components render the latest reduced snapshot and must not infer
+  product truth by parsing message text.
 
 ## Rules
 
@@ -18,6 +21,8 @@ Status: `Active` for `coding-deepgent/frontend/cli`
 - Keep long-term/session persistence in Python, not frontend local storage.
 - Local-only UI actions such as `/help` and `/clear` may use reducer actions,
   but Python runtime facts must still arrive through `FrontendEvent`.
+- `ContextPanel`, `TaskPanel`, and `SubagentPanel` consume reducer state only;
+  they must not load sessions or call Python directly.
 
 ## Real Examples
 

@@ -3,12 +3,11 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import typer
 from click.exceptions import ClickException
 from typer.main import get_command
-from typing import cast
 
 from coding_deepgent import cli_service
 from coding_deepgent.frontend.bridge import run_stdio_bridge
@@ -18,10 +17,12 @@ from coding_deepgent.memory.schemas import MemoryType
 from coding_deepgent.renderers.text import (
     render_config_table,
     render_doctor_table,
+    render_session_inspect_view,
     render_session_table,
 )
 from coding_deepgent.rendering import extract_text
 from coding_deepgent.settings import build_openai_model
+from coding_deepgent.sessions import ProjectionMode, build_session_inspect_view
 from coding_deepgent.sessions.records import TranscriptProjection
 from coding_deepgent.sessions.session_memory import write_session_memory_artifact
 
@@ -129,6 +130,57 @@ def sessions_list() -> None:
         for session in runtime.list_sessions()
     ]
     typer.echo(render_session_table(sessions))
+
+
+@sessions_app.command("inspect")
+def sessions_inspect(
+    session_id: str = typer.Argument(..., help="Session identifier to inspect."),
+    projection_mode: str = typer.Option(
+        "selected",
+        "--projection",
+        help="Projection to inspect: selected, raw, compact, or collapse.",
+    ),
+    limit: int = typer.Option(
+        20,
+        "--limit",
+        min=1,
+        max=200,
+        help="Maximum rows per inspect section.",
+    ),
+    no_recovery: bool = typer.Option(
+        False,
+        "--no-recovery",
+        help="Hide the recovery brief section.",
+    ),
+    no_model: bool = typer.Option(
+        False,
+        "--no-model",
+        help="Hide the model projection section.",
+    ),
+    no_raw: bool = typer.Option(
+        False,
+        "--no-raw",
+        help="Hide the raw transcript visibility section.",
+    ),
+) -> None:
+    runtime = build_cli_runtime()
+    try:
+        loaded = runtime.load_session(session_id)
+        mode = _projection_mode(projection_mode)
+        view = build_session_inspect_view(loaded, projection_mode=mode)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    except ValueError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(
+        render_session_inspect_view(
+            view,
+            show_recovery=not no_recovery,
+            show_model=not no_model,
+            show_raw=not no_raw,
+            limit=limit,
+        )
+    )
 
 
 @sessions_app.command("resume")
@@ -247,6 +299,12 @@ def doctor() -> None:
         for check in runtime.doctor_checks()
     ]
     typer.echo(render_doctor_table(checks))
+
+
+def _projection_mode(value: str) -> ProjectionMode:
+    if value not in {"selected", "raw", "compact", "collapse"}:
+        raise ValueError("projection must be one of: selected, raw, compact, collapse")
+    return cast(ProjectionMode, value)
 
 
 @app.command("ui")

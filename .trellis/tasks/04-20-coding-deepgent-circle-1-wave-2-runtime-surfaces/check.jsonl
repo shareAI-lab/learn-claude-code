@@ -1,0 +1,5 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": ".gemini/commands/trellis/check-frontend.toml", "reason": "Frontend check spec"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Backend quality and validation expectations"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Frontend testing and typecheck expectations"}
