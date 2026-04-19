@@ -830,3 +830,36 @@ Switched coding-deepgent planning to full Claude Code parity, completed Circle 1
 ### Next Steps
 
 - None - task complete
+
+
+## Session 21: Complete Circle 1 Wave 2 runtime surfaces pack
+
+**Date**: 2026-04-20
+**Task**: Complete Circle 1 Wave 2 runtime surfaces pack
+
+### Summary
+
+Implemented the first Circle 1 Wave 2 runtime-exposing surfaces pack: added sessions inspect for raw/compact/collapse visibility, frontend context/subagent snapshot events, React/Ink context/task/subagent panels, updated contracts, validated full Python and TS suites, and archived the Wave 2 task.
+
+### Main Changes
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `575850f` | (see git log) |
+| `a5646a9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
