@@ -9,7 +9,8 @@ For current implementation work, treat these as canonical first:
 - `../AGENTS.md`
 - `../.trellis/workflow.md`
 - `../.trellis/project-handoff.md`
-- `../.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+- `../.trellis/plans/coding-deepgent-full-cc-parity-roadmap.md`
+- `../.trellis/plans/coding-deepgent-circle-2-expanded-parity-plan.md`
 - `../.trellis/spec/backend/*.md`
 
 This README is a product summary, not the canonical place for live
@@ -28,11 +29,16 @@ compatibility anchor for `coding-deepgent` docs and contract tests.
 Canonical live release status has moved to Trellis:
 
 - `../.trellis/project-handoff.md`
-- `../.trellis/plans/coding-deepgent-cc-core-highlights-roadmap.md`
+- `../.trellis/plans/coding-deepgent-full-cc-parity-roadmap.md`
+- `../.trellis/plans/coding-deepgent-circle-2-expanded-parity-plan.md`
 
-As of 2026-04-15, the canonical MVP closeout line is complete through
-`Stage 29`, and the current recommended next task is
-`release validation / PR cleanup for Approach A MVP`.
+As of 2026-04-20:
+
+- `Approach A MVP` remains a historical verified baseline
+- `Circle 1` local daily-driver parity baseline is implemented
+- `Circle 2` local expanded parity baseline is implemented
+- hosted SaaS ingress, multi-user auth, public marketplace backend, and
+  cross-machine workers remain outside the current local baseline
 
 ## Current architecture
 
@@ -60,6 +66,11 @@ The stage-3 runtime-foundation CLI keeps the legacy `--prompt` path while adding
 - `coding-deepgent config show` — render the resolved local configuration without exposing secrets
 - `coding-deepgent sessions list` — render the current session index view
 - `coding-deepgent sessions resume <session-id> --prompt "..."` — continue a recorded session when a session provider is wired
+- `coding-deepgent sessions history|projection|timeline|evidence|events|permissions ...` — inspect session continuity and recovery state
+- `coding-deepgent tasks ...` / `plans ...` — durable workflow state
+- `coding-deepgent skills|mcp|hooks|plugins ...` — local extension inspect/debug surfaces
+- `coding-deepgent events|workers|mailbox|teams|remote|extension-lifecycle|continuity ...` — local expanded parity baseline control surfaces
+- `coding-deepgent acceptance circle1|circle2` — deterministic baseline acceptance harnesses
 - `coding-deepgent doctor` — verify CLI/rendering/logging dependencies locally
 - `coding-deepgent ui` — start the React/Ink CLI frontend
 - `coding-deepgent-ui` — product shortcut for `coding-deepgent ui`

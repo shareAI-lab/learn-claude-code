@@ -251,10 +251,11 @@ Core domains:
 Next planned direction:
 
 * Circle 1 and Circle 2 local baselines are implemented
-* next work should be release/PR validation and any concrete regression fixes
-  found by `coding-deepgent acceptance circle1` / `circle2`
+* release / PR validation has been completed against
+  `coding-deepgent acceptance circle1` / `circle2`
 * further parity after this baseline should explicitly target hosted remote
-  ingress, true daemon supervision, or marketplace backend only if requested
+  ingress, true daemon supervision, multi-user/auth control, or marketplace
+  backend only if requested
 
 Intent:
 
