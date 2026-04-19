@@ -1,0 +1,6 @@
+{"file": ".gemini/commands/trellis/finish-work.toml", "reason": "Finish work checklist"}
+{"file": ".gemini/commands/trellis/check-backend.toml", "reason": "Backend check spec"}
+{"file": ".gemini/commands/trellis/check-frontend.toml", "reason": "Frontend check spec"}
+{"file": ".trellis/spec/guides/mainline-scope-guide.md", "reason": "Check final cleanup stays in coding-deepgent mainline scope."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Backend review checklist and focused verification requirements."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Frontend CLI required checks and smoke expectations."}
