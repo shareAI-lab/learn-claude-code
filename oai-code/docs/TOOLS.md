@@ -1,6 +1,9 @@
 # oai-code 工具规格（TOOLS.md）
 
-> **真源地位**：本文件是工具层的**唯一真源**。DESIGN.md / 代码 / 其它文档与本文件冲突时，一律以本文件为准。
+> **真源范围**：本文件仅对**工具名、input_schema、tool_result 与错误串格式**具有最终解释权。
+> 配置字段的定义（默认值、类型、加载顺序）以 **`CONFIG.md`** 为准，本文件只引用配置字段名并描述行为。
+> 架构层议题（agent loop、并行/中断策略、威胁模型）以 **`DESIGN.md`** 为准。
+> 权威矩阵见 `DESIGN.md §12`。
 >
 > 所有工具均通过 OpenAI `tools` / `tool_calls` / `role: "tool"` 协议暴露给模型。
 
@@ -35,7 +38,7 @@
 }
 ```
 - **content 始终是字符串**，即使内部是 JSON 也 `json.dumps(..., ensure_ascii=False)` 后放入
-- **单次 result 上限 50KB**；超出时末尾追加 `\n[truncated: total N bytes]`
+- **单次 result 上限 50 KiB（51200 字节）**，由 `config.tool_result_max_bytes` 控制；超出时末尾追加 `\n[truncated: total N bytes]`
 - 异常路径（工具执行失败）→ `content = "Error: <msg>"`，**绝不抛出到 loop 外**
 
 ### 0.4 权限标签
@@ -51,9 +54,9 @@ v1 仅做静态 `allowed_tools` 白名单；M2 接 `allow/deny/ask` 三态。
 | 指标 | 默认值 | 覆盖方式 |
 |------|--------|---------|
 | Bash 单次超时 | 120s | 工具参数 `timeout` |
-| 单个工具 result 上限 | 50KB | 配置 `tool_result_max_bytes` |
-| 单次 Read 读取上限 | 5000 行 或 256KB | 参数 `limit` |
-| microcompact 大 result 外置阈值 | 4KB | 配置 `compact.evict_threshold` |
+| 单个工具 result 上限 | 50 KiB（51200 字节） | 配置 `tool_result_max_bytes` |
+| 单次 Read 读取上限 | 5000 行 或 256 KiB | 参数 `limit` |
+| microcompact 大 result 外置阈值 | 4 KiB（4096 字节） | 配置 `compact.evict_threshold_bytes` |
 
 ### 0.6 安全路径
 所有文件类工具调用 `safe_path(p)`：
@@ -77,8 +80,8 @@ v1 仅做静态 `allowed_tools` 白名单；M2 接 `allow/deny/ask` 三态。
     "type": "object",
     "properties": {
       "file_path": {"type": "string", "description": "Absolute or cwd-relative path"},
-      "offset": {"type": "integer", "minimum": 0, "description": "0-based start line"},
-      "limit":  {"type": "integer", "minimum": 1, "maximum": 5000}
+      "offset": {"type": "integer", "minimum": 0, "description": "0-based start line; offset=0 表示从第 1 行开始"},
+      "limit":  {"type": "integer", "minimum": 1, "maximum": 5000, "description": "最多读取行数,与 offset 组合为 [offset, offset+limit)"}
     },
     "required": ["file_path"]
   }
@@ -86,6 +89,11 @@ v1 仅做静态 `allowed_tools` 白名单；M2 接 `allow/deny/ask` 三态。
 ```
 
 **输出**：`"  1\tcontent\n  2\tcontent\n..."`；二进制或 > 256KB → `"[binary or too large, N bytes]"`。
+
+**offset / limit 语义**（钉死，防止误解）：
+- `offset` 是**文件起始的 0-based 行下标**（不是"跳过行数"），`offset=0` 输出从第 1 行开始
+- 输出行号前缀始终按**文件真实行号**显示，不因 offset 重置：`offset=10, limit=3` 返回形如 `" 11\t...\n 12\t...\n 13\t...\n"`
+- 可读区间为 half-open `[offset, offset + limit)`，超出文件末尾则截断
 
 ### 1.2 `Write`
 完整覆盖写入。**要求同 session 内至少 Read 过该文件一次**（防止盲目覆盖），新文件除外。
@@ -301,7 +309,9 @@ v1 仅做静态 `allowed_tools` 白名单；M2 接 `allow/deny/ask` 三态。
 }
 ```
 
-**副作用**：`status = completed` 时自动把 `blockedBy` 中含本 id 的任务解除依赖；`status = deleted` 物理删除 json 文件。
+**副作用**：`status = completed` 时自动把其他任务 JSON 里 `blockedBy` 数组中含本 id 的项移除；`status = deleted` 物理删除 json 文件。
+
+> **字段命名约定**：工具参数名用 snake_case（`add_blocked_by` / `remove_blocked_by`），落盘 JSON 字段名用 camelCase（`blockedBy`）——前者对齐 OpenAI schema 习惯、后者对齐 Claude Code 的 Task 结构，便于迁移。
 
 ```json
 {"name": "TaskGet",  "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}}

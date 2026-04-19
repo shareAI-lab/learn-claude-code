@@ -90,7 +90,7 @@
 | `Compact` | s06 | 手动压缩上下文 |
 | `TaskCreate/Update/List/Get` | s07 | 持久化任务系统（`.oaic/tasks/`） |
 | `BackgroundRun/Check` | s08 | 后台任务与通知回流 |
-| `SpawnTeammate/SendMessage/ReadInbox/Broadcast` | s09-s11 | 多 agent 协作（v1 可选开关） |
+| `SpawnTeammate/SendMessage/ReadInbox/Broadcast/...` | s09-s11 | 多 agent 协作（v1 可选开关）；**完整列表见 `TOOLS.md §6`** |
 
 ### 4.3 `oai_code/context/` — 上下文管理
 - **microcompact**：每轮 LLM 调用前的量化规则
@@ -104,8 +104,10 @@
 - 项目根目录下自动创建 `.oaic/`：
   - `sessions/<id>.jsonl` — 会话历史
   - `tasks/task_*.json` — 持久化任务
-  - `transcripts/` — 压缩后的完整记录
+  - `transcripts/` — auto-compact 触发后的完整记录
+  - `blobs/<hash>.txt` — microcompact 外置的大 tool_result（见 §4.3）
   - `inbox/` — teammate 消息总线
+  - `debug/` — `--debug-raw` 写入的未脱敏日志（见 §7.2）
 - 支持 `oaic --resume <session-id>` 恢复
 
 ### 4.5 `oai_code/skills/` — Skills 机制
@@ -114,9 +116,9 @@
 - 同时扫描 **项目级** `./skills/` 和 **用户级** `~/.oaic/skills/`
 
 ### 4.6 `oai_code/memory/` — 记忆文件
-- 读取项目根 `CLAUDE.md` / `AGENTS.md` / `.oaic/MEMORY.md`
-- 读取用户级 `~/.oaic/CLAUDE.md`
-- 按优先级拼到系统提示开头（与 Claude Code 语义一致）
+- 读取 `config.memory_files` 指定的所有文件（默认见 `CONFIG.md §3.4`）
+- 项目级文件按数组顺序读取；用户级 `~/.oaic/CLAUDE.md` 固定**追加在数组末尾**（见 CONFIG.md 默认值）
+- 按顺序拼到系统提示开头（与 Claude Code 语义一致）
 
 ### 4.7 `oai_code/mcp/` — MCP 客户端
 - 通过 `.oaic/settings.json` 配置 MCP servers
@@ -128,27 +130,13 @@
 - REPL：`rich.live.Live` 流式渲染 + `prompt_toolkit` 多行输入 / 历史 / 补全
 - Slash 命令：`/compact` `/tasks` `/team` `/resume` `/clear` `/model` `/help`
 - **中断语义**（两层）：
-  - 一次 `Ctrl-C`：取消当前 in-flight HTTP 流 + 本地工具执行；若已产生 `tool_calls` 但尚未回灌 `tool_result`，为**每个未完成的 tool_use_id 补一条 `tool_result: "[interrupted by user]"`**，然后追加一条 `user: "<interrupted/>"` 让模型知晓；保持 messages 合法、避免「半条 assistant + 无 tool_result」的畸形历史
+  - 一次 `Ctrl-C`：取消当前 in-flight HTTP 流 + 本地工具执行；若已产生 `tool_calls` 但尚未回灌 `tool_result`，为**每个未完成的 `tool_call_id` 补一条 `{role: "tool", tool_call_id: <id>, content: "[interrupted by user]"}`**，然后追加一条 `user: "<interrupted/>"` 让模型知晓；保持 messages 合法、避免「半条 assistant + 无 tool_result」的畸形历史
   - 两次 `Ctrl-C`（1s 内）：退出进程；`Ctrl-D` 同效
 
 ### 4.9 `oai_code/config/` — 配置系统
 - **四级优先级**（高 → 低）：CLI flag > 项目 `.oaic/settings.json` > 用户 `~/.oaic/settings.json` > 环境变量
 - 环境变量仅作**默认值来源**，不与 JSON 字段同级 merge；JSON 里缺失字段才 fallback 到 env
-- 典型字段：
-  ```json
-  {
-    "provider": "deepseek",
-    "base_url": "https://api.deepseek.com/v1",
-    "model": "deepseek-chat",
-    "api_key_env": "DEEPSEEK_API_KEY",
-    "max_tokens": 8192,
-    "context_window": 128000,
-    "compact_threshold_pct": 75,
-    "mcp_servers": {},
-    "allowed_tools": ["Bash", "Read", "Edit", ...],
-    "denied_paths": ["~/.ssh", "~/.aws"]
-  }
-  ```
+- **完整字段结构以 `CONFIG.md` 为真源**，本节不重复示例；DESIGN 与 CONFIG 冲突时以 CONFIG 为准
 
 ---
 
@@ -199,9 +187,9 @@
 
 ### 7.1 威胁模型（v1 立场）
 - **仓库信任**：默认信任当前工作目录（允许 `git`、`npm`、`pip` 等），但所有 shell 命令仍受 `Bash` 的 deny-list + 超时约束
-- **MCP 子进程**：启动时**只继承白名单环境变量**（默认 `PATH`、`HOME`、`LANG`、`*_API_KEY`），其余显式 drop；必要时在 settings 里给每个 server 单独加 env
+- **MCP 子进程**：启动时**只继承白名单环境变量**（`PATH`、`HOME`、`LANG`、`LC_*`，以及 `mcp_servers[*].env` 里显式声明的键），其余一律 drop。**不做 `*_API_KEY` 通配继承**——所有 API key 必须通过 `env` 字段的 `_env` 后缀规则显式声明（详见 `CONFIG.md §3.7`）
 - **路径越界**：所有文件类工具走 `safe_path()`，拒绝 `denied_paths` 命中项（默认 `~/.ssh`、`~/.aws`、`~/.gnupg`、`.env*`）
-- **权限标签**（预埋，v1 仅白名单实现）：每个工具声明 `requires: [network|write|exec]`，为 M2+ 的 `allow/deny/ask` 三态留扩展点；开放问题 2 的结论并入此处
+- **权限标签**（预埋，v1 仅白名单实现）：每个工具声明 `requires: [exec | write | network | delegate]`（完整枚举见 `TOOLS.md §0.4`），为 M2+ 的 `allow/deny/ask` 三态留扩展点；开放问题 2 的结论并入此处
 
 ### 7.2 密钥与日志
 - `api_key_env` 是唯一推荐方式；禁止在 settings.json 里明文写 key
@@ -300,4 +288,16 @@ oai-code/
 
 ---
 
-> **下一步**：确认本文件后，拆分出 `TOOLS.md`（工具 schema 全集，作为真源）和 `CONFIG.md`（配置字段全集），然后进入 M0 骨架实现。
+## 12. 文档权威矩阵
+
+| 主题 | 真源文件 |
+|------|---------|
+| 工具名、schema、tool_result 格式、错误串前缀 | `TOOLS.md` |
+| 配置字段、加载顺序、provider profile、CLI flag | `CONFIG.md` |
+| 架构、agent loop、并行/中断策略、威胁模型、测试策略 | `DESIGN.md`（本文件） |
+
+任一文档与真源文件冲突时，**以真源为准**，同时提 PR 修正冲突文档。
+
+---
+
+> **下一步**：进入 M0 骨架实现（见 §9 路线图）。

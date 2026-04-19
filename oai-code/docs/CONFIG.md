@@ -10,10 +10,13 @@
 1. 加载环境变量 → 生成 `EnvDefaults` 对象
 2. 加载 `~/.oaic/settings.json` → 覆盖 EnvDefaults（**深合并**：dict 逐键覆盖，list/scalar 整体替换）
 3. 加载 `<cwd>/.oaic/settings.json` → 深合并覆盖
-4. 应用 CLI flag → 顶层字段整体替换
-5. Pydantic 校验 → 任一非法字段直接报错退出，不尝试"尽量运行"
+4. 加载 `--config <path>` 或 `$OAIC_CONFIG` 指向的文件 → 深合并覆盖（同规则；两者同时存在时 `--config` 胜出；均不设则跳过）
+5. 应用 CLI flag → 顶层字段整体替换
+6. Pydantic 校验 → 任一非法字段直接报错退出，不尝试"尽量运行"
 
-**特殊**：`mcp_servers` 采用**按 key 合并**（用户级给出 `linear`，项目级给出 `github`，两者共存）；同名 key 项目级整体覆盖用户级。
+**`--config` / `OAIC_CONFIG` 的层级定位**：位于 **项目级 settings < config 文件 < CLI flag** 之间。典型用法是临时叠加一个 profile（如 `--config ci.json` 跑 CI），但 CLI flag 始终是"最终话语权"。
+
+**特殊**：`mcp_servers` 采用**按 key 合并**（用户级给出 `linear`，项目级给出 `github`，两者共存）；同名 key 由更高层整体覆盖低层。
 
 ---
 
@@ -41,6 +44,7 @@
 
   "parallel_tools": 4,
   "serial_only": false,
+  "tool_result_max_bytes": 51200,
 
   "allowed_tools": null,
   "denied_tools": [],
@@ -49,7 +53,7 @@
   "allow_outside_workspace": false,
 
   "skills_dirs": ["./skills", "~/.oaic/skills"],
-  "memory_files": ["CLAUDE.md", "AGENTS.md", ".oaic/MEMORY.md"],
+  "memory_files": ["CLAUDE.md", "AGENTS.md", ".oaic/MEMORY.md", "~/.oaic/CLAUDE.md"],
 
   "session": {
     "dir": ".oaic/sessions",
@@ -105,6 +109,7 @@
 |------|------|------|
 | `parallel_tools` | 4 | 单轮并发执行的 tool_calls 上限；1 = 全串行 |
 | `serial_only` | false | 兜底开关，等价于 `parallel_tools = 1` |
+| `tool_result_max_bytes` | 51200 | 单次 tool_result content 字符串上限；超出时末尾追加 `\n[truncated: total N bytes]` |
 | `allowed_tools` | null | null = 全允许；给出数组则仅允许列表内工具 |
 | `denied_tools` | [] | 在 allowed_tools 基础上再黑名单 |
 | `denied_paths` | 见默认 | glob 或前缀，匹配则所有文件类工具拒绝 |
@@ -116,7 +121,7 @@
 | 字段 | 默认 | 说明 |
 |------|------|------|
 | `skills_dirs` | `["./skills", "~/.oaic/skills"]` | 扫描顺序即优先级，同名时前者覆盖后者 |
-| `memory_files` | 见默认 | 按数组顺序读取并拼接到 system prompt |
+| `memory_files` | `["CLAUDE.md", "AGENTS.md", ".oaic/MEMORY.md", "~/.oaic/CLAUDE.md"]` | 按数组顺序读取并拼接到 system prompt；前 3 项为项目级（基于 cwd），末项为用户级（`~/` 展开）；缺失的文件静默跳过 |
 
 ### 3.5 Session
 
@@ -142,7 +147,7 @@
     "linear": {
       "command": "npx",
       "args": ["-y", "@linear/mcp-server"],
-      "env": {"LINEAR_API_KEY_ENV": "LINEAR_API_KEY"},
+      "env": {"LINEAR_API_KEY_env": "LINEAR_API_KEY"},
       "timeout_sec": 30,
       "enabled": true
     },
@@ -154,6 +159,19 @@
   }
 }
 ```
+
+**`_env` 后缀解析规则**（env 与 headers 通用）：
+- key 以 `_env` 结尾：**strip 掉 `_env` 后缀作为真实 key**，value 视为环境变量名，从主进程 env 读取实际值
+- key 不以 `_env` 结尾：字面使用 key 和 value
+
+**示例解析结果**：
+| 输入 | 实际 env/header key | 实际 value |
+|------|---------------------|-----------|
+| `"LINEAR_API_KEY_env": "LINEAR_API_KEY"` | `LINEAR_API_KEY` | `$LINEAR_API_KEY` 环境变量的值 |
+| `"Authorization_env": "PG_MCP_TOKEN"` | `Authorization` | `$PG_MCP_TOKEN` 环境变量的值 |
+| `"LOG_LEVEL": "debug"` | `LOG_LEVEL` | 字面 `"debug"` |
+
+环境变量不存在时：启动时报错，fail-fast。
 
 **子字段**：
 
@@ -226,8 +244,8 @@ Profile 只给默认值，用户可以部分覆盖：
 | `-p, --prompt "<text>"` | 单次模式（不进 REPL） |
 | `--resume <session-id>` | 恢复 session |
 | `--config <path>` | 额外加载的 settings.json |
-| `--allow-tool <name>` | 追加到 allowed_tools |
-| `--deny-tool <name>` | 追加到 denied_tools |
+| `--allow-tool <name>` | 追加到 `allowed_tools`（若当前为 null，则**先初始化为全量内置工具列表再追加**，即 `--allow-tool X` 永远不会把"全允许"变成"只允许 X"） |
+| `--deny-tool <name>` | 追加到 `denied_tools`；与 `allowed_tools` 的 null 状态无关 |
 | `--no-stream` | `ui.stream = false` |
 | `--serial` | `serial_only = true` |
 | `--debug` | 详细日志 |
@@ -237,8 +255,10 @@ Profile 只给默认值，用户可以部分覆盖：
 
 ## 7. 示例
 
+> 下述示例中的 `//` 注释仅供阅读说明，**settings.json 本身必须是合法 JSON**（不支持注释）；如需在本地用 JSONC，请自行去除注释后保存。
+
 ### 7.1 最小用户级配置
-```json
+```jsonc
 // ~/.oaic/settings.json
 {
   "provider": "deepseek",
@@ -248,7 +268,7 @@ Profile 只给默认值，用户可以部分覆盖：
 其余字段全走 profile 默认值。
 
 ### 7.2 项目级覆盖
-```json
+```jsonc
 // ./.oaic/settings.json
 {
   "model": "deepseek-reasoner",
