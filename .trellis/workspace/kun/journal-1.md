@@ -798,3 +798,35 @@ Completed CLI frontend readiness: verified streaming, implemented LangGraph HITL
 ### Next Steps
 
 - None - task complete
+
+
+## Session 20: Complete Circle 1 Wave 1 parity pack
+
+**Date**: 2026-04-20
+**Task**: Complete Circle 1 Wave 1 parity pack
+
+### Summary
+
+Switched coding-deepgent planning to full Claude Code parity, completed Circle 1 Wave 1 runtime-core pack across F1-F5, validated pytest/ruff/mypy, and archived the task tree.
+
+### Main Changes
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e7f78b1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
