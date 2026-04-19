@@ -37,6 +37,7 @@ class Repl:
         mcp_manager=None,
         team_manager=None,
         team_bus=None,
+        ask_holder=None,
     ):
         self.cfg = cfg
         self.llm = llm
@@ -52,6 +53,8 @@ class Repl:
         self._mcp_manager = mcp_manager
         self._team_manager = team_manager
         self._team_bus = team_bus
+        if ask_holder is not None:
+            ask_holder["fn"] = self._interactive_ask
         self.console = Console()
         self.state = self._new_state()
         if self._pending_compact is not None:
@@ -358,6 +361,39 @@ class Repl:
             f"[green]✓[/] provider → [cyan]{self.cfg.provider}[/] "
             f"model=[cyan]{self.cfg.model}[/]"
         )
+
+    def _interactive_ask(self, questions: list[dict]) -> list[dict]:
+        """AskUserQuestion 工具在 REPL 模式下的实现:在 TUI 里等用户选数字。"""
+        from prompt_toolkit.shortcuts import prompt as pt_prompt
+
+        answers: list[dict] = []
+        total = len(questions)
+        for i, q in enumerate(questions, 1):
+            self.console.print()
+            header = f" [{q['header']}]" if q.get("header") else ""
+            self.console.print(
+                f"[bold yellow]?[/] [{i}/{total}]{header} [bold]{q['question']}[/]"
+            )
+            for idx, opt in enumerate(q["options"], 1):
+                desc = f"  [dim]{opt['description']}[/]" if opt.get("description") else ""
+                self.console.print(f"   [cyan]{idx}[/]) {opt['label']}{desc}")
+            while True:
+                raw = pt_prompt(f"your choice (1-{len(q['options'])}): ").strip()
+                if raw.isdigit():
+                    k = int(raw)
+                    if 1 <= k <= len(q["options"]):
+                        chosen = q["options"][k - 1]
+                        answers.append(
+                            {
+                                "question": q["question"],
+                                "header": q.get("header", ""),
+                                "label": chosen["label"],
+                                "description": chosen["description"],
+                            }
+                        )
+                        break
+                self.console.print("[red]invalid,请输入对应的数字[/]")
+        return answers
 
     def _print_debug_status(self) -> None:
         from ..context import estimate_tokens

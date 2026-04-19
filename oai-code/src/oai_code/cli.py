@@ -23,6 +23,7 @@ from .session import SessionStore
 from .team import MessageBus, TeammateManager
 from .team.tools import register_team_tools
 from .tools.registry import ToolRegistry
+from .tools.ask_user import non_interactive_ask, register_ask_user
 from .tools.background import BackgroundManager, register_background
 from .tools.builtin import register_builtins
 from .tools.compact_tool import register_compact
@@ -217,6 +218,14 @@ def main(argv: list[str] | None = None) -> int:
 
     register_compact(registry, trigger_compact_fn=trigger_compact)
 
+    # AskUserQuestion: 交互模式下由 Repl 注入实现;单次 / 管道模式 fallback 到非交互
+    ask_holder = {"fn": non_interactive_ask}
+
+    def _dispatch_ask(questions):
+        return ask_holder["fn"](questions)
+
+    register_ask_user(registry, ask_fn=_dispatch_ask)
+
     # Session 持久化
     session_store = SessionStore(cfg)
     resumed_messages: list[dict] | None = None
@@ -253,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
         mcp_manager=mcp_manager,
         team_manager=team_manager,
         team_bus=team_bus,
+        ask_holder=ask_holder,
     )
     try:
         repl.run()
