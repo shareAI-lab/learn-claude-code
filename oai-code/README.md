@@ -1,8 +1,16 @@
 # oai-code
 
+> **English short summary** (for PyPI readers)
+>
+> `oai-code` is a terminal coding agent powered by the OpenAI-compatible Chat Completions API. It targets **any** provider that speaks that protocol — OpenAI, DeepSeek, Qwen, OpenRouter, Ollama, vLLM, in-house gateways — and offers a Claude Code–style experience: streaming REPL, file tools (Read / Write / Edit / MultiEdit / Glob / Grep), Bash (foreground + background + killable), persistent Tasks & short-term Todos, Subagent delegation, Skills discovery, CLAUDE.md memory with `@ref` expansion, auto-compaction + role-based models, MCP clients (stdio + sse + http), multi-agent teammates with message bus / shutdown protocol / autonomous task claiming, git worktree isolation, WebFetch, AskUserQuestion, Plan Mode, and a full slash-command suite. Install: `pipx install oai-code`, then `oaic`.
+>
+> Full docs (Chinese) follow below.
+
+---
+
 基于 OpenAI 兼容协议的命令行编码 Agent —— 一个 Claude Code 替代品，可对接任意 OpenAI 兼容后端（OpenAI / DeepSeek / Qwen / OpenRouter / Ollama / vLLM / 自建网关等）。
 
-> **当前状态**：M4 完成 —— 212 个测试通过。支持 Agent Loop、6 个内置工具 + MultiEdit + WebFetch + AskUserQuestion + Plan Mode、TodoWrite、持久化 Tasks、Subagent、Skills、记忆、上下文压缩、分角色模型、Session 持久化、后台任务（含 Kill）、MCP stdio+sse+http、多 Agent 协作（s09 消息总线 + s10 协议 + s11 自治认领 + 队友 auto-compact）、退出总结、PyPI 构建就绪。
+> **当前状态**：M5 完成 —— 241 个测试通过。支持 Agent Loop、6 个内置工具 + MultiEdit + WebFetch + AskUserQuestion + Plan Mode + Worktree 隔离、TodoWrite、持久化 Tasks、Subagent、Skills、记忆、上下文压缩、分角色模型、Session 持久化、后台任务（含 Kill）、MCP stdio+sse+http（含真实 E2E）、多 Agent 协作（s09 消息总线 + s10 协议 + s11 自治认领 + 队友 auto-compact + 队友 loop 录制回归）、退出总结、PyPI `0.1.0` 发布就绪。
 
 ## 快速开始
 

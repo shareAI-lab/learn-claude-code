@@ -5,13 +5,14 @@
 
 ## 发布前 checklist
 
-- [ ] **包名占用检查**:`https://pypi.org/project/oai-code/` 看是否已被占用。若已占用,改名(候选: `oaicode`、`oaic`、`claude-code-oss`)
-- [ ] **版本号**:从 `0.1.0.dev0` 提升到正式版 `0.1.0`(在 `pyproject.toml`)
-- [ ] **CHANGELOG.md**:列出从 M0 到 M2/M3 的主要功能
+- [x] **包名占用检查**:M5-5 查过 PyPI,`oai-code` / `oaicode` / `oaic` / `ai-code` / `oaic-cli` **均可用**。保留 `oai-code`
+- [x] **版本号**:从 `0.1.0.dev0` 提升到 `0.1.0`(M5-5 完成)
+- [x] **CHANGELOG.md**:已列出 M0 到 M5 的主要功能
 - [ ] **README 补英文版**:PyPI 页面国际用户看不懂中文,建议提供 README-en.md,或在顶部加英文摘要
-- [ ] **跑完整测试套件**:`uv run pytest -q` 全过
-- [ ] **本地构建**:`uv build` 产出 `dist/*.whl` 和 `dist/*.tar.gz`
+- [x] **跑完整测试套件**:`uv run pytest -q` 全过(目前 241+)
+- [x] **本地构建**:`uv build` 产出 `dist/*.whl` 和 `dist/*.tar.gz`
 - [ ] **本地安装自测**:新建一个干净 venv,`pip install dist/*.whl`,跑 `oaic --version`
+- [ ] **PyPI Token 准备**:到 https://pypi.org/manage/account/token/ 创建项目 token,导出到 `UV_PUBLISH_TOKEN`
 
 ## 发布流程
 
