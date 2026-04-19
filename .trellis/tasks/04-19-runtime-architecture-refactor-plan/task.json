@@ -36,9 +36,7 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "04-19-r4-h13-h14-readiness-gate"
-  ],
+  "children": [],
   "parent": null,
   "relatedFiles": [],
   "notes": "Completed integrated runtime reshape R1-R4 with focused validation: runtime role/factory seam, subagent module split, background run snapshot/handle boundary, and H13/H14 readiness gate.",
