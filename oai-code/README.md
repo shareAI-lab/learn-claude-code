@@ -2,7 +2,7 @@
 
 基于 OpenAI 兼容协议的命令行编码 Agent —— 一个 Claude Code 替代品，可对接任意 OpenAI 兼容后端（OpenAI / DeepSeek / Qwen / OpenRouter / Ollama / vLLM / 自建网关等）。
 
-> **当前状态**：M3 完成 —— 156 个测试通过。支持 Agent Loop、6 个内置工具、TodoWrite / 持久化 Tasks / Subagent / Skills / 记忆 / 上下文压缩 / 分角色模型 / Session 持久化 / 后台任务 / MCP stdio+sse+http / 多 Agent 协作（s09 消息总线 + s10 协议 + s11 自治认领）/ 退出总结写 MEMORY.md / PyPI 构建就绪。
+> **当前状态**：M4 完成 —— 212 个测试通过。支持 Agent Loop、6 个内置工具 + MultiEdit + WebFetch + AskUserQuestion + Plan Mode、TodoWrite、持久化 Tasks、Subagent、Skills、记忆、上下文压缩、分角色模型、Session 持久化、后台任务（含 Kill）、MCP stdio+sse+http、多 Agent 协作（s09 消息总线 + s10 协议 + s11 自治认领 + 队友 auto-compact）、退出总结、PyPI 构建就绪。
 
 ## 快速开始
 
@@ -191,6 +191,7 @@ Agent Loop（Agent 主循环）每轮调 LLM **之前**要做三件事：
 - **M1** ✅ TodoWrite / 持久化 Tasks / Subagent / Skills / 上下文压缩 + 分角色模型 / CLAUDE.md 记忆（73 测试）
 - **M2** ✅ Session 持久化 + resume / 后台任务 / MCP stdio 客户端 / Slash 完整集（103 测试）
 - **M3** ✅ MCP sse+http / 退出总结 / 多 Agent 协作（s09 总线 + s10 协议 + s11 自治）/ PyPI 构建就绪（156 测试）
-- **M4** ⏳ Worktree 隔离 / 队友 loop 回归测试 / 队友 auto-compact / 真实 PyPI 发布
+- **M4** ✅ 队友 auto-compact / BackgroundKill / AskUserQuestion / MultiEdit / Plan Mode / WebFetch（212 测试）
+- **M5** ⏳ Worktree 隔离 / MCP 真实 E2E / 队友 loop 录制回归 / UI 加固 / 真实 PyPI 发布
 
 每个里程碑均有 [溯源](./docs/milestones/) 与 [验收报告](./docs/milestones/) 两份文档。

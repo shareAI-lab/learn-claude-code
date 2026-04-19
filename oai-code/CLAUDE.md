@@ -70,4 +70,5 @@ oai-code/
 - **M1 ✅**：Memory / TodoWrite / Tasks / Subagent / Skills / Compact + Roles
 - **M2 ✅**：Session 持久化 / BackgroundRun / MCP stdio / Slash 完整集
 - **M3 ✅**：MCP sse+http / 退出总结写 MEMORY.md / 多 Agent teammate + 协议 + 自治 / PyPI 构建就绪
-- **M4 ⏳**：Worktree 隔离 / 队友 loop 回归测试 / 队友 auto-compact / 真实 PyPI 发布
+- **M4 ✅**：队友 auto-compact / BackgroundKill / AskUserQuestion / MultiEdit / Plan Mode / WebFetch
+- **M5 ⏳**：Worktree 隔离 / MCP 真实 E2E / 队友 loop 录制回归 / UI 加固 / 真实 PyPI 发布
