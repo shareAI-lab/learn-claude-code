@@ -28,7 +28,7 @@ def resolve_openai_model() -> str:
 
     `OPENAI_MODEL` is the canonical variable for this track.  `MODEL_ID` is
     only treated as a compatibility fallback when it does not look like the
-    existing Anthropic default from `.env.example`; this avoids accidentally
+    repository's Anthropic-oriented default model naming; this avoids accidentally
     driving the OpenAI interface with `claude-*` names.
     """
 

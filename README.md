@@ -201,10 +201,18 @@ These are not extra main chapters. They are bridge documents that make the middl
 git clone https://github.com/shareAI-lab/learn-claude-code
 cd learn-claude-code
 pip install -r requirements.txt
-cp .env.example .env
 ```
 
-Then configure `ANTHROPIC_API_KEY` or a compatible endpoint in `.env`, and run:
+Then create `.env`, configure `ANTHROPIC_API_KEY` or a compatible endpoint, and run:
+
+```sh
+cat > .env <<'EOF'
+ANTHROPIC_API_KEY=your-key-here
+EOF
+```
+
+If you need the OpenAI-compatible teaching track, also add `OPENAI_API_KEY`
+and optionally `OPENAI_BASE_URL`.
 
 ```sh
 python agents/s01_agent_loop.py

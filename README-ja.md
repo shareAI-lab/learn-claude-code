@@ -195,10 +195,19 @@ npm run dev
 git clone https://github.com/shareAI-lab/learn-claude-code
 cd learn-claude-code
 pip install -r requirements.txt
-cp .env.example .env
 ```
 
-その後、`.env` に `ANTHROPIC_API_KEY` または互換エンドポイントを設定してから:
+その後、`.env` を手動で作成し、少なくとも `ANTHROPIC_API_KEY` を設定してください:
+
+```sh
+cat > .env <<'EOF'
+ANTHROPIC_API_KEY=your-key-here
+EOF
+```
+
+OpenAI-compatible の教材トラックを使う場合は、`OPENAI_API_KEY` と必要に応じて `OPENAI_BASE_URL` も追加してください。
+
+設定後に:
 
 ```sh
 python agents/s01_agent_loop.py

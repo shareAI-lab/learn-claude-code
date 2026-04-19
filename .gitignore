@@ -195,6 +195,7 @@ cython_debug/
 .task_outputs/
 .tasks/
 .teams/
+.coding-deepgent/
 
 # Ruff stuff:
 .ruff_cache/
