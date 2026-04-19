@@ -29,6 +29,10 @@ dev = [
   "pytest>=8.0.0",
   "ruff>=0.6.0",
 ]
+web = [
+  "fastapi>=0.115.0",
+  "uvicorn>=0.34.0",
+]
 
 [project.scripts]
 coding-deepgent = "coding_deepgent.cli:cli"

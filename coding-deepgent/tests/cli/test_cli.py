@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import builtins
 import json
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from typer.testing import CliRunner
 
 from coding_deepgent import cli
@@ -160,19 +162,40 @@ def test_ui_command_runs_frontend_script(monkeypatch) -> None:
 
 def test_ui_gateway_command_runs_uvicorn(monkeypatch) -> None:
     captured: dict[str, object] = {}
+    fake_app = object()
+
+    def fake_create_app(*, fake):
+        captured["fake"] = fake
+        return fake_app
 
     def fake_run(app, *, host, port):
         captured["app"] = app
         captured["host"] = host
         captured["port"] = port
 
-    monkeypatch.setattr("uvicorn.run", fake_run)
+    monkeypatch.setattr(cli, "_load_ui_gateway_runtime", lambda: (fake_create_app, fake_run))
 
     result = runner.invoke(cli.app, ["ui-gateway", "--fake", "--host", "0.0.0.0", "--port", "3030"])
 
     assert result.exit_code == 0
+    assert captured["fake"] is True
+    assert captured["app"] is fake_app
     assert captured["host"] == "0.0.0.0"
     assert captured["port"] == 3030
+
+
+def test_load_ui_gateway_runtime_reports_missing_web_dependencies(monkeypatch) -> None:
+    original_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "uvicorn":
+            raise ModuleNotFoundError("No module named 'uvicorn'", name="uvicorn")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    with pytest.raises(cli.ClickException, match="optional web dependencies"):
+        cli._load_ui_gateway_runtime()
 
 
 def _empty_history(session_id: str):

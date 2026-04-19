@@ -132,6 +132,7 @@ def test_readme_stage_metadata_matches_project_status() -> None:
 def test_runtime_foundation_dependency_contracts() -> None:
     runtime_dependencies = _dependency_names("dependencies")
     dev_dependencies = _dependency_names("dev")
+    web_dependencies = _dependency_names("web")
 
     if _is_runtime_foundation_or_later():
         assert {
@@ -142,6 +143,7 @@ def test_runtime_foundation_dependency_contracts() -> None:
             "structlog",
         } <= runtime_dependencies
         assert {"ruff", "mypy"} <= dev_dependencies
+        assert {"fastapi", "uvicorn"} <= web_dependencies
         assert runtime_dependencies.isdisjoint(FORBIDDEN_RUNTIME_DEPENDENCIES)
         return
 

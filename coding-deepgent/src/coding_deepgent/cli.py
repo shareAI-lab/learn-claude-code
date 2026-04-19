@@ -276,6 +276,17 @@ def ui_bridge(
     run_stdio_bridge(fake=fake)
 
 
+def _load_ui_gateway_runtime():
+    try:
+        import uvicorn
+        from coding_deepgent.frontend.gateway import create_app
+    except ModuleNotFoundError as exc:
+        raise ClickException(
+            "ui-gateway requires optional web dependencies. Install with `pip install -e .[web]`."
+        ) from exc
+    return create_app, uvicorn.run
+
+
 @app.command("ui-gateway")
 def ui_gateway(
     fake: bool = typer.Option(
@@ -286,11 +297,8 @@ def ui_gateway(
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(2027, "--port", min=1, max=65535),
 ) -> None:
-    import uvicorn
-
-    from coding_deepgent.frontend.gateway import create_app
-
-    uvicorn.run(create_app(fake=fake), host=host, port=port)
+    create_app, uvicorn_run = _load_ui_gateway_runtime()
+    uvicorn_run(create_app(fake=fake), host=host, port=port)
 
 
 @memory_app.command("migrate")
