@@ -896,3 +896,36 @@ Added real Wave 2 control surfaces: local file-backed runtime store, CLI tasks/p
 ### Next Steps
 
 - None - task complete
+
+
+## Session 23: Complete Circle 1 local parity baseline
+
+**Date**: 2026-04-20
+**Task**: Complete Circle 1 local parity baseline
+
+### Summary
+
+Completed the remaining Circle 1 local daily-driver parity baseline: added session history/projection/timeline/evidence/events/permissions CLI surfaces, local skills/MCP/hooks/plugins list/inspect/validate/debug surfaces, deterministic Circle 1 acceptance harness, updated roadmap/handoff/specs, validated full Python and TS suites, and archived the completion task.
+
+### Main Changes
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7248889` | (see git log) |
+| `386602b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
