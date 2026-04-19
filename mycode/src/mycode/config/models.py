@@ -13,6 +13,19 @@ class CompactConfig(BaseModel):
     keep_recent_tool_results: int = Field(default=3, ge=1)
 
 
+class PromptCacheConfig(BaseModel):
+    """M6-4: Prompt Cache 策略。
+
+    - off:      完全不管,messages 原样发走
+    - auto:     什么都不改;依赖后端自动缓存(OpenAI/DeepSeek 等)
+    - explicit: 给 system 首条 + 最后一条 user 打 cache_control={type:"ephemeral"}
+                (Anthropic 族 / OpenRouter 直通 Claude)
+    """
+
+    mode: Literal["off", "auto", "explicit"] = "auto"
+    report: bool = True  # REPL 是否展示 cached_tokens
+
+
 class SessionConfig(BaseModel):
     dir: str = ".mycode/sessions"
     auto_save: bool = True
@@ -90,6 +103,7 @@ class Config(BaseModel):
     temperature: float | None = None
 
     compact: CompactConfig = Field(default_factory=CompactConfig)
+    prompt_cache: PromptCacheConfig = Field(default_factory=PromptCacheConfig)
 
     parallel_tools: int = Field(default=4, ge=1, le=16)
     serial_only: bool = False

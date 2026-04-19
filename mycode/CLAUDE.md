@@ -72,4 +72,5 @@ mycode/
 - **M3 ✅**：MCP sse+http / 退出总结写 MEMORY.md / 多 Agent teammate + 协议 + 自治 / PyPI 构建就绪
 - **M4 ✅**：队友 auto-compact / BackgroundKill / AskUserQuestion / MultiEdit / Plan Mode / WebFetch
 - **M5 ✅**：Worktree 隔离 / MCP 真实 E2E / 队友 loop 录制 / UI 加固 / 0.1.0 版本转正
-- **未来**：MCP sse/http E2E / Worktree×Session 交互 / LSP / 真实 PyPI 推送
+- **M6 ✅**：WebSearch(bing.cn) / AskExpertModel + roles.expert / prompt 外置 prompts/{en,zh} + prompt_lang / Prompt Cache(auto+explicit + cached_tokens)
+- **未来**:MCP sse/http E2E / Worktree×Session 交互 / LSP / 真实 PyPI 推送

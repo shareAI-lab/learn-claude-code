@@ -42,6 +42,13 @@
     "keep_recent_tool_results": 3
   },
 
+  "prompt_cache": {
+    "mode": "auto",
+    "report": true
+  },
+
+  "prompt_lang": "en",
+
   "parallel_tools": 4,
   "serial_only": false,
   "tool_result_max_bytes": 51200,
@@ -102,6 +109,21 @@
 | `compact.threshold_pct` | 75 | 触发 auto-compact 的 context 占用百分比 |
 | `compact.evict_threshold_bytes` | 4096 | microcompact 外置到 blob 文件的体积阈值 |
 | `compact.keep_recent_tool_results` | 3 | 最近 N 轮 tool_result 保留原文 |
+
+### 3.2.1 Prompt Cache(M6-4)
+
+| 字段 | 默认 | 说明 |
+|------|------|------|
+| `prompt_cache.mode` | `"auto"` | `off` = 不开;`auto` = 随后端自动缓存(OpenAI/DeepSeek/fenbi);`explicit` = 给 system 首条 + 最后一条 user 注入 `cache_control={type:"ephemeral"}`(Anthropic / OpenRouter Claude) |
+| `prompt_cache.report` | true | REPL 是否在 tool 结果下方打印 `tokens: N in (M cached) / K out` |
+
+**mode 覆盖规则**:用户显式设 `off` / `explicit` 必定生效;保留 `auto` 时,若 profile 声明了具体值(如 openrouter/fenbi-sonnet 默认 `explicit`、ollama/vllm 默认 `off`)则以 profile 为准。
+
+### 3.2.2 Prompt 语言(M6-3)
+
+| 字段 | 默认 | 说明 |
+|------|------|------|
+| `prompt_lang` | `"en"` | `en` 或 `zh`;决定从 `prompts/{lang}/` 读取模板;项目级 `.mycode/prompts/{lang}/<name>.md` 可覆盖内置 |
 
 ### 3.3 工具并发与权限
 

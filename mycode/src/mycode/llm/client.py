@@ -15,6 +15,8 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 from ..config.models import Config
+from .prompt_cache import apply_cache_control, extract_cached_tokens, resolve_cache_mode
+from .providers import get_profile
 
 
 @dataclass
@@ -25,6 +27,7 @@ class LLMResponse:
     tool_calls: list[dict[str, Any]]  # [{id, name, arguments(str json)}, ...]
     finish_reason: str
     raw: ChatCompletion
+    cached_tokens: int = 0  # M6-4: prompt cache 命中 token 数
 
 
 class LLMClient:
@@ -39,6 +42,9 @@ class LLMClient:
         if cfg.default_query:
             kwargs["default_query"] = cfg.default_query
         self._client = OpenAI(**kwargs)
+        # M6-4: 决定最终 cache 模式 —— 用户 prompt_cache.mode 可覆盖 profile 默认
+        profile_cache = get_profile(cfg.provider).get("cache_mode")
+        self._cache_mode = resolve_cache_mode(cfg.prompt_cache.mode, profile_cache)
 
     def _common_params(
         self,
@@ -47,9 +53,11 @@ class LLMClient:
         *,
         stream: bool,
     ) -> dict[str, Any]:
+        # M6-4: explicit 模式下给 system/最后一条 user 打 cache_control
+        prepared_messages = apply_cache_control(messages, self._cache_mode)
         params: dict[str, Any] = {
             "model": self.cfg.model,
-            "messages": messages,
+            "messages": prepared_messages,
             "max_tokens": self.cfg.max_tokens,
         }
         if self.cfg.temperature is not None:
@@ -83,11 +91,18 @@ class LLMClient:
                         "arguments": tc.function.arguments or "{}",
                     }
                 )
+        cached = 0
+        if resp.usage is not None:
+            try:
+                cached = extract_cached_tokens(resp.usage.model_dump())
+            except Exception:
+                cached = 0
         return LLMResponse(
             content=msg.content or "",
             tool_calls=tool_calls,
             finish_reason=choice.finish_reason or "stop",
             raw=resp,
+            cached_tokens=cached,
         )
 
     def stream(
@@ -112,9 +127,11 @@ class LLMClient:
         for chunk in stream:  # type: ChatCompletionChunk
             if not chunk.choices:
                 if chunk.usage:
+                    usage_dict = chunk.usage.model_dump()
                     yield {
                         "type": "usage",
-                        "usage": chunk.usage.model_dump(),
+                        "usage": usage_dict,
+                        "cached_tokens": extract_cached_tokens(usage_dict),
                     }
                 continue
             choice = chunk.choices[0]

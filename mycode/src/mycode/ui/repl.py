@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import time
+from typing import Any
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
@@ -133,10 +134,25 @@ class Repl:
             else:
                 self.console.print(f"    [dim]{snippet}[/]")
 
+        def on_usage(u: dict[str, Any]) -> None:
+            if not self.cfg.prompt_cache.report:
+                return
+            cached = int(u.get("cached_tokens", 0) or 0)
+            if cached <= 0:
+                return
+            usage = u.get("usage") or {}
+            prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
+            completion_tokens = int(usage.get("completion_tokens", 0) or 0)
+            self.console.print(
+                f"  [dim cyan]tokens: {prompt_tokens} in ({cached} cached) / "
+                f"{completion_tokens} out[/]"
+            )
+
         return LoopCallbacks(
             on_text_delta=on_text,
             on_tool_call=on_tool_call,
             on_tool_result=on_tool_result,
+            on_usage=on_usage,
         )
 
     def _render_todo_result(self, content: str) -> None:

@@ -34,6 +34,8 @@ class LoopCallbacks:
     on_tool_call: Callable[[ToolCall], None] | None = None
     on_tool_result: Callable[[ToolCall, ToolResult], None] | None = None
     on_iteration: Callable[[int], None] | None = None
+    # M6-4: 每次 LLM 调用结束后回传 usage(含 cached_tokens)
+    on_usage: Callable[[dict[str, Any]], None] | None = None
 
 
 @dataclass
@@ -201,11 +203,21 @@ def _call_llm(
         for c in calls:
             if cb.on_tool_call:
                 cb.on_tool_call(c)
+        if cb.on_usage:
+            raw_usage = {}
+            try:
+                raw_usage = resp.raw.usage.model_dump() if resp.raw.usage else {}
+            except Exception:
+                raw_usage = {}
+            cb.on_usage(
+                {"cached_tokens": resp.cached_tokens, "usage": raw_usage}
+            )
         return resp.content, calls, resp.finish_reason
 
     text_buf: list[str] = []
     tool_accum: dict[int, dict[str, Any]] = {}
     finish: str = "stop"
+    last_usage: dict[str, Any] | None = None
     for ev in llm.stream(messages, tool_specs):
         t = ev["type"]
         if t == "text":
@@ -224,7 +236,13 @@ def _call_llm(
                 tool_accum[idx]["arguments"] += ev["delta"]
         elif t == "finish":
             finish = ev["reason"]
-        # usage 暂忽略
+        elif t == "usage":
+            last_usage = {
+                "cached_tokens": ev.get("cached_tokens", 0),
+                "usage": ev.get("usage", {}),
+            }
+    if cb.on_usage and last_usage is not None:
+        cb.on_usage(last_usage)
     raw_calls = [tool_accum[k] for k in sorted(tool_accum)]
     calls = _parse_tool_calls(raw_calls)
     for c in calls:
