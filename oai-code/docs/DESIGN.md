@@ -1,0 +1,257 @@
+# oai-code 设计文档（精简版 v0.1）
+
+> 面向生产可用的、基于 OpenAI 兼容协议的命令行编码 Agent。目标是做一个真正能日常使用的 Claude Code 替代品，同时兼容 Claude Code 工具生态的语义。
+
+---
+
+## 1. 定位与目标
+
+**一句话**：oai-code 是一个 Python CLI 编码 Agent，底层通过 OpenAI 兼容协议调用任意 LLM（OpenAI / DeepSeek / Qwen / OpenRouter / Ollama / vLLM 等），对外呈现与 Claude Code 类似的交互体验和工具集。
+
+**核心目标**
+- **实用优先**：日常能用，能跑完整任务（读代码、改代码、跑测试、提交）
+- **供应商无关**：一套代码切换任意 OpenAI 兼容后端，仅改 `base_url` / `model` / `api_key`
+- **Claude Code 生态兼容**：工具命名、语义、`CLAUDE.md` 记忆、`skills/` 结构尽量对齐
+- **机制完整**：覆盖当前 learn-claude-code 的 s01-s11 全部能力
+
+**非目标（至少 v1 不做）**
+- 不做浏览器 Web UI
+- 不做 TS/Node 版本
+- 不追求完全复刻 Claude Code 的 TUI 细节
+- 不做 s12 worktree 隔离（后续迭代）
+
+---
+
+## 2. 技术栈
+
+| 组件 | 选型 | 理由 |
+|------|------|------|
+| 语言 | Python 3.10+ | 与现有项目一致；生态成熟 |
+| LLM SDK | `openai>=1.0` | 官方 SDK 原生支持 `base_url` 切换任意兼容后端 |
+| 终端 UI | `rich` + `prompt_toolkit` | Rich 做渲染、PT 做输入与快捷键 |
+| 并发 | `asyncio` + `threading` | asyncio 跑 Agent Loop 与流式；线程池跑 Bash/后台任务 |
+| 配置 | `pydantic` + `pyyaml` + `python-dotenv` | 类型安全的配置模型 |
+| MCP | `mcp` 官方 Python SDK | 接入 MCP server 作为工具来源 |
+| 打包 | `uv` / `pyproject.toml` | 单命令安装，可 `pipx install oai-code` |
+
+---
+
+## 3. 架构总览
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                         REPL / CLI 入口                         │
+│  oaic (交互)  │  oaic -p "..." (单次)  │  oaic /slash-cmd       │
+└────────────────────────┬─────────────────────────────────────┘
+                         │
+┌────────────────────────▼─────────────────────────────────────┐
+│                       Agent Orchestrator                       │
+│   - 系统提示拼装（项目CLAUDE.md + skills 目录 + 工具清单）      │
+│   - 消息历史 / 流式渲染 / 中断处理                              │
+└─────┬────────────┬──────────────┬──────────────┬─────────────┘
+      │            │              │              │
+┌─────▼──┐   ┌─────▼─────┐  ┌─────▼──────┐ ┌─────▼──────┐
+│ LLM    │   │ Tool      │  │ Context    │ │ Session    │
+│ Client │   │ Registry  │  │ Manager    │ │ Store      │
+│(OpenAI │   │ + Dispatcher│ │(microcompact│ │(.oaic/)   │
+│  SDK)  │   │           │  │ + auto)     │ │           │
+└────────┘   └─────┬─────┘  └────────────┘ └────────────┘
+                   │
+      ┌────────────┼─────────────────────────────┐
+      │            │             │               │
+  ┌───▼───┐  ┌─────▼────┐  ┌─────▼─────┐  ┌─────▼─────┐
+  │ 内置  │  │ Skills   │  │ Subagent  │  │ MCP       │
+  │ 工具  │  │ Loader   │  │ Runner    │  │ Servers   │
+  │ 集    │  │          │  │           │  │           │
+  └───────┘  └──────────┘  └───────────┘  └───────────┘
+```
+
+---
+
+## 4. 模块划分
+
+### 4.1 `oai_code/llm/` — LLM 抽象层
+- 统一封装 OpenAI Chat Completions API（包括 `tool_calls` / 流式 / 多模态）
+- 支持 provider profile（预置 openai/deepseek/qwen/openrouter/ollama 的 base_url）
+- 负责 **token 估算**、**自动重试**、**速率限制**
+- 不做 LiteLLM 层，保持协议单纯
+
+### 4.2 `oai_code/tools/` — 内置工具
+对齐 Claude Code 的命名与语义（底层依旧用 OpenAI function calling 协议）：
+
+| 名称 | 对应 s0x | 说明 |
+|------|---------|------|
+| `Bash` | s02 | 跑 shell，带超时和危险命令拦截 |
+| `Read` / `Write` / `Edit` | s02 | 文件读写与精确替换 |
+| `Glob` / `Grep` | 新增 | ripgrep 驱动的代码检索（原项目没有） |
+| `TodoWrite` | s03 | 短期 checklist |
+| `Task` (subagent) | s04 | 派发子 agent 做隔离探索/执行 |
+| `LoadSkill` | s05 | 按名载入 skill 正文 |
+| `Compact` | s06 | 手动压缩上下文 |
+| `TaskCreate/Update/List/Get` | s07 | 持久化任务系统（`.oaic/tasks/`） |
+| `BackgroundRun/Check` | s08 | 后台任务与通知回流 |
+| `SpawnTeammate/SendMessage/ReadInbox/Broadcast` | s09-s11 | 多 agent 协作（v1 可选开关） |
+
+### 4.3 `oai_code/context/` — 上下文管理
+- **microcompact**：每轮 LLM 调用前清理旧的 tool_result
+- **auto-compact**：超过阈值时 LLM 摘要 + 落盘 transcript
+- 阈值按**模型 context window 百分比**而非硬编码（100k → 按模型动态）
+
+### 4.4 `oai_code/session/` — 会话与持久化
+- 项目根目录下自动创建 `.oaic/`：
+  - `sessions/<id>.jsonl` — 会话历史
+  - `tasks/task_*.json` — 持久化任务
+  - `transcripts/` — 压缩后的完整记录
+  - `inbox/` — teammate 消息总线
+- 支持 `oaic --resume <session-id>` 恢复
+
+### 4.5 `oai_code/skills/` — Skills 机制
+- 兼容 Claude Code 的 `SKILL.md` frontmatter 格式
+- 启动时只加载 **name + description**，模型按需 `LoadSkill` 读正文
+- 同时扫描 **项目级** `./skills/` 和 **用户级** `~/.oaic/skills/`
+
+### 4.6 `oai_code/memory/` — 记忆文件
+- 读取项目根 `CLAUDE.md` / `AGENTS.md` / `.oaic/MEMORY.md`
+- 读取用户级 `~/.oaic/CLAUDE.md`
+- 按优先级拼到系统提示开头（与 Claude Code 语义一致）
+
+### 4.7 `oai_code/mcp/` — MCP 客户端
+- 通过 `.oaic/settings.json` 配置 MCP servers
+- 启动时把 MCP 工具清单并入 tool registry
+- 工具命名加前缀 `mcp__<server>__<tool>` 避免冲突
+
+### 4.8 `oai_code/ui/` — 终端交互
+- REPL：`rich.live.Live` 流式渲染 + `prompt_toolkit` 多行输入 / 历史 / 补全
+- Slash 命令：`/compact` `/tasks` `/team` `/resume` `/clear` `/model` `/help`
+- `Ctrl-C` 打断当前工具但不退出；`Ctrl-D` 退出
+
+### 4.9 `oai_code/config/` — 配置系统
+- 三级优先级：CLI flag > 项目 `.oaic/settings.json` > 用户 `~/.oaic/settings.json` > 环境变量
+- 典型字段：
+  ```json
+  {
+    "provider": "deepseek",
+    "base_url": "https://api.deepseek.com/v1",
+    "model": "deepseek-chat",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "max_tokens": 8192,
+    "context_window": 128000,
+    "compact_threshold_pct": 75,
+    "mcp_servers": {},
+    "allowed_tools": ["Bash", "Read", "Edit", ...],
+    "denied_paths": ["~/.ssh", "~/.aws"]
+  }
+  ```
+
+---
+
+## 5. 核心数据流
+
+**一轮对话**：
+1. 用户输入 → 合并到 messages
+2. Context Manager 跑 microcompact + 阈值检查 → 必要时 auto-compact
+3. 拉取后台任务通知 / teammate inbox → 注入为 user message
+4. 组装 system prompt（CLAUDE.md + skills 目录 + MCP 工具描述）
+5. OpenAI SDK 流式调用 → 实时渲染 assistant 文本 + tool_calls
+6. Tool Dispatcher 并行执行 tool_calls（I/O 密集可并发）→ 收集 tool_result
+7. 把 tool_result 追加到 messages，回到第 2 步；直到 `finish_reason != "tool_calls"`
+
+**关键不变式**：所有 tool 调用失败都转为字符串形式的 tool_result 回传，**不抛到 loop 外**，避免半截对话污染历史。
+
+---
+
+## 6. OpenAI 兼容性与 Claude Code 语义的桥接
+
+这是本项目的关键权衡，明确规则如下：
+
+| 层面 | 策略 |
+|------|------|
+| **传输协议** | 严格用 OpenAI `tools` / `tool_calls` / `tool` role |
+| **工具命名** | 采用 Claude Code 风格的 PascalCase（`Bash`、`Read`、`Edit`）|
+| **参数 schema** | JSON Schema，字段名与 Claude Code 对齐（`file_path`、`old_string`、`new_string`）|
+| **system prompt** | 语气与结构参考 Claude Code，但不照抄 |
+| **流式语义** | OpenAI delta 格式，UI 层做增量拼装 |
+| **并行工具调用** | 依赖模型原生支持（gpt-4o/deepseek-v3 等支持 parallel tool calls）|
+
+这样做的好处：**用户能把现有的 `CLAUDE.md`、skills、MCP 配置几乎无缝迁移过来**，而我们不用碰 Anthropic SDK。
+
+---
+
+## 7. 目录结构（v1 规划）
+
+```
+oai-code/
+├── pyproject.toml
+├── README.md
+├── docs/
+│   ├── DESIGN.md            # 本文件
+│   ├── TOOLS.md             # 工具清单 spec
+│   ├── CONFIG.md            # 配置字段与 provider profile
+│   └── MIGRATION.md         # 从 Claude Code 迁移指南
+├── src/oai_code/
+│   ├── __main__.py
+│   ├── cli.py               # argparse + REPL 入口
+│   ├── config/
+│   ├── llm/
+│   │   ├── client.py        # OpenAI SDK 封装
+│   │   └── providers.py     # 预置 provider profile
+│   ├── agent/
+│   │   ├── loop.py          # 主循环（对应 s01 + s_full）
+│   │   └── system_prompt.py
+│   ├── tools/
+│   │   ├── registry.py
+│   │   ├── builtin/         # Bash/Read/Edit/...
+│   │   ├── todo.py          # s03
+│   │   ├── subagent.py      # s04
+│   │   ├── skills.py        # s05
+│   │   ├── tasks.py         # s07
+│   │   ├── background.py    # s08
+│   │   └── team.py          # s09-s11
+│   ├── context/
+│   │   └── compact.py       # s06
+│   ├── session/
+│   ├── memory/
+│   ├── mcp/
+│   └── ui/
+└── tests/
+```
+
+---
+
+## 8. 路线图
+
+**M0 — 骨架（1 周）**
+- CLI 入口 + REPL + 流式渲染
+- OpenAI Client + provider profile
+- Bash / Read / Write / Edit / Glob / Grep 六个基础工具
+- 简单 agent loop（对应 s01+s02）
+- 跑通「看代码、改代码、执行命令」闭环
+
+**M1 — 对齐 Claude Code（1-2 周）**
+- TodoWrite + Tasks 持久化 + Subagent + Skills + CLAUDE.md 记忆
+- 上下文 compact（micro + auto）
+- 项目/用户双级配置
+
+**M2 — 高级能力（1-2 周）**
+- 后台任务 + 通知回流
+- MCP 客户端接入
+- Slash 命令完整集
+- Session resume
+
+**M3 — 可选**
+- 多 agent teammate（s09-s11）
+- Worktree 隔离（s12）
+- 发布到 PyPI
+
+---
+
+## 9. 开放问题（需要后续确认）
+
+1. **并行工具调用**：部分国产模型对 parallel tool calls 支持不完善，是否需要内置「串行模式开关」？
+2. **权限模型**：是否照抄 Claude Code 的 `allow/deny/ask` 三态权限，还是先用白名单？
+3. **多模态**：第一版是否支持图片输入？（`Read` 工具读 PNG/PDF）
+4. **Windows 支持**：Bash 工具在 Windows 上用 PowerShell 还是 WSL？v1 是否只保证 macOS/Linux？
+
+---
+
+> **下一步**：确认本文件后，拆分出 `TOOLS.md`（工具 schema 全集）和 `CONFIG.md`（配置字段全集），然后进入 M0 骨架实现。
