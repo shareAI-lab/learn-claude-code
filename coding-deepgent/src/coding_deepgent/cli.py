@@ -10,7 +10,7 @@ from click.exceptions import ClickException
 from typer.main import get_command
 
 from coding_deepgent import cli_service
-from coding_deepgent.acceptance import circle1_acceptance_checks
+from coding_deepgent.acceptance import circle1_acceptance_checks, circle2_acceptance_checks
 from coding_deepgent.frontend.bridge import run_stdio_bridge
 from coding_deepgent.logging_config import configure_logging
 from coding_deepgent.memory.backend import MemoryJobStatus, migrate_memory_schema
@@ -50,6 +50,13 @@ mcp_app = typer.Typer(help="Inspect and validate local MCP configuration.")
 hooks_app = typer.Typer(help="Inspect supported local hook events.")
 plugins_app = typer.Typer(help="Inspect and validate local plugin manifests.")
 acceptance_app = typer.Typer(help="Run deterministic acceptance harnesses.")
+events_app = typer.Typer(help="Inspect and control replayable local events.")
+workers_app = typer.Typer(help="Inspect and control durable local workers.")
+mailbox_app = typer.Typer(help="Send and acknowledge local mailbox messages.")
+teams_app = typer.Typer(help="Inspect and control local team runs.")
+remote_app = typer.Typer(help="Record local remote-control sessions and replay events.")
+lifecycle_app = typer.Typer(help="Manage local extension lifecycle state.")
+continuity_app = typer.Typer(help="Manage cross-day continuity artifacts.")
 memory_app = typer.Typer(help="Manage durable long-term memory backend and jobs.")
 app.add_typer(config_app, name="config")
 app.add_typer(sessions_app, name="sessions")
@@ -60,6 +67,13 @@ app.add_typer(mcp_app, name="mcp")
 app.add_typer(hooks_app, name="hooks")
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(acceptance_app, name="acceptance")
+app.add_typer(events_app, name="events")
+app.add_typer(workers_app, name="workers")
+app.add_typer(mailbox_app, name="mailbox")
+app.add_typer(teams_app, name="teams")
+app.add_typer(remote_app, name="remote")
+app.add_typer(lifecycle_app, name="extension-lifecycle")
+app.add_typer(continuity_app, name="continuity")
 app.add_typer(memory_app, name="memory")
 
 
@@ -431,7 +445,324 @@ def acceptance_circle1() -> None:
         }
         for check in circle1_acceptance_checks(settings)
     ]
-    typer.echo(render_acceptance_table(rows))
+    typer.echo(render_acceptance_table(rows, title="Circle 1 Acceptance"))
+
+
+@acceptance_app.command("circle2")
+def acceptance_circle2() -> None:
+    settings = build_cli_runtime().settings_loader()
+    rows = [
+        {
+            "name": check.name,
+            "status": check.status,
+            "detail": check.detail,
+        }
+        for check in circle2_acceptance_checks(settings)
+    ]
+    typer.echo(render_acceptance_table(rows, title="Circle 2 Acceptance"))
+
+
+@events_app.command("list")
+def events_list(
+    stream_id: str = typer.Argument(..., help="Event stream identifier."),
+    include_internal: bool = typer.Option(False, "--internal"),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(
+        render_extension_table(
+            "Events",
+            cli_service.event_rows(
+                settings,
+                stream_id=stream_id,
+                include_internal=include_internal,
+            ),
+        )
+    )
+
+
+@events_app.command("append")
+def events_append(
+    stream_id: str = typer.Argument(...),
+    kind: str = typer.Argument(...),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_object_detail("Event", cli_service.append_event_row(settings, stream_id=stream_id, kind=kind)))
+
+
+@events_app.command("ack")
+def events_ack(stream_id: str = typer.Argument(...), event_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.ack_event_row(settings, stream_id=stream_id, event_id=event_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Event", payload))
+
+
+@workers_app.command("list")
+def workers_list(include_terminal: bool = typer.Option(False, "--all")) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(
+        render_extension_table(
+            "Workers",
+            cli_service.worker_rows(settings, include_terminal=include_terminal),
+        )
+    )
+
+
+@workers_app.command("create")
+def workers_create(
+    kind: str = typer.Argument("local"),
+    session_id: str = typer.Option("default", "--session-id"),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_object_detail("Worker", cli_service.create_worker_row(settings, kind=kind, session_id=session_id)))
+
+
+@workers_app.command("heartbeat")
+def workers_heartbeat(worker_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.heartbeat_worker_row(settings, worker_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Worker", payload))
+
+
+@workers_app.command("stop")
+def workers_stop(worker_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.stop_worker_row(settings, worker_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Worker", payload))
+
+
+@workers_app.command("complete")
+def workers_complete(
+    worker_id: str = typer.Argument(...),
+    status: str = typer.Option("completed", "--status"),
+    summary: str | None = typer.Option(None, "--summary"),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.complete_worker_row(
+            settings,
+            worker_id,
+            status=status,
+            summary=summary,
+        )
+    except (KeyError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Worker", payload))
+
+
+@mailbox_app.command("list")
+def mailbox_list(recipient: str | None = typer.Option(None, "--recipient")) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_extension_table("Mailbox", cli_service.mailbox_rows(settings, recipient=recipient)))
+
+
+@mailbox_app.command("send")
+def mailbox_send(
+    recipient: str = typer.Argument(...),
+    subject: str = typer.Argument(...),
+    body: str = typer.Argument(...),
+    sender: str = typer.Option("user", "--sender"),
+    delivery_key: str | None = typer.Option(None, "--delivery-key"),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(
+        render_object_detail(
+            "Mailbox Message",
+            cli_service.send_mailbox_row(
+                settings,
+                sender=sender,
+                recipient=recipient,
+                subject=subject,
+                body=body,
+                delivery_key=delivery_key,
+            ),
+        )
+    )
+
+
+@mailbox_app.command("ack")
+def mailbox_ack(message_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.ack_mailbox_row(settings, message_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Mailbox Message", payload))
+
+
+@teams_app.command("list")
+def teams_list() -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_extension_table("Teams", cli_service.team_rows(settings)))
+
+
+@teams_app.command("create")
+def teams_create(title: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_object_detail("Team", cli_service.create_team_row(settings, title=title)))
+
+
+@teams_app.command("assign")
+def teams_assign(team_id: str = typer.Argument(...), worker_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.assign_team_worker_row(settings, team_id=team_id, worker_id=worker_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Team", payload))
+
+
+@teams_app.command("progress")
+def teams_progress(team_id: str = typer.Argument(...), message: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.progress_team_row(settings, team_id=team_id, message=message)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Team", payload))
+
+
+@teams_app.command("complete")
+def teams_complete(team_id: str = typer.Argument(...), summary: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.complete_team_row(settings, team_id=team_id, summary=summary)
+    except (KeyError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Team", payload))
+
+
+@remote_app.command("list")
+def remote_list() -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_extension_table("Remote Sessions", cli_service.remote_rows(settings)))
+
+
+@remote_app.command("register")
+def remote_register(
+    session_id: str = typer.Argument(...),
+    client_name: str = typer.Argument(...),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_object_detail("Remote Session", cli_service.register_remote_row(settings, session_id=session_id, client_name=client_name)))
+
+
+@remote_app.command("control")
+def remote_control(remote_id: str = typer.Argument(...), command: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.remote_control_row(settings, remote_id=remote_id, command=command)
+    except (KeyError, ValueError) as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Remote Event", payload))
+
+
+@remote_app.command("replay")
+def remote_replay(remote_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        rows = cli_service.remote_replay_rows(settings, remote_id=remote_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_extension_table("Remote Events", rows))
+
+
+@remote_app.command("close")
+def remote_close(remote_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.close_remote_row(settings, remote_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Remote Session", payload))
+
+
+@lifecycle_app.command("list")
+def lifecycle_list() -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_extension_table("Extension Lifecycle", cli_service.lifecycle_rows(settings)))
+
+
+@lifecycle_app.command("register")
+def lifecycle_register(
+    name: str = typer.Argument(...),
+    kind: str = typer.Argument(...),
+    source: str = typer.Argument(...),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.register_lifecycle_row(settings, name=name, kind=kind, source=source)
+    except ValueError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Extension", payload))
+
+
+@lifecycle_app.command("enable")
+def lifecycle_enable(extension_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_object_detail("Extension", cli_service.set_lifecycle_enabled(settings, extension_id, enabled=True)))
+
+
+@lifecycle_app.command("disable")
+def lifecycle_disable(extension_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_object_detail("Extension", cli_service.set_lifecycle_enabled(settings, extension_id, enabled=False)))
+
+
+@lifecycle_app.command("update")
+def lifecycle_update(extension_id: str = typer.Argument(...), version: str | None = typer.Option(None, "--version")) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_object_detail("Extension", cli_service.update_lifecycle_row(settings, extension_id, version=version)))
+
+
+@lifecycle_app.command("rollback")
+def lifecycle_rollback(extension_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_object_detail("Extension", cli_service.rollback_lifecycle_row(settings, extension_id)))
+
+
+@continuity_app.command("list")
+def continuity_list(include_stale: bool = typer.Option(False, "--all")) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_extension_table("Continuity", cli_service.continuity_rows(settings, include_stale=include_stale)))
+
+
+@continuity_app.command("save")
+def continuity_save(
+    title: str = typer.Argument(...),
+    content: str = typer.Argument(...),
+    session_id: str | None = typer.Option(None, "--session-id"),
+) -> None:
+    settings = build_cli_runtime().settings_loader()
+    typer.echo(render_object_detail("Continuity", cli_service.save_continuity_row(settings, title=title, content=content, session_id=session_id)))
+
+
+@continuity_app.command("show")
+def continuity_show(artifact_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.continuity_detail(settings, artifact_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Continuity", payload))
+
+
+@continuity_app.command("stale")
+def continuity_stale(artifact_id: str = typer.Argument(...)) -> None:
+    settings = build_cli_runtime().settings_loader()
+    try:
+        payload = cli_service.stale_continuity_row(settings, artifact_id)
+    except KeyError as exc:
+        raise ClickException(str(exc)) from exc
+    typer.echo(render_object_detail("Continuity", payload))
 
 
 @sessions_app.command("inspect")

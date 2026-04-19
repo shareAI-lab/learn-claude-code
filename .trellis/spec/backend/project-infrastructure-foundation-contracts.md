@@ -98,7 +98,27 @@ task_create(...)
 task_update(...)
 plan_save(...)
 run_subagent(task, runtime, agent_type="<builtin-or-local>", plan_id=...)
+event_stream append/list/ack
+worker_runtime create/heartbeat/stop/complete
+mailbox send/list/ack
+teams create/assign/progress/complete
+remote register/control/replay/close
+extension_lifecycle register/enable/disable/update/rollback
+continuity save/list/show/stale
 ```
+
+Circle 2 local baseline ownership:
+
+- `event_stream/` owns replayable local visible/internal events.
+- `worker_runtime/` owns durable local worker lifecycle records.
+- `mailbox/` owns addressable local message delivery and acknowledgements.
+- `teams/` owns local coordinator/worker run records and progress synthesis.
+- `remote/` owns local remote-control session records and replayable control
+  events; it is not a hosted SaaS ingress layer.
+- `extension_lifecycle/` owns local extension lifecycle state and rollback.
+- `continuity/` owns cross-day continuity artifacts.
+- These domains must not be hidden inside `sessions/`, `subagents/tools.py`,
+  `tool_system/`, or `frontend/producer.py`.
 
 Long-term memory may also influence runtime behavior through existing guard
 surfaces, not only through prompt recall. Current local contract:

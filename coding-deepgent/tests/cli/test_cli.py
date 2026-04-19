@@ -568,6 +568,60 @@ def test_extension_and_acceptance_commands_use_cli_service(monkeypatch) -> None:
     assert "workflow_a_repository_takeover" in acceptance.stdout
 
 
+def test_circle2_cli_surfaces_write_to_durable_store(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(workdir=tmp_path, model_name="gpt-test")
+    runtime = cli_service.CliRuntime(
+        settings_loader=lambda: settings,
+        list_sessions=lambda: [],
+        load_session=_empty_history,
+        run_prompt=_unused_run_prompt,
+        doctor_checks=lambda: [],
+    )
+    monkeypatch.setattr(cli, "build_cli_runtime", lambda: runtime)
+
+    worker = runner.invoke(cli.app, ["workers", "create", "assistant"])
+    mailbox = runner.invoke(
+        cli.app,
+        [
+            "mailbox",
+            "send",
+            "worker-1",
+            "task",
+            "do it",
+            "--sender",
+            "coordinator",
+            "--delivery-key",
+            "delivery-1",
+        ],
+    )
+    team = runner.invoke(cli.app, ["teams", "create", "Ship feature"])
+    remote = runner.invoke(cli.app, ["remote", "register", "session-1", "ide"])
+    lifecycle = runner.invoke(
+        cli.app,
+        ["extension-lifecycle", "register", "demo", "plugin", "local"],
+    )
+    continuity = runner.invoke(
+        cli.app,
+        ["continuity", "save", "Next step", "Continue tomorrow."],
+    )
+    acceptance = runner.invoke(cli.app, ["acceptance", "circle2"])
+
+    assert worker.exit_code == 0
+    assert cli_service.worker_rows(settings)
+    assert mailbox.exit_code == 0
+    assert len(cli_service.mailbox_rows(settings, recipient="worker-1")) == 1
+    assert team.exit_code == 0
+    assert cli_service.team_rows(settings)
+    assert remote.exit_code == 0
+    assert cli_service.remote_rows(settings)
+    assert lifecycle.exit_code == 0
+    assert cli_service.lifecycle_rows(settings)
+    assert continuity.exit_code == 0
+    assert cli_service.continuity_rows(settings)
+    assert acceptance.exit_code == 0
+    assert "workflow_d_durable_background_lifecycle" in acceptance.stdout
+
+
 def test_sessions_resume_uses_recovery_brief_continuation_history(
     monkeypatch, tmp_path: Path
 ) -> None:

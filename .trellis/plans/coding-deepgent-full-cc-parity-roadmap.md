@@ -281,6 +281,15 @@ Canonical Circle 2 plan:
 
 * `.trellis/plans/coding-deepgent-circle-2-expanded-parity-plan.md`
 
+Implemented local baseline:
+
+* `2026-04-20`: local expanded parity baseline across event stream, worker
+  runtime, mailbox, teams, remote control records, extension lifecycle, and
+  continuity artifacts
+* hosted SaaS ingress, multi-user auth, public marketplace backend, and
+  cross-machine workers remain outside this local baseline unless explicitly
+  reopened
+
 Likely Circle 2 bands:
 
 * mailbox / `SendMessage`

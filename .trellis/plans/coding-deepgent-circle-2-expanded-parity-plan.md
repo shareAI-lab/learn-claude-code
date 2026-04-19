@@ -1,10 +1,40 @@
 # coding-deepgent Circle 2 Expanded Product Parity Plan
 
-Status: proposed
+Status: implemented local baseline
 Updated: 2026-04-20
 Parent roadmap: `.trellis/plans/coding-deepgent-full-cc-parity-roadmap.md`
 Planning task: `.trellis/tasks/04-20-brainstorm-circle-2-parity-plan/`
 Strategy: substrate-first
+
+## Implemented Local Baseline
+
+Implemented: 2026-04-20
+
+Local expanded parity baseline is implemented for all Circle 2 waves using the
+workspace-local durable `runtime.store` substrate. This baseline intentionally
+does not claim hosted SaaS session ingress, multi-user auth, public marketplace
+backend, or cross-machine workers.
+
+Implemented modules:
+
+* `event_stream`
+* `worker_runtime`
+* `mailbox`
+* `teams`
+* `remote`
+* `extension_lifecycle`
+* `continuity`
+
+Implemented CLI surfaces:
+
+* `coding-deepgent events ...`
+* `coding-deepgent workers ...`
+* `coding-deepgent mailbox ...`
+* `coding-deepgent teams ...`
+* `coding-deepgent remote ...`
+* `coding-deepgent extension-lifecycle ...`
+* `coding-deepgent continuity ...`
+* `coding-deepgent acceptance circle2`
 
 ## Purpose
 

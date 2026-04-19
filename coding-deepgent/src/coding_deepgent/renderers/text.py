@@ -281,8 +281,12 @@ def render_extension_table(
     return _render_table(table)
 
 
-def render_acceptance_table(rows: Sequence[Mapping[str, Any]]) -> str:
-    table = Table(title="Circle 1 Acceptance", box=box.SIMPLE_HEAVY)
+def render_acceptance_table(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    title: str = "Acceptance",
+) -> str:
+    table = Table(title=title, box=box.SIMPLE_HEAVY)
     table.add_column("Check", style="cyan", no_wrap=True)
     table.add_column("Status", no_wrap=True)
     table.add_column("Detail")

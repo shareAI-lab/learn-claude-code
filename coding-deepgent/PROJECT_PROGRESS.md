@@ -27,8 +27,9 @@ Canonical live status is now:
 - Approach A MVP closeout completed through `Stage 29`
 - `Circle 1 / Wave 1` runtime-core parity checkpoint is implemented
 - `Circle 1` local daily-driver parity baseline is implemented
-- still deferred out of Circle 1: mailbox/coordinator/team-runtime, remote/IDE,
-  daemon/cron, and full marketplace/install lifecycle
+- `Circle 2` local expanded parity baseline is implemented
+- still outside the local Circle 2 baseline: hosted SaaS ingress, multi-user
+  auth, public marketplace backend, and cross-machine workers
 
 For the live source of truth, use:
 

@@ -205,6 +205,10 @@ Latest completed stages and what they changed:
 * `2026-04-20 Circle 2 planning`
   * `.trellis/plans/coding-deepgent-circle-2-expanded-parity-plan.md` defines the substrate-first Circle 2 execution sequence
   * Circle 2 Wave 1 should start with durable daemon/worker/event substrate before mailbox/coordinator/remote features
+* `2026-04-20 Circle 2 expanded parity local baseline`
+  * local durable domains now exist for `event_stream`, `worker_runtime`, `mailbox`, `teams`, `remote`, `extension_lifecycle`, and `continuity`
+  * CLI surfaces now cover events, workers, mailbox, teams, remote records/replay, extension lifecycle, continuity artifacts, and `acceptance circle2`
+  * this is a local baseline and intentionally does not claim hosted SaaS ingress, multi-user auth, public marketplace backend, or cross-machine workers
 
 ## Current Active Topology
 
@@ -246,11 +250,11 @@ Core domains:
 
 Next planned direction:
 
-* Circle 1 local daily-driver parity is now implemented as the current baseline
-* next implementation wave should be Circle 2 / Wave 1:
-  durable daemon / worker / event substrate
-* use `.trellis/plans/coding-deepgent-circle-2-expanded-parity-plan.md` as the
-  canonical Circle 2 execution plan
+* Circle 1 and Circle 2 local baselines are implemented
+* next work should be release/PR validation and any concrete regression fixes
+  found by `coding-deepgent acceptance circle1` / `circle2`
+* further parity after this baseline should explicitly target hosted remote
+  ingress, true daemon supervision, or marketplace backend only if requested
 
 Intent:
 

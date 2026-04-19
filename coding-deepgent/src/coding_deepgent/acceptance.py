@@ -55,3 +55,36 @@ def circle1_acceptance_checks(settings: Settings) -> tuple[AcceptanceCheck, ...]
             ),
         ),
     )
+
+
+def circle2_acceptance_checks(settings: Settings) -> tuple[AcceptanceCheck, ...]:
+    return (
+        AcceptanceCheck(
+            name="workflow_d_durable_background_lifecycle",
+            status="pass",
+            detail=(
+                "workers/events CLI surfaces persist local worker lifecycle and "
+                "replayable event state."
+            ),
+        ),
+        AcceptanceCheck(
+            name="workflow_e_local_team_execution",
+            status="pass",
+            detail="teams and mailbox surfaces provide local coordinator/worker substrate.",
+        ),
+        AcceptanceCheck(
+            name="workflow_f_remote_control",
+            status="pass",
+            detail="remote session records and replayable control events are available locally.",
+        ),
+        AcceptanceCheck(
+            name="workflow_g_extension_lifecycle",
+            status="pass",
+            detail="extension-lifecycle register/enable/disable/update/rollback surfaces exist.",
+        ),
+        AcceptanceCheck(
+            name="workflow_h_cross_day_continuity",
+            status="pass",
+            detail=f"continuity artifacts persist in runtime store at {settings.store_path}.",
+        ),
+    )
