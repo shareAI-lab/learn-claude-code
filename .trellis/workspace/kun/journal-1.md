@@ -883,7 +883,7 @@ Added real Wave 2 control surfaces: local file-backed runtime store, CLI tasks/p
 | Hash | Message |
 |------|---------|
 | `c9c38e4` | (see git log) |
-| `1c2fa7c` | (see git log) |
+| `0078bce` | (see git log) |
 
 ### Testing
 
