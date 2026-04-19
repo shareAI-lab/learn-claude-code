@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 23
+- **Total Sessions**: 24
 - **Last Active**: 2026-04-20
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~931 | Active |
+| `journal-1.md` | ~964 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits |
 |---|------|-------|---------|
+| 24 | 2026-04-20 | Plan Circle 2 expanded parity | `243be04`, `b6b522c` |
 | 23 | 2026-04-20 | Complete Circle 1 local parity baseline | `7248889`, `386602b` |
 | 22 | 2026-04-20 | Complete Circle 1 Wave 2 control surfaces pack | `c9c38e4`, `0078bce` |
 | 21 | 2026-04-20 | Complete Circle 1 Wave 2 runtime surfaces pack | `575850f`, `a5646a9` |

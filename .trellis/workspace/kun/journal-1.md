@@ -929,3 +929,36 @@ Completed the remaining Circle 1 local daily-driver parity baseline: added sessi
 ### Next Steps
 
 - None - task complete
+
+
+## Session 24: Plan Circle 2 expanded parity
+
+**Date**: 2026-04-20
+**Task**: Plan Circle 2 expanded parity
+
+### Summary
+
+Created the substrate-first Circle 2 expanded product parity plan with Wave 1 daemon/worker/event substrate, Wave 2 mailbox, Wave 3 coordinator/team runtime, Wave 4 remote/IDE control plane, Wave 5 extension lifecycle, Wave 6 cross-day continuity, and final acceptance harness. Archived the brainstorm task.
+
+### Main Changes
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `243be04` | (see git log) |
+| `b6b522c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
