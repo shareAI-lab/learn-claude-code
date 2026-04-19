@@ -37,7 +37,6 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "04-17-l3c-h01-dynamic-tool-pool-foundation",
     "04-17-l4a-h01-langchain-parallel-tool-call-research",
     "04-17-l4b-h01-tool-use-result-pairing-failure-tests",
     "04-17-l4c-h01-result-persistence-microcompact-eligibility-audit",
