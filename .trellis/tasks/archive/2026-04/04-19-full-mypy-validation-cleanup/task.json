@@ -1,0 +1,44 @@
+{
+  "id": "full-mypy-validation-cleanup",
+  "name": "full-mypy-validation-cleanup",
+  "title": "Full mypy validation cleanup",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "kun",
+  "assignee": "kun",
+  "createdAt": "2026-04-19",
+  "completedAt": "2026-04-19",
+  "branch": null,
+  "base_branch": "codex/stage-12-14-context-compact-foundation",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

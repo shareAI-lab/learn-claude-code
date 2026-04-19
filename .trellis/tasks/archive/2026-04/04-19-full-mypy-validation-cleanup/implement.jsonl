@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Backend/mainline validation baseline for fixing typed test failures."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Frontend bridge typing and validation expectations for touched frontend tests."}
+{"file": ".trellis/spec/guides/mainline-scope-guide.md", "reason": "Keep changes scoped to coding-deepgent mainline typed test cleanup."}
