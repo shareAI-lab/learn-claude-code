@@ -179,7 +179,9 @@
 
 > **真源约束**：上表是方向，工具字段/错误格式/role 映射的最终规格以 `TOOLS.md` 为**唯一真源**；设计文档与 TOOLS.md 冲突时以后者为准。
 >
-> **关于 Responses API**：v1 仅封装 Chat Completions。Responses API 虽是 OpenAI 新方向，但大多数第三方兼容网关（DeepSeek / Qwen / OpenRouter / Ollama / vLLM）仍只实现 Chat Completions，过早抽象会增加分叉维护成本。待兼容生态迁移完成后再在 `llm/` 下增加 `responses_client.py`。
+> **关于 Responses API**：v1 仅封装 Chat Completions。Responses API 虽是 OpenAI 新方向，但大多数第三方兼容网关（DeepSeek / Qwen / OpenRouter / Ollama / vLLM / fenbi 内部网关）仍只实现 Chat Completions，过早抽象会增加分叉维护成本。待兼容生态迁移完成后再在 `llm/` 下增加 `responses_client.py`。
+>
+> **M3 复核（2026-04）**：维持原决策。当前流式已通过 `chat.completions.create(stream=True)` 实现；Responses API 独占能力（reasoning tokens / 官方托管工具 / 服务器侧会话 / background mode）对目前用户的主力 provider（fenbi）不可用。**触发条件**：当主要使用的后端开始透传 `/v1/responses` 端点时再做。
 
 ---
 
