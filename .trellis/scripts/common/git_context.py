@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from typing import TypedDict
 
 from .paths import (
     DIR_SCRIPTS,
@@ -32,6 +33,19 @@ from .paths import (
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
+
+class CurrentTaskInfo(TypedDict, total=False):
+    """Structured current-task metadata shared across output modes."""
+
+    path: str
+    name: str
+    status: str
+    createdAt: str
+    description: str
+    warning: str
+    hasPrd: bool
+    isValid: bool
 
 
 def _run_git_command(args: list[str], cwd: Path | None = None) -> tuple[int, str, str]:
@@ -64,6 +78,93 @@ def _read_json_file(path: Path) -> dict | None:
         return None
 
 
+def _get_current_task_info(repo_root: Path) -> CurrentTaskInfo | None:
+    """Resolve current-task metadata once for all output modes."""
+    current_task = get_current_task(repo_root)
+    if not current_task:
+        return None
+
+    current_task_dir = repo_root / current_task
+    info: CurrentTaskInfo = {
+        "path": current_task,
+        "hasPrd": (current_task_dir / "prd.md").is_file(),
+        "isValid": False,
+    }
+
+    if not current_task_dir.is_dir():
+        info["status"] = "invalid"
+        info["warning"] = "path does not exist"
+        return info
+
+    task_json_path = current_task_dir / FILE_TASK_JSON
+    if not task_json_path.is_file():
+        info["status"] = "invalid"
+        info["warning"] = "task.json is missing"
+        return info
+
+    data = _read_json_file(task_json_path)
+    if not data:
+        info["status"] = "invalid"
+        info["warning"] = "task.json could not be read"
+        return info
+
+    info["isValid"] = True
+    info["name"] = data.get("name") or data.get("id") or current_task_dir.name
+    info["status"] = data.get("status", "unknown")
+
+    created_at = data.get("createdAt")
+    if isinstance(created_at, str) and created_at:
+        info["createdAt"] = created_at
+
+    description = data.get("description")
+    if isinstance(description, str) and description:
+        info["description"] = description
+
+    return info
+
+
+def _append_current_task_lines(
+    lines: list[str],
+    current_task_info: CurrentTaskInfo | None,
+    *,
+    include_created: bool = False,
+    include_description: bool = False,
+    include_prd_hint: bool = False,
+) -> None:
+    """Render the CURRENT TASK section consistently across text modes."""
+    lines.append("## CURRENT TASK")
+
+    if not current_task_info:
+        lines.append("(none)")
+        return
+
+    lines.append(f"Path: {current_task_info['path']}")
+
+    name = current_task_info.get("name")
+    if isinstance(name, str) and name:
+        lines.append(f"Name: {name}")
+
+    status = current_task_info.get("status")
+    if isinstance(status, str) and status:
+        lines.append(f"Status: {status}")
+
+    created_at = current_task_info.get("createdAt")
+    if include_created and isinstance(created_at, str) and created_at:
+        lines.append(f"Created: {created_at}")
+
+    description = current_task_info.get("description")
+    if include_description and isinstance(description, str) and description:
+        lines.append(f"Description: {description}")
+
+    warning = current_task_info.get("warning")
+    if isinstance(warning, str) and warning:
+        lines.append(f"[!] Invalid current task pointer: {warning}")
+
+    if include_prd_hint and current_task_info.get("hasPrd") is True:
+        lines.append("")
+        lines.append("[!] This task has prd.md - read it for task details")
+
+
 # =============================================================================
 # JSON Output
 # =============================================================================
@@ -84,6 +185,7 @@ def get_context_json(repo_root: Path | None = None) -> dict:
     developer = get_developer(repo_root)
     tasks_dir = get_tasks_dir(repo_root)
     journal_file = get_active_journal_file(repo_root)
+    current_task_info = _get_current_task_info(repo_root)
 
     journal_lines = 0
     journal_relative = ""
@@ -143,6 +245,7 @@ def get_context_json(repo_root: Path | None = None) -> dict:
             "active": tasks,
             "directory": f"{DIR_WORKFLOW}/{DIR_TASKS}",
         },
+        "currentTask": current_task_info,
         "journal": {
             "file": journal_relative,
             "lines": journal_lines,
@@ -229,34 +332,13 @@ def get_context_text(repo_root: Path | None = None) -> str:
     lines.append("")
 
     # Current task
-    lines.append("## CURRENT TASK")
-    current_task = get_current_task(repo_root)
-    if current_task:
-        current_task_dir = repo_root / current_task
-        task_json_path = current_task_dir / FILE_TASK_JSON
-        lines.append(f"Path: {current_task}")
-
-        if task_json_path.is_file():
-            data = _read_json_file(task_json_path)
-            if data:
-                t_name = data.get("name") or data.get("id") or "unknown"
-                t_status = data.get("status", "unknown")
-                t_created = data.get("createdAt", "unknown")
-                t_desc = data.get("description", "")
-
-                lines.append(f"Name: {t_name}")
-                lines.append(f"Status: {t_status}")
-                lines.append(f"Created: {t_created}")
-                if t_desc:
-                    lines.append(f"Description: {t_desc}")
-
-        # Check for prd.md
-        prd_file = current_task_dir / "prd.md"
-        if prd_file.is_file():
-            lines.append("")
-            lines.append("[!] This task has prd.md - read it for task details")
-    else:
-        lines.append("(none)")
+    _append_current_task_lines(
+        lines,
+        _get_current_task_info(repo_root),
+        include_created=True,
+        include_description=True,
+        include_prd_hint=True,
+    )
     lines.append("")
 
     # Active tasks
@@ -431,18 +513,7 @@ def get_context_record_json(repo_root: Path | None = None) -> dict:
                         })
 
     # Current task
-    current_task_info = None
-    current_task = get_current_task(repo_root)
-    if current_task:
-        task_json_path = (repo_root / current_task) / FILE_TASK_JSON
-        if task_json_path.is_file():
-            data = _read_json_file(task_json_path)
-            if data:
-                current_task_info = {
-                    "path": current_task,
-                    "name": data.get("name") or data.get("id") or "unknown",
-                    "status": data.get("status", "unknown"),
-                }
+    current_task_info = _get_current_task_info(repo_root)
 
     return {
         "developer": developer or "",
@@ -567,22 +638,7 @@ def get_context_text_record(repo_root: Path | None = None) -> str:
     lines.append("")
 
     # CURRENT TASK
-    lines.append("## CURRENT TASK")
-    current_task = get_current_task(repo_root)
-    if current_task:
-        current_task_dir = repo_root / current_task
-        task_json_path = current_task_dir / FILE_TASK_JSON
-        lines.append(f"Path: {current_task}")
-
-        if task_json_path.is_file():
-            data = _read_json_file(task_json_path)
-            if data:
-                t_name = data.get("name") or data.get("id") or "unknown"
-                t_status = data.get("status", "unknown")
-                lines.append(f"Name: {t_name}")
-                lines.append(f"Status: {t_status}")
-    else:
-        lines.append("(none)")
+    _append_current_task_lines(lines, _get_current_task_info(repo_root))
     lines.append("")
 
     lines.append("========================================")
