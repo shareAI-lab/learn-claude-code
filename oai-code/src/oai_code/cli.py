@@ -189,6 +189,7 @@ def main(argv: list[str] | None = None) -> int:
             bus=team_bus,
             manager=team_manager,
             parent_registry=registry,
+            task_store=task_store,
         )
 
     # MCP (stdio only for M2): 启动 enabled 的 server,把它们的 tools 加入 registry

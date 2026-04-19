@@ -17,6 +17,7 @@ from ..agent.loop import AgentState, LoopCallbacks, run_turn
 from ..config.models import Config
 from ..llm.client import LLMClient
 from ..tools.registry import Tool, ToolRegistry
+from ..tools.tasks import TaskStore
 from .bus import MessageBus
 from .manager import TeammateManager
 
@@ -42,6 +43,7 @@ def _build_teammate_registry(
     bus: MessageBus,
     self_name: str,
     read_only: bool = True,
+    task_store: TaskStore | None = None,
 ) -> ToolRegistry:
     """队友的工具集: 白名单过父 registry + 加 team 专用工具。"""
     wl = TEAMMATE_WHITELIST_READ if read_only else TEAMMATE_WHITELIST_FULL
@@ -79,7 +81,43 @@ def _build_teammate_registry(
             handler=lambda **_: "Idle requested",
         )
     )
+    if task_store is not None:
+        sub.register(
+            Tool(
+                name="ClaimTask",
+                description=(
+                    "Claim an unclaimed, unblocked task from the shared board. "
+                    "After claiming, the task belongs to you and should be driven "
+                    "to completion."
+                ),
+                requires=["write"],
+                input_schema={
+                    "type": "object",
+                    "properties": {"task_id": {"type": "integer"}},
+                    "required": ["task_id"],
+                },
+                handler=lambda **kw: _claim_task(task_store, self_name, kw["task_id"]),
+            )
+        )
     return sub
+
+
+def _claim_task(store: TaskStore, self_name: str, tid: int) -> str:
+    """把 task 的 owner 设为当前队友名,并置 in_progress。"""
+    import json
+
+    try:
+        task = json.loads(store.get(int(tid)))
+    except Exception:
+        return store.get(int(tid))  # 已经是 Error: 字符串
+    if "id" not in task:
+        return task  # Error 透传
+    if task.get("owner") and task["owner"] != self_name:
+        return f"Error: task {tid} already owned by {task['owner']}"
+    if task.get("blockedBy"):
+        return f"Error: task {tid} blocked by {task['blockedBy']}"
+    out = store.update(int(tid), status="in_progress", owner=self_name)
+    return out
 
 
 def start_teammate_loop(
@@ -92,14 +130,19 @@ def start_teammate_loop(
     parent_registry: ToolRegistry,
     bus: MessageBus,
     manager: TeammateManager,
+    task_store: TaskStore | None = None,
     read_only: bool = False,
     max_work_iterations: int = 20,
     idle_poll_sec: float = 2.0,
     idle_timeout_sec: float = 60.0,
+    autonomous: bool = True,
 ) -> threading.Thread:
-    """在独立线程里跑队友 agent loop。立即返回线程对象,不阻塞。"""
+    """在独立线程里跑队友 agent loop。立即返回线程对象,不阻塞。
 
-    sub_reg = _build_teammate_registry(parent_registry, bus, name, read_only)
+    autonomous=True 时,IDLE 阶段会自动扫描 .oaic/tasks/ 认领未阻塞任务。
+    """
+
+    sub_reg = _build_teammate_registry(parent_registry, bus, name, read_only, task_store)
     system = _teammate_system_prompt(name, role, "default", cfg.workspace_root())
 
     def _loop() -> None:
@@ -154,9 +197,18 @@ def start_teammate_loop(
                         return
                     woke_up = True
                     break
+                # 自治: 扫任务板,认领第一个 unblocked + unclaimed 任务
+                if autonomous and task_store is not None:
+                    claimed = _try_autoclaim(task_store, name, state)
+                    if claimed:
+                        woke_up = True
+                        break
             if not woke_up:
                 manager.set_status(name, "shutdown")
                 return
+            # 身份重注入: compact 可能把 system 压没了,
+            # 若 non-system 消息 ≤ 3 说明历史被截断,补一条
+            _reinject_identity(state, name, role)
 
     t = threading.Thread(target=_loop, daemon=True, name=f"teammate-{name}")
     t.start()
@@ -189,6 +241,56 @@ def _inject_inbox(state: AgentState, inbox: list[dict[str, Any]]) -> bool:
                 }
             )
     return terminate
+
+
+def _try_autoclaim(store: TaskStore, self_name: str, state: AgentState) -> bool:
+    """扫 store,找第一个 unblocked + unclaimed 的 task,认领它并注入 user 消息。
+
+    返回 True 表示成功认领,False 表示没活干。
+    """
+    import json
+
+    for p in sorted(store.dir.glob("task_*.json")):
+        try:
+            task = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if task.get("owner"):
+            continue
+        if task.get("status") not in ("pending", None):
+            continue
+        if task.get("blockedBy"):
+            continue
+        # claim
+        store.update(int(task["id"]), status="in_progress", owner=self_name)
+        state.messages.append(
+            {
+                "role": "user",
+                "content": (
+                    f"<auto-claimed task_id=\"{task['id']}\">"
+                    f"You autonomously claimed this task. Subject: {task.get('subject', '')}. "
+                    f"Description: {task.get('description', '')}. "
+                    f"Drive it to completion, then mark status=completed via TaskUpdate."
+                    f"</auto-claimed>"
+                ),
+            }
+        )
+        return True
+    return False
+
+
+def _reinject_identity(state: AgentState, name: str, role: str) -> None:
+    """messages 被 compact 截断后,补一条身份提示。"""
+    non_system = [m for m in state.messages if m.get("role") != "system"]
+    if len(non_system) > 3:
+        return
+    state.messages.append(
+        {
+            "role": "user",
+            "content": f"<identity>You are teammate '{name}' (role: {role}). "
+            f"Continue your duties.</identity>",
+        }
+    )
 
 
 def _last_assistant_called_idle(state: AgentState) -> bool:

@@ -24,6 +24,7 @@ def register_team_tools(
     manager: TeammateManager,
     parent_registry: ToolRegistry,
     tracker: ProtocolTracker | None = None,
+    task_store=None,
 ) -> None:
     if tracker is None:
         tracker = ProtocolTracker()
@@ -44,6 +45,7 @@ def register_team_tools(
             parent_registry=parent_registry,
             bus=bus,
             manager=manager,
+            task_store=task_store,
             read_only=read_only,
         )
         manager.register_thread(name, t)
