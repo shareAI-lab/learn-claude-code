@@ -661,13 +661,29 @@ def agent_loop(messages: list):
             messages[:] = auto_compact(messages)
         # s08: drain background notifications
         notifs = BG.drain()
-        if notifs:
-            txt = "\n".join(f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs)
-            messages.append({"role": "user", "content": f"<background-results>\n{txt}\n</background-results>"})
         # s10: check lead inbox
         inbox = BUS.read_inbox("lead")
+
+        # Collect all system messages to avoid consecutive user messages
+        system_messages = []
+        if notifs:
+            txt = "\n".join(f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs)
+            system_messages.append(f"<background-results>\n{txt}\n</background-results>")
         if inbox:
-            messages.append({"role": "user", "content": f"<inbox>{json.dumps(inbox, indent=2)}</inbox>"})
+            system_messages.append(f"<inbox>{json.dumps(inbox, indent=2)}</inbox>")
+
+        # Add system messages, ensuring no consecutive user messages
+        if system_messages:
+            combined_content = "\n\n".join(system_messages)
+            if messages and messages[-1]["role"] == "user":
+                # Last message is already user, append to its content
+                last_msg = messages[-1]
+                if isinstance(last_msg["content"], str):
+                    last_msg["content"] = last_msg["content"] + "\n\n" + combined_content
+                elif isinstance(last_msg["content"], list):
+                    last_msg["content"].append({"type": "text", "text": combined_content})
+            else:
+                messages.append({"role": "user", "content": combined_content})
         # LLM call
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
