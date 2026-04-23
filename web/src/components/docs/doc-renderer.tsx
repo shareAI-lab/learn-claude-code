@@ -16,6 +16,30 @@ interface DocRendererProps {
   slug?: string;
 }
 
+function rewriteMarkdownHref(href: string, locale: string): string {
+  if (!href || href.startsWith("#")) return href;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href) || href.startsWith("//")) return href;
+
+  const [pathAndQuery, hashFragment] = href.split("#", 2);
+  const [pathPart, queryFragment] = pathAndQuery.split("?", 2);
+  if (!pathPart.toLowerCase().endsWith(".md")) return href;
+
+  const filename = pathPart.split("/").pop();
+  if (!filename) return href;
+
+  const slug = filename.replace(/\.md$/i, "");
+  if (!slug) return href;
+
+  const chapterMatch = slug.match(/^s(0[1-9]|1[0-9])(?:-|$)/i);
+  let rewritten = chapterMatch
+    ? `/${locale}/s${chapterMatch[1]}`
+    : `/${locale}/docs/${slug}`;
+
+  if (queryFragment) rewritten += `?${queryFragment}`;
+  if (hashFragment) rewritten += `#${hashFragment}`;
+  return rewritten;
+}
+
 function renderMarkdown(md: string): string {
   const result = unified()
     .use(remarkParse)
@@ -28,7 +52,7 @@ function renderMarkdown(md: string): string {
   return String(result);
 }
 
-function postProcessHtml(html: string): string {
+function postProcessHtml(html: string, locale: string): string {
   // Add language labels to highlighted code blocks
   html = html.replace(
     /<pre><code class="hljs language-(\w+)">/g,
@@ -60,6 +84,13 @@ function postProcessHtml(html: string): string {
   // stretching the whole doc page.
   html = html.replace(/<table>/g, '<div class="table-scroll"><table>');
   html = html.replace(/<\/table>/g, "</table></div>");
+
+  // Convert markdown relative links (./*.md) to Next.js routes so
+  // "recommended reading" links stay inside the site instead of 404.
+  html = html.replace(/href="([^"]+)"/g, (_, href: string) => {
+    const rewritten = rewriteMarkdownHref(href, locale);
+    return `href="${rewritten}"`;
+  });
 
   return html;
 }
@@ -93,8 +124,8 @@ export function DocRenderer({ version, slug }: DocRendererProps) {
 
   const html = useMemo(() => {
     const raw = renderMarkdown(doc.content);
-    return postProcessHtml(raw);
-  }, [doc.content]);
+    return postProcessHtml(raw, locale);
+  }, [doc.content, locale]);
 
   return (
     <div className="py-4">
