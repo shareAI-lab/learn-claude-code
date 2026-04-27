@@ -22,6 +22,14 @@ export default function HomePage() {
     <div className="flex flex-col gap-16 pb-16">
       {/* Hero */}
       <section className="flex flex-col items-center px-2 pt-12 text-center sm:pt-24">
+        <img
+          src="/hero-claude.webp"
+          alt="Learn Claude Code — Build AI Agents the Right Way"
+          width={1280}
+          height={853}
+          fetchPriority="high"
+          className="mb-10 h-auto w-full max-w-3xl rounded-2xl"
+        />
         <h1 className="text-3xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
           {t("hero_title")}
         </h1>
