@@ -1,28 +1,16 @@
 [English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
 
-# Learn Claude Code
+## Agency Comes from the Model. An Agent Product = Model + Harness.
 
-A teaching repository for implementers who want to build a high-completion coding-agent harness from scratch.
+Before we talk about code, let's get one thing straight.
 
-This repo does not try to mirror every product detail from a production codebase. It focuses on the mechanisms that actually decide whether an agent can work well:
+**Agency -- the ability to perceive, reason, and act -- comes from model training, not from external code orchestration.** But a working agent product needs both the model and the harness. The model is the driver, the harness is the vehicle. This repo teaches you how to build the vehicle.
 
-- the loop
-- tools
-- planning
-- delegation
-- context control
-- permissions
-- hooks
-- memory
-- prompt assembly
-- tasks
-- teams
-- isolated execution lanes
-- external capability routing
+### Where Agency Comes From
 
-The goal is simple:
+At the core of every agent is a neural network -- a Transformer, an RNN, a learned function -- that has been trained, through billions of gradient updates on action-sequence data, to perceive an environment, reason about goals, and take actions. Agency is never granted by the surrounding code. It is learned by the model during training.
 
-**understand the real design backbone well enough that you can rebuild it yourself.**
+Humans are the best example. A biological neural network shaped by millions of years of evolutionary training, perceiving the world through senses, reasoning through a brain, acting through a body. When DeepMind, OpenAI, or Anthropic say "agent," the core of what they mean is always the same thing: **a model that has learned to act, plus the infrastructure that lets it operate in a specific environment.**
 
 ## What This Repo Is Really Teaching
 
@@ -44,10 +32,7 @@ That working environment is made of a few cooperating parts:
 
 This is the teaching promise of the repo:
 
-- teach the mainline in a clean order
-- explain unfamiliar concepts before relying on them
-- stay close to real system structure
-- avoid drowning the learner in irrelevant product details
+Every one of these milestones points to the same fact: **agency -- the ability to perceive, reason, and act -- is trained, not coded.** But every agent also needed an environment to operate in: the Atari emulator, the Dota 2 client, the StarCraft II engine, the IDE and terminal. The model provides intelligence. The environment provides the action space. Together they form a complete agent.
 
 ## What This Repo Deliberately Does Not Teach
 
@@ -252,10 +237,6 @@ If you want the fullest and most frequently refined explanation path, use the Ch
 
 By the end of the repo, you should be able to answer these questions clearly:
 
-- what is the minimum state a coding agent needs?
-- why is `tool_result` the center of the loop?
-- when should you use a subagent instead of stuffing more into one context?
-- what problem do permissions, hooks, memory, prompt assembly, and tasks each solve?
-- when should a single-agent system grow into tasks, teams, worktrees, and MCP?
+**Agency comes from the model. The harness makes agency real. Build great harnesses. The model will do the rest.**
 
 If you can answer those questions clearly and build a similar system yourself, this repo has done its job.
