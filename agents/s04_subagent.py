@@ -119,7 +119,9 @@ CHILD_TOOLS = [
 def run_subagent(prompt: str) -> str:
     sub_messages = [{"role": "user", "content": prompt}]  # fresh context
     final_text = ""
+    turns = 0
     for _ in range(30):  # safety limit
+        turns += 1
         response = client.chat.completions.create(
             model=MODEL,
             messages=[{"role": "system", "content": SUBAGENT_SYSTEM}] + sub_messages,
@@ -147,6 +149,8 @@ def run_subagent(prompt: str) -> str:
                 output = f"Error: {e}"
             sub_messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(output)[:50000]})
     # Only the final text returns to the parent -- child context is discarded
+    processed = sum(len(str(m.get("content") or "")) for m in sub_messages)
+    print(f"\033[90m  [subagent: {turns} turns, processed {processed:,} chars -> {len(final_text):,} char summary to parent]\033[0m")
     return final_text or "(no summary)"
 
 
@@ -206,9 +210,12 @@ if __name__ == "__main__":
             break
         if query.strip().lower() in ("q", "exit", ""):
             break
+        before_chars = sum(len(str(m.get("content") or "")) for m in history)
         history.append({"role": "user", "content": query})
         agent_loop(history)
         final = history[-1].get("content") if isinstance(history[-1], dict) else None
         if final:
             print(final)
+        after_chars = sum(len(str(m.get("content") or "")) for m in history)
+        print(f"\033[90m[parent context: {after_chars:,} chars (+{after_chars - before_chars:,} this turn)]\033[0m")
         print()
