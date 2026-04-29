@@ -38,7 +38,7 @@ load_dotenv(override=True)
 
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY", ""),
-    base_url=os.getenv("OPENAI_BASE_URL", "https://aigateway.instacart.tools/unified/fredliang-test/v1"),
+    base_url=os.environ["OPENAI_BASE_URL"],
 )
 MODEL = os.environ["MODEL_ID"]
 
