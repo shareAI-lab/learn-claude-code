@@ -1,0 +1,47 @@
+{
+  "version": "s13",
+  "decisions": [
+    {
+      "id": "spectrum-not-binary",
+      "title": "Permission as a Spectrum, Not a Switch",
+      "description": "Most security systems treat commands as allowed or denied. s13 introduces five modes: allow, ask, deny, auto_edit, and edit. This spectrum lets the harness auto-approve safe commands (ls, cat) while blocking catastrophes (rm -rf /) and escalating uncertain cases to the user. The edit mode is particularly useful: it rewrites rm -rf to rm -r, removing the force flag without blocking the operation entirely.",
+      "alternatives": "A simple allow/deny list is easier to implement but forces a binary choice on every command. The user either approves everything or nothing. The five-mode spectrum gives the harness nuance: it can handle 90% of commands automatically and only escalate the genuinely ambiguous ones.",
+      "zh": {
+        "title": "权限是光谱，不是开关",
+        "description": "大多数安全系统将命令视为允许或拒绝。s13 引入五种模式：allow、ask、deny、auto_edit 和 edit。这个光谱让 Harness 自动批准安全命令（ls、cat），同时阻止灾难性操作（rm -rf /），将不确定的情况上报给用户。edit 模式特别有用：它将 rm -rf 改写为 rm -r，去掉了强制标志但不完全阻止操作。"
+      },
+      "ja": {
+        "title": "権限はスイッチではなくスペクトラム",
+        "description": "ほとんどのセキュリティシステムはコマンドを許可または拒否として扱う。s13は5つのモードを導入する：allow、ask、deny、auto_edit、edit。このスペクトラムにより、安全なコマンド（ls、cat）は自動承認し、破壊的操作（rm -rf /）はブロックし、不確実なケースはユーザーに確認できる。"
+      }
+    },
+    {
+      "id": "compound-command-detection",
+      "title": "Detecting Compound Commands",
+      "description": "The whitelist check only looks at the first token of a command. Without compound detection, ls; rm -rf / would pass because ls is whitelisted. s13 adds a regex check for shell metacharacters (;, &, |, `, $()) before whitelist approval. This prevents an attacker (or confused model) from smuggling dangerous commands behind a safe prefix.",
+      "alternatives": "A full shell parser (like tree-sitter-bash) would be more accurate but adds a heavy dependency. The regex approach catches 99% of compound commands in practice, and the LLM classifier (s14) handles the remaining edge cases.",
+      "zh": {
+        "title": "复合命令检测",
+        "description": "白名单检查只看命令的第一个 token。没有复合检测的话，ls; rm -rf / 会通过，因为 ls 在白名单中。s13 在白名单批准前添加了 shell 元字符（;、&、|、`、$()）的正则检查，防止危险命令藏在安全前缀后面。"
+      },
+      "ja": {
+        "title": "複合コマンドの検出",
+        "description": "ホワイトリストチェックはコマンドの最初のトークンのみを見る。複合検出がなければ、ls; rm -rf / が ls はホワイトリストにあるため通過してしまう。s13はホワイトリスト承認前にシェルメタ文字（;、&、|、`、$()）の正規チェックを追加し、安全なプレフィックスの背後に危険なコマンドが隠れるのを防ぐ。"
+      }
+    },
+    {
+      "id": "deny-first-priority",
+      "title": "Deny Rules Run First",
+      "description": "The classify() method checks deny patterns before the whitelist. This means even if a command starts with a whitelisted tool, if it contains a denied pattern anywhere, it gets blocked. This 'safety first' ordering ensures that dangerous patterns can never be bypassed by a whitelist match.",
+      "alternatives": "Checking whitelist first would be faster for the common case (most commands are safe) but could miss dangerous suffixes. The deny-first ordering trades a small performance cost for guaranteed safety.",
+      "zh": {
+        "title": "拒绝规则优先执行",
+        "description": "classify() 方法在白名单之前检查拒绝模式。这意味着即使命令以白名单工具开头，只要包含拒绝模式就会被阻止。这种'安全优先'的顺序确保危险模式永远不会被白名单绕过。"
+      },
+      "ja": {
+        "title": "拒否ルールを最初に実行",
+        "description": "classify()メソッドはホワイトリストの前に拒否パターンをチェックする。つまり、コマンドがホワイトリストツールで始まっていても、拒否パターンが含まれていればブロックされる。この「安全第一」の順序により、危険なパターンがホワイトリスト一致でバイパスされることはない。"
+      }
+    }
+  ]
+}

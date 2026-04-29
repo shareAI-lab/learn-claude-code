@@ -19,6 +19,9 @@ const visualizations: Record<
   s10: lazy(() => import("./s10-team-protocols")),
   s11: lazy(() => import("./s11-autonomous-agents")),
   s12: lazy(() => import("./s12-worktree-task-isolation")),
+  s13: lazy(() => import("./s13-permission-guard")),
+  s14: lazy(() => import("./s14-security-classifier")),
+  s17: lazy(() => import("./s17-secure-extension-harness")),
 };
 
 export function SessionVisualization({ version }: { version: string }) {

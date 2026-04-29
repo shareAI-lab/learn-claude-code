@@ -1,18 +1,19 @@
 {
   "meta": { "title": "Learn Claude Code", "description": "Build a nano Claude Code-like agent from 0 to 1, one mechanism at a time" },
   "nav": { "home": "Home", "timeline": "Timeline", "compare": "Compare", "layers": "Layers", "github": "GitHub" },
-  "home": { "hero_title": "Learn Claude Code", "hero_subtitle": "Build a nano Claude Code-like agent from 0 to 1, one mechanism at a time", "start": "Start Learning", "core_pattern": "The Core Pattern", "core_pattern_desc": "Every AI coding agent shares the same loop: call the model, execute tools, feed results back. Production systems add policy, permissions, and lifecycle layers on top.", "learning_path": "Learning Path", "learning_path_desc": "12 progressive sessions, from a simple loop to isolated autonomous execution", "layers_title": "Architectural Layers", "layers_desc": "Five orthogonal concerns that compose into a complete agent", "loc": "LOC", "learn_more": "Learn More", "versions_in_layer": "versions", "message_flow": "Message Growth", "message_flow_desc": "Watch the messages array grow as the agent loop executes" },
+  "home": { "hero_title": "Learn Claude Code", "hero_subtitle": "Build a nano Claude Code-like agent from 0 to 1, one mechanism at a time", "start": "Start Learning", "core_pattern": "The Core Pattern", "core_pattern_desc": "Every AI coding agent shares the same loop: call the model, execute tools, feed results back. Production systems add policy, permissions, and lifecycle layers on top.", "learning_path": "Learning Path", "learning_path_desc": "17 progressive sessions, from a simple loop to secure extensible execution", "layers_title": "Architectural Layers", "layers_desc": "Five orthogonal concerns that compose into a complete agent", "loc": "LOC", "learn_more": "Learn More", "versions_in_layer": "versions", "message_flow": "Message Growth", "message_flow_desc": "Watch the messages array grow as the agent loop executes" },
   "version": { "loc": "lines of code", "tools": "tools", "new": "New", "prev": "Previous", "next": "Next", "view_source": "View Source", "view_diff": "View Diff", "design_decisions": "Design Decisions", "whats_new": "What's New", "tutorial": "Tutorial", "simulator": "Agent Loop Simulator", "execution_flow": "Execution Flow", "architecture": "Architecture", "concept_viz": "Concept Visualization", "alternatives": "Alternatives Considered", "tab_learn": "Learn", "tab_simulate": "Simulate", "tab_code": "Code", "tab_deep_dive": "Deep Dive" },
   "sim": { "play": "Play", "pause": "Pause", "step": "Step", "reset": "Reset", "speed": "Speed", "step_of": "of" },
-  "timeline": { "title": "Learning Path", "subtitle": "s01 to s12: Progressive Agent Design", "layer_legend": "Layer Legend", "loc_growth": "LOC Growth", "learn_more": "Learn More" },
+  "timeline": { "title": "Learning Path", "subtitle": "s01 to s17: Progressive Agent Design", "layer_legend": "Layer Legend", "loc_growth": "LOC Growth", "learn_more": "Learn More" },
   "layers": {
     "title": "Architectural Layers",
-    "subtitle": "Five orthogonal concerns that compose into a complete agent",
+    "subtitle": "Six orthogonal concerns that compose into a complete agent",
     "tools": "What the agent CAN do. The foundation: tools give the model capabilities to interact with the world.",
     "planning": "How work is organized. From simple todo lists to dependency-aware task boards shared across agents.",
     "memory": "Keeping context within limits. Compression strategies that let agents work infinitely without losing coherence.",
     "concurrency": "Non-blocking execution. Background threads and notification buses for parallel work.",
-    "collaboration": "Multi-agent coordination. Teams, messaging, and autonomous teammates that think for themselves."
+    "collaboration": "Multi-agent coordination. Teams, messaging, and autonomous teammates that think for themselves.",
+    "security": "Protecting the user from the agent. Permission models, security classifiers, lifecycle hooks, and external tool protocols."
   },
   "compare": {
     "title": "Compare Versions",
@@ -50,14 +51,20 @@
     "s09": "Agent Teams",
     "s10": "Team Protocols",
     "s11": "Autonomous Agents",
-    "s12": "Worktree + Task Isolation"
+    "s12": "Worktree + Task Isolation",
+    "s13": "Permission Guard",
+    "s14": "Security Classifier",
+    "s15": "Hooks System",
+    "s16": "MCP Client",
+    "s17": "Secure Extension Harness"
   },
   "layer_labels": {
     "tools": "Tools & Execution",
     "planning": "Planning & Coordination",
     "memory": "Memory Management",
     "concurrency": "Concurrency",
-    "collaboration": "Collaboration"
+    "collaboration": "Collaboration",
+    "security": "Security & Extensibility"
   },
   "viz": {
     "s01": "The Agent While-Loop",
@@ -71,6 +78,11 @@
     "s09": "Agent Team Mailboxes",
     "s10": "FSM Team Protocols",
     "s11": "Autonomous Agent Cycle",
-    "s12": "Worktree Task Isolation"
+    "s12": "Worktree Task Isolation",
+    "s13": "Permission Guard Pipeline",
+    "s14": "Two-Layer Security Classifier",
+    "s15": "Hook Manager Event Bus",
+    "s16": "MCP Tool Discovery",
+    "s17": "Secure Execution Pipeline"
   }
 }

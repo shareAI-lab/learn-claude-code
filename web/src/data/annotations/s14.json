@@ -1,0 +1,47 @@
+{
+  "version": "s14",
+  "decisions": [
+    {
+      "id": "two-layer-classification",
+      "title": "Two Layers: Regex + LLM",
+      "description": "Regex patterns are fast (zero cost) but can only match shapes, not intent. LLM classification understands intent but costs ~10 tokens per call. The two-layer pipeline gets the best of both: Layer 1 (regex) instantly blocks known dangerous patterns at zero cost, and only unknown commands reach Layer 2 (LLM) for semantic analysis.",
+      "alternatives": "Using only regex would miss novel attack vectors. Using only LLM would be too slow and expensive for every command. The two-layer approach amortizes cost: most commands are resolved by Layer 1, and the LLM only fires for ambiguous cases.",
+      "zh": {
+        "title": "两层分类：正则 + LLM",
+        "description": "正则模式速度快（零成本）但只能匹配形状，不理解意图。LLM 分类理解意图但每次调用花费约 10 tokens。两层管线兼得两者优势：Layer 1（正则）以零成本即时拦截已知危险模式，只有未知命令才到达 Layer 2（LLM）进行语义分析。"
+      },
+      "ja": {
+        "title": "2層分類：正規表現 + LLM",
+        "description": "正規パターンは高速（ゼロコスト）だが形状しかマッチできず、意図を理解できない。LLM分類は意図を理解するが呼び出しごとに約10トークンかかる。2層パイプラインは両方の利点を得る：Layer 1（正規表現）が既知の危険パターンをゼロコストで即座にブロックし、未知のコマンドのみがLayer 2（LLM）に到達する。"
+      }
+    },
+    {
+      "id": "moderate-as-default",
+      "title": "Moderate as the Safe Default",
+      "description": "When the LLM classifier fails (API error, timeout, unparseable response), it defaults to 'moderate', which maps to 'ask' mode. This means the user gets prompted instead of the command being auto-approved or silently denied. It's the safest fallback: it doesn't block legitimate work, but it doesn't let dangerous commands through either.",
+      "alternatives": "Defaulting to 'allow' would be dangerous -- a classifier failure could let catastrophic commands through. Defaulting to 'deny' would be too aggressive, blocking legitimate work when the API is flaky. 'Moderate/ask' is the Goldilocks zone.",
+      "zh": {
+        "title": "Moderate 作为安全默认值",
+        "description": "当 LLM 分类器失败（API 错误、超时、无法解析的响应）时，默认返回 'moderate'，对应 'ask' 模式。用户被提示确认，而不是命令被自动批准或静默拒绝。这是最安全的回退：不阻塞合法工作，也不让危险命令通过。"
+      },
+      "ja": {
+        "title": "Moderateを安全なデフォルトに",
+        "description": "LLM分類器が失敗した場合（APIエラー、タイムアウト、解析不能なレスポンス）、デフォルトで'moderate'を返し、'ask'モードにマップされる。ユーザーに確認が求められ、コマンドが自動承認または黙って拒否されることはない。"
+      }
+    },
+    {
+      "id": "classifier-source-tracking",
+      "title": "Source Tracking in Classification Results",
+      "description": "Each classification result includes a 'source' field: 'pattern', 'whitelist', or 'llm'. This lets the user and developers understand why a command was approved or denied. It's also valuable for debugging: if a command is incorrectly classified, the source field tells you which layer made the mistake.",
+      "alternatives": "Without source tracking, debugging misclassifications requires reading logs and guessing which layer produced the result. The source field adds one field to the response but saves hours of debugging time.",
+      "zh": {
+        "title": "分类结果的来源追踪",
+        "description": "每个分类结果包含一个 'source' 字段：'pattern'、'whitelist' 或 'llm'。这让用户和开发者理解为什么命令被批准或拒绝。它对调试也很有价值：如果命令被错误分类，source 字段告诉你哪一层犯了错误。"
+      },
+      "ja": {
+        "title": "分類結果のソース追跡",
+        "description": "各分類結果には'source'フィールドが含まれる：'pattern'、'whitelist'、または'llm'。これによりユーザーと開発者はコマンドが承認または拒否された理由を理解できる。デバッグにも価値がある：コマンドが誤って分類された場合、sourceフィールドがどの層で間違いが起きたかを教える。"
+      }
+    }
+  ]
+}

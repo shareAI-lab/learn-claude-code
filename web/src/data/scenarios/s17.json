@@ -1,0 +1,76 @@
+{
+  "version": "s17",
+  "title": "Secure Extension Harness",
+  "description": "Full security pipeline: Hook -> Classify -> Permission -> Execute -> PostHook",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "Check git log and then force push to origin",
+      "annotation": "User mixes safe and dangerous operations"
+    },
+    {
+      "type": "system_event",
+      "content": "[AgentStart] hook fired",
+      "annotation": "[Layer 1] AgentStart lifecycle hook triggers"
+    },
+    {
+      "type": "assistant_text",
+      "content": "I'll check the git log first.",
+      "annotation": "Model starts with the safe operation"
+    },
+    {
+      "type": "tool_call",
+      "content": "git log --oneline -5",
+      "toolName": "bash",
+      "annotation": "Passes through all security layers"
+    },
+    {
+      "type": "system_event",
+      "content": "[PreToolUse] hook -> pass\n[PreBash] hook -> audit logged\n[Classifier] whitelist: git -> allow",
+      "annotation": "[Layers 1-3] PreHook passes, audit logged, classifier whitelist"
+    },
+    {
+      "type": "tool_result",
+      "content": "a1b2c3d Fix bug\ne4f5g6h Add feature\ni7j8k9l Update docs",
+      "toolName": "bash",
+      "annotation": "Safe command passed all 5 layers"
+    },
+    {
+      "type": "system_event",
+      "content": "[PostToolUse] hook -> auto_git_add skipped\n[PostBash] hook -> pass",
+      "annotation": "[Layer 5] PostHooks fire (no side effects for git log)"
+    },
+    {
+      "type": "assistant_text",
+      "content": "Now I'll force push to origin.",
+      "annotation": "Model attempts the dangerous operation"
+    },
+    {
+      "type": "tool_call",
+      "content": "git push --force origin main",
+      "toolName": "bash",
+      "annotation": "This should be blocked by the security pipeline"
+    },
+    {
+      "type": "system_event",
+      "content": "[PreToolUse] hook -> pass\n[PreBash] hook -> audit logged\n[Classifier] pattern match: 'Force push' -> DENY",
+      "annotation": "[Layer 2] Quick scan catches force push pattern -> denied immediately"
+    },
+    {
+      "type": "tool_result",
+      "content": "Security denied: Force push",
+      "toolName": "bash",
+      "annotation": "Blocked at Layer 2, never reaches execution"
+    },
+    {
+      "type": "assistant_text",
+      "content": "I can't force push as it's blocked by security policy. Would you like me to push normally instead?",
+      "annotation": "Model acknowledges the security block and suggests an alternative"
+    },
+    {
+      "type": "system_event",
+      "content": "[AgentStop] hook fired",
+      "annotation": "[Layer 1] AgentStop lifecycle hook triggers"
+    }
+  ]
+}

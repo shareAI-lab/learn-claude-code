@@ -21,23 +21,56 @@ function getNodeCenter(node: FlowNode): { cx: number; cy: number } {
   return { cx: node.x, cy: node.y };
 }
 
+const LOOP_LX = 20;
+const LOOP_PAD = 15;
+
+function isLoopBack(from: FlowNode, to: FlowNode): boolean {
+  return to.y < from.y - 100;
+}
+
 function getEdgePath(from: FlowNode, to: FlowNode): string {
-  const { cx: x1, cy: y1 } = getNodeCenter(from);
-  const { cx: x2, cy: y2 } = getNodeCenter(to);
-
-  const halfH = from.type === "decision" ? DIAMOND_SIZE / 2 : NODE_HEIGHT / 2;
+  const x1 = from.x, y1 = from.y, x2 = to.x, y2 = to.y;
+  const halfHFrom = from.type === "decision" ? DIAMOND_SIZE / 2 : NODE_HEIGHT / 2;
   const halfHTo = to.type === "decision" ? DIAMOND_SIZE / 2 : NODE_HEIGHT / 2;
+  const halfWFrom = from.type === "decision" ? DIAMOND_SIZE / 2 : NODE_WIDTH / 2;
+  const halfWTo = to.type === "decision" ? DIAMOND_SIZE / 2 : NODE_WIDTH / 2;
 
+  // Loop-back: route along left side
+  if (isLoopBack(from, to)) {
+    const startY = y1 + halfHFrom;
+    const endY = y2 - halfHTo;
+    return `M ${x1} ${startY} L ${x1} ${startY + LOOP_PAD} L ${LOOP_LX} ${startY + LOOP_PAD} L ${LOOP_LX} ${endY - LOOP_PAD} L ${x2} ${endY - LOOP_PAD} L ${x2} ${endY}`;
+  }
+
+  // Same column: vertical
   if (Math.abs(x1 - x2) < 10) {
-    const startY = y1 + halfH;
+    const startY = y1 + halfHFrom;
     const endY = y2 - halfHTo;
     return `M ${x1} ${startY} L ${x2} ${endY}`;
   }
 
-  const startY = y1 + halfH;
+  // Same row: horizontal side-to-side
+  if (Math.abs(y1 - y2) < NODE_HEIGHT) {
+    const midY = (y1 + y2) / 2;
+    const sx = x1 < x2 ? x1 + halfWFrom : x1 - halfWFrom;
+    const ex = x1 < x2 ? x2 - halfWTo : x2 + halfWTo;
+    return `M ${sx} ${midY} L ${ex} ${midY}`;
+  }
+
+  // Different rows & columns: use bezier curves instead of L-shapes
+  // Curves from the same node naturally separate, avoiding overlap
+  const startY = y1 + halfHFrom;
   const endY = y2 - halfHTo;
-  const midY = (startY + endY) / 2;
-  return `M ${x1} ${startY} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${endY}`;
+  const gap = endY - startY;
+
+  if (gap > 30) {
+    const midY = (startY + endY) / 2;
+    return `M ${x1} ${startY} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${endY}`;
+  }
+
+  // Tight gap or going up: curve below then across
+  const routeY = Math.max(startY, y2 + halfHTo) + 20;
+  return `M ${x1} ${startY} C ${x1} ${routeY}, ${x2} ${routeY}, ${x2} ${endY}`;
 }
 
 function NodeShape({ node }: { node: FlowNode }) {

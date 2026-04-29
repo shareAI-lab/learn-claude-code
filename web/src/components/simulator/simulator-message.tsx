@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { SimStep } from "@/types/agent-data";
-import { User, Bot, Terminal, ArrowRight, AlertCircle } from "lucide-react";
+import { User, Bot, Terminal, ArrowRight, AlertCircle, Shield, Zap, Search } from "lucide-react";
 
 interface SimulatorMessageProps {
   step: SimStep;
@@ -44,6 +44,24 @@ const TYPE_CONFIG: Record<
     bgClass: "bg-purple-50 dark:bg-purple-950/30",
     borderClass: "border-purple-200 dark:border-purple-800",
   },
+  permission_check: {
+    icon: Shield,
+    label: "Permission",
+    bgClass: "bg-yellow-50 dark:bg-yellow-950/30",
+    borderClass: "border-yellow-200 dark:border-yellow-800",
+  },
+  classifier_check: {
+    icon: Search,
+    label: "Classifier",
+    bgClass: "bg-orange-50 dark:bg-orange-950/30",
+    borderClass: "border-orange-200 dark:border-orange-800",
+  },
+  hook_fire: {
+    icon: Zap,
+    label: "Hook",
+    bgClass: "bg-cyan-50 dark:bg-cyan-950/30",
+    borderClass: "border-cyan-200 dark:border-cyan-800",
+  },
 };
 
 export function SimulatorMessage({ step, index }: SimulatorMessageProps) {
@@ -77,7 +95,7 @@ export function SimulatorMessage({ step, index }: SimulatorMessageProps) {
         <pre className="overflow-x-auto whitespace-pre-wrap rounded bg-zinc-900 p-2.5 font-mono text-xs leading-relaxed text-zinc-100 dark:bg-zinc-950">
           {step.content || "(empty)"}
         </pre>
-      ) : step.type === "system_event" ? (
+      ) : step.type === "system_event" || step.type === "permission_check" || step.type === "classifier_check" || step.type === "hook_fire" ? (
         <pre className="overflow-x-auto whitespace-pre-wrap rounded bg-purple-900/80 p-2.5 font-mono text-xs leading-relaxed text-purple-100 dark:bg-purple-950">
           {step.content}
         </pre>

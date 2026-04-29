@@ -10,7 +10,7 @@ export interface AgentVersion {
   keyInsight: string;
   classes: { name: string; startLine: number; endLine: number }[];
   functions: { name: string; signature: string; startLine: number }[];
-  layer: "tools" | "planning" | "memory" | "concurrency" | "collaboration";
+  layer: "tools" | "planning" | "memory" | "concurrency" | "collaboration" | "security";
   source: string;
 }
 
@@ -40,7 +40,10 @@ export type SimStepType =
   | "assistant_text"
   | "tool_call"
   | "tool_result"
-  | "system_event";
+  | "system_event"
+  | "permission_check"
+  | "classifier_check"
+  | "hook_fire";
 
 export interface SimStep {
   type: SimStepType;

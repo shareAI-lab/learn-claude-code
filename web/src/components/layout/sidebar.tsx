@@ -12,6 +12,7 @@ const LAYER_DOT_BG: Record<string, string> = {
   memory: "bg-purple-500",
   concurrency: "bg-amber-500",
   collaboration: "bg-red-500",
+  security: "bg-cyan-500",
 };
 
 export function Sidebar() {

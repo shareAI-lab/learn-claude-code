@@ -1,0 +1,47 @@
+{
+  "version": "s17",
+  "decisions": [
+    {
+      "id": "pipeline-over-monolith",
+      "title": "Pipeline Over Monolith",
+      "description": "s17 composes four independent systems (hooks, classifier, permission, MCP) into a single execution pipeline. Each layer answers exactly one question and knows nothing about the others. This separation of concerns means you can add, remove, or reorder layers without touching the others. It's the Unix philosophy applied to agent security: do one thing well.",
+      "alternatives": "A monolithic security function that combines all checks in one place would be simpler to write but harder to maintain. When you need to change how one layer works, you'd have to understand the entire function. The pipeline approach lets you modify one layer independently.",
+      "zh": {
+        "title": "管线优于单体",
+        "description": "s17 将四个独立系统（hooks、分类器、权限、MCP）组合为一条执行管线。每层只回答一个问题，对其他层一无所知。这种关注点分离意味着你可以添加、移除或重排层而不影响其他层。这是 Unix 哲学在 Agent 安全中的应用：做好一件事。"
+      },
+      "ja": {
+        "title": "モノリスよりパイプライン",
+        "description": "s17は4つの独立したシステム（フック、分類器、権限、MCP）を単一の実行パイプラインに構成する。各層は1つの質問にのみ答え、他の層について何も知らない。この関心の分離により、他の層に触れることなく層の追加、削除、並べ替えが可能になる。"
+      }
+    },
+    {
+      "id": "execute-tool-single-entry",
+      "title": "Single Entry Point for All Tools",
+      "description": "Every tool call goes through execute_tool(), which runs the full 5-layer pipeline. There's no way to bypass the pipeline by calling a handler directly -- the agent loop only calls execute_tool(). This 'chokepoint' design ensures that no tool execution can skip security checks, even as new tools are added.",
+      "alternatives": "Letting each tool handler call security checks independently would create gaps: a new handler might forget to add the check. A single entry point enforces security by construction.",
+      "zh": {
+        "title": "所有工具的单一入口点",
+        "description": "每个工具调用都通过 execute_tool()，运行完整的 5 层管线。无法通过直接调用 handler 绕过管线 -- agent 循环只调用 execute_tool()。这种'咽喉点'设计确保没有工具执行能跳过安全检查，即使添加了新工具。"
+      },
+      "ja": {
+        "title": "全ツールの単一エントリポイント",
+        "description": "すべてのツール呼び出しはexecute_tool()を経由し、完全な5層パイプラインを実行する。ハンドラーを直接呼び出してパイプラインをバイパスする方法はない。この「チョークポイント」設計により、新しいツールが追加されてもセキュリティチェックをスキップできない。"
+      }
+    },
+    {
+      "id": "bash-only-classification",
+      "title": "Classification Only for Bash",
+      "description": "The classifier and permission guard only apply to bash commands, not to read_file, write_file, or edit_file. File tools already have path sandboxing (safe_path), and their scope is inherently limited. Bash is the Swiss Army knife -- it can do anything, including destroying your system -- so it needs the extra scrutiny.",
+      "alternatives": "Classifying every tool call would be more thorough but wasteful. read_file can't delete files, write_file can only write within the workspace, and edit_file does surgical replacements. Only bash has the power to execute arbitrary commands.",
+      "zh": {
+        "title": "仅对 Bash 命令分类",
+        "description": "分类器和权限守卫仅适用于 bash 命令，不适用于 read_file、write_file 或 edit_file。文件工具已有路径沙箱（safe_path），其范围本身有限。Bash 是万能工具 -- 它可以做任何事，包括破坏系统 -- 所以需要额外的审查。"
+      },
+      "ja": {
+        "title": "Bashのみ分類",
+        "description": "分類器と権限ガードはbashコマンドにのみ適用され、read_file、write_file、edit_fileには適用されない。ファイルツールには既にパスサンドボックス（safe_path）があり、bashのみが任意のコマンドを実行できる力を持つため、追加の審査が必要。"
+      }
+    }
+  ]
+}

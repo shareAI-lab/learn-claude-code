@@ -1,0 +1,51 @@
+{
+  "version": "s14",
+  "title": "Security Classifier",
+  "description": "Two-layer command classification: regex quick-scan + LLM intent analysis",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "Clean up the build directory and check git status",
+      "annotation": "User asks for potentially dangerous operations"
+    },
+    {
+      "type": "assistant_text",
+      "content": "I'll remove the build directory and check git status.",
+      "annotation": "Model plans two operations of different risk levels"
+    },
+    {
+      "type": "tool_call",
+      "content": "rm -rf build/",
+      "toolName": "bash",
+      "annotation": "Quick scan: no dangerous pattern match -> needs LLM classification"
+    },
+    {
+      "type": "system_event",
+      "content": "[Layer 1: pass]  No pattern match\n[Layer 2: LLM]  -> moderate\n[security:moderate] Allow? (y/n) y",
+      "annotation": "LLM classifies 'rm -rf build/' as moderate risk, user approves"
+    },
+    {
+      "type": "tool_result",
+      "content": "(build directory removed)",
+      "toolName": "bash",
+      "annotation": "Executed after LLM classification and user approval"
+    },
+    {
+      "type": "tool_call",
+      "content": "git status",
+      "toolName": "bash",
+      "annotation": "git is in SAFE_COMMANDS whitelist -> zero-cost auto-allow"
+    },
+    {
+      "type": "tool_result",
+      "content": "On branch main\nnothing to commit",
+      "toolName": "bash",
+      "annotation": "Whitelist: no classifier call needed"
+    },
+    {
+      "type": "assistant_text",
+      "content": "Build directory cleaned and git status checked.",
+      "annotation": "Both operations completed with appropriate classification"
+    }
+  ]
+}

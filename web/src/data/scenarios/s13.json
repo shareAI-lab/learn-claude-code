@@ -1,0 +1,51 @@
+{
+  "version": "s13",
+  "title": "Permission Guard",
+  "description": "An agent with a permission model that classifies commands before execution",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "List all files and then delete temp.log",
+      "annotation": "User sends a multi-step task"
+    },
+    {
+      "type": "assistant_text",
+      "content": "I'll list the files first, then delete temp.log.",
+      "annotation": "Model plans two tool calls"
+    },
+    {
+      "type": "tool_call",
+      "content": "ls -la",
+      "toolName": "bash",
+      "annotation": "ls is in ALLOWED_COMMANDS -> auto-allow"
+    },
+    {
+      "type": "tool_result",
+      "content": "temp.log  hello.py  README.md",
+      "toolName": "bash",
+      "annotation": "Allowed: ls is a safe read-only command"
+    },
+    {
+      "type": "tool_call",
+      "content": "rm temp.log",
+      "toolName": "bash",
+      "annotation": "rm matches ASK_PATTERNS -> needs user confirmation"
+    },
+    {
+      "type": "system_event",
+      "content": "[permission:ask] File deletion\n  Command: rm temp.log\n  Allow? (y/n) y",
+      "annotation": "PermissionGuard classifies as 'ask' mode, user approves"
+    },
+    {
+      "type": "tool_result",
+      "content": "(file deleted)",
+      "toolName": "bash",
+      "annotation": "Command executed after user approval"
+    },
+    {
+      "type": "assistant_text",
+      "content": "Done! Listed files and deleted temp.log.",
+      "annotation": "Both operations completed with appropriate permission checks"
+    }
+  ]
+}

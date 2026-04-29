@@ -1,18 +1,19 @@
 {
   "meta": { "title": "Learn Claude Code", "description": "0 から 1 へ nano Claude Code-like agent を構築し、毎回 1 つの仕組みを追加" },
   "nav": { "home": "ホーム", "timeline": "学習パス", "compare": "バージョン比較", "layers": "アーキテクチャ層", "github": "GitHub" },
-  "home": { "hero_title": "Learn Claude Code", "hero_subtitle": "0 から 1 へ nano Claude Code-like agent を構築し、毎回 1 つの仕組みを追加", "start": "学習を始める", "core_pattern": "コアパターン", "core_pattern_desc": "すべての AI コーディングエージェントは同じループを共有する：モデルを呼び出し、ツールを実行し、結果を返す。実運用ではこの上にポリシー、権限、ライフサイクル層が重なる。", "learning_path": "学習パス", "learning_path_desc": "12の段階的セッション、シンプルなループから分離された自律実行まで", "layers_title": "アーキテクチャ層", "layers_desc": "5つの直交する関心事が完全なエージェントを構成", "loc": "行", "learn_more": "詳細を見る", "versions_in_layer": "バージョン", "message_flow": "メッセージの増加", "message_flow_desc": "エージェントループ実行時のメッセージ配列の成長を観察" },
+  "home": { "hero_title": "Learn Claude Code", "hero_subtitle": "0 から 1 へ nano Claude Code-like agent を構築し、毎回 1 つの仕組みを追加", "start": "学習を始める", "core_pattern": "コアパターン", "core_pattern_desc": "すべての AI コーディングエージェントは同じループを共有する：モデルを呼び出し、ツールを実行し、結果を返す。実運用ではこの上にポリシー、権限、ライフサイクル層が重なる。", "learning_path": "学習パス", "learning_path_desc": "17の段階的セッション、シンプルなループからセキュアな拡張実行まで", "layers_title": "アーキテクチャ層", "layers_desc": "5つの直交する関心事が完全なエージェントを構成", "loc": "行", "learn_more": "詳細を見る", "versions_in_layer": "バージョン", "message_flow": "メッセージの増加", "message_flow_desc": "エージェントループ実行時のメッセージ配列の成長を観察" },
   "version": { "loc": "行のコード", "tools": "ツール", "new": "新規", "prev": "前のバージョン", "next": "次のバージョン", "view_source": "ソースを見る", "view_diff": "差分を見る", "design_decisions": "設計判断", "whats_new": "新機能", "tutorial": "チュートリアル", "simulator": "エージェントループシミュレーター", "execution_flow": "実行フロー", "architecture": "アーキテクチャ", "concept_viz": "コンセプト可視化", "alternatives": "検討された代替案", "tab_learn": "学習", "tab_simulate": "シミュレーション", "tab_code": "ソースコード", "tab_deep_dive": "詳細分析" },
   "sim": { "play": "再生", "pause": "一時停止", "step": "ステップ", "reset": "リセット", "speed": "速度", "step_of": "/" },
-  "timeline": { "title": "学習パス", "subtitle": "s01からs12へ：段階的エージェント設計", "layer_legend": "レイヤー凡例", "loc_growth": "コード量の推移", "learn_more": "詳細を見る" },
+  "timeline": { "title": "学習パス", "subtitle": "s01からs17へ：段階的エージェント設計", "layer_legend": "レイヤー凡例", "loc_growth": "コード量の推移", "learn_more": "詳細を見る" },
   "layers": {
     "title": "アーキテクチャ層",
-    "subtitle": "5つの直交する関心事が完全なエージェントを構成",
+    "subtitle": "6つの直交する関心事が完全なエージェントを構成",
     "tools": "エージェントができること。基盤：ツールがモデルに外部世界と対話する能力を与える。",
     "planning": "作業の組織化。シンプルなToDoリストからエージェント間で共有される依存関係対応タスクボードまで。",
     "memory": "コンテキスト制限内での記憶保持。圧縮戦略によりエージェントが一貫性を失わずに無限に作業可能。",
     "concurrency": "ノンブロッキング実行。バックグラウンドスレッドと通知バスによる並列作業。",
-    "collaboration": "マルチエージェント連携。チーム、メッセージング、自律的に考えるチームメイト。"
+    "collaboration": "マルチエージェント連携。チーム、メッセージング、自律的に考えるチームメイト。",
+    "security": "ユーザーをエージェントから保護。権限モデル、セキュリティ分類器、ライフサイクルフック、外部ツールプロトコル。"
   },
   "compare": {
     "title": "バージョン比較",
@@ -50,14 +51,20 @@
     "s09": "エージェントチーム",
     "s10": "チームプロトコル",
     "s11": "自律エージェント",
-    "s12": "Worktree + タスク分離"
+    "s12": "Worktree + タスク分離",
+    "s13": "権限ガード",
+    "s14": "セキュリティ分類器",
+    "s15": "Hooks システム",
+    "s16": "MCP クライアント",
+    "s17": "セキュア拡張ハーネス"
   },
   "layer_labels": {
     "tools": "ツールと実行",
     "planning": "計画と調整",
     "memory": "メモリ管理",
     "concurrency": "並行処理",
-    "collaboration": "コラボレーション"
+    "collaboration": "コラボレーション",
+    "security": "セキュリティと拡張性"
   },
   "viz": {
     "s01": "エージェント Whileループ",
@@ -71,6 +78,11 @@
     "s09": "エージェントチーム メールボックス",
     "s10": "FSM チームプロトコル",
     "s11": "自律エージェントサイクル",
-    "s12": "Worktree タスク分離"
+    "s12": "Worktree タスク分離",
+    "s13": "権限ガードパイプライン",
+    "s14": "2層セキュリティ分類器",
+    "s15": "フックイベントバス",
+    "s16": "MCPツールディスカバリー",
+    "s17": "セキュア実行パイプライン"
   }
 }
