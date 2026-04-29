@@ -46,7 +46,13 @@ MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = f"""You are a coding agent at {WORKDIR}.
 Use the todo tool to plan multi-step tasks. Mark in_progress before starting, completed when done.
+When calling todo, always pass the FULL list including previously-completed items -- the tool replaces the whole list each call.
 Prefer tools over prose."""
+
+# `TODO.items` is the truth; this file is a window into it so you can
+# `tail -F todos.log` in a second pane during the workshop and watch the
+# [ ] -> [>] -> [x] transitions in real time.
+TODOS_LOG = "todos.log"
 
 
 # -- TodoManager: structured state the LLM writes to --
@@ -73,7 +79,9 @@ class TodoManager:
         if in_progress_count > 1:
             raise ValueError("Only one task can be in_progress at a time")
         self.items = validated
-        return self.render()
+        rendered = self.render()
+        Path(TODOS_LOG).write_text(rendered + "\n", encoding="utf-8")
+        return rendered
 
     def render(self) -> str:
         if not self.items:
@@ -156,7 +164,7 @@ TOOLS = [
      "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}}},
     {"type": "function", "function": {"name": "edit_file", "description": "Replace exact text in file.",
      "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}}},
-    {"type": "function", "function": {"name": "todo", "description": "Update task list. Track progress on multi-step tasks.",
+    {"type": "function", "function": {"name": "todo", "description": "Replace the task list. Pass ALL items every call, including already-completed ones -- this is a whole-list replace, not a patch.",
      "parameters": {"type": "object", "properties": {"items": {"type": "array", "items": {"type": "object", "properties": {"id": {"type": "string"}, "text": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}, "required": ["id", "text", "status"]}}}, "required": ["items"]}}},
 ]
 
@@ -203,6 +211,9 @@ def agent_loop(messages: list):
 
 
 if __name__ == "__main__":
+    # Fresh log each session so `tail -F todos.log` starts clean.
+    Path(TODOS_LOG).write_text("No todos.\n", encoding="utf-8")
+
     history = []
     while True:
         try:
