@@ -225,3 +225,7 @@ test_providers.py
 # Internal analysis artifacts (not learning material)
 analysis/
 analysis_progress.md
+
+# KV 圖源檔（最終版會搬到 web/public/ 為 hero-*.webp）
+/KV.*
+/*-KV.*
