@@ -116,7 +116,6 @@ cat <<EOF
 Done. Activate the venv and try an agent:
 
   $ACTIVATE_CMD
-  # edit .env to set OPENAI_API_KEY, OPENAI_BASE_URL (optional), MODEL_ID
   python agents/s01_agent_loop.py
 
 EOF
