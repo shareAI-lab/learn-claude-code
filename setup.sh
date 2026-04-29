@@ -79,11 +79,19 @@ if missing:
 print("  openai, python-dotenv, pyyaml OK")
 PY
 
+# Pick the right activate script for the user's shell.
+USER_SHELL="$(basename "${SHELL:-bash}")"
+case "$USER_SHELL" in
+  fish)     ACTIVATE_CMD="source $VENV_DIR/bin/activate.fish" ;;
+  csh|tcsh) ACTIVATE_CMD="source $VENV_DIR/bin/activate.csh" ;;
+  *)        ACTIVATE_CMD="source $VENV_DIR/bin/activate" ;;
+esac
+
 cat <<EOF
 
 Done. Activate the venv and try an agent:
 
-  source $VENV_DIR/bin/activate
+  $ACTIVATE_CMD
   # edit .env to set OPENAI_API_KEY, OPENAI_BASE_URL (optional), MODEL_ID
   python agents/s01_agent_loop.py
 
