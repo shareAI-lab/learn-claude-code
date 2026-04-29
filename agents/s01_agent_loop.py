@@ -19,6 +19,7 @@ import json
 import os
 import subprocess
 from dataclasses import dataclass
+from datetime import datetime
 
 try:
     import readline
@@ -41,6 +42,34 @@ client = OpenAI(
     base_url=os.environ["OPENAI_BASE_URL"],
 )
 MODEL = os.environ["MODEL_ID"]
+
+# ANSI colors -- make the live demo readable at a glance.
+YELLOW = "\033[33m"
+GREEN = "\033[32m"
+MAGENTA_BOLD = "\033[1;35m"
+DIM = "\033[2m"
+RESET = "\033[0m"
+
+# Full message history is too noisy for the terminal; stream it to a log file
+# so you can `tail -f history.log` in another pane during the workshop.
+# The raw file contains the full `state.messages` list as JSON, overwritten
+# after every exchange, for anyone who wants to inspect the exact API shapes.
+HISTORY_LOG = "history.log"
+HISTORY_RAW_LOG = "history.raw.log"
+
+
+def log_history(label: str, body: str) -> None:
+    ts = datetime.now().strftime("%H:%M:%S")
+    with open(HISTORY_LOG, "a", encoding="utf-8") as f:
+        f.write(f"[{ts}] --- {label} ---\n")
+        f.write((body.rstrip() or "(empty)") + "\n\n")
+
+
+def dump_raw_history(messages: list) -> None:
+    with open(HISTORY_RAW_LOG, "w", encoding="utf-8") as f:
+        json.dump(messages, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
 
 SYSTEM = (
     f"You are a coding agent at {os.getcwd()}. "
@@ -91,20 +120,15 @@ def run_bash(command: str) -> str:
     return output[:50000] if output else "(no output)"
 
 
-def extract_text(message) -> str:
-    """Extract text content from an OpenAI assistant message dict."""
-    content = message.get("content") if isinstance(message, dict) else None
-    return (content or "").strip()
-
-
 def execute_tool_calls(tool_calls) -> list[dict]:
     results = []
     for tc in tool_calls:
         args = json.loads(tc.function.arguments)
         command = args["command"]
-        print(f"\033[33m$ {command}\033[0m")
+        print(f"{YELLOW}$ {command}{RESET}")
         output = run_bash(command)
-        print(output[:200])
+        print(f"{DIM}{output[:200]}{RESET}")
+        log_history(f"tool ({tc.function.name})", output)
         results.append({
             "role": "tool",
             "tool_call_id": tc.id,
@@ -114,6 +138,7 @@ def execute_tool_calls(tool_calls) -> list[dict]:
 
 
 def run_one_turn(state: LoopState) -> bool:
+    print(f"{MAGENTA_BOLD}--- turn {state.turn_count} ---{RESET}")
     response = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "system", "content": SYSTEM}] + state.messages,
@@ -136,6 +161,19 @@ def run_one_turn(state: LoopState) -> bool:
         ]
     state.messages.append(assistant_msg)
 
+    # Show the assistant's prose (if any) so the demo isn't silent between tool calls.
+    if msg.content and msg.content.strip():
+        print(f"{GREEN}{msg.content.strip()}{RESET}")
+
+    # Log the assistant turn: prose first, then any tool requests as separate lines.
+    body_lines = []
+    if msg.content and msg.content.strip():
+        body_lines.append(msg.content.strip())
+    if msg.tool_calls:
+        for tc in msg.tool_calls:
+            body_lines.append(f"[tool_call] {tc.function.name}({tc.function.arguments})")
+    log_history(f"assistant (turn {state.turn_count})", "\n".join(body_lines))
+
     if choice.finish_reason != "tool_calls" or not msg.tool_calls:
         state.transition_reason = None
         return False
@@ -157,6 +195,10 @@ def agent_loop(state: LoopState) -> None:
 
 
 if __name__ == "__main__":
+    # Fresh logs each session so `tail -f history.log` starts clean.
+    open(HISTORY_LOG, "w").close()
+    open(HISTORY_RAW_LOG, "w").close()
+
     history = []
     while True:
         try:
@@ -166,11 +208,9 @@ if __name__ == "__main__":
         if query.strip().lower() in ("q", "exit", ""):
             break
 
+        log_history("user", query)
         history.append({"role": "user", "content": query})
         state = LoopState(messages=history)
         agent_loop(state)
-
-        final_text = extract_text(history[-1])
-        if final_text:
-            print(final_text)
+        dump_raw_history(state.messages)
         print()
