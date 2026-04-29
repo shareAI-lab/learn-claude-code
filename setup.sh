@@ -41,14 +41,22 @@ fi
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
-# 3. Install deps
+# 3. Configure Instacart CodeArtifact (skip silently if `isc` isn't installed)
+if command -v isc >/dev/null 2>&1; then
+  say "Configuring Instacart CodeArtifact (isc codeartifact configure)"
+  isc codeartifact configure
+else
+  warn "'isc' not found; skipping CodeArtifact configure (non-Instacart users can ignore)."
+fi
+
+# 4. Install deps
 say "Upgrading pip"
 python -m pip install --upgrade pip >/dev/null
 
 say "Installing requirements.txt"
 python -m pip install -r requirements.txt
 
-# 4. Seed .env
+# 5. Seed .env
 if [ ! -f .env ]; then
   if [ -f .env.example ]; then
     say "Creating .env from .env.example"
@@ -61,10 +69,10 @@ else
   say ".env already exists (leaving as-is)"
 fi
 
-# 5. Quick import sanity check
+# 6. Quick import sanity check
 say "Verifying imports"
 python - <<'PY'
-import importlib, sys
+import importlib.util, sys
 missing = [m for m in ("openai", "dotenv", "yaml") if not importlib.util.find_spec(m)]
 if missing:
     sys.exit(f"Missing modules after install: {missing}")
