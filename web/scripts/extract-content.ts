@@ -103,9 +103,11 @@ function countLoc(lines: string[]): number {
 // docs/en/s01-the-agent-loop.md -> "en"
 // docs/zh/s01-the-agent-loop.md -> "zh"
 // docs/ja/s01-the-agent-loop.md -> "ja"
-function detectLocale(relPath: string): "en" | "zh" | "ja" {
+// docs/ko/s01-the-agent-loop.md -> "ko"
+function detectLocale(relPath: string): "en" | "zh" | "ja" | "ko" {
   if (relPath.startsWith("zh/") || relPath.startsWith("zh\\")) return "zh";
   if (relPath.startsWith("ja/") || relPath.startsWith("ja\\")) return "ja";
+  if (relPath.startsWith("ko/") || relPath.startsWith("ko\\")) return "ko";
   return "en";
 }
 
@@ -215,11 +217,11 @@ function main() {
     });
   }
 
-  // 4. Read doc files from locale subdirectories (en/, zh/, ja/)
+  // 4. Read doc files from locale subdirectories (en/, zh/, ja/, ko/)
   const docs: DocContent[] = [];
 
   if (fs.existsSync(DOCS_DIR)) {
-    const localeDirs = ["en", "zh", "ja"];
+    const localeDirs = ["en", "zh", "ja", "ko"];
     let totalDocFiles = 0;
 
     for (const locale of localeDirs) {
@@ -245,7 +247,7 @@ function main() {
         const titleMatch = content.match(/^#\s+(.+)$/m);
         const title = titleMatch ? titleMatch[1] : filename;
 
-        docs.push({ version, locale: locale as "en" | "zh" | "ja", title, content });
+        docs.push({ version, locale: locale as "en" | "zh" | "ja" | "ko", title, content });
       }
     }
 

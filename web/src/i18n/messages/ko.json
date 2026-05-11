@@ -1,0 +1,76 @@
+{
+  "meta": { "title": "Learn Claude Code", "description": "nano Claude Code 스타일의 에이전트를 0에서 1까지, 한 번에 하나의 메커니즘씩 만들어 보세요" },
+  "nav": { "home": "홈", "timeline": "학습 경로", "compare": "버전 비교", "layers": "아키텍처 레이어", "github": "GitHub" },
+  "home": { "hero_title": "Learn Claude Code", "hero_subtitle": "nano Claude Code 스타일의 에이전트를 0에서 1까지, 한 번에 하나의 메커니즘씩 만들어 보세요", "start": "학습 시작", "core_pattern": "핵심 패턴", "core_pattern_desc": "모든 AI 코딩 에이전트는 같은 루프를 공유합니다: 모델을 호출하고, 도구를 실행하고, 결과를 다시 모델에게 전달합니다. 실제 운영 시스템은 그 위에 정책(policy), 권한, 라이프사이클 레이어를 얹습니다.", "learning_path": "학습 경로", "learning_path_desc": "12개의 단계적 세션 — 단순한 루프에서 격리된 자율 실행까지", "layers_title": "아키텍처 레이어", "layers_desc": "완전한 에이전트를 구성하는 5개의 독립된 관심사", "loc": "LOC", "learn_more": "자세히 보기", "versions_in_layer": "개 버전", "message_flow": "메시지 증가 흐름", "message_flow_desc": "에이전트 루프가 실행되면서 messages 배열이 어떻게 늘어나는지 살펴보세요" },
+  "version": { "loc": "코드 라인", "tools": "개 도구", "new": "신규", "prev": "이전", "next": "다음", "view_source": "소스 보기", "view_diff": "변경점 보기", "design_decisions": "설계 결정", "whats_new": "새로 추가된 것", "tutorial": "튜토리얼", "simulator": "에이전트 루프 시뮬레이터", "execution_flow": "실행 흐름", "architecture": "아키텍처", "concept_viz": "개념 시각화", "alternatives": "검토된 대안", "tab_learn": "학습", "tab_simulate": "시뮬레이션", "tab_code": "소스", "tab_deep_dive": "심층 분석" },
+  "sim": { "play": "재생", "pause": "일시정지", "step": "한 단계", "reset": "초기화", "speed": "속도", "step_of": "/" },
+  "timeline": { "title": "학습 경로", "subtitle": "s01부터 s12까지: 점진적인 에이전트 설계", "layer_legend": "레이어 범례", "loc_growth": "LOC 증가 추이", "learn_more": "자세히 보기" },
+  "layers": {
+    "title": "아키텍처 레이어",
+    "subtitle": "완전한 에이전트를 구성하는 5개의 독립된 관심사",
+    "tools": "에이전트가 무엇을 할 수 있는가. 가장 기초가 되는 층 — 도구가 모델에게 세상과 상호작용할 능력을 줍니다.",
+    "planning": "작업을 어떻게 조직하는가. 단순한 할 일 목록에서, 여러 에이전트가 공유하는 의존성 기반 작업 보드까지.",
+    "memory": "컨텍스트 한도 안에서 기억을 유지하는 법. 압축 전략 덕분에 에이전트는 일관성을 잃지 않고 무한히 일할 수 있습니다.",
+    "concurrency": "논블로킹 실행. 백그라운드 스레드와 알림 버스로 작업을 병렬화합니다.",
+    "collaboration": "멀티 에이전트 조율. 팀, 메시징, 스스로 사고하는 자율 동료 에이전트."
+  },
+  "compare": {
+    "title": "버전 비교",
+    "subtitle": "두 버전 사이의 차이점을 한눈에 확인하세요",
+    "select_a": "버전 A",
+    "select_b": "버전 B",
+    "loc_delta": "LOC 변화량",
+    "lines": "라인",
+    "new_tools_in_b": "B에 새로 추가된 도구",
+    "new_classes_in_b": "B에 새로 추가된 클래스",
+    "new_functions_in_b": "B에 새로 추가된 함수",
+    "tool_comparison": "도구 비교",
+    "only_in": "다음에만 존재:",
+    "shared": "공통",
+    "none": "없음",
+    "source_diff": "소스 코드 변경점",
+    "empty_hint": "위에서 두 개의 버전을 선택하면 비교가 시작됩니다.",
+    "architecture": "아키텍처"
+  },
+  "diff": {
+    "new_classes": "새 클래스",
+    "new_tools": "새 도구",
+    "new_functions": "새 함수",
+    "loc_delta": "LOC 변화량"
+  },
+  "sessions": {
+    "s01": "에이전트 루프 (Agent Loop)",
+    "s02": "도구 (Tools)",
+    "s03": "TodoWrite",
+    "s04": "서브에이전트 (Subagents)",
+    "s05": "스킬 (Skills)",
+    "s06": "컨텍스트 압축 (Compact)",
+    "s07": "태스크 시스템 (Tasks)",
+    "s08": "백그라운드 태스크",
+    "s09": "에이전트 팀",
+    "s10": "팀 프로토콜",
+    "s11": "자율 에이전트",
+    "s12": "Worktree + 태스크 격리"
+  },
+  "layer_labels": {
+    "tools": "도구 & 실행",
+    "planning": "계획 & 조정",
+    "memory": "메모리 관리",
+    "concurrency": "동시성",
+    "collaboration": "협업"
+  },
+  "viz": {
+    "s01": "에이전트 While 루프",
+    "s02": "도구 디스패치 맵",
+    "s03": "TodoWrite 알림(nag) 시스템",
+    "s04": "서브에이전트 컨텍스트 격리",
+    "s05": "온디맨드 스킬 로딩",
+    "s06": "3계층 컨텍스트 압축",
+    "s07": "태스크 의존성 그래프",
+    "s08": "백그라운드 태스크 레인",
+    "s09": "에이전트 팀 메일박스",
+    "s10": "FSM 팀 프로토콜",
+    "s11": "자율 에이전트 사이클",
+    "s12": "Worktree 태스크 격리"
+  }
+}

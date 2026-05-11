@@ -1,4 +1,4 @@
-[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
+[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md) | [한국어](./README-ko.md)
 # Learn Claude Code -- Harness Engineering for Real Agents
 
 ## Agency Comes from the Model. An Agent Product = Model + Harness.
@@ -290,7 +290,7 @@ s08  Background Tasks        [6]     s10  Team Protocols          [12]
 learn-claude-code/
 |
 |-- agents/                        # Python reference implementations (s01-s12 + s_full capstone)
-|-- docs/{en,zh,ja}/               # Mental-model-first documentation (3 languages)
+|-- docs/{en,zh,ja,ko}/            # Mental-model-first documentation (4 languages)
 |-- web/                           # Interactive learning platform (Next.js)
 |-- skills/                        # Skill files for s05
 +-- .github/workflows/ci.yml      # CI: typecheck + build
@@ -299,7 +299,7 @@ learn-claude-code/
 ## Documentation
 
 Mental-model-first: problem, solution, ASCII diagram, minimal code.
-Available in [English](./docs/en/) | [中文](./docs/zh/) | [日本語](./docs/ja/).
+Available in [English](./docs/en/) | [中文](./docs/zh/) | [日本語](./docs/ja/) | [한국어](./docs/ko/).
 
 | Session | Topic | Motto |
 |---------|-------|-------|

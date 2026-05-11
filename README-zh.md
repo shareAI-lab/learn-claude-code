@@ -1,6 +1,6 @@
 # Learn Claude Code -- 真正的 Agent Harness 工程
 
-[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
+[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md) | [한국어](./README-ko.md)
 
 ## Agency 来自模型，Agent 产品 = 模型 + Harness
 
