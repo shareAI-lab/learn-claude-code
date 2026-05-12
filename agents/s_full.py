@@ -227,7 +227,22 @@ class SkillLoader:
 def estimate_tokens(messages: list) -> int:
     return len(json.dumps(messages, default=str)) // 4
 
+# Tools whose results should survive micro-compaction because they are
+# reference material (re-reading them wastes a tool call and API tokens).
+_PRESERVE_RESULT_TOOLS = {"read_file"}
+
 def microcompact(messages: list):
+    # Build a map from tool_use_id -> tool_name so we can check which tool
+    # produced each result.  We need this to honour _PRESERVE_RESULT_TOOLS.
+    tool_name_map: dict[str, str] = {}
+    for msg in messages:
+        if msg["role"] == "assistant":
+            content = msg.get("content", [])
+            if isinstance(content, list):
+                for block in content:
+                    if hasattr(block, "type") and block.type == "tool_use":
+                        tool_name_map[block.id] = block.name
+    # Collect every tool_result part.
     indices = []
     for i, msg in enumerate(messages):
         if msg["role"] == "user" and isinstance(msg.get("content"), list):
@@ -237,8 +252,14 @@ def microcompact(messages: list):
     if len(indices) <= 3:
         return
     for part in indices[:-3]:
-        if isinstance(part.get("content"), str) and len(part["content"]) > 100:
-            part["content"] = "[cleared]"
+        if not isinstance(part.get("content"), str) or len(part["content"]) <= 100:
+            continue
+        # Preserve read_file results — compacting them forces the agent to
+        # re-read the file, wasting a tool call.  (Matches s06 behaviour.)
+        tool_id = part.get("tool_use_id", "")
+        if tool_name_map.get(tool_id) in _PRESERVE_RESULT_TOOLS:
+            continue
+        part["content"] = "[cleared]"
 
 def auto_compact(messages: list) -> list:
     TRANSCRIPT_DIR.mkdir(exist_ok=True)
@@ -456,11 +477,29 @@ class TeammateManager:
             # -- WORK PHASE --
             for _ in range(50):
                 inbox = self.bus.read_inbox(name)
-                for msg in inbox:
-                    if msg.get("type") == "shutdown_request":
-                        self._set_status(name, "shutdown")
-                        return
-                    messages.append({"role": "user", "content": json.dumps(msg)})
+                if inbox:
+                    # Merge all inbox messages into a single user turn to
+                    # avoid consecutive user messages (Anthropic API requires
+                    # strict user/assistant alternation).
+                    parts = []
+                    for msg in inbox:
+                        if msg.get("type") == "shutdown_request":
+                            self._set_status(name, "shutdown")
+                            return
+                        parts.append(json.dumps(msg))
+                    if parts:
+                        merged = "\n".join(parts)
+                        # If the last message is already a user turn, fold
+                        # inbox content into it; otherwise append a new one.
+                        if messages and messages[-1]["role"] == "user":
+                            prev = messages[-1]["content"]
+                            if isinstance(prev, str):
+                                messages[-1]["content"] = prev + "\n" + merged
+                            else:
+                                messages.append({"role": "assistant", "content": "Acknowledged."})
+                                messages.append({"role": "user", "content": merged})
+                        else:
+                            messages.append({"role": "user", "content": merged})
                 try:
                     response = client.messages.create(
                         model=MODEL, system=sys_prompt, messages=messages,
@@ -500,11 +539,20 @@ class TeammateManager:
                 time.sleep(POLL_INTERVAL)
                 inbox = self.bus.read_inbox(name)
                 if inbox:
+                    parts = []
                     for msg in inbox:
                         if msg.get("type") == "shutdown_request":
                             self._set_status(name, "shutdown")
                             return
-                        messages.append({"role": "user", "content": json.dumps(msg)})
+                        parts.append(json.dumps(msg))
+                    if parts:
+                        merged = "\n".join(parts)
+                        # Ensure alternation: the last message after the work
+                        # phase is either an assistant turn (natural end) or
+                        # a user turn (tool_results from last tool call).
+                        if messages and messages[-1]["role"] == "user":
+                            messages.append({"role": "assistant", "content": "Idle. Checking inbox."})
+                        messages.append({"role": "user", "content": merged})
                     resume = True
                     break
                 unclaimed = []
@@ -520,6 +568,11 @@ class TeammateManager:
                         messages.insert(0, {"role": "user", "content":
                             f"<identity>You are '{name}', role: {role}, team: {team_name}.</identity>"})
                         messages.insert(1, {"role": "assistant", "content": f"I am {name}. Continuing."})
+                    # Ensure user/assistant alternation before injecting the
+                    # auto-claimed task (the last message after work phase
+                    # might be a user turn containing tool_results).
+                    if messages and messages[-1]["role"] == "user":
+                        messages.append({"role": "assistant", "content": "Idle. Looking for tasks."})
                     messages.append({"role": "user", "content":
                         f"<auto-claimed>Task #{task['id']}: {task['subject']}\n{task.get('description', '')}</auto-claimed>"})
                     messages.append({"role": "assistant", "content": f"Claimed task #{task['id']}. Working on it."})
@@ -659,15 +712,31 @@ def agent_loop(messages: list):
         if estimate_tokens(messages) > TOKEN_THRESHOLD:
             print("[auto-compact triggered]")
             messages[:] = auto_compact(messages)
-        # s08: drain background notifications
+        # s08: drain background notifications + s10: check lead inbox.
+        # Merge both into a single user turn to maintain strict
+        # user/assistant alternation required by the Anthropic API.
+        injected_parts: list[str] = []
         notifs = BG.drain()
         if notifs:
             txt = "\n".join(f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs)
-            messages.append({"role": "user", "content": f"<background-results>\n{txt}\n</background-results>"})
-        # s10: check lead inbox
+            injected_parts.append(f"<background-results>\n{txt}\n</background-results>")
         inbox = BUS.read_inbox("lead")
         if inbox:
-            messages.append({"role": "user", "content": f"<inbox>{json.dumps(inbox, indent=2)}</inbox>"})
+            injected_parts.append(f"<inbox>{json.dumps(inbox, indent=2)}</inbox>")
+        if injected_parts:
+            merged_inject = "\n".join(injected_parts)
+            # If the last message is already a user turn (e.g. tool_results
+            # from the previous iteration), fold injections into it to avoid
+            # sending two consecutive user messages.
+            if messages and messages[-1]["role"] == "user":
+                prev = messages[-1]["content"]
+                if isinstance(prev, str):
+                    messages[-1]["content"] = prev + "\n" + merged_inject
+                elif isinstance(prev, list):
+                    # Previous user turn is tool_results — append as text part.
+                    prev.append({"type": "text", "text": merged_inject})
+            else:
+                messages.append({"role": "user", "content": merged_inject})
         # LLM call
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
