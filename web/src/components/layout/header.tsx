@@ -8,9 +8,8 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { key: "timeline", href: "/timeline" },
+  { key: "reference", href: "/reference" },
   { key: "compare", href: "/compare" },
-  { key: "layers", href: "/layers" },
 ] as const;
 
 const LOCALES = [

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { diffLines, Change } from "diff";
+import { useTranslations } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 interface CodeDiffProps {
@@ -13,11 +14,12 @@ interface CodeDiffProps {
 
 export function CodeDiff({ oldSource, newSource, oldLabel, newLabel }: CodeDiffProps) {
   const [viewMode, setViewMode] = useState<"unified" | "split">("unified");
+  const t = useTranslations("diff");
 
   const changes = useMemo(() => diffLines(oldSource, newSource), [oldSource, newSource]);
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 truncate text-sm text-zinc-500 dark:text-zinc-400">
           <span className="font-medium text-zinc-700 dark:text-zinc-300">{oldLabel}</span>
@@ -34,7 +36,7 @@ export function CodeDiff({ oldSource, newSource, oldLabel, newLabel }: CodeDiffP
                 : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
             )}
           >
-            Unified
+            {t("view_unified")}
           </button>
           <button
             onClick={() => setViewMode("split")}
@@ -45,7 +47,7 @@ export function CodeDiff({ oldSource, newSource, oldLabel, newLabel }: CodeDiffP
                 : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
             )}
           >
-            Split
+            {t("view_split")}
           </button>
         </div>
       </div>
@@ -79,8 +81,8 @@ function UnifiedView({ changes }: { changes: Change[] }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-      <table className="w-full border-collapse font-mono text-xs leading-5">
+    <div className="max-w-full overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
+      <table className="min-w-full border-collapse font-mono text-xs leading-5">
         <tbody>
           {rows.map((row, i) => (
             <tr
@@ -179,8 +181,8 @@ function SplitView({ changes }: { changes: Change[] }) {
     );
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-      <table className="w-full border-collapse font-mono text-xs leading-5">
+    <div className="max-w-full overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
+      <table className="min-w-full border-collapse font-mono text-xs leading-5">
         <tbody>
           {rows.map((row, i) => (
             <tr key={i}>

@@ -12,7 +12,8 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeStringify from "rehype-stringify";
 
 interface DocRendererProps {
-  version: string;
+  version?: string;
+  slug?: string;
 }
 
 function renderMarkdown(md: string): string {
@@ -55,23 +56,38 @@ function postProcessHtml(html: string): string {
     (_, start) => `<ol style="counter-reset:step-counter ${parseInt(start) - 1}">`
   );
 
+  // Wrap markdown tables so wide teaching maps scroll locally instead of
+  // stretching the whole doc page.
+  html = html.replace(/<table>/g, '<div class="table-scroll"><table>');
+  html = html.replace(/<\/table>/g, "</table></div>");
+
   return html;
 }
 
-export function DocRenderer({ version }: DocRendererProps) {
+export function DocRenderer({ version, slug }: DocRendererProps) {
   const locale = useLocale();
 
   const doc = useMemo(() => {
+    if (!version && !slug) return null;
+
     const match = docsData.find(
-      (d: { version: string; locale: string }) =>
-        d.version === version && d.locale === locale
+      (d: { version?: string | null; slug?: string; locale: string; kind?: string }) =>
+        (version ? d.version === version && d.kind === "chapter" : d.slug === slug) &&
+        d.locale === locale
     );
     if (match) return match;
-    return docsData.find(
-      (d: { version: string; locale: string }) =>
-        d.version === version && d.locale === "en"
+    const zhFallback = docsData.find(
+      (d: { version?: string | null; slug?: string; locale: string; kind?: string }) =>
+        (version ? d.version === version && d.kind === "chapter" : d.slug === slug) &&
+        d.locale === "zh"
     );
-  }, [version, locale]);
+    if (zhFallback) return zhFallback;
+    return docsData.find(
+      (d: { version?: string | null; slug?: string; locale: string; kind?: string }) =>
+        (version ? d.version === version && d.kind === "chapter" : d.slug === slug) &&
+        d.locale === "en"
+    );
+  }, [version, slug, locale]);
 
   if (!doc) return null;
 
