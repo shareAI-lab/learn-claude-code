@@ -15,10 +15,10 @@
 ## 解决方案
 
 ```
-+--------+      +-------+      +------------------+
-|  User  | ---> |  LLM  | ---> | Tool Dispatch    |
-| prompt |      |       |      | {                |
-+--------+      +---+---+      |   bash: run_bash |
++--------+      +-------+       +------------------+
+|  User  | ---> |  LLM  | --->  | Tool Dispatch    |
+| prompt |      |       |       | {                |
++--------+      +---+---+       |   bash: run_bash |
                     ^           |   read: run_read |
                     |           |   write: run_wr  |
                     +-----------+   edit: run_edit |

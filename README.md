@@ -1,30 +1,5 @@
 [English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
 
-<<<<<<< HEAD
-# Learn Claude Code
-
-A teaching repository for implementers who want to build a high-completion coding-agent harness from scratch.
-
-This repo does not try to mirror every product detail from a production codebase. It focuses on the mechanisms that actually decide whether an agent can work well:
-
-- the loop
-- tools
-- planning
-- delegation
-- context control
-- permissions
-- hooks
-- memory
-- prompt assembly
-- tasks
-- teams
-- isolated execution lanes
-- external capability routing
-
-The goal is simple:
-
-**understand the real design backbone well enough that you can rebuild it yourself.**
-=======
 ## Agency Comes from the Model. An Agent Product = Model + Harness.
 
 Before we talk about code, let's get one thing straight.
@@ -36,7 +11,6 @@ Before we talk about code, let's get one thing straight.
 At the core of every agent is a neural network -- a Transformer, an RNN, a learned function -- that has been trained, through billions of gradient updates on action-sequence data, to perceive an environment, reason about goals, and take actions. Agency is never granted by the surrounding code. It is learned by the model during training.
 
 Humans are the best example. A biological neural network shaped by millions of years of evolutionary training, perceiving the world through senses, reasoning through a brain, acting through a body. When DeepMind, OpenAI, or Anthropic say "agent," the core of what they mean is always the same thing: **a model that has learned to act, plus the infrastructure that lets it operate in a specific environment.**
->>>>>>> 4b95969a03f780e8aa17340a10ff0a6d9512a2c9
 
 ## What This Repo Is Really Teaching
 

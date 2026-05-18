@@ -129,8 +129,8 @@ def write_transcript(messages: list) -> Path:
 def summarize_history(messages: list) -> str:
     conversation = json.dumps(messages, default=str)[:80000]
     prompt = (
-        "Summarize this coding-agent conversation so work can continue.\n"
-        "Preserve:\n"
+        
+        "Preserve:\n""Summarize this coding-agent conversation so work can continue.\n"
         "1. The current goal\n"
         "2. Important findings and decisions\n"
         "3. Files read or changed\n"
