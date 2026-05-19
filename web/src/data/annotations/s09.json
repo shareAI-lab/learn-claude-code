@@ -13,6 +13,10 @@
       "ja": {
         "title": "永続的なチームメイト vs 使い捨てサブエージェント",
         "description": "s04 ではサブエージェントは一時的です：生成、1つのタスクを実行、結果を返却、消滅。その知識も一緒に消えます。s09 ではチームメイトはアイデンティティ（名前、役割）と設定ファイルを持つ永続的なスレッドです。チームメイトはタスク A を完了した後、学んだ全てを引き継いでタスク B に割り当てられます。永続的なチームメイトはプロジェクトの知識を蓄積し、確立されたパターンを理解し、タスクごとに同じファイルを再読する必要がありません。"
+      },
+      "vi": {
+        "title": "Đồng đội lâu dài vs Agent phụ một lần",
+        "description": "Trong s04, các Agent phụ chỉ tồn tại tạm thời: khởi tạo, thực hiện một nhiệm vụ, trả về kết quả và kết thúc. Kiến thức của chúng mất đi cùng với chúng. Trong s09, đồng đội là các luồng lâu dài có danh tính (tên, vai trò) và các tệp cấu hình. Một đồng đội có thể hoàn thành nhiệm vụ A, sau đó được giao nhiệm vụ B, mang theo tất cả những gì nó đã học được. Các đồng đội lâu dài tích lũy kiến thức dự án, hiểu các mẫu đã được thiết lập và không cần phải đọc lại các tệp giống nhau cho mọi nhiệm vụ."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "チーム設定を .teams/{name}/config.json に永続化",
         "description": "チーム構成（メンバー名、役割、エージェント ID）はエージェントのメモリではなく JSON 設定ファイルに保存されます。どのエージェントも設定ファイルを読むことでチームメイトを発見できます――ディスカバリーサービスや共有メモリは不要です。エージェントがクラッシュして再起動した場合、設定を読んで他のチームメンバーを把握します。これは s07 の思想と一貫しています：ファイルシステムが連携レイヤーです。"
+      },
+      "vi": {
+        "title": "Cấu hình Nhóm được lưu trữ vào .teams/{name}/config.json",
+        "description": "Cấu trúc nhóm (tên thành viên, vai trò, ID agent) được lưu trữ trong một tệp cấu hình JSON, không phải trong bộ nhớ của bất kỳ agent nào. Bất kỳ agent nào cũng có thể khám phá các đồng đội của mình bằng cách đọc tệp cấu hình -- không cần dịch vụ khám phá hay bộ nhớ chia sẻ. Nếu một agent gặp sự cố và khởi động lại, nó sẽ đọc cấu hình để biết những ai khác đang ở trong nhóm. Điều này nhất quán với triết lý của s07: hệ thống tệp là lớp phối hợp."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "チームメイトはツールのサブセット、リーダーは全ツール",
         "description": "チームリーダーは ALL_TOOLS（spawn、send、read_inbox など含む）を受け取り、チームメイトは TEAMMATE_TOOLS（タスク実行に特化した縮小セット）を受け取ります。これにより明確な関心の分離が強制されます：チームメイトは作業（コーディング、テスト、調査）に集中し、リーダーは調整（タスク作成、作業割り当て、コミュニケーション管理）に集中します。"
+      },
+      "vi": {
+        "title": "Đồng đội nhận Tập hợp con các Công cụ, Nhóm trưởng nhận Tất cả",
+        "description": "Nhóm trưởng nhận được ALL_TOOLS (bao gồm spawn, send, read_inbox, v.v.) trong khi các đồng đội nhận được TEAMMATE_TOOLS (một bộ công cụ rút gọn tập trung vào việc thực thi nhiệm vụ). Điều này buộc phải có sự phân tách rõ ràng các mối quan tâm: đồng đội tập trung vào công việc (lập trình, kiểm thử, nghiên cứu), trong khi nhóm trưởng tập trung vào việc phối hợp (tạo nhiệm vụ, giao việc, quản lý giao tiếp). Việc cung cấp cho đồng đội các công cụ phối hợp sẽ cho phép họ tạo ra các nhóm phụ của riêng mình hoặc phân công lại nhiệm vụ, làm giảm khả năng duy trì một kế hoạch mạch lạc của nhóm trưởng."
       }
     }
   ]

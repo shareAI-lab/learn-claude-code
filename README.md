@@ -1,4 +1,4 @@
-[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md)
+[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-ja.md) | [Tiếng Việt](./README-vi.md)
 # Learn Claude Code -- Harness Engineering for Real Agents
 <a href="https://trendshift.io/repositories/19746" target="_blank"><img src="https://trendshift.io/api/badge/repositories/19746" alt="shareAI-lab%2Flearn-claude-code | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 ## Agency Comes from the Model. An Agent Product = Model + Harness.

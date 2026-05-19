@@ -13,6 +13,10 @@
       "ja": {
         "title": "なぜ正確に4つのツールなのか",
         "description": "4つのツールは bash、read_file、write_file、edit_file です。これらでコーディングタスクの約95%をカバーします。Bash は実行と任意のコマンドを処理し、read_file は行番号付きの正確なファイル読み取りを提供し、write_file はファイルの作成・上書きを行い、edit_file は外科的な文字列置換を行います。ツールが増えるとモデルの認知負荷が増大し、どのツールを使うかの判断でミスが増えます。ツールが少ないことは、メンテナンスすべきスキーマとエッジケースの削減も意味します。"
+      },
+      "vi": {
+        "title": "Tại sao chính xác là bốn Công cụ",
+        "description": "Bốn công cụ này là bash, read_file, write_file và edit_file. Cùng nhau, chúng bao quát khoảng 95% các nhiệm vụ lập trình. Bash xử lý việc thực thi và các lệnh tùy ý. Read_file cung cấp khả năng đọc tệp chính xác với số dòng. Write_file tạo hoặc ghi đè tệp. Edit_file thực hiện thay thế chuỗi một cách chính xác. Nhiều công cụ hơn sẽ làm tăng tải nhận thức của mô hình -- nó phải quyết định sử dụng công cụ nào và nhiều tùy chọn hơn đồng nghĩa với việc có nhiều cơ hội chọn sai hơn. Ít công cụ hơn cũng có nghĩa là ít lược đồ công cụ phải bảo trì hơn và ít trường hợp biên phải xử lý hơn."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "モデルそのものがエージェント",
         "description": "コアのエージェントループは極めてシンプルです：LLM を呼び出し続け、tool_use ブロックが返されればそれを実行して結果をフィードバックし、テキストのみが返されれば停止します。ルーターも決定木もワークフローエンジンもありません。モデル自体が何をすべきか、いつ停止するか、エラーからどう回復するかを決定します。コードはモデルとツールを接続する配管に過ぎません。これは設計思想です：エージェントの振る舞いはフレームワークではなくモデルから創発するものです。"
+      },
+      "vi": {
+        "title": "Mô hình CHÍNH LÀ Agent",
+        "description": "Vòng lặp Agent cốt lõi cực kỳ đơn giản: trong khi True, gọi LLM, nếu nó trả về các khối tool_use thì thực thi chúng và cung cấp kết quả ngược lại, nếu nó chỉ trả về văn bản thì dừng lại. Không có bộ định tuyến, không có cây quyết định, không có công cụ quy trình làm việc. Bản thân mô hình tự quyết định phải làm gì, khi nào dừng lại và cách khôi phục sau lỗi. Mã nguồn chỉ là hệ thống ống dẫn kết nối mô hình với các công cụ. Đây là một quan điểm triết học: hành vi của agent nảy sinh từ mô hình, chứ không phải từ khung làm việc."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "全ツールに JSON Schema を定義",
         "description": "各ツールは入力パラメータに対して厳密な JSON Schema を定義しています。例えば edit_file は old_string と new_string を正確な文字列として要求し、正規表現は使いません。これにより一連のバグを排除できます：API がスキーマに対して実行前にバリデーションを行うため、モデルは不正な入力を渡せません。モデルの意図も明確になります――特定の文字列で edit_file を呼び出す際、何を変更したいかについて解析の曖昧さがありません。"
+      },
+      "vi": {
+        "title": "Lược đồ JSON cho mỗi Công cụ",
+        "description": "Mỗi công cụ định nghĩa một lược đồ JSON nghiêm ngặt cho các tham số đầu vào của nó. Ví dụ, edit_file yêu cầu old_string và new_string là các chuỗi chính xác, không phải mẫu regex. Điều này loại bỏ toàn bộ một lớp lỗi: mô hình không thể truyền đầu vào sai định dạng vì API xác thực dựa trên lược đồ trước khi thực thi. Nó cũng làm cho ý định của mô hình không bị mơ hồ -- khi nó gọi edit_file với các chuỗi cụ thể, không có sự mơ hồ về việc phân tích cú pháp liên quan đến những gì nó muốn thay đổi."
       }
     }
   ]

@@ -13,6 +13,10 @@
       "ja": {
         "title": "Bash だけで十分な理由",
         "description": "Bash はファイルの読み書き、任意のプログラムの実行、プロセス間のデータパイプ、ファイルシステムの管理が可能です。追加のツール（read_file、write_file など）は bash が既に提供している機能の部分集合に過ぎません。ツールを増やしても新しい能力は得られず、モデルが理解すべきインターフェースが増えるだけです。モデルが学習するスキーマは1つだけで、実装は100行以内に収まります。これが最小限の実用的エージェント：1つのツール、1つのループです。"
+      },
+      "vi": {
+        "title": "Tại sao chỉ riêng Bash là đủ",
+        "description": "Bash có thể đọc tệp, ghi tệp, chạy các chương trình tùy ý, truyền dữ liệu giữa các tiến trình và quản lý hệ thống tệp. Bất kỳ công cụ bổ sung nào (read_file, write_file, v.v.) đều sẽ là một tập hợp con hạn chế của những gì bash đã cung cấp. Việc thêm nhiều công cụ hơn không mở khóa các khả năng mới -- nó chỉ làm tăng phạm vi gây nhầm lẫn. Mô hình phải học ít lược đồ công cụ hơn và việc triển khai vẫn ở mức dưới 100 dòng. Đây là agent khả thi tối thiểu: một công cụ, một Vòng lặp Agent."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "再帰プロセス生成によるサブエージェント機構",
         "description": "エージェントが `python v0.py \"subtask\"` を実行すると、新しい LLM コンテキストを持つ完全に新しいプロセスが生成されます。この子プロセスは事実上サブエージェントです：独自のシステムプロンプト、会話履歴、タスクフォーカスを持ちます。完了すると、親プロセスは stdout で結果を受け取ります。これはフレームワークなしのサブエージェント委任です——共有メモリもメッセージパッシングもなく、stdin/stdout だけです。各子プロセスは親のコンテキストを参照できないため、関心の分離が自然に実現されます。"
+      },
+      "vi": {
+        "title": "Khởi tạo tiến trình đệ quy như một cơ chế Agent phụ",
+        "description": "Khi agent chạy `python v0.py \"subtask\"`, nó sẽ khởi tạo một tiến trình hoàn toàn mới với ngữ cảnh LLM mới. Tiến trình con này thực chất là một Agent phụ: nó có lời nhắc hệ thống riêng, lịch sử hội thoại riêng và trọng tâm nhiệm vụ riêng. Khi kết thúc, tiến trình cha sẽ nhận được kết quả stdout. Đây là việc ủy quyền Agent phụ mà không cần bất kỳ khung làm việc nào -- chỉ là ngữ nghĩa tiến trình Unix. Mỗi tiến trình con phân tách các mối quan tâm một cách tự nhiên vì nó hoàn toàn không thể nhìn thấy ngữ cảnh của tiến trình cha."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "計画フレームワークなし——モデルが全てを決定",
         "description": "プランナーもタスクキューも状態マシンもありません。システムプロンプトがモデルに問題の取り組み方を伝え、モデルがこれまでの会話に基づいて次に実行する bash コマンドを決定します。これは意図的な設計です：このレベルでは計画レイヤーの追加は時期尚早な抽象化です。モデルの思考の連鎖そのものが計画です。エージェントループはモデルがツールの呼び出しを止めるまで、次の行動を問い続けるだけです。"
+      },
+      "vi": {
+        "title": "Không có khung lập kế hoạch -- Mô hình tự quyết định",
+        "description": "Không có bộ lập kế hoạch, không có hàng đợi nhiệm vụ, không có máy trạng thái. Lời nhắc hệ thống hướng dẫn mô hình cách tiếp cận các vấn đề và mô hình sẽ quyết định lệnh bash nào sẽ chạy tiếp theo dựa trên hội thoại cho đến nay. Đây là sự chủ ý: ở cấp độ này, việc thêm một lớp lập kế hoạch sẽ là sự trừu tượng hóa quá sớm. Chuỗi suy nghĩ của mô hình CHÍNH LÀ kế hoạch. Vòng lặp Agent chỉ liên tục hỏi mô hình phải làm gì cho đến khi nó ngừng yêu cầu công cụ."
       }
     }
   ]

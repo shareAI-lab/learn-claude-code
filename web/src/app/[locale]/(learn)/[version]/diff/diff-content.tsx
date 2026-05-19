@@ -19,6 +19,8 @@ interface DiffPageContentProps {
 
 export function DiffPageContent({ version }: DiffPageContentProps) {
   const locale = useLocale();
+  const t = useTranslations("diff");
+  const tMeta = useTranslations("versions_metadata");
   const meta = VERSION_META[version];
 
   const { currentVersion, prevVersion, diff } = useMemo(() => {
@@ -48,9 +50,9 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
           className="mb-6 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
         >
           <ArrowLeft size={14} />
-          Back to {meta.title}
+          Back to {tMeta(`${version}.title`) || meta.title}
         </Link>
-        <h1 className="text-3xl font-bold">{meta.title}</h1>
+        <h1 className="text-3xl font-bold">{tMeta(`${version}.title`) || meta.title}</h1>
         <p className="mt-4 text-zinc-500">
           This is the first version -- there is no previous version to compare against.
         </p>
@@ -67,13 +69,13 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
         className="mb-6 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
       >
         <ArrowLeft size={14} />
-        Back to {meta.title}
+        Back to {tMeta(`${version}.title`) || meta.title}
       </Link>
 
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold">
-          {prevMeta?.title || prevVersion.id} → {meta.title}
+          {tMeta(`${prevVersion.id}.title`) || prevMeta?.title || prevVersion.id} → {tMeta(`${version}.title`) || meta.title}
         </h1>
         <p className="mt-2 text-zinc-500 dark:text-zinc-400">
           {prevVersion.id} ({prevVersion.loc} LOC) → {version} ({currentVersion.loc} LOC)
@@ -86,7 +88,7 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
           <CardHeader>
             <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
               <FileCode size={16} />
-              <span className="text-sm">LOC Delta</span>
+              <span className="text-sm">{t("loc_delta")}</span>
             </div>
           </CardHeader>
           <CardTitle>
@@ -101,7 +103,7 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
           <CardHeader>
             <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
               <Wrench size={16} />
-              <span className="text-sm">New Tools</span>
+              <span className="text-sm">{t("new_tools")}</span>
             </div>
           </CardHeader>
           <CardTitle>
@@ -122,7 +124,7 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
           <CardHeader>
             <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
               <Box size={16} />
-              <span className="text-sm">New Classes</span>
+              <span className="text-sm">{t("new_classes")}</span>
             </div>
           </CardHeader>
           <CardTitle>
@@ -143,7 +145,7 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
           <CardHeader>
             <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
               <FunctionSquare size={16} />
-              <span className="text-sm">New Functions</span>
+              <span className="text-sm">{t("new_functions")}</span>
             </div>
           </CardHeader>
           <CardTitle>
@@ -165,8 +167,8 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card className="border-l-4 border-l-red-300 dark:border-l-red-700">
           <CardHeader>
-            <CardTitle>{prevMeta?.title || prevVersion.id}</CardTitle>
-            <p className="text-sm text-zinc-500">{prevMeta?.subtitle}</p>
+            <CardTitle>{tMeta(`${prevVersion.id}.title`) || prevMeta?.title || prevVersion.id}</CardTitle>
+            <p className="text-sm text-zinc-500">{tMeta(`${prevVersion.id}.subtitle`) || prevMeta?.subtitle}</p>
           </CardHeader>
           <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
             <p>{prevVersion.loc} LOC</p>
@@ -176,8 +178,8 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
         </Card>
         <Card className="border-l-4 border-l-green-300 dark:border-l-green-700">
           <CardHeader>
-            <CardTitle>{meta.title}</CardTitle>
-            <p className="text-sm text-zinc-500">{meta.subtitle}</p>
+            <CardTitle>{tMeta(`${version}.title`) || meta.title}</CardTitle>
+            <p className="text-sm text-zinc-500">{tMeta(`${version}.subtitle`) || meta.subtitle}</p>
           </CardHeader>
           <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
             <p>{currentVersion.loc} LOC</p>

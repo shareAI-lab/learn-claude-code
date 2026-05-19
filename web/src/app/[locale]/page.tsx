@@ -39,6 +39,8 @@ function getVersionData(id: string) {
 
 export default function HomePage() {
   const t = useTranslations("home");
+  const tMeta = useTranslations("versions_metadata");
+  const tLayer = useTranslations("layer_labels");
   const locale = useLocale();
 
   return (
@@ -170,10 +172,10 @@ export default function HomePage() {
                     </span>
                   </div>
                   <h3 className="mt-3 text-sm font-semibold group-hover:underline">
-                    {meta.title}
+                    {tMeta(`${versionId}.title`) || meta.title}
                   </h3>
                   <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                    {meta.keyInsight}
+                    {tMeta(`${versionId}.keyInsight`) || meta.keyInsight}
                   </p>
                 </Card>
               </Link>
@@ -204,7 +206,7 @@ export default function HomePage() {
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold">{layer.label}</h3>
+                  <h3 className="text-sm font-semibold">{tLayer(layer.id)}</h3>
                   <span className="text-xs text-[var(--color-text-secondary)]">
                     {layer.versions.length} {t("versions_in_layer")}
                   </span>
@@ -218,7 +220,7 @@ export default function HomePage() {
                           layer={layer.id}
                           className="cursor-pointer transition-opacity hover:opacity-80"
                         >
-                          {vid}: {meta?.title}
+                          {vid}: {tMeta(`${vid}.title`) || meta?.title}
                         </LayerBadge>
                       </Link>
                     );

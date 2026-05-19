@@ -72,5 +72,19 @@
     "s10": "FSM Team Protocols",
     "s11": "Autonomous Agent Cycle",
     "s12": "Worktree Task Isolation"
+  },
+  "versions_metadata": {
+    "s01": { "title": "The Agent Loop", "subtitle": "Bash is All You Need", "coreAddition": "Single-tool agent loop", "keyInsight": "The minimal agent kernel is a while loop + one tool" },
+    "s02": { "title": "Tools", "subtitle": "One Handler Per Tool", "coreAddition": "Tool dispatch map", "keyInsight": "The loop stays the same; new tools register into the dispatch map" },
+    "s03": { "title": "TodoWrite", "subtitle": "Plan Before You Act", "coreAddition": "TodoManager + nag reminder", "keyInsight": "An agent without a plan drifts; list the steps first, then execute" },
+    "s04": { "title": "Subagents", "subtitle": "Clean Context Per Subtask", "coreAddition": "Subagent spawn with isolated messages[]", "keyInsight": "Subagents use independent messages[], keeping the main conversation clean" },
+    "s05": { "title": "Skills", "subtitle": "Load on Demand", "coreAddition": "SkillLoader + two-layer injection", "keyInsight": "Inject knowledge via tool_result when needed, not upfront in the system prompt" },
+    "s06": { "title": "Compact", "subtitle": "Three-Layer Compression", "coreAddition": "micro-compact + auto-compact + archival", "keyInsight": "Context will fill up; three-layer compression strategy enables infinite sessions" },
+    "s07": { "title": "Tasks", "subtitle": "Task Graph + Dependencies", "coreAddition": "TaskManager with file-based state + dependency graph", "keyInsight": "A file-based task graph with ordering, parallelism, and dependencies -- the coordination backbone for multi-agent work" },
+    "s08": { "title": "Background Tasks", "subtitle": "Background Threads + Notifications", "coreAddition": "BackgroundManager + notification queue", "keyInsight": "Run slow operations in the background; the agent keeps thinking ahead" },
+    "s09": { "title": "Agent Teams", "subtitle": "Teammates + Mailboxes", "coreAddition": "TeammateManager + file-based mailbox", "keyInsight": "When one agent can't finish, delegate to persistent teammates via async mailboxes" },
+    "s10": { "title": "Team Protocols", "subtitle": "Shared Communication Rules", "coreAddition": "request_id correlation for two protocols", "keyInsight": "One request-response pattern drives all team negotiation" },
+    "s11": { "title": "Autonomous Agents", "subtitle": "Scan Board, Claim Tasks", "coreAddition": "Task board polling + timeout-based self-governance", "keyInsight": "Teammates scan the board and claim tasks themselves; no need for the lead to assign each one" },
+    "s12": { "title": "Worktree + Task Isolation", "subtitle": "Isolate by Directory", "coreAddition": "Composable worktree lifecycle + event stream over a shared task board", "keyInsight": "Each works in its own directory; tasks manage goals, worktrees manage directories, bound by ID" }
   }
 }

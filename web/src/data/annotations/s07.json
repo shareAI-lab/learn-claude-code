@@ -13,6 +13,10 @@
       "ja": {
         "title": "タスクをメモリではなく JSON ファイルとして保存",
         "description": "タスクはメモリ内ではなく .tasks/ ディレクトリに JSON ファイルとして永続化されます。3つの重要な利点があります：(1) プロセスのクラッシュ後もタスクが存続する――エージェントがタスク途中でクラッシュしても、再起動時にタスクボードはディスク上に残っています。(2) 複数のエージェントが同じタスクディレクトリを読み書きでき、共有メモリなしにマルチエージェント連携が可能になります。(3) 人間がデバッグのためにタスクファイルを検査・手動編集できます。ファイルシステムが共有データベースになります。"
+      },
+      "vi": {
+        "title": "Nhiệm vụ được lưu trữ dưới dạng tệp JSON, không phải trong bộ nhớ",
+        "description": "Các nhiệm vụ được lưu trữ vĩnh viễn dưới dạng các tệp JSON trong thư mục .tasks/ trên hệ thống tệp thay vì được giữ trong bộ nhớ. Điều này mang lại ba lợi ích quan trọng: (1) Các nhiệm vụ tồn tại sau các sự cố hỏng tiến trình -- nếu agent bị dừng giữa chừng nhiệm vụ, bảng nhiệm vụ vẫn còn trên đĩa khi nó khởi động lại. (2) Nhiều agent có thể đọc và ghi vào cùng một thư mục nhiệm vụ, cho phép phối hợp đa agent mà không cần bộ nhớ chia sẻ. (3) Con người có thể kiểm tra và chỉnh sửa thủ công các tệp nhiệm vụ để gỡ lỗi. Hệ thống tệp trở thành cơ sở dữ liệu chung."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "タスクに blocks/blockedBy 依存関係フィールド",
         "description": "各タスクは、自分がブロックするタスク（下流の依存先）と、自分をブロックするタスク（上流の依存元）を宣言できます。エージェントは未解決の blockedBy 依存がある タスクを開始しません。これはマルチエージェント連携に不可欠です：エージェント A がデータベーススキーマを書いていてエージェント B がそれに対するクエリを書く必要がある場合、B のタスクは A のタスクにブロックされます。依存関係がなければ両エージェントが同時に開始し、B はまだ存在しないスキーマに対して作業することになります。"
+      },
+      "vi": {
+        "title": "Các nhiệm vụ có các trường phụ thuộc blocks/blockedBy",
+        "description": "Mỗi nhiệm vụ có thể khai báo những nhiệm vụ nào khác mà nó chặn (phụ thuộc hạ nguồn) và những nhiệm vụ nào chặn nó (phụ thuộc thượng nguồn). Một agent sẽ không bắt đầu một nhiệm vụ có các phụ thuộc blockedBy chưa được giải quyết. Điều này rất cần thiết cho sự phối hợp đa agent: khi Agent A đang viết lược đồ cơ sở dữ liệu và Agent B cần viết các câu truy vấn dựa trên đó, nhiệm vụ của Agent B bị chặn (blockedBy) bởi nhiệm vụ của Agent A. Nếu không có các phụ thuộc, cả hai agent có thể bắt đầu đồng thời và Agent B sẽ làm việc với một lược đồ chưa tồn tại."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "Task を主線にしつつ Todo も併存",
         "description": "TaskManager は Todo のメンタルモデルを拡張し、本コースでは s07 以降のデフォルトになる。どちらもステータス付き作業項目を扱うが、TaskManager にはファイル永続化（クラッシュ耐性）、依存関係追跡（blocks/blockedBy）、owner、マルチプロセス協調がある。Todo は短く直線的な単発作業では引き続き有効。"
+      },
+      "vi": {
+        "title": "Nhiệm vụ là mặc định của khóa học, Todo vẫn hữu ích",
+        "description": "TaskManager mở rộng mô hình tư duy của Todo và trở thành quy trình làm việc mặc định từ s07 trở đi trong khóa học này. Cả hai đều theo dõi các hạng mục công việc với các trạng thái, nhưng TaskManager thêm vào tính năng lưu trữ tệp (tồn tại sau sự cố), theo dõi phụ thuộc (blocks/blockedBy), các trường sở hữu và phối hợp đa tiến trình. Todo vẫn hữu ích cho việc theo dõi ngắn gọn, tuyến tính, thực hiện một lần khi không cần sự phối hợp nặng nề."
       }
     },
     {
@@ -55,6 +67,10 @@
       "ja": {
         "title": "耐久性には書き込み規律が必要",
         "description": "ファイル永続化だけでは並行書き込み競合は防げない。更新前に JSON を再読込し、`status/blockedBy` を検証して原子的に保存することで、他エージェントの遷移上書きを防ぐ。"
+      },
+      "vi": {
+        "title": "Tính bền vững cần kỷ luật ghi dữ liệu",
+        "description": "Lưu trữ tệp làm giảm việc mất ngữ cảnh, nhưng tự nó không loại bỏ các rủi ro ghi đồng thời. Trước khi ghi trạng thái nhiệm vụ, hãy tải lại JSON, xác thực các trường trạng thái/phụ thuộc dự kiến, và sau đó lưu một cách nguyên tử. Điều này ngăn chặn việc một agent âm thầm ghi đè lên sự chuyển đổi trạng thái của một agent khác."
       }
     }
   ]

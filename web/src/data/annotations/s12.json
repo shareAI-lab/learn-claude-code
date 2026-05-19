@@ -13,6 +13,10 @@
       "ja": {
         "title": "共有タスクボード + 分離実行レーン",
         "description": "タスクボードは `.tasks/` に集約しつつ、実際の編集はタスクごとの worktree ディレクトリで行う。これにより全体の可視性（担当と進捗）を維持しながら、単一ディレクトリでの衝突を回避できる。調整は1つのボードで単純化され、実行はレーン分離で安全になる。"
+      },
+      "vi": {
+        "title": "Bảng Nhiệm vụ chung + Các luồng thực thi Cô lập",
+        "description": "Bảng nhiệm vụ vẫn được chia sẻ và tập trung trong `.tasks/`, trong khi các chỉnh sửa tệp diễn ra trong các thư mục worktree theo từng nhiệm vụ. Sự phân tách này giúp duy trì khả năng hiển thị toàn cục (ai sở hữu cái gì, cái gì đã hoàn thành) mà không buộc mọi người phải chỉnh sửa bên trong một thư mục có thể thay đổi. Việc phối hợp vẫn đơn giản vì chỉ có một bảng, và việc thực thi vẫn an toàn vì mỗi luồng đều được cô lập."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "明示的な worktree ライフサイクル索引",
         "description": "`.worktrees/index.json` に name/path/branch/task_id/status を記録することで、コンテキスト圧縮やプロセス再起動後も状態を追跡できる。list/status/remove の挙動もこの索引を基準に決定できる。"
+      },
+      "vi": {
+        "title": "Chỉ mục Vòng đời Worktree rõ ràng",
+        "description": "`.worktrees/index.json` ghi lại tên, đường dẫn, nhánh, task_id và trạng thái của mỗi worktree. Điều này giúp trạng thái vòng đời có thể kiểm tra và khôi phục được ngay cả sau khi nén ngữ cảnh hoặc khởi động lại tiến trình. Chỉ mục cũng cung cấp một nguồn xác định cho các hoạt động list/status/remove."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "レーン単位 cwd ルーティング + 再入防止",
         "description": "`worktree_run(name, command)` で `cwd` パラメータを使いコマンドを worktree ディレクトリへ転送する。再入ガードにより active な worktree への二重入場を防ぎ、ライフサイクルの帰属を明確に保つ。"
+      },
+      "vi": {
+        "title": "Định tuyến CWD theo Luồng + Bảo vệ Chống Re-entry",
+        "description": "Các lệnh được định tuyến đến thư mục của một worktree thông qua `worktree_run(name, command)` bằng cách sử dụng tham số `cwd`. Một lớp bảo vệ chống Re-entry ngăn chặn việc vô tình chạy bên trong một ngữ cảnh worktree đã đang hoạt động, giữ cho quyền sở hữu vòng đời không bị mơ hồ."
       }
     },
     {
@@ -55,6 +67,10 @@
       "ja": {
         "title": "追記型ライフサイクルイベント",
         "description": "ライフサイクルイベントを `.worktrees/events.jsonl` に追記する（`worktree.create.*`、`worktree.remove.*`、`task.completed` など）。遷移が可観測になり、失敗も `*.failed` として明示できる。"
+      },
+      "vi": {
+        "title": "Luồng Sự kiện Vòng đời chỉ cho phép thêm vào (Append-Only)",
+        "description": "Các sự kiện vòng đời được thêm vào `.worktrees/events.jsonl` (`worktree.create.*`, `worktree.remove.*`, `task.completed`). Điều này biến các sự chuyển đổi ẩn thành các bản ghi có thể truy vấn và làm cho các lỗi trở nên rõ ràng (`*.failed`) thay vì âm thầm."
       }
     },
     {
@@ -69,6 +85,10 @@
       "ja": {
         "title": "タスクとワークスペースを同時にクローズ",
         "description": "`worktree_remove(..., complete_task=true)` により、分離ディレクトリ削除とタスク完了更新を1ステップで実行できる。クローズ処理は `worktree_keep` / `worktree_remove` の明示ツール遷移として扱い、暗黙の自動清掃にはしない。"
+      },
+      "vi": {
+        "title": "Đóng Nhiệm vụ và Không gian làm việc cùng nhau",
+        "description": "`worktree_remove(..., complete_task=true)` cho phép thực hiện một bước kết thúc duy nhất: xóa thư mục cô lập và đánh dấu nhiệm vụ liên kết là đã hoàn thành. Việc kết thúc vẫn là một sự chuyển đổi rõ ràng do công cụ thúc đẩy (`worktree_keep` / `worktree_remove`) thay vì là việc dọn dẹp tự động bị ẩn đi. Điều này làm giảm tình trạng trạng thái lơ lửng khi một nhiệm vụ báo là đã xong nhưng luồng tạm thời của nó vẫn đang hoạt động (hoặc ngược lại)."
       }
     },
     {
@@ -83,6 +103,10 @@
       "ja": {
         "title": "イベントは観測サイドチャネルであり状態機械の代替ではない",
         "description": "ライフサイクルイベントは監査性を高めるが、真の状態源は task/worktree 状態ファイルのまま。イベントは遷移トレースとして扱い、主状態機械の代替にしない。"
+      },
+      "vi": {
+        "title": "Luồng Sự kiện là Kênh phụ để Quan sát",
+        "description": "Các sự kiện vòng đời cải thiện khả năng kiểm tra (auditability), nhưng nguồn sự thật (source of truth) vẫn là các tệp trạng thái nhiệm vụ/worktree. Các sự kiện nên được đọc như các vết tích chuyển đổi, chứ không phải là một máy trạng thái thay thế."
       }
     }
   ]

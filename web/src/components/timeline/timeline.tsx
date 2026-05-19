@@ -73,6 +73,7 @@ export function Timeline() {
           const data = getVersionData(versionId);
           if (!meta || !data) return null;
 
+          const tm = useTranslations(`versions_metadata.${versionId}`);
           const isLast = index === LEARNING_PATH.length - 1;
           const locPercent = Math.round((data.loc / MAX_LOC) * 100);
 
@@ -114,14 +115,14 @@ export function Timeline() {
                   <div className="flex flex-wrap items-start gap-2">
                     <LayerBadge layer={meta.layer}>{versionId}</LayerBadge>
                     <span className="text-xs text-[var(--color-text-secondary)]">
-                      {meta.coreAddition}
+                      {tm("coreAddition")}
                     </span>
                   </div>
 
                   <h3 className="mt-2 text-base font-semibold sm:text-lg">
-                    {meta.title}
+                    {tm("title")}
                     <span className="ml-2 text-sm font-normal text-[var(--color-text-secondary)]">
-                      {meta.subtitle}
+                      {tm("subtitle")}
                     </span>
                   </h3>
 
@@ -147,9 +148,9 @@ export function Timeline() {
                   </div>
 
                   {/* Key insight */}
-                  {meta.keyInsight && (
+                  {tm("keyInsight") && (
                     <p className="mt-3 text-sm italic text-[var(--color-text-secondary)]">
-                      &ldquo;{meta.keyInsight}&rdquo;
+                      &ldquo;{tm("keyInsight")}&rdquo;
                     </p>
                   )}
 

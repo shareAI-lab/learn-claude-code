@@ -18,6 +18,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const locale = pathname.split("/")[1] || "en";
   const t = useTranslations("sessions");
+  const tMeta = useTranslations("versions_metadata");
   const tLayer = useTranslations("layer_labels");
 
   return (
@@ -52,7 +53,7 @@ export function Sidebar() {
                       )}
                     >
                       <span className="font-mono text-xs">{vId}</span>
-                      <span className="ml-1.5">{t(vId) || meta?.title}</span>
+                      <span className="ml-1.5">{tMeta(`${vId}.title`) || t(vId) || meta?.title}</span>
                     </Link>
                   </li>
                 );

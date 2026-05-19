@@ -13,6 +13,10 @@
       "ja": {
         "title": "共有メモリではなく JSONL インボックスファイル",
         "description": "各チームメイトはチームディレクトリ内に独自のインボックスファイル（JSONL ファイル）を持ちます。メッセージの送信は受信者のインボックスファイルに JSON 行を追記することです。メッセージの読み取りはインボックスファイルを読んで最後に読んだ行を追跡することです。JSONL は本質的に追記専用で、並行ライターが互いのデータを破壊しません（異なるファイル位置への追記）。共有メモリ、ミューテックス、IPC メカニズムなしにプロセス間で動作します。"
+      },
+      "vi": {
+        "title": "Các tệp JSONL Inbox thay vì bộ nhớ chia sẻ",
+        "description": "Mỗi đồng đội có tệp inbox riêng (một tệp JSONL trong thư mục nhóm). Gửi một tin nhắn có nghĩa là thêm một dòng JSON vào tệp inbox của người nhận. Đọc tin nhắn có nghĩa là đọc tệp inbox và theo dõi dòng nào đã được đọc cuối cùng. JSONL có bản chất là chỉ cho phép thêm vào (append-only), có nghĩa là những người ghi đồng thời không làm hỏng dữ liệu của nhau (thêm vào các vị trí tệp khác nhau). Điều này hoạt động xuyên suốt các tiến trình mà không cần bất kỳ bộ nhớ chia sẻ, mutex hay cơ chế IPC nào. Nó cũng an toàn khi gặp sự cố: nếu người ghi bị dừng giữa chừng khi đang thêm dữ liệu, trường hợp xấu nhất là một dòng bị thiếu một phần mà người đọc có thể bỏ qua."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "正確に5つのメッセージタイプで全連携パターンをカバー",
         "description": "メッセージングシステムは正確に5つのタイプをサポートします：(1) message は2つのエージェント間のポイントツーポイント通信、(2) broadcast はチーム全体への通知、(3) shutdown_request はグレースフルな終了要求、(4) shutdown_response はシャットダウンの確認応答、(5) plan_approval_response はリーダーによるチームメイトの計画の承認・却下。"
+      },
+      "vi": {
+        "title": "Chính xác năm loại Tin nhắn bao quát tất cả các mẫu Phối hợp",
+        "description": "Hệ thống tin nhắn hỗ trợ chính xác năm loại: (1) 'message' cho giao tiếp điểm-điểm giữa hai agent, (2) 'broadcast' cho các thông báo toàn nhóm, (3) 'shutdown_request' để yêu cầu dừng hoạt động một cách êm đẹp, (4) 'shutdown_response' để xác nhận việc dừng hoạt động, (5) 'plan_approval_response' để nhóm trưởng phê duyệt hoặc từ chối kế hoạch của đồng đội. Năm loại này tương ứng với các mẫu phối hợp cơ bản: giao tiếp trực tiếp, phát sóng (broadcast), quản lý vòng đời và quy trình phê duyệt."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "毎回の LLM 呼び出し前にインボックスを確認",
         "description": "チームメイトはエージェントループの各イテレーションの冒頭、LLM API を呼び出す前にインボックスファイルを確認します。これにより受信メッセージへの応答性を最大化します：シャットダウンリクエストは1ループイテレーション以内（通常数秒）で確認され、現在のタスク完了後（数分かかる可能性）ではありません。"
+      },
+      "vi": {
+        "title": "Kiểm tra Inbox trước mỗi cuộc gọi LLM",
+        "description": "Các đồng đội kiểm tra tệp inbox của họ ở đầu mỗi lần lặp của Vòng lặp Agent, trước khi gọi LLM API. Điều này đảm bảo khả năng phản hồi tối đa với các tin nhắn đến: một yêu cầu dừng hoạt động sẽ được nhìn thấy trong vòng một lần lặp (thường là vài giây), chứ không phải sau khi nhiệm vụ hiện tại hoàn thành (có khả năng mất vài phút). Việc kiểm tra inbox rất rẻ (đọc một tệp nhỏ, kiểm tra xem có dòng mới nào không) so với cuộc gọi LLM (độ trễ tính bằng giây, hàng nghìn token). Vị trí này cũng có nghĩa là các tin nhắn đến có thể ảnh hưởng đến cuộc gọi LLM tiếp theo -- một tin nhắn nói rằng 'dừng làm việc với X, chuyển sang Y' sẽ có hiệu lực ngay lập tức."
       }
     }
   ]

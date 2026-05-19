@@ -13,6 +13,10 @@
       "ja": {
         "title": "イベント駆動通知ではなくポーリングで未割り当てタスクを発見",
         "description": "自律的なチームメイトはイベント駆動の通知を待つのではなく、約1秒ごとに共有タスクボードをポーリングして未割り当てタスクを探します。ポーリングはパブ/サブより根本的にシンプルです：サブスクリプション管理、イベントルーティング、イベント欠落バグがありません。ファイルベースの永続化では、ポーリングは「ディレクトリ一覧を読む」だけで、実行中のエージェント数に関係なく動作する安価な操作です。"
+      },
+      "vi": {
+        "title": "Thăm dò cho các Nhiệm vụ chưa có người nhận thay vì Thông báo dựa trên Sự kiện",
+        "description": "Các đồng đội tự chủ thăm dò bảng nhiệm vụ chung khoảng 1 giây một lần để tìm các nhiệm vụ chưa có người nhận, thay vì chờ đợi các thông báo dựa trên sự kiện. Thăm dò (polling) về cơ bản đơn giản hơn pub/sub: không có quản lý đăng ký, không có định tuyến sự kiện, không có lỗi bỏ lỡ sự kiện. Với lưu trữ dựa trên tệp, thăm dò chỉ là 'đọc danh sách thư mục' -- một hoạt động rẻ tiền hoạt động bất kể có bao nhiêu agent đang chạy. Khoảng thời gian 1 giây cân bằng giữa khả năng phản hồi (các nhiệm vụ mới được phát hiện nhanh chóng) và chi phí hệ thống tệp (không ghi đè lên đĩa bằng các lần đọc)."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "60秒のアイドルタイムアウトで自動終了",
         "description": "自律的なチームメイトが作業するタスクもインボックスのメッセージもない場合、最大60秒待ってから諦めてシャットダウンします。これにより永遠に来ない仕事を待ち続けるゾンビチームメイトを防ぎます。60秒のウィンドウはタスク完了から新タスク作成までの短い間隔で早期シャットダウンが起きない十分な長さであり、かつ未使用のチームメイトがリソースを浪費しない十分な短さです。"
+      },
+      "vi": {
+        "title": "Thời gian chờ nhàn rỗi 60 giây trước khi Tự chấm dứt",
+        "description": "Khi một đồng đội tự chủ không có nhiệm vụ nào để làm và không có tin nhắn nào trong inbox, nó sẽ đợi tối đa 60 giây trước khi từ bỏ và dừng hoạt động. Điều này ngăn chặn các đồng đội 'thây ma' chờ đợi mãi mãi cho công việc không bao giờ đến -- một vấn đề thực sự khi nhóm trưởng quên gửi yêu cầu dừng hoạt động, hoặc khi tất cả các nhiệm vụ còn lại bị chặn bởi các sự kiện bên ngoài. Khoảng thời gian 60 giây đủ dài để một khoảng cách ngắn giữa việc hoàn thành nhiệm vụ và tạo nhiệm vụ mới không gây ra việc dừng hoạt động sớm, nhưng đủ ngắn để các đồng đội không sử dụng không lãng phí tài nguyên."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "コンテキスト圧縮後にチームメイトのアイデンティティを再注入",
         "description": "自動コンパクトが会話を圧縮すると、生成された要約は重要なメタデータを失います：チームメイトの名前、所属チーム、agent_id。この情報がなければチームメイトはタスクを申告できず（タスクは名前で所有）、インボックスを確認できず（インボックスファイルは agent_id をキーとする）、メッセージで自分を識別できません。そのため自動コンパクトの後、システムは構造化されたアイデンティティブロックを会話に再注入します。これはメモリ喪失後もチームメイトが機能し続けるために必要な最小限のコンテキストです。"
+      },
+      "vi": {
+        "title": "Chèn lại Danh tính Đồng đội sau khi Nén Ngữ cảnh",
+        "description": "Khi auto_compact nén cuộc hội thoại, bản tóm tắt kết quả sẽ mất đi các siêu dữ liệu quan trọng: tên của đồng đội, nhóm mà nó thuộc về và agent_id của nó. Nếu không có thông tin này, đồng đội không thể nhận nhiệm vụ (nhiệm vụ được sở hữu theo tên), không thể kiểm tra inbox (các tệp inbox được khóa theo agent_id) và không thể tự nhận diện mình trong các tin nhắn. Vì vậy, sau mỗi lần auto_compact, hệ thống sẽ chèn lại một khối danh tính có cấu trúc vào cuộc hội thoại: 'Bạn là [name] trong nhóm [team], agent_id của bạn là [id], inbox của bạn tại [path].' Đây là ngữ cảnh tối thiểu cần thiết để đồng đội duy trì hoạt động sau khi bị mất trí nhớ."
       }
     }
   ]

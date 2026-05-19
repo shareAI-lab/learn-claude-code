@@ -1,0 +1,150 @@
+{
+  "meta": { "title": "Học Claude Code", "description": "Xây dựng agent lập trình AI tí hon từ 0 đến 1, qua từng cơ chế" },
+  "nav": { "home": "Trang chủ", "timeline": "Lộ trình", "compare": "So sánh", "layers": "Lớp kiến trúc", "github": "GitHub" },
+  "home": { "hero_title": "Học Claude Code", "hero_subtitle": "Xây dựng agent lập trình AI tí hon từ 0 đến 1, qua từng cơ chế", "start": "Bắt đầu học", "core_pattern": "Mô hình cốt lõi", "core_pattern_desc": "Mọi agent lập trình AI đều chia sẻ chung một vòng lặp: gọi model, thực thi công cụ, phản hồi kết quả. Các hệ thống thực tế sẽ thêm các lớp chính sách, quyền hạn và vòng đời lên trên.", "learning_path": "Lộ trình học tập", "learning_path_desc": "12 phiên học lũy tiến, từ vòng lặp đơn giản đến thực thi tự trị độc lập", "layers_title": "Các lớp kiến trúc", "layers_desc": "Năm khía cạnh trực giao tạo nên một agent hoàn chỉnh", "loc": "Dòng code", "learn_more": "Tìm hiểu thêm", "versions_in_layer": "phiên bản", "message_flow": "Luồng tin nhắn", "message_flow_desc": "Theo dõi mảng tin nhắn lớn dần khi vòng lặp agent thực thi" },
+  "version": { "loc": "dòng mã nguồn", "tools": "công cụ", "new": "Mới", "prev": "Trước", "next": "Tiếp", "view_source": "Xem mã nguồn", "view_diff": "Xem thay đổi", "design_decisions": "Quyết định thiết kế", "whats_new": "Có gì mới", "tutorial": "Hướng dẫn", "simulator": "Giả lập vòng lặp Agent", "execution_flow": "Luồng thực thi", "architecture": "Kiến trúc", "concept_viz": "Trực quan hóa khái niệm", "alternatives": "Các lựa chọn thay thế", "tab_learn": "Học tập", "tab_simulate": "Giả lập", "tab_code": "Mã nguồn", "tab_deep_dive": "Tìm hiểu sâu" },
+  "sim": { "play": "Chạy", "pause": "Tạm dừng", "step": "Từng bước", "reset": "Đặt lại", "speed": "Tốc độ", "step_of": "trên" },
+  "timeline": { "title": "Lộ trình học tập", "subtitle": "s01 đến s12: Thiết kế Agent lũy tiến", "layer_legend": "Chú giải các lớp", "loc_growth": "Sự tăng trưởng LOC", "learn_more": "Tìm hiểu thêm" },
+  "layers": {
+    "title": "Các lớp kiến trúc",
+    "subtitle": "Năm khía cạnh trực giao tạo nên một agent hoàn chỉnh",
+    "tools": "Những gì agent CÓ THỂ làm. Nền tảng: công cụ cung cấp cho model khả năng tương tác với thế giới.",
+    "planning": "Cách tổ chức công việc. Từ danh sách việc cần làm đơn giản đến các bảng nhiệm vụ nhận biết phụ thuộc dùng chung giữa các agent.",
+    "memory": "Giữ ngữ cảnh trong giới hạn. Các chiến lược nén giúp agent làm việc vô hạn mà không mất đi sự mạch lạc.",
+    "concurrency": "Thực thi không chặn. Các luồng nền và bus thông báo cho công việc song song.",
+    "collaboration": "Điều phối đa agent. Các nhóm, tin nhắn và đồng đội tự trị có thể tự suy nghĩ."
+  },
+  "compare": {
+    "title": "So sánh các phiên bản",
+    "subtitle": "Xem những gì đã thay đổi giữa hai phiên bản bất kỳ",
+    "select_a": "Phiên bản A",
+    "select_b": "Phiên bản B",
+    "loc_delta": "Thay đổi LOC",
+    "lines": "dòng",
+    "new_tools_in_b": "Công cụ mới trong B",
+    "new_classes_in_b": "Class mới trong B",
+    "new_functions_in_b": "Hàm mới trong B",
+    "tool_comparison": "So sánh công cụ",
+    "only_in": "Chỉ có trong",
+    "shared": "Dùng chung",
+    "none": "Không có",
+    "source_diff": "Thay đổi mã nguồn",
+    "empty_hint": "Chọn hai phiên bản ở trên để so sánh.",
+    "architecture": "Kiến trúc"
+  },
+  "diff": {
+    "new_classes": "Class mới",
+    "new_tools": "Công cụ mới",
+    "new_functions": "Hàm mới",
+    "loc_delta": "Thay đổi LOC"
+  },
+  "sessions": {
+    "s01": "Vòng lặp Agent",
+    "s02": "Công cụ",
+    "s03": "TodoWrite",
+    "s04": "Subagents",
+    "s05": "Kỹ năng (Skills)",
+    "s06": "Nén ngữ cảnh",
+    "s07": "Nhiệm vụ (Tasks)",
+    "s08": "Nhiệm vụ nền",
+    "s09": "Đội ngũ Agent",
+    "s10": "Giao thức đội ngũ",
+    "s11": "Agent tự trị",
+    "s12": "Worktree + Cô lập nhiệm vụ"
+  },
+  "layer_labels": {
+    "tools": "Công cụ & Thực thi",
+    "planning": "Lập kế hoạch & Điều phối",
+    "memory": "Quản lý bộ nhớ",
+    "concurrency": "Đồng xử lý",
+    "collaboration": "Cộng tác"
+  },
+  "viz": {
+    "s01": "Vòng lặp Agent While",
+    "s02": "Bản đồ điều phối công cụ",
+    "s03": "Hệ thống TodoWrite Nag",
+    "s04": "Cách ly ngữ cảnh Subagent",
+    "s05": "Nạp kỹ năng theo yêu cầu",
+    "s06": "Nén ngữ cảnh ba lớp",
+    "s07": "Đồ thị phụ thuộc nhiệm vụ",
+    "s08": "Các làn nhiệm vụ nền",
+    "s09": "Hộp thư đội ngũ Agent",
+    "s10": "Giao thức đội ngũ FSM",
+    "s11": "Chu kỳ Agent tự chủ",
+    "s12": "Cách ly nhiệm vụ Worktree"
+  },
+  "versions_metadata": {
+    "s01": {
+      "title": "Vòng lặp Agent",
+      "subtitle": "Chỉ cần Bash là đủ",
+      "coreAddition": "Vòng lặp agent đơn công cụ",
+      "keyInsight": "Nhân agent tối giản là một vòng lặp while + một công cụ"
+    },
+    "s02": {
+      "title": "Công cụ",
+      "subtitle": "Một trình xử lý cho mỗi công cụ",
+      "coreAddition": "Bản đồ điều phối công cụ",
+      "keyInsight": "Vòng lặp giữ nguyên; công cụ mới được đăng ký vào bản đồ điều phối"
+    },
+    "s03": {
+      "title": "TodoWrite",
+      "subtitle": "Lập kế hoạch trước khi hành động",
+      "coreAddition": "TodoManager + nhắc nhở (nag reminder)",
+      "keyInsight": "Một agent không có kế hoạch sẽ bị lạc hướng; hãy liệt kê các bước trước, sau đó thực thi"
+    },
+    "s04": {
+      "title": "Subagents",
+      "subtitle": "Ngữ cảnh sạch cho mỗi nhiệm vụ phụ",
+      "coreAddition": "Khởi tạo subagent với messages[] biệt lập",
+      "keyInsight": "Các subagent sử dụng danh sách tin nhắn độc lập, giữ cho cuộc hội thoại chính luôn sạch sẽ"
+    },
+    "s05": {
+      "title": "Kỹ năng (Skills)",
+      "subtitle": "Tải khi cần thiết",
+      "coreAddition": "SkillLoader + nạp hai lớp",
+      "keyInsight": "Nạp kiến thức qua tool_result khi cần, thay vì đưa hết vào prompt hệ thống ngay từ đầu"
+    },
+    "s06": {
+      "title": "Nén (Compact)",
+      "subtitle": "Nén ba lớp",
+      "coreAddition": "micro-compact + auto-compact + lưu trữ (archival)",
+      "keyInsight": "Ngữ cảnh sẽ bị đầy; chiến lược nén ba lớp cho phép các phiên làm việc vô tận"
+    },
+    "s07": {
+      "title": "Nhiệm vụ (Tasks)",
+      "subtitle": "Đồ thị nhiệm vụ + Phụ thuộc",
+      "coreAddition": "TaskManager với trạng thái dựa trên tệp + đồ thị phụ thuộc",
+      "keyInsight": "Một đồ thị nhiệm vụ dựa trên tệp với thứ tự, song song và phụ thuộc -- trục xương sống điều phối cho công việc đa agent"
+    },
+    "s08": {
+      "title": "Nhiệm vụ nền",
+      "subtitle": "Luồng nền + Thông báo",
+      "coreAddition": "BackgroundManager + hàng đợi thông báo",
+      "keyInsight": "Chạy các thao tác chậm trong nền; agent tiếp tục suy nghĩ về phía trước"
+    },
+    "s09": {
+      "title": "Đội ngũ Agent",
+      "subtitle": "Đồng đội + Hộp thư",
+      "coreAddition": "TeammateManager + hộp thư dựa trên tệp",
+      "keyInsight": "Khi một agent không thể hoàn thành, hãy ủy thác cho đồng đội thông qua hộp thư bất đồng bộ"
+    },
+    "s10": {
+      "title": "Giao thức đội ngũ",
+      "subtitle": "Quy tắc giao tiếp chung",
+      "coreAddition": "Tương quan request_id cho hai giao thức",
+      "keyInsight": "Một mô hình yêu cầu-phản hồi thúc đẩy mọi hoạt động thương lượng trong nhóm"
+    },
+    "s11": {
+      "title": "Agent tự chủ",
+      "subtitle": "Quét bảng, Nhận nhiệm vụ",
+      "coreAddition": "Thăm dò bảng nhiệm vụ + tự quản dựa trên timeout",
+      "keyInsight": "Đồng đội tự quét bảng và nhận nhiệm vụ; trưởng nhóm không cần phải chỉ định từng cái một"
+    },
+    "s12": {
+      "title": "Worktree + Cách ly nhiệm vụ",
+      "subtitle": "Cách ly theo thư mục",
+      "coreAddition": "Vòng đời worktree có thể kết hợp + luồng sự kiện trên bảng nhiệm vụ dùng chung",
+      "keyInsight": "Mỗi bên làm việc trong thư mục riêng; nhiệm vụ quản lý mục tiêu, worktree quản lý thư mục, liên kết bằng ID"
+    }
+  }
+}

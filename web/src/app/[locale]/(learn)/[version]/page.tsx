@@ -31,6 +31,7 @@ export default async function VersionPage({
 
   const t = getTranslations(locale, "version");
   const tSession = getTranslations(locale, "sessions");
+  const tMeta = getTranslations(locale, "versions_metadata");
   const tLayer = getTranslations(locale, "layer_labels");
   const layer = LAYERS.find((l) => l.id === meta.layer);
 
@@ -49,26 +50,26 @@ export default async function VersionPage({
           <span className="rounded-lg bg-zinc-100 px-3 py-1 font-mono text-lg font-bold dark:bg-zinc-800">
             {version}
           </span>
-          <h1 className="text-2xl font-bold sm:text-3xl">{tSession(version) || meta.title}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">{tMeta(`${version}.title`) || tSession(version) || meta.title}</h1>
           {layer && (
             <LayerBadge layer={meta.layer}>{tLayer(layer.id)}</LayerBadge>
           )}
         </div>
         <p className="text-lg text-zinc-500 dark:text-zinc-400">
-          {meta.subtitle}
+          {tMeta(`${version}.subtitle`) || meta.subtitle}
         </p>
         <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-500 dark:text-zinc-400">
           <span className="font-mono">{versionData.loc} LOC</span>
           <span>{versionData.tools.length} {t("tools")}</span>
-          {meta.coreAddition && (
+          {(tMeta(`${version}.coreAddition`) || meta.coreAddition) && (
             <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs dark:bg-zinc-800">
-              {meta.coreAddition}
+              {tMeta(`${version}.coreAddition`) || meta.coreAddition}
             </span>
           )}
         </div>
-        {meta.keyInsight && (
+        {(tMeta(`${version}.keyInsight`) || meta.keyInsight) && (
           <blockquote className="border-l-4 border-zinc-300 pl-4 text-sm italic text-zinc-500 dark:border-zinc-600 dark:text-zinc-400">
-            {meta.keyInsight}
+            {tMeta(`${version}.keyInsight`) || meta.keyInsight}
           </blockquote>
         )}
       </header>
@@ -94,7 +95,7 @@ export default async function VersionPage({
             <div>
               <div className="text-xs text-zinc-400">{t("prev")}</div>
               <div className="font-medium">
-                {prevVersion} - {tSession(prevVersion) || VERSION_META[prevVersion]?.title}
+                {prevVersion} - {tMeta(`${prevVersion}.title`) || tSession(prevVersion) || VERSION_META[prevVersion]?.title}
               </div>
             </div>
           </Link>
@@ -109,7 +110,7 @@ export default async function VersionPage({
             <div>
               <div className="text-xs text-zinc-400">{t("next")}</div>
               <div className="font-medium">
-                {tSession(nextVersion) || VERSION_META[nextVersion]?.title} - {nextVersion}
+                {tMeta(`${nextVersion}.title`) || tSession(nextVersion) || VERSION_META[nextVersion]?.title} - {nextVersion}
               </div>
             </div>
             <span className="transition-transform group-hover:translate-x-1">

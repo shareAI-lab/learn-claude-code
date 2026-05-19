@@ -15,6 +15,7 @@ const data = versionData as VersionIndex;
 
 export default function ComparePage() {
   const t = useTranslations("compare");
+  const tMeta = useTranslations("versions_metadata");
   const locale = useLocale();
   const [versionA, setVersionA] = useState<string>("");
   const [versionB, setVersionB] = useState<string>("");
@@ -91,7 +92,7 @@ export default function ComparePage() {
             <option value="">-- select --</option>
             {LEARNING_PATH.map((v) => (
               <option key={v} value={v}>
-                {v} - {VERSION_META[v]?.title}
+                {v} - {tMeta(`${v}.title`) || VERSION_META[v]?.title}
               </option>
             ))}
           </select>
@@ -105,8 +106,8 @@ export default function ComparePage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>{metaA?.title || versionA}</CardTitle>
-                <p className="text-sm text-zinc-500">{metaA?.subtitle}</p>
+                <CardTitle>{tMeta(`${versionA}.title`) || metaA?.title || versionA}</CardTitle>
+                <p className="text-sm text-zinc-500">{tMeta(`${versionA}.subtitle`) || metaA?.subtitle}</p>
               </CardHeader>
               <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
                 <p>{infoA.loc} LOC</p>
@@ -116,8 +117,8 @@ export default function ComparePage() {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>{metaB?.title || versionB}</CardTitle>
-                <p className="text-sm text-zinc-500">{metaB?.subtitle}</p>
+                <CardTitle>{tMeta(`${versionB}.title`) || metaB?.title || versionB}</CardTitle>
+                <p className="text-sm text-zinc-500">{tMeta(`${versionB}.subtitle`) || metaB?.subtitle}</p>
               </CardHeader>
               <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
                 <p>{infoB.loc} LOC</p>
@@ -133,13 +134,13 @@ export default function ComparePage() {
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div>
                 <h3 className="mb-3 text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                  {metaA?.title || versionA}
+                  {tMeta(`${versionA}.title`) || metaA?.title || versionA}
                 </h3>
                 <ArchDiagram version={versionA} />
               </div>
               <div>
                 <h3 className="mb-3 text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                  {metaB?.title || versionB}
+                  {tMeta(`${versionB}.title`) || metaB?.title || versionB}
                 </h3>
                 <ArchDiagram version={versionB} />
               </div>

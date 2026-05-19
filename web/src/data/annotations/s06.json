@@ -13,6 +13,10 @@
       "ja": {
         "title": "3層圧縮戦略",
         "description": "コンテキスト管理は、異なるコスト・効果プロファイルを持つ3つの層を使用します。(1) マイクロコンパクトは毎ターン実行されほぼ無コスト：古いメッセージの tool_result ブロックを切り詰め、不要な冗長出力を除去します。(2) 自動コンパクトはトークン数が閾値を超えると発動：LLM を呼び出して会話の要約を生成し、コストは高いがコンテキストサイズを劇的に削減します。(3) 手動コンパクトはユーザーが明示的に「最初からやり直し」する時に使用します。この階層化により、安価な操作が常に実行され（コンテキストを整頓）、高価な操作はめったに実行されません（本当に必要な時のみ）。"
+      },
+      "vi": {
+        "title": "Chiến lược Nén Ba lớp",
+        "description": "Quản lý ngữ cảnh sử dụng ba lớp riêng biệt, mỗi lớp có hồ sơ chi phí/lợi ích khác nhau. (1) Microcompact chạy sau mỗi lượt và gần như miễn phí: nó cắt ngắn các khối tool_result từ các tin nhắn cũ hơn, loại bỏ đầu ra lệnh rườm rà không còn cần thiết. (2) Auto_compact kích hoạt khi số lượng token vượt quá ngưỡng: nó gọi LLM để tạo bản tóm tắt hội thoại, việc này tốn kém nhưng làm giảm đáng kể kích thước ngữ cảnh. (3) Manual compact được kích hoạt bởi người dùng cho các khoảnh khắc 'bắt đầu mới' rõ ràng. Việc phân lớp này có nghĩa là hoạt động rẻ tiền chạy liên tục (giữ cho ngữ cảnh gọn gàng) trong khi hoạt động đắt tiền hiếm khi chạy (chỉ khi thực sự cần thiết)."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "圧縮前に MIN_SAVINGS = 20,000 トークンが必要",
         "description": "自動コンパクトは推定節約量（現在のトークン数マイナス推定要約サイズ）が20,000トークンを超えた場合にのみ発動します。圧縮は無料ではありません：要約自体がトークンを消費し、さらに生成のための API コール費用がかかります。会話が25,000トークンしかない場合、圧縮で5,000トークン節約できても、API コールが必要で元の会話より一貫性の低い要約になる可能性があります。20K の閾値は、節約量がオーバーヘッドを確実に上回る場合にのみ圧縮を実行することを保証します。"
+      },
+      "vi": {
+        "title": "MIN_SAVINGS = 20,000 Token Trước khi Nén",
+        "description": "Auto_compact chỉ kích hoạt khi lượng tiết kiệm ước tính (số token hiện tại trừ đi kích thước bản tóm tắt ước tính) vượt quá 20.000 token. Việc nén không phải là miễn phí: bản thân bản tóm tắt cũng tiêu tốn token, cộng với chi phí gọi API để tạo ra nó. Nếu cuộc hội thoại chỉ có 25.000 token, việc nén có thể tiết kiệm được 5.000 token nhưng tốn một lần gọi API và tạo ra một bản tóm tắt ít mạch lạc hơn so với bản gốc. Ngưỡng 20K đảm bảo việc nén chỉ xảy ra khi lượng tiết kiệm vượt quá chi phí phát sinh một cách đáng kể."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "要約が部分的な履歴ではなく全メッセージを置換",
         "description": "自動コンパクトが発動すると、要約を生成してメッセージ履歴の全体をその要約で置換します。要約と並べて直近 N 件のメッセージを保持することはしません。これにより微妙な一貫性の問題を回避します：直近のメッセージと古いメッセージの要約を併存させると、モデルは重複するコンテンツの2つの表現を見ることになります。要約が「アプローチ X を使うことに決めた」と言う一方で、直近のメッセージにはまだ検討過程が表示されているかもしれず、矛盾するシグナルを生じます。クリーンな要約は単一の一貫した物語です。"
+      },
+      "vi": {
+        "title": "Bản tóm tắt thay thế TẤT CẢ tin nhắn, không phải một phần lịch sử",
+        "description": "Khi auto_compact hoạt động, nó tạo ra một bản tóm tắt và thay thế TOÀN BỘ lịch sử tin nhắn bằng bản tóm tắt đó. Nó không giữ lại N tin nhắn cuối cùng cùng với bản tóm tắt. Điều này tránh được một vấn đề mạch lạc tinh vi: nếu bạn giữ các tin nhắn gần đây cùng với bản tóm tắt các tin nhắn cũ hơn, mô hình sẽ thấy hai cách thể hiện của nội dung bị trùng lặp. Bản tóm tắt có thể nói 'chúng tôi đã quyết định sử dụng cách tiếp cận X' trong khi một tin nhắn gần đây vẫn hiển thị quá trình thảo luận, tạo ra các tín hiệu mâu thuẫn. Một bản tóm tắt sạch sẽ là một câu chuyện mạch lạc duy nhất."
       }
     },
     {
@@ -55,6 +67,10 @@
       "ja": {
         "title": "完全な会話を JSONL としてディスクに保存",
         "description": "メモリ上でコンテキストが圧縮されても、完全な非圧縮会話はディスク上の JSONL ファイルに追記されます。全てのメッセージ、全てのツール呼び出し、全ての結果――何も失われません。圧縮はインメモリコンテキストに対しては不可逆ですが、永続記録に対しては可逆です。事後分析（エージェントの挙動デバッグ、トークン使用量の計算、学習データの抽出）は常に完全な記録から行えます。JSONL フォーマットは追記専用で、並行書き込みに安全であり行単位の処理が容易です。"
+      },
+      "vi": {
+        "title": "Hội thoại đầy đủ được lưu trữ vào JSONL trên đĩa",
+        "description": "Mặc dù ngữ cảnh bị nén trong bộ nhớ, toàn bộ cuộc hội thoại không nén vẫn được thêm vào tệp JSONL trên đĩa. Mọi tin nhắn, mọi lệnh gọi công cụ, mọi kết quả -- không có gì bị mất. Điều này có nghĩa là nén là một hoạt động có tổn hao (lossy) đối với ngữ cảnh trong bộ nhớ nhưng là một hoạt động không tổn hao (lossless) đối với hồ sơ vĩnh viễn. Phân tích sau sự kiện (gỡ lỗi hành vi của agent, tính toán lượng sử dụng token, trích xuất dữ liệu đào tạo) luôn có thể làm việc từ bản ghi đầy đủ. Định dạng JSONL chỉ cho phép thêm vào (append-only), giúp nó an toàn cho việc ghi đồng thời và dễ dàng xử lý theo luồng (stream-process)."
       }
     }
   ]

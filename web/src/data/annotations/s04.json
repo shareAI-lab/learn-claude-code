@@ -13,6 +13,10 @@
       "ja": {
         "title": "サブエージェントは共有履歴ではなく新しいコンテキストを取得",
         "description": "親エージェントが Task ツールでサブエージェントを生成すると、サブエージェントはシステムプロンプトと委任されたタスク説明のみを含むクリーンなメッセージ履歴から開始します。親の会話は引き継ぎません。これがコンテキスト分離です：サブエージェントは親の広範な会話の何百ものメッセージに気を取られることなく、特定のサブタスクに完全に集中できます。結果は単一の tool_result として親に返され、サブエージェントの数十ターンが1つの簡潔な回答に凝縮されます。"
+      },
+      "vi": {
+        "title": "Agent phụ nhận Ngữ cảnh mới, không phải Lịch sử chia sẻ",
+        "description": "Khi một agent cha khởi tạo một Agent phụ thông qua công cụ Task, Agent phụ bắt đầu với lịch sử tin nhắn sạch chỉ chứa lời nhắc hệ thống và mô tả nhiệm vụ được giao. Nó KHÔNG kế thừa cuộc hội thoại của cha. Đây là sự cô lập ngữ cảnh: Agent phụ có thể tập trung hoàn toàn vào nhiệm vụ phụ cụ thể của nó mà không bị phân tâm bởi hàng trăm tin nhắn từ cuộc hội thoại rộng hơn của agent cha. Kết quả được trả về cho agent cha dưới dạng một tool_result duy nhất, thu gọn hàng chục lượt của Agent phụ thành một câu trả lời súc tích."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "Explore エージェントはファイルを書き込めない",
         "description": "Explore タイプのサブエージェントを生成すると、読み取り専用ツールのみが提供されます：bash（制限付き）、read_file、検索ツール。write_file や edit_file は使えません。これは最小権限の原則の実装です：「関数 X の全使用箇所を見つける」タスクに書き込み権限は不要です。書き込みツールを除外することで探索中の誤ったファイル変更リスクを排除し、ツール空間を狭めてモデルがより良い判断を下せるようにします。"
+      },
+      "vi": {
+        "title": "Agent Explore không thể ghi tệp",
+        "description": "Khi khởi tạo một Agent phụ với loại 'Explore', nó chỉ nhận được các công cụ chỉ đọc: bash (với các hạn chế), read_file và các công cụ tìm kiếm. Nó không thể gọi write_file hoặc edit_file. Điều này thực hiện nguyên tắc đặc quyền tối thiểu: một agent được giao nhiệm vụ 'tìm tất cả các cách sử dụng của hàm X' không cần quyền truy cập ghi. Việc loại bỏ các công cụ ghi sẽ loại bỏ rủi ro vô tình sửa đổi tệp trong quá trình khám phá, đồng thời thu hẹp không gian công cụ để mô hình đưa ra quyết định tốt hơn với ít lựa chọn hơn."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "サブエージェントは自身のサブエージェントを生成できない",
         "description": "Task ツールはサブエージェントのツールセットに含まれません。サブエージェントは作業を直接完了しなければならず、さらなる委任はできません。これにより無限委任ループを防止します：この制約がなければ、エージェントがサブエージェントを生成し、そのサブエージェントがさらにサブエージェントを生成し、それぞれが微妙に異なる言葉で同じタスクを再委任してトークンを消費するだけで進捗しない可能性があります。一段階の委任で大多数のユースケースに対応できます。"
+      },
+      "vi": {
+        "title": "Agent phụ không thể khởi tạo Agent phụ riêng của chúng",
+        "description": "Công cụ Task không được bao gồm trong bộ công cụ của Agent phụ. Một Agent phụ phải hoàn thành công việc của nó một cách trực tiếp -- nó không thể ủy quyền thêm. Điều này ngăn chặn các vòng lặp ủy quyền vô hạn: nếu không có ràng buộc này, một agent có thể khởi tạo một Agent phụ, rồi Agent phụ đó lại khởi tạo một Agent phụ khác, mỗi Agent phụ lại ủy quyền lại cùng một nhiệm vụ bằng những từ ngữ hơi khác nhau, tiêu tốn token mà không đạt được tiến triển nào. Một cấp độ ủy quyền xử lý được đại đa số các trường hợp sử dụng. Nếu một nhiệm vụ quá phức tạp đối với một Agent phụ duy nhất, agent cha nên chia nhỏ nó theo cách khác."
       }
     }
   ]

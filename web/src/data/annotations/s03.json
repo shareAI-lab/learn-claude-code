@@ -13,6 +13,10 @@
       "ja": {
         "title": "TodoWrite による計画の可視化",
         "description": "モデルが思考の連鎖の中で黙って計画するのではなく、TodoWrite ツールを通じて計画を外部化することを強制します。各計画項目には追跡可能なステータス（pending、in_progress、completed）があります。利点は3つ：(1) ユーザーがエージェントの意図を実行前に確認できる、(2) 開発者が計画状態を検査してデバッグできる、(3) エージェント自身が以前のコンテキストがスクロールアウトした後でも計画を参照できる。"
+      },
+      "vi": {
+        "title": "Làm cho Lập kế hoạch hiển thị thông qua TodoWrite",
+        "description": "Thay vì để mô hình lập kế hoạch thầm lặng trong chuỗi suy nghĩ của nó, chúng tôi buộc các kế hoạch phải được thể hiện ra bên ngoài thông qua công cụ TodoWrite. Mỗi mục kế hoạch có một trạng thái (pending, in_progress, completed) được theo dõi một cách rõ ràng. Điều này mang lại ba lợi ích: (1) người dùng có thể thấy những gì agent dự định làm trước khi nó thực hiện, (2) nhà phát triển có thể gỡ lỗi hành vi của agent bằng cách kiểm tra trạng thái kế hoạch, (3) chính agent có thể tham chiếu lại kế hoạch của mình trong các lượt sau khi ngữ cảnh trước đó đã bị trôi đi."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "同時に進行中にできるタスクは1つだけ",
         "description": "TodoWrite ツールは、同時に 'in_progress' 状態のタスクを最大1つに制限します。モデルが2つ目のタスクを開始しようとする場合、まず現在のタスクを完了または中断する必要があります。この制約は微妙な失敗モードを防ぎます：複数の項目を交互に処理して「マルチタスク」しようとするモデルは、状態を見失い中途半端な結果を生みがちです。逐次的な集中は並行的な切り替えよりも高品質な出力を生み出します。"
+      },
+      "vi": {
+        "title": "Chỉ một Nhiệm vụ có thể ở trạng thái Đang thực hiện",
+        "description": "Công cụ TodoWrite bắt buộc tại một thời điểm chỉ có tối đa một nhiệm vụ có trạng thái 'in_progress'. Nếu mô hình cố gắng bắt đầu một nhiệm vụ thứ hai, trước tiên nó phải hoàn thành hoặc hủy bỏ nhiệm vụ hiện tại. Ràng buộc này ngăn chặn một chế độ thất bại tinh vi: các mô hình cố gắng 'đa nhiệm' bằng cách đan xen công việc trên nhiều mục có xu hướng mất dấu trạng thái và tạo ra các kết quả dang dở. Sự tập trung tuần tự tạo ra chất lượng cao hơn so với việc xáo trộn song song."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "計画項目の上限は20個",
         "description": "TodoWrite は計画を20項目に制限します。これは過度な計画に対する意図的な制約です。制約がないとモデルはタスクをどんどん細かいステップに分解し、各ステップが些末な50項目の計画を作りがちです。長い計画は脆弱です：ステップ15が失敗すると残りの35ステップは全て無効になりかねません。20項目以内の短い計画は適切な抽象度を保ち、現実が計画から逸脱した際の適応が容易です。"
+      },
+      "vi": {
+        "title": "Tối đa 20 mục Kế hoạch",
+        "description": "TodoWrite giới hạn kế hoạch ở mức 20 mục. Đây là một ràng buộc có chủ ý chống lại việc lập kế hoạch quá mức. Các mô hình có xu hướng chia nhỏ các nhiệm vụ thành các bước ngày càng chi tiết khi không bị ràng buộc, tạo ra các kế hoạch 50 mục mà mỗi bước đều tầm thường. Các kế hoạch dài rất mong manh: nếu bước 15 thất bại, 35 bước còn lại có thể đều không còn hiệu lực. Các kế hoạch ngắn (dưới 20 mục) duy trì ở mức trừu tượng phù hợp và dễ thích nghi hơn khi thực tế khác biệt so với kế hoạch."
       }
     }
   ]

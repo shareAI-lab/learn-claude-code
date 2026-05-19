@@ -13,6 +13,10 @@
       "ja": {
         "title": "スキルはシステムプロンプトではなく tool_result で注入",
         "description": "エージェントが Skill ツールを呼び出すと、スキルの内容（SKILL.md ファイル）はシステムプロンプトへの注入ではなく、ユーザーメッセージ内の tool_result として返されます。これは意図的なキャッシュ最適化です：システムプロンプトはターン間で静的に保たれるため、API プロバイダーがキャッシュできます（Anthropic のプロンプトキャッシュ、OpenAI のシステムメッセージキャッシュ）。スキル内容がシステムプロンプト内にあると、新しいスキルをロードするたびにキャッシュが無効化されます。動的コンテンツを tool_result に配置することで、高コストなシステムプロンプトのキャッシュ可能性を維持しつつ、スキル知識をコンテキストに取り込めます。"
+      },
+      "vi": {
+        "title": "Kỹ năng được chèn qua tool_result, không phải Lời nhắc Hệ thống",
+        "description": "Khi agent gọi công cụ Skill, nội dung của kỹ năng (tệp SKILL.md) được trả về dưới dạng một tool_result trong tin nhắn người dùng, chứ không phải được chèn vào lời nhắc hệ thống. Đây là một sự tối ưu hóa bộ nhớ đệm có chủ ý: lời nhắc hệ thống vẫn tĩnh qua các lượt, điều đó có nghĩa là các nhà cung cấp API có thể lưu nó vào bộ nhớ đệm (prompt caching của Anthropic, system message caching của OpenAI). Nếu nội dung kỹ năng nằm trong lời nhắc hệ thống, nó sẽ thay đổi mỗi khi một kỹ năng mới được tải, làm mất hiệu lực của bộ nhớ đệm. Bằng cách đặt nội dung động trong tool_result, chúng tôi giữ cho lời nhắc hệ thống đắt đỏ có thể lưu vào bộ nhớ đệm trong khi vẫn đưa được kiến thức kỹ năng vào ngữ cảnh."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "起動時ではなくオンデマンドでスキルを読み込み",
         "description": "スキルは起動時に読み込まれません。エージェントは最初、スキルの名前と説明（フロントマターから）のみを持ちます。エージェントが特定のスキルが必要だと判断すると、Skill ツールを呼び出して完全な SKILL.md の内容をコンテキストに読み込みます。これにより初期プロンプトを小さく保ちます。Python のバグを修正しているエージェントに Kubernetes デプロイのスキルは不要です――コンテキストウィンドウの無駄遣いであり、無関係な指示でモデルを混乱させかねません。"
+      },
+      "vi": {
+        "title": "Tải Kỹ năng Theo yêu cầu thay vì Tải trước",
+        "description": "Các kỹ năng không được tải khi khởi động. Agent bắt đầu chỉ với tên và mô tả kỹ năng (từ frontmatter). Khi agent quyết định rằng nó cần một kỹ năng cụ thể, nó sẽ gọi công cụ Skill để tải toàn bộ nội dung SKILL.md vào ngữ cảnh. Điều này giúp lời nhắc ban đầu nhỏ gọn và tập trung. Một agent đang giải quyết một lỗi Python không cần tải kỹ năng triển khai Kubernetes -- điều đó sẽ lãng phí không gian cửa sổ ngữ cảnh và có khả năng làm mô hình bối rối với những hướng dẫn không liên quan."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "SKILL.md で YAML フロントマター + Markdown 本文",
         "description": "各 SKILL.md ファイルは2つの部分で構成されます：YAML フロントマター（名前、説明、globs）と Markdown 本文（実際の指示）。フロントマターはスキルレジストリのメタデータとして機能し、エージェントが「どんなスキルが利用可能か」と問い合わせた際に一覧表示されます。本文はオンデマンドで読み込まれるペイロードです。この分離により、100個のスキル一覧表示（各数バイトのフロントマターのみ読み取り）が100個の完全な指示セット（各数千トークン）のロードなしに可能になります。"
+      },
+      "vi": {
+        "title": "YAML Frontmatter + Markdown Body trong SKILL.md",
+        "description": "Mỗi tệp SKILL.md có hai phần: YAML frontmatter (tên, mô tả, globs) và thân markdown (các hướng dẫn thực tế). Frontmatter đóng vai trò là siêu dữ liệu cho sổ đăng ký kỹ năng -- đó là những gì được liệt kê khi agent hỏi 'có những kỹ năng nào?'. Thân tệp là phần tải dữ liệu được tải theo yêu cầu. Sự phân tách này có nghĩa là bạn có thể liệt kê 100 kỹ năng (chỉ đọc frontmatter, mỗi cái vài byte) mà không cần tải 100 bộ hướng dẫn đầy đủ (mỗi bộ có khả năng lên tới hàng nghìn token)."
       }
     }
   ]

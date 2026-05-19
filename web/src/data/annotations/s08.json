@@ -13,6 +13,10 @@
       "ja": {
         "title": "threading.Queue を通知バスとして使用",
         "description": "バックグラウンドタスクの結果は直接コールバックではなく threading.Queue を通じて配信されます。バックグラウンドスレッドは作業完了時にキューに通知を投入します。メインのエージェントループは各 LLM 呼び出しの前にキューをポーリングします。この疎結合が重要です：バックグラウンドスレッドはメインループの状態やタイミングを一切知る必要がありません。キューにメッセージを入れて先に進むだけです。メインループは自分のペースで取り出します――API 呼び出しの途中でもツール実行の途中でもありません。レースコンディションもコールバック地獄もありません。"
+      },
+      "vi": {
+        "title": "threading.Queue đóng vai trò là Bus thông báo",
+        "description": "Kết quả của nhiệm vụ nền được gửi qua một threading.Queue thay vì các lệnh gọi lại (callback) trực tiếp. Luồng nền đặt một thông báo vào hàng đợi khi công việc của nó hoàn thành. Vòng lặp Agent chính sẽ kiểm tra hàng đợi trước mỗi cuộc gọi LLM. Sự tách biệt này rất quan trọng: luồng nền không cần biết bất cứ điều gì về trạng thái hoặc thời gian của vòng lặp chính. Nó chỉ việc thả một tin nhắn vào hàng đợi và tiếp tục công việc khác. Vòng lặp chính sẽ lấy tin nhắn đó theo tốc độ của riêng nó -- không bao giờ ở giữa cuộc gọi API, không bao giờ ở giữa lúc thực thi công cụ. Không có tình trạng tranh chấp (race conditions), không có thảm họa lệnh gọi lại (callback hell)."
       }
     },
     {
@@ -27,6 +31,10 @@
       "ja": {
         "title": "バックグラウンドタスクはデーモンスレッドとして実行",
         "description": "バックグラウンドタスクのスレッドは daemon=True で作成されます。Python ではデーモンスレッドはメインスレッドの終了時に自動的に終了されます。これにより一般的な問題を防ぎます：メインエージェントが作業を完了して終了しても、バックグラウンドスレッドがまだ実行中（長い API 呼び出しを待機、ループに陥っている）だとプロセスが無限にハングします。デーモンスレッドならクリーンに終了できます――メインスレッドが終了すると全デーモンスレッドが自動終了し、プロセスが終了します。ゾンビプロセスもクリーンアップコードも不要です。"
+      },
+      "vi": {
+        "title": "Các nhiệm vụ nền chạy dưới dạng Luồng Daemon",
+        "description": "Các luồng nhiệm vụ nền được tạo với daemon=True. Trong Python, các luồng daemon sẽ tự động bị hủy khi luồng chính thoát. Điều này ngăn chặn một vấn đề phổ biến: nếu agent chính hoàn thành công việc và thoát, nhưng một luồng nền vẫn đang chạy (đang chờ một cuộc gọi API dài, bị kẹt trong một vòng lặp), tiến trình sẽ bị treo vô hạn. Với các luồng daemon, việc thoát diễn ra sạch sẽ -- luồng chính kết thúc, tất cả các luồng daemon bị hủy, tiến trình thoát. Không có tiến trình thây ma (zombie), không cần mã dọn dẹp."
       }
     },
     {
@@ -41,6 +49,10 @@
       "ja": {
         "title": "型タグ付き構造化通知フォーマット",
         "description": "バックグラウンドタスクからの通知は構造化フォーマットを使用します：プレーンテキストではなく {\"type\": \"attachment\", \"attachment\": {status, result, ...}} です。型タグによりメインループは異なる通知タイプを異なる方法で処理できます：attachment は会話に tool_result として注入され、status_update は進捗インジケーターの更新のみを行うかもしれません。機械可読な通知はプログラム的なフィルタリング（エラーのみ表示、進捗更新の抑制）や UI レンダリング（ステータスを生テキストではなくプログレスバーとして表示）も可能にします。"
+      },
+      "vi": {
+        "title": "Định dạng thông báo có cấu trúc với các thẻ loại",
+        "description": "Các thông báo từ các nhiệm vụ nền sử dụng định dạng có cấu trúc: {\"type\": \"attachment\", \"attachment\": {status, result, ...}} thay vì các chuỗi văn bản thuần túy. Thẻ loại cho phép vòng lặp chính xử lý các loại thông báo khác nhau theo những cách khác nhau: một 'attachment' có thể được chèn vào cuộc hội thoại dưới dạng một tool_result, trong khi một 'status_update' có thể chỉ cập nhật một chỉ báo tiến trình. Các thông báo có thể đọc được bằng máy cũng cho phép lọc theo chương trình (chỉ hiển thị lỗi, ẩn các cập nhật tiến trình) và hiển thị giao diện người dùng (hiển thị trạng thái dưới dạng thanh tiến trình, không phải văn bản thô)."
       }
     }
   ]
