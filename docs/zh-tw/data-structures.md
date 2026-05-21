@@ -23,7 +23,7 @@
 
 ### 原則 2：區分“持久狀態”和“執行時狀態”
 
-- task、memory、schedule 這類狀態，通常會落盤，跨會話存在。
+- task、memory、schedule 這類狀態，通常會寫入磁碟，跨會話存在。
 - runtime task、當前 permission decision、當前 MCP connection 這類狀態，通常只在系統執行時活著。
 
 ## 1. 查詢與對話控制狀態
@@ -225,7 +225,7 @@ transition = {
 
 - 日誌更清楚
 - 測試更清楚
-- 恢復鏈路更清楚
+- 恢復路徑更清楚
 
 相關章節：
 
@@ -556,7 +556,7 @@ runtime_task = {
 這和 `TaskRecord` 不是一回事：
 
 - `TaskRecord` 管工作目標
-- `RuntimeTaskState` 管當前執行槽位
+- `RuntimeTaskState` 管當前執行插槽
 
 相關章節：
 

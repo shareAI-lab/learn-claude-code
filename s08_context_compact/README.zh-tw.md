@@ -17,7 +17,7 @@ Agent 跑著跑著，不動了。
 
 上下文視窗是有限的。滿了之後，API 直接拒絕：`prompt_too_long`。
 
-不壓縮，Agent 根本沒法在大專案裡幹活。
+不壓縮，Agent 根本沒法在大專案裡工作。
 
 ---
 
@@ -77,7 +77,7 @@ def micro_compact(messages):
 
 舊結果清掉了，但單條新結果可能就有 500KB——一個 `cat` 大檔案的輸出就能打滿上下文。→ L3。
 
-### L3: tool_result_budget — 大結果落盤
+### L3: tool_result_budget — 大結果寫入磁碟
 
 ![大結果落盤](images/layer1-budget.svg)
 
@@ -150,7 +150,7 @@ def agent_loop(messages):
     reactive_retries = 0
     while True:
         # 三個預處理器（0 API 呼叫）
-        # 順序：budget 先跑，確保大內容落盤後再做佔位和裁剪
+        # 順序：budget 先跑，確保大內容寫入磁碟後再做佔位和裁剪
         messages[:] = tool_result_budget(messages)    # L3: 大結果落盤
         messages[:] = snip_compact(messages)          # L1: 裁中間
         messages[:] = micro_compact(messages)         # L2: 舊結果佔位

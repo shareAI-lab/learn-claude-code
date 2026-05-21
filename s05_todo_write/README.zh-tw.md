@@ -14,7 +14,7 @@ s01 → s02 → s03 → s04 → `s05` → [s06](../s06_subagent/) → s07 → ..
 
 給 Agent 一個複雜任務："把所有 Python 檔案改成 snake_case 命名，然後跑測試，修好失敗。"
 
-Agent 開始幹活，改了 3 個檔案，跑了個測試，發現 2 個失敗，開始修。修著修著，它忘了最初是"改成 snake_case"，測試失敗把注意力全吸走了。
+Agent 開始做事，改了 3 個檔案，跑了個測試，發現 2 個失敗，開始修。修著修著，它忘了最初是"改成 snake_case"，測試失敗把注意力全吸走了。
 
 對話越長越嚴重：工具結果不斷填滿上下文，系統提示的影響力被稀釋。一個 10 步重構，做完 1-3 步就開始即興發揮，因為 4-10 步已經被擠出注意力了。
 
@@ -24,7 +24,7 @@ Agent 開始幹活，改了 3 個檔案，跑了個測試，發現 2 個失敗�
 
 ![Todo Overview](images/todo-overview.svg)
 
-保留上一章的最小 hook 結構，重點看新增的 `todo_write` 工具和 reminder 機制。`todo_write` 本身不做任何實際工作，不能讀檔案、不能跑命令，只是讓 Agent 在動手之前先理清思路。
+保留上一章的最小 hook 結構，重點看新增的 `todo_write` 工具和 reminder 機制。`todo_write` 本身不做任何實際工作，不能讀檔案、不能跑命令，只是讓 Agent 在動手之前先釐清思路。
 
 dispatch 機制不變，新工具仍然走 `TOOL_HANDLERS[block.name]` 分發。但為了演示 todo reminder，迴圈里加了一個計數器：連續 3 輪沒調 `todo_write` 就注入一條提醒。
 
@@ -32,7 +32,7 @@ dispatch 機制不變，新工具仍然走 `TOOL_HANDLERS[block.name]` 分發。
 
 ## 工作原理
 
-**todo_write 工具**，接收一個帶狀態的列表，持久化到 `.tasks/current_todos.json`（教學版寫盤以便觀察），同時在終端顯示進度：
+**todo_write 工具**，接收一個帶狀態的列表，持久化到 `.tasks/current_todos.json`（教學版存入磁碟以便觀察），同時在終端顯示進度：
 
 ```python
 def run_todo_write(todos: list) -> str:

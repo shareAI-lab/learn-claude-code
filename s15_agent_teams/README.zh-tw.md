@@ -40,7 +40,7 @@ s06 的子 Agent 是臨時工，叫來幹一件事就走了。但有些任務需
 
 ### MessageBus: 檔案收件箱
 
-每個 Agent（包括 Lead 和隊友）有一個 `.jsonl` 郵箱。發訊息 = 往對方的檔案裡 append 一行 JSON。讀訊息 = 讀檔案 + 刪除（消費式）：
+每個 Agent（包括 Lead 和隊友）有一個 `.jsonl` 信箱。發訊息 = 往對方的檔案裡 append 一行 JSON。讀訊息 = 讀檔案 + 刪除（消費式）：
 
 ```python
 class MessageBus:

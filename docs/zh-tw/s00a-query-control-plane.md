@@ -311,7 +311,7 @@ query loop
 - 每次 `continue` 都應該有明確原因，而不是黑盒跳轉
 - 訊息層、工具回寫、壓縮恢復、重試恢復，最終都要回到同一份 query 狀態上
 
-更細的 `transition taxonomy`、預算跟蹤、prefetch 等擴充套件，可以放到你把這條最小控制面真正手搓穩定以後再補。
+更細的 `transition taxonomy`、預算跟蹤、prefetch 等擴充套件，可以放到你把這條最小控制面真正實作穩定以後再補。
 
 ## 一句話記住
 
