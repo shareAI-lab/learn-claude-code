@@ -1,6 +1,6 @@
 # s14: Cron Scheduler — 按时间表生产工作
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 s01 → ... → s12 → s13 → `s14` → [s15](../s15_agent_teams/) → s16 → ... → s20
 > *"按时间表生产工作, 调度与执行解耦"* — cron 调度, 持久化或会话级。

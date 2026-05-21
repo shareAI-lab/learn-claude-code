@@ -1,6 +1,6 @@
 # s11: Error Recovery — 错误不是结束，是重试的开始
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 s01 → ... → s09 → s10 → `s11` → [s12](../s12_task_system/) → s13 → ... → s20
 > *"错误不是终点, 是重试的起点"* — 升级 token、压缩上下文、切换模型。

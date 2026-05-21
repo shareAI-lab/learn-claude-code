@@ -1,6 +1,6 @@
 # s19: MCP Tools — External Tools, Standard Protocol
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 s01 → ... → s17 → s18 → `s19` → [s20](../s20_comprehensive/)
 

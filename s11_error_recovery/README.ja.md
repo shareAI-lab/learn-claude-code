@@ -1,6 +1,6 @@
 # s11: Error Recovery — エラーは終わりではなく、リトライの始まり
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 s01 → ... → s09 → s10 → `s11` → [s12](../s12_task_system/) → s13 → ... → s20
 > *"エラーは終わりではなく、リトライの始まり"* — トークン拡張、コンテキスト圧縮、モデル切り替え。

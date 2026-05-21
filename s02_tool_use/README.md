@@ -1,6 +1,6 @@
 # s02: Tool Use — 多加一个工具，只加一行
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 s01 → `s02` → [s03](../s03_permission/) → s04 → ... → s20
 > *"加一个工具, 只加一个 handler"* — 循环不用动, 新工具注册进 dispatch map 就行。

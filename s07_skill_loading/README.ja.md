@@ -1,6 +1,6 @@
 # s07: Skill Loading — 必要なときにだけ読み込む
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 s01 → s02 → s03 → s04 → s05 → s06 → `s07` → [s08](../s08_context_compact/) → s09 → ... → s20
 > *"Load when needed, don't stuff the prompt"* — tool_result で注入、system prompt には詰め込まない。

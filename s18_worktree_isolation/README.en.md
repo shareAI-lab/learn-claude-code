@@ -1,6 +1,6 @@
 # s18: Worktree Isolation — Separate Directories, No Conflicts
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 s01 → ... → s16 → s17 → `s18` → [s19](../s19_mcp_plugin/) → s20
 

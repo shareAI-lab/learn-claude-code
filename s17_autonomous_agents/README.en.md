@@ -1,6 +1,6 @@
 # s17: Autonomous Agents — Check the Board, Claim the Task
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 s01 → ... → s15 → s16 → `s17` → [s18](../s18_worktree_isolation/) → s19 → s20
 

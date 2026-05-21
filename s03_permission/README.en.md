@@ -1,6 +1,6 @@
 # s03: Permission — Check Permissions Before Execution
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 s01 → s02 → `s03` → [s04](../s04_hooks/) → s05 → ... → s20
 > *"Check permissions before executing"* — The permission pipeline decides which operations need approval.

@@ -1,6 +1,6 @@
 # s20: Comprehensive Agent — すべての仕組みを 1 つのループへ
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 s01 → ... → s18 → s19 → `s20`
 

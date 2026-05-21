@@ -1,6 +1,6 @@
 # s01: Agent Loop — ループ一つで十分
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 `s01` → [s02](../s02_tool_use/) → s03 → s04 → ... → s20
 > *"One loop & Bash is all you need"* — ツール一つ + ループ一つ = 一つの Agent。

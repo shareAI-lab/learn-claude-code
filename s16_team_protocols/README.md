@@ -1,6 +1,6 @@
 # s16: Team Protocols — 队友之间要有约定
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[中文](README.md) · [繁中](README.zh-tw.md) · [English](README.en.md) · [日本語](README.ja.md)
 
 s01 → ... → s14 → s15 → `s16` → [s17](../s17_autonomous_agents/) → s18 → s19 → s20
 > *"队友之间要有约定"* — request-response 模式驱动协商。
