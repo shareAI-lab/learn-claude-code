@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 356" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+  </defs>
+
+  <rect width="720" height="356" fill="#fafbfc" rx="8"/>
+  <rect x="0" y="0" width="720" height="38" fill="url(#header)" rx="8"/>
+  <rect x="0" y="30" width="720" height="8" fill="url(#header)"/>
+  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">L3: toolResultBudget — Large Result Persistence</text>
+
+  <!-- Pain Point -->
+  <rect x="20" y="54" width="680" height="42" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
+  <text x="35" y="72" fill="#991b1b" font-size="11" font-weight="600">Pain Point</text>
+  <text x="105" y="72" fill="#991b1b" font-size="11">Model read 30 files in one turn; total tool_result adds up to 500KB, filling the entire context window</text>
+
+  <!-- Before -->
+  <text x="155" y="118" fill="#64748b" font-size="12" font-weight="600" text-anchor="middle">Before</text>
+  <rect x="20" y="128" width="270" height="82" rx="6" fill="#fff" stroke="#94a3b8" stroke-width="1"/>
+  <text x="35" y="148" fill="#475569" font-size="10" font-family="monospace">tool_result: (78KB)  ...</text>
+  <text x="35" y="164" fill="#475569" font-size="10" font-family="monospace">tool_result: (142KB) ...</text>
+  <text x="35" y="180" fill="#475569" font-size="10" font-family="monospace">tool_result: (290KB) ...</text>
+  <text x="155" y="202" fill="#ef4444" font-size="9" font-weight="600" text-anchor="middle">Total 510KB → over budget</text>
+
+  <!-- Arrow -->
+  <line x1="295" y1="163" x2="360" y2="163" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- After -->
+  <text x="485" y="118" fill="#16a34a" font-size="12" font-weight="600" text-anchor="middle">After</text>
+  <rect x="365" y="128" width="335" height="82" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1"/>
+  <text x="380" y="148" fill="#166534" font-size="10" font-family="monospace">tool_result: &lt;persisted-output&gt;</text>
+  <text x="395" y="164" fill="#166534" font-size="9">Full output: .task_outputs/t1.txt</text>
+  <text x="395" y="178" fill="#166534" font-size="9">Preview: (first 2000 chars) ...</text>
+  <text x="532" y="202" fill="#16a34a" font-size="9" font-weight="600" text-anchor="middle">Total 18KB → normal</text>
+
+  <!-- How it works -->
+  <rect x="20" y="214" width="680" height="64" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="35" y="234" fill="#1e3a5f" font-size="11" font-weight="600">How</text>
+  <text x="70" y="234" fill="#475569" font-size="10">1. Sum the size of all tool_result in the latest turn</text>
+  <text x="70" y="250" fill="#475569" font-size="10">2. Over 200KB → sort by size, persist the largest to .task_outputs/tool-results/</text>
+  <text x="70" y="266" fill="#475569" font-size="10">3. Keep only &lt;persisted-output&gt; marker + first 2000 chars preview in context</text>
+
+  <!-- Result summary -->
+  <rect x="20" y="290" width="680" height="36" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1"/>
+  <text x="35" y="312" fill="#166534" font-size="11">Result: No data lost (full data on disk), context drops from 510KB to ~18KB, 0 API calls</text>
+</svg>

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 280" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+  </defs>
+
+  <rect width="720" height="280" fill="#fafbfc" rx="8"/>
+  <rect x="0" y="0" width="720" height="38" fill="url(#header)" rx="8"/>
+  <rect x="0" y="30" width="720" height="8" fill="url(#header)"/>
+  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Permission Pipeline — 三道闸门</text>
+
+  <!-- Tool call enters -->
+  <rect x="40" y="62" width="120" height="36" rx="6" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="100" y="84" fill="#1e40af" font-size="12" font-weight="600" text-anchor="middle">工具调用进入</text>
+
+  <line x1="160" y1="80" x2="210" y2="80" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Gate 1: Deny list -->
+  <rect x="214" y="56" width="145" height="48" rx="6" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+  <text x="286" y="76" fill="#991b1b" font-size="11" font-weight="700" text-anchor="middle">闸门 1: 拒绝列表</text>
+  <text x="286" y="94" fill="#991b1b" font-size="9" text-anchor="middle">rm -rf /, sudo, shutdown</text>
+
+  <line x1="359" y1="80" x2="409" y2="80" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Gate 2: Rule check -->
+  <rect x="413" y="56" width="145" height="48" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="485" y="76" fill="#92400e" font-size="11" font-weight="700" text-anchor="middle">闸门 2: 规则匹配</text>
+  <text x="485" y="94" fill="#92400e" font-size="9" text-anchor="middle">写工作区外？读敏感路径？</text>
+  <text x="485" y="116" fill="#166534" font-size="8" font-weight="600" text-anchor="middle">未命中 → allow</text>
+
+  <line x1="558" y1="80" x2="608" y2="80" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="583" y="72" fill="#92400e" font-size="8" font-weight="600" text-anchor="middle">命中</text>
+
+  <!-- Gate 3: User approval -->
+  <rect x="612" y="56" width="90" height="48" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="657" y="76" fill="#92400e" font-size="11" font-weight="700" text-anchor="middle">闸门 3</text>
+  <text x="657" y="94" fill="#92400e" font-size="9" text-anchor="middle">用户审批</text>
+  <text x="657" y="116" fill="#64748b" font-size="8" font-weight="600" text-anchor="middle">允许 / 拒绝</text>
+
+  <!-- Results area -->
+  <rect x="40" y="130" width="662" height="130" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="60" y="152" fill="#1e3a5f" font-size="12" font-weight="600">三种决策</text>
+
+  <rect x="60" y="166" width="200" height="42" rx="4" fill="#fee2e2" stroke="#fca5a5" stroke-width="0.5"/>
+  <text x="160" y="184" fill="#991b1b" font-size="11" font-weight="600" text-anchor="middle">阻止 (deny)</text>
+  <text x="160" y="200" fill="#991b1b" font-size="9" text-anchor="middle">闸门 1 命中，或用户拒绝</text>
+
+  <rect x="280" y="166" width="200" height="42" rx="4" fill="#fef3c7" stroke="#fbbf24" stroke-width="0.5"/>
+  <text x="380" y="184" fill="#92400e" font-size="11" font-weight="600" text-anchor="middle">询问 (ask)</text>
+  <text x="380" y="200" fill="#92400e" font-size="9" text-anchor="middle">闸门 2 命中，进入闸门 3</text>
+
+  <rect x="500" y="166" width="182" height="42" rx="4" fill="#dcfce7" stroke="#86efac" stroke-width="0.5"/>
+  <text x="591" y="184" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">允许 (allow)</text>
+  <text x="591" y="200" fill="#166534" font-size="9" text-anchor="middle">规则未命中，或用户允许</text>
+
+  <text x="371" y="248" fill="#64748b" font-size="10" text-anchor="middle">规则优先：闸门 1 硬拒绝 → 闸门 2 规则匹配 → 命中则用户审批，未命中默认允许</text>
+</svg>

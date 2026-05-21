@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 620" font-family="'Noto Sans CJK JP', 'Noto Sans CJK SC', 'Droid Sans Fallback', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0f766e"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#059669"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c"/>
+    </marker>
+  </defs>
+  <rect width="920" height="620" rx="8" fill="#fafbfc"/>
+  <rect x="0" y="0" width="920" height="46" rx="8" fill="url(#header)"/>
+  <rect x="0" y="38" width="920" height="8" fill="url(#header)"/>
+  <text x="460" y="29" text-anchor="middle" fill="#fff" font-size="17" font-weight="700">s20 Comprehensive Agent — すべての仕組みを 1 つのループへ</text>
+  <rect x="40" y="76" width="840" height="212" rx="8" fill="#eef2ff" stroke="#2563eb" stroke-width="1.8"/>
+  <text x="460" y="101" text-anchor="middle" fill="#1e3a8a" font-size="13" font-weight="700">Core Agent Loop</text>
+  <rect x="70" y="128" width="110" height="48" rx="7" fill="#fff" stroke="#2563eb" stroke-width="1.4"/>
+  <text x="125" y="157" text-anchor="middle" fill="#1e3a5f" font-size="11" font-weight="700">messages[]</text>
+  <line x1="180" y1="152" x2="222" y2="152" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="225" y="118" width="150" height="68" rx="7" fill="#ecfdf5" stroke="#059669" stroke-width="1.6"/>
+  <text x="300" y="140" text-anchor="middle" fill="#065f46" font-size="11" font-weight="700">LLM 前</text>
+  <text x="240" y="158" fill="#047857" font-size="8.5">cron/background 注入</text>
+  <text x="240" y="171" fill="#047857" font-size="8.5">compact + memory + prompt</text>
+  <line x1="375" y1="152" x2="417" y2="152" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="420" y="118" width="110" height="68" rx="7" fill="#fff" stroke="#2563eb" stroke-width="1.4"/>
+  <text x="475" y="146" text-anchor="middle" fill="#1e3a5f" font-size="12" font-weight="700">LLM</text>
+  <text x="475" y="164" text-anchor="middle" fill="#64748b" font-size="8.5">stop_reason=tool_use?</text>
+  <line x1="530" y1="152" x2="572" y2="152" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="575" y="118" width="150" height="68" rx="7" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+  <text x="650" y="140" text-anchor="middle" fill="#9a3412" font-size="11" font-weight="700">Tool 前</text>
+  <text x="590" y="158" fill="#c2410c" font-size="8.5">PreToolUse hooks</text>
+  <text x="590" y="171" fill="#c2410c" font-size="8.5">permission pipeline</text>
+  <line x1="725" y1="152" x2="767" y2="152" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="770" y="118" width="80" height="68" rx="7" fill="#fff" stroke="#2563eb" stroke-width="1.4"/>
+  <text x="810" y="147" text-anchor="middle" fill="#1e3a5f" font-size="10" font-weight="700">handlers</text>
+  <text x="810" y="164" text-anchor="middle" fill="#64748b" font-size="8">builtin + MCP</text>
+  <path d="M 810 186 L 810 244 L 125 244 L 125 176" fill="none" stroke="#475569" stroke-width="1.4" stroke-dasharray="6,4" marker-end="url(#arrow)"/>
+  <text x="460" y="263" text-anchor="middle" fill="#64748b" font-size="9">tool_result / task_notification → messages[] → 次のターン</text>
+  <rect x="40" y="318" width="190" height="104" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="1.4"/>
+  <text x="135" y="341" text-anchor="middle" fill="#065f46" font-size="11" font-weight="700">Context / Knowledge</text>
+  <text x="58" y="362" fill="#047857" font-size="9">s07 skills + load_skill</text>
+  <text x="58" y="377" fill="#047857" font-size="9">s09 memory selection</text>
+  <text x="58" y="392" fill="#047857" font-size="9">s10 prompt sections</text>
+  <text x="58" y="407" fill="#047857" font-size="9">s08 compact pipeline</text>
+  <path d="M 230 350 L 282 186" fill="none" stroke="#059669" stroke-width="1.3" marker-end="url(#arrow-green)" stroke-dasharray="5,3"/>
+  <rect x="260" y="318" width="190" height="104" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="1.4"/>
+  <text x="355" y="341" text-anchor="middle" fill="#9a3412" font-size="11" font-weight="700">Governance</text>
+  <text x="278" y="362" fill="#c2410c" font-size="9">s03 permission</text>
+  <text x="278" y="377" fill="#c2410c" font-size="9">s04 hooks</text>
+  <text x="278" y="392" fill="#c2410c" font-size="9">s11 retry / fallback</text>
+  <text x="278" y="407" fill="#c2410c" font-size="9">Stop hooks</text>
+  <path d="M 450 350 L 592 186" fill="none" stroke="#ea580c" stroke-width="1.3" marker-end="url(#arrow-orange)" stroke-dasharray="5,3"/>
+  <rect x="480" y="318" width="190" height="104" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.4"/>
+  <text x="575" y="341" text-anchor="middle" fill="#5b21b6" font-size="11" font-weight="700">Durable Work</text>
+  <text x="498" y="362" fill="#6d28d9" font-size="9">s05 todo_write</text>
+  <text x="498" y="377" fill="#6d28d9" font-size="9">s12 task graph</text>
+  <text x="498" y="392" fill="#6d28d9" font-size="9">s13 background</text>
+  <text x="498" y="407" fill="#6d28d9" font-size="9">s14 cron scheduler</text>
+  <path d="M 575 318 L 575 188" fill="none" stroke="#7c3aed" stroke-width="1.3" marker-end="url(#arrow-purple)" stroke-dasharray="5,3"/>
+  <rect x="700" y="318" width="180" height="104" rx="8" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.4"/>
+  <text x="790" y="341" text-anchor="middle" fill="#0f766e" font-size="11" font-weight="700">Teams / Plugins</text>
+  <text x="718" y="362" fill="#0f766e" font-size="9">s06 subagent</text>
+  <text x="718" y="377" fill="#0f766e" font-size="9">s15-s17 team protocols</text>
+  <text x="718" y="392" fill="#0f766e" font-size="9">s18 worktree isolation</text>
+  <text x="718" y="407" fill="#0f766e" font-size="9">s19 MCP tools</text>
+  <path d="M 790 318 L 790 188" fill="none" stroke="#0d9488" stroke-width="1.3" marker-end="url(#arrow-green)" stroke-dasharray="5,3"/>
+  <rect x="70" y="462" width="780" height="112" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="460" y="487" text-anchor="middle" fill="#1e293b" font-size="12" font-weight="700">TOOL POOL: 27 builtins + dynamic mcp__server__tool</text>
+  <text x="95" y="512" fill="#334155" font-size="9">file/shell: bash · read · write · edit · glob</text>
+  <text x="95" y="530" fill="#334155" font-size="9">single-agent: todo_write · task · load_skill · compact</text>
+  <text x="95" y="548" fill="#334155" font-size="9">durable work: task tools · cron tools</text>
+  <text x="510" y="512" fill="#334155" font-size="9">team: spawn_teammate · send_message · check_inbox</text>
+  <text x="510" y="530" fill="#334155" font-size="9">protocol: request_shutdown · request_plan · review_plan</text>
+  <text x="510" y="548" fill="#334155" font-size="9">isolation/plugin: worktree tools · connect_mcp</text>
+  <path d="M 850 518 L 890 518 L 890 152 L 850 152" fill="none" stroke="#475569" stroke-width="1.2" marker-end="url(#arrow)" stroke-dasharray="4,4"/>
+</svg>

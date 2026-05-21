@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/>
+    </marker>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="720" height="320" fill="#fafbfc" rx="8"/>
+
+  <!-- タイトル -->
+  <rect x="0" y="0" width="720" height="48" fill="url(#header)" rx="8"/>
+  <rect x="0" y="40" width="720" height="8" fill="url(#header)"/>
+  <text x="360" y="31" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">Permission — ループは変更なし、ツール実行前にゲートを追加</text>
+
+  <!-- ===== s02 維持（灰色） ===== -->
+  <text x="50" y="76" fill="#94a3b8" font-size="11" font-weight="600">s02 維持</text>
+
+  <!-- ユーザー入力 -->
+  <rect x="60" y="88" width="120" height="40" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="120" y="113" fill="#1e3a5f" font-size="12" font-weight="600" text-anchor="middle">messages[]</text>
+
+  <!-- 矢印 → LLM -->
+  <line x1="180" y1="108" x2="228" y2="108" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+  <!-- LLM -->
+  <rect x="230" y="84" width="130" height="48" rx="8" fill="#fff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="295" y="104" fill="#1e3a5f" font-size="13" font-weight="700" text-anchor="middle">LLM</text>
+  <text x="295" y="122" fill="#64748b" font-size="10" text-anchor="middle">stop_reason?</text>
+
+  <!-- No → 戻る -->
+  <line x1="295" y1="132" x2="295" y2="156" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="308" y="150" fill="#16a34a" font-size="9" font-weight="600">No</text>
+
+  <rect x="240" y="158" width="110" height="32" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="295" y="178" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">結果を返す</text>
+
+  <!-- Yes → 次へ -->
+  <line x1="360" y1="108" x2="400" y2="108" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="380" y="100" fill="#d97706" font-size="9" font-weight="600">Yes</text>
+
+  <!-- ===== s03 新規：権限チェック ===== -->
+  <text x="482" y="72" fill="#dc2626" font-size="11" font-weight="600" text-anchor="middle">s03 新規</text>
+
+  <!-- 権限チェック枠 -->
+  <rect x="402" y="78" width="160" height="120" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="482" y="100" fill="#991b1b" font-size="11" font-weight="700" text-anchor="middle">check_permission()</text>
+
+  <!-- ゲート 1 -->
+  <rect x="416" y="110" width="132" height="24" rx="4" fill="#fee2e2" stroke="#dc2626" stroke-width="1"/>
+  <text x="482" y="126" fill="#991b1b" font-size="9" font-weight="600" text-anchor="middle">ゲート 1: 拒否リスト</text>
+
+  <!-- ゲート 2 -->
+  <rect x="416" y="140" width="132" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="482" y="156" fill="#92400e" font-size="9" font-weight="600" text-anchor="middle">ゲート 2: ルール照合</text>
+
+  <!-- ゲート 3 -->
+  <rect x="416" y="170" width="132" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="482" y="186" fill="#92400e" font-size="9" font-weight="600" text-anchor="middle">ゲート 3: ユーザー承認</text>
+
+  <!-- 拒否 → 拒否メッセージを返す -->
+  <path d="M 402 188 L 376 188 L 376 174 L 350 174" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="378" y="184" fill="#dc2626" font-size="8" font-weight="600">拒否</text>
+
+  <!-- 通過 → ツール実行 -->
+  <line x1="562" y1="138" x2="598" y2="138" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="575" y="132" fill="#16a34a" font-size="8" font-weight="600">通過</text>
+
+  <!-- ===== s02 維持：ツール実行 ===== -->
+  <text x="608" y="124" fill="#94a3b8" font-size="9">s02</text>
+
+  <!-- TOOL_HANDLERS -->
+  <rect x="600" y="130" width="100" height="64" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="650" y="152" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">TOOL_</text>
+  <text x="650" y="166" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">HANDLERS</text>
+  <text x="650" y="184" fill="#64748b" font-size="8" text-anchor="middle">bash/read/write/...</text>
+
+  <!-- 矢印：ツール結果 → メッセージリストに戻る -->
+  <path d="M 700 162 L 710 162 L 710 230 L 120 230 L 120 128" fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+
+  <!-- ===== 凡例 ===== -->
+  <rect x="60" y="260" width="600" height="44" rx="6" fill="#f1f5f9"/>
+  <rect x="80" y="276" width="12" height="12" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="100" y="286" fill="#334155" font-size="10">s02 維持（ループ、LLM、ディスパッチ — 変更なし）</text>
+  <rect x="400" y="276" width="12" height="12" rx="2" fill="#fef2f2" stroke="#dc2626" stroke-width="1"/>
+  <text x="420" y="286" fill="#334155" font-size="10">s03 新規（3 ゲート権限パイプライン）</text>
+</svg>

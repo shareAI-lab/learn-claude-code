@@ -195,6 +195,12 @@ cython_debug/
 .task_outputs/
 .tasks/
 .teams/
+.mailboxes/
+.worktrees/
+.scheduled_tasks.json
+
+# Accidental root npm lockfile; web/package-lock.json is tracked.
+/package-lock.json
 
 # Ruff stuff:
 .ruff_cache/

@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 560" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706"/>
+    </marker>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="720" height="560" fill="#fafbfc" rx="8"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="720" height="48" fill="url(#header)" rx="8"/>
+  <rect x="0" y="40" width="720" height="8" fill="url(#header)"/>
+  <text x="360" y="31" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">Tool Use — Loop Unchanged, Just Add Dispatch Mapping</text>
+
+  <!-- ===== s01 (gray, preserved) ===== -->
+  <text x="50" y="76" fill="#94a3b8" font-size="11" font-weight="600">s01 Preserved</text>
+
+  <!-- User Input -->
+  <rect x="60" y="86" width="140" height="44" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="130" y="105" fill="#1e3a5f" font-size="12" font-weight="600" text-anchor="middle">User Query</text>
+  <text x="130" y="121" fill="#64748b" font-size="10" text-anchor="middle">messages[]</text>
+
+  <!-- Arrow: User → LLM -->
+  <line x1="200" y1="108" x2="268" y2="108" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+  <!-- LLM -->
+  <rect x="270" y="82" width="150" height="52" rx="8" fill="#fff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="345" y="104" fill="#1e3a5f" font-size="13" font-weight="700" text-anchor="middle">LLM</text>
+  <text x="345" y="122" fill="#64748b" font-size="10" text-anchor="middle">stop_reason check</text>
+
+  <!-- Arrow: LLM → Decision -->
+  <line x1="345" y1="134" x2="345" y2="162" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Decision Diamond -->
+  <polygon points="345,166 415,196 345,226 275,196" fill="#fff8f0" stroke="#d97706" stroke-width="1.5"/>
+  <text x="345" y="194" fill="#92400e" font-size="10" font-weight="600" text-anchor="middle">tool_use?</text>
+
+  <!-- No → Return -->
+  <line x1="415" y1="196" x2="475" y2="196" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="445" y="189" fill="#16a34a" font-size="9" font-weight="600">No</text>
+  <rect x="477" y="178" width="100" height="36" rx="18" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="527" y="200" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">Return Result</text>
+
+  <!-- Yes → Next Step -->
+  <line x1="345" y1="226" x2="345" y2="260" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+  <text x="356" y="248" fill="#d97706" font-size="9" font-weight="600">Yes</text>
+
+  <!-- ===== s02 New: TOOL_HANDLERS Dispatch Mapping ===== -->
+  <text x="505" y="282" fill="#d97706" font-size="11" font-weight="600">s02 New</text>
+
+  <!-- Dispatch Mapping Outer Box -->
+  <rect x="195" y="268" width="300" height="200" rx="10" fill="#fff7ed" stroke="#d97706" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="345" y="290" fill="#92400e" font-size="12" font-weight="700" text-anchor="middle">TOOL_HANDLERS Dispatch Mapping</text>
+
+  <!-- Arrow into dispatch mapping -->
+  <line x1="345" y1="260" x2="345" y2="268" stroke="#d97706" stroke-width="1.5"/>
+
+  <!-- bash handler -->
+  <rect x="220" y="300" width="120" height="34" rx="6" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.2"/>
+  <text x="280" y="316" fill="#1e3a5f" font-size="11" font-weight="600" text-anchor="middle">bash</text>
+  <text x="280" y="328" fill="#64748b" font-size="9" text-anchor="middle">→ run_bash()</text>
+
+  <!-- read_file handler -->
+  <rect x="360" y="300" width="120" height="34" rx="6" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.2"/>
+  <text x="420" y="316" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">read_file</text>
+  <text x="420" y="328" fill="#64748b" font-size="9" text-anchor="middle">→ run_read()</text>
+
+  <!-- write_file handler -->
+  <rect x="220" y="346" width="120" height="34" rx="6" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.2"/>
+  <text x="280" y="362" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">write_file</text>
+  <text x="280" y="374" fill="#64748b" font-size="9" text-anchor="middle">→ run_write()</text>
+
+  <!-- edit_file handler -->
+  <rect x="360" y="346" width="120" height="34" rx="6" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.2"/>
+  <text x="420" y="362" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">edit_file</text>
+  <text x="420" y="374" fill="#64748b" font-size="9" text-anchor="middle">→ run_edit()</text>
+
+  <!-- glob handler -->
+  <rect x="290" y="392" width="120" height="34" rx="6" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.2"/>
+  <text x="350" y="408" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">glob</text>
+  <text x="350" y="420" fill="#64748b" font-size="9" text-anchor="middle">→ run_glob()</text>
+
+  <!-- Arrow: Dispatch Mapping → Back to Messages -->
+  <path d="M 195 368 L 50 368 L 50 108 L 58 108" fill="none" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow-orange)" stroke-dasharray="6,3"/>
+  <text x="28" y="300" fill="#92400e" font-size="9" font-weight="500" transform="rotate(-90, 28, 300)">Append tool_result to messages</text>
+
+  <!-- ===== Legend ===== -->
+  <rect x="60" y="492" width="600" height="52" rx="6" fill="#f1f5f9"/>
+  <rect x="80" y="508" width="12" height="12" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="100" y="518" fill="#334155" font-size="10">s01 Preserved (loop, LLM, decision — completely unchanged)</text>
+  <rect x="380" y="508" width="12" height="12" rx="2" fill="#ecfdf5" stroke="#16a34a" stroke-width="1"/>
+  <text x="400" y="518" fill="#334155" font-size="10">s02 New (5 tools + dispatch mapping)</text>
+  <text x="80" y="536" fill="#64748b" font-size="10">Only 1 line changed in the loop: run_bash() → TOOL_HANDLERS[block.name]()</text>
+</svg>

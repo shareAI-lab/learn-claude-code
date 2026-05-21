@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="420" fill="#fafbfc" rx="8"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="760" height="44" fill="url(#header)" rx="8"/>
+  <rect x="0" y="36" width="760" height="8" fill="url(#header)"/>
+  <text x="380" y="28" fill="#fff" font-size="15" font-weight="700" text-anchor="middle">System Prompt — PROMPT_SECTIONS + On-Demand Assembly + Cache</text>
+
+  <!-- Legend -->
+  <rect x="40" y="56" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="58" y="66" fill="#2563eb" font-size="10" font-weight="600">s09 Preserved</text>
+  <rect x="160" y="56" width="12" height="10" rx="2" fill="#ecfdf5" stroke="#059669" stroke-width="1"/>
+  <text x="178" y="66" fill="#059669" font-size="10" font-weight="600">s10 New</text>
+
+  <!-- ===== Prompt Assembly (green, s10) ===== -->
+
+  <!-- PROMPT_SECTIONS -->
+  <rect x="40" y="82" width="170" height="88" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+  <text x="125" y="100" fill="#065f46" font-size="11" font-weight="700" text-anchor="middle">PROMPT_SECTIONS</text>
+  <text x="55" y="116" fill="#065f46" font-size="9">✓ identity (always)</text>
+  <text x="55" y="130" fill="#065f46" font-size="9">✓ tools (always)</text>
+  <text x="55" y="144" fill="#065f46" font-size="9">✓ workspace (always)</text>
+  <text x="55" y="158" fill="#6b7280" font-size="9">○ memory</text>
+
+  <!-- arrow → assemble -->
+  <line x1="210" y1="126" x2="235" y2="126" stroke="#059669" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+  <!-- assemble_system_prompt -->
+  <rect x="238" y="82" width="170" height="88" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+  <text x="323" y="100" fill="#065f46" font-size="11" font-weight="700" text-anchor="middle">assemble_system_prompt</text>
+  <text x="253" y="118" fill="#065f46" font-size="9">Input: context dict</text>
+  <text x="253" y="132" fill="#065f46" font-size="9">Always: identity + tools + workspace</text>
+  <text x="253" y="146" fill="#065f46" font-size="9">On-demand: memory</text>
+  <text x="253" y="160" fill="#6b7280" font-size="9">Output: "\n\n".join(selected)</text>
+
+  <!-- arrow → cache -->
+  <line x1="408" y1="126" x2="433" y2="126" stroke="#059669" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+  <!-- get_system_prompt -->
+  <rect x="436" y="82" width="170" height="88" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+  <text x="521" y="100" fill="#065f46" font-size="11" font-weight="700" text-anchor="middle">get_system_prompt</text>
+  <text x="451" y="118" fill="#065f46" font-size="9">json.dumps(context)</text>
+  <text x="451" y="132" fill="#065f46" font-size="9">Hit → return cached</text>
+  <text x="451" y="146" fill="#065f46" font-size="9">Miss → assemble + store</text>
+  <text x="451" y="160" fill="#6b7280" font-size="9">(s10 new)</text>
+
+  <!-- Arrow: cache → LLM -->
+  <path d="M 521 170 L 521 195 L 410 195 L 410 212" fill="none" stroke="#059669" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="462" y="189" fill="#059669" font-size="9">system=get_system_prompt(context)</text>
+
+  <!-- ===== s09 Agent Loop (blue) ===== -->
+
+  <!-- messages[] -->
+  <rect x="30" y="214" width="100" height="46" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="80" y="241" fill="#1e3a5f" font-size="11" font-weight="600" text-anchor="middle">messages[]</text>
+
+  <!-- arrow → compression+loading -->
+  <line x1="130" y1="237" x2="155" y2="237" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- compression + loading -->
+  <rect x="158" y="206" width="170" height="62" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="243" y="228" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">Compression + Loading</text>
+  <text x="243" y="242" fill="#64748b" font-size="9" text-anchor="middle">snip → micro → budget → auto</text>
+  <text x="243" y="256" fill="#94a3b8" font-size="8" text-anchor="middle">→ load memory (s09)</text>
+
+  <!-- arrow → LLM -->
+  <line x1="328" y1="237" x2="358" y2="237" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- LLM -->
+  <rect x="360" y="214" width="100" height="46" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="410" y="231" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">LLM</text>
+  <text x="410" y="246" fill="#64748b" font-size="8" text-anchor="middle">stop_reason=tool_use?</text>
+  <text x="410" y="258" fill="#059669" font-size="8" text-anchor="middle">system assembled</text>
+
+  <!-- arrow → TOOLS -->
+  <line x1="460" y1="237" x2="490" y2="237" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="466" y="229" fill="#64748b" font-size="8">yes</text>
+
+  <!-- TOOL_HANDLERS -->
+  <rect x="493" y="206" width="130" height="62" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="558" y="228" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">TOOL_HANDLERS</text>
+  <text x="558" y="242" fill="#64748b" font-size="9" text-anchor="middle">bash · read · write</text>
+  <text x="558" y="256" fill="#94a3b8" font-size="8" text-anchor="middle">(s09 preserved)</text>
+
+  <!-- ===== Loop back ===== -->
+  <path d="M 623 237 L 660 237 L 660 312 L 80 312 L 80 260" fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+  <text x="370" y="328" fill="#64748b" font-size="10" text-anchor="middle">Tool results → messages[] → compress → load memory → assemble prompt → LLM</text>
+
+  <!-- ===== Bottom notes ===== -->
+  <rect x="40" y="350" width="680" height="56" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <rect x="60" y="362" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="80" y="372" fill="#475569" font-size="10">s09 Preserved: loop, compression pipeline, memory loading, tool execution</text>
+  <rect x="60" y="382" width="12" height="10" rx="2" fill="#ecfdf5" stroke="#059669" stroke-width="1"/>
+  <text x="80" y="392" fill="#475569" font-size="10">s10 New: PROMPT_SECTIONS (4 sections) + assemble_system_prompt + get_system_prompt (cache)</text>
+</svg>

@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 590" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="pre" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dbeafe"/><stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+    <linearGradient id="auto" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fecaca"/><stop offset="100%" stop-color="#fca5a5"/>
+    </linearGradient>
+    <linearGradient id="emergency" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fed7aa"/><stop offset="100%" stop-color="#fdba74"/>
+    </linearGradient>
+    <marker id="arrow-d" viewBox="0 0 10 10" refX="5" refY="10" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 5 10 L 10 0 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="590" fill="#fafbfc" rx="8"/>
+
+  <!-- 标题栏 -->
+  <rect x="0" y="0" width="760" height="44" fill="url(#header)" rx="8"/>
+  <rect x="0" y="36" width="760" height="8" fill="url(#header)"/>
+  <text x="380" y="28" fill="#fff" font-size="15" font-weight="700" text-anchor="middle">上下文压缩 — 预处理管线 + 自动压缩 + 应急兜底</text>
+
+  <!-- 左侧说明 -->
+  <rect x="20" y="62" width="220" height="80" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="130" y="82" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">设计原则</text>
+  <text x="130" y="100" fill="#475569" font-size="10" text-anchor="middle">便宜的先跑，贵的后跑</text>
+  <text x="130" y="116" fill="#475569" font-size="10" text-anchor="middle">能改文本 → 不删整条</text>
+  <text x="130" y="132" fill="#475569" font-size="10" text-anchor="middle">能删整条 → 不调 LLM</text>
+
+  <!-- 右侧代价箭头 -->
+  <rect x="530" y="62" width="210" height="80" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="635" y="82" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">代价递增</text>
+  <text x="635" y="104" fill="#475569" font-size="10" text-anchor="middle">文本操作 → LLM 摘要 → 应急裁剪</text>
+  <text x="635" y="124" fill="#94a3b8" font-size="9" text-anchor="middle">0 API · 0 API · 0 API · 1 API · 1 API</text>
+
+  <!-- ===== 预处理管线标题 ===== -->
+  <rect x="20" y="146" width="720" height="24" rx="4" fill="#f1f5f9"/>
+  <text x="55" y="163" fill="#64748b" font-size="11" font-weight="600">预处理管线（执行顺序：L3 → L1 → L2，每轮 LLM 调用前自动执行，0 API）</text>
+
+  <!-- L3: toolResultBudget -->
+  <rect x="80" y="180" width="600" height="46" rx="7" fill="url(#pre)" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="100" y="200" fill="#1e40af" font-size="12" font-weight="600">L3</text>
+  <text x="135" y="200" fill="#1e40af" font-size="13" font-weight="700">toolResultBudget</text>
+  <text x="260" y="200" fill="#1e40af" font-size="11">tool_result 总和 &gt; 200KB → 最大项落盘</text>
+  <text x="650" y="200" fill="#1e40af" font-size="10" text-anchor="end">保留完整内容</text>
+  <text x="135" y="218" fill="#2563eb" font-size="9">触发：每轮自动，必须在 microCompact 之前保留完整内容</text>
+
+  <!-- 箭头 L3→L1 -->
+  <line x1="380" y1="226" x2="380" y2="238" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow-d)"/>
+
+  <!-- L1: snipCompact -->
+  <rect x="80" y="240" width="600" height="46" rx="7" fill="url(#pre)" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="100" y="260" fill="#1e40af" font-size="12" font-weight="600">L1</text>
+  <text x="135" y="260" fill="#1e40af" font-size="13" font-weight="700">snipCompact</text>
+  <text x="260" y="260" fill="#1e40af" font-size="11">消息 &gt; 50 条 → 裁掉中间</text>
+  <text x="650" y="260" fill="#1e40af" font-size="10" text-anchor="end">保留头尾</text>
+  <text x="135" y="278" fill="#2563eb" font-size="9">触发：消息数超过阈值</text>
+
+  <!-- 箭头 L1→L2 -->
+  <line x1="380" y1="286" x2="380" y2="298" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow-d)"/>
+
+  <!-- L2: microCompact -->
+  <rect x="80" y="300" width="600" height="46" rx="7" fill="url(#pre)" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="100" y="320" fill="#1e40af" font-size="12" font-weight="600">L2</text>
+  <text x="135" y="320" fill="#1e40af" font-size="13" font-weight="700">microCompact</text>
+  <text x="260" y="320" fill="#1e40af" font-size="11">旧 tool_result → 占位符（保留最近 3 条）</text>
+  <text x="650" y="320" fill="#1e40af" font-size="10" text-anchor="end">压旧结果</text>
+  <text x="135" y="338" fill="#2563eb" font-size="9">触发：每轮自动，教学版用文本占位符模拟</text>
+
+  <!-- ===== 自动压缩标题 ===== -->
+  <rect x="20" y="358" width="720" height="24" rx="4" fill="#f1f5f9"/>
+  <text x="70" y="375" fill="#64748b" font-size="11" font-weight="600">自动压缩决策（预处理不够时触发，1 API 调用）</text>
+
+  <!-- L4: autoCompact -->
+  <rect x="80" y="390" width="600" height="58" rx="7" fill="url(#auto)" stroke="#dc2626" stroke-width="2"/>
+  <text x="100" y="412" fill="#991b1b" font-size="12" font-weight="600">L4</text>
+  <text x="135" y="412" fill="#991b1b" font-size="13" font-weight="700">autoCompact</text>
+  <text x="260" y="412" fill="#991b1b" font-size="11">token 超阈值 → LLM 全量摘要</text>
+  <text x="590" y="412" fill="#991b1b" font-size="10" text-anchor="end">1 API 调用</text>
+  <text x="135" y="428" fill="#dc2626" font-size="9">阈值: contextWindow - maxOutputTokens - 13,000 · 先尝试 sessionMemoryCompact，不够才调 LLM</text>
+  <text x="135" y="442" fill="#dc2626" font-size="9">熔断：连续失败 3 次后停止重试</text>
+
+  <!-- ===== 应急兜底标题 ===== -->
+  <rect x="20" y="460" width="720" height="24" rx="4" fill="#f1f5f9"/>
+  <text x="55" y="477" fill="#64748b" font-size="11" font-weight="600">应急兜底（API 仍然返回 prompt_too_long 时触发）</text>
+
+  <!-- 应急: reactiveCompact -->
+  <rect x="80" y="492" width="600" height="62" rx="7" fill="url(#emergency)" stroke="#c2410c" stroke-width="1.5"/>
+  <text x="100" y="512" fill="#9a3412" font-size="12" font-weight="600">应急</text>
+  <text x="135" y="512" fill="#9a3412" font-size="13" font-weight="700">reactiveCompact</text>
+  <text x="135" y="528" fill="#9a3412" font-size="10">API 返回 413 / prompt_too_long → 字节级裁剪</text>
+  <text x="135" y="544" fill="#c2410c" font-size="9">保留最后 5 条 + 摘要，比 autoCompact 更激进</text>
+
+</svg>

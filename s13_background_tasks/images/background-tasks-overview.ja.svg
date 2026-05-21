@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 440" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="440" fill="#fafbfc" rx="8"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="760" height="44" fill="url(#header)" rx="8"/>
+  <rect x="0" y="36" width="760" height="8" fill="url(#header)"/>
+  <text x="380" y="28" fill="#fff" font-size="15" font-weight="700" text-anchor="middle">Background Tasks — 遅い操作はバックグラウンドへ、Agent は考え続ける</text>
+
+  <!-- Legend -->
+  <rect x="40" y="56" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="58" y="66" fill="#2563eb" font-size="10" font-weight="600">s12 維持</text>
+  <rect x="140" y="56" width="12" height="10" rx="2" fill="#fff7ed" stroke="#ea580c" stroke-width="1"/>
+  <text x="158" y="66" fill="#ea580c" font-size="10" font-weight="600">s13 新規</text>
+
+  <!-- ===== Top: s12 loop (compact) ===== -->
+  <rect x="30" y="86" width="80" height="40" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="70" y="110" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">messages</text>
+
+  <line x1="110" y1="106" x2="128" y2="106" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="131" y="80" width="120" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="191" y="102" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">prompt + cache</text>
+  <text x="191" y="116" fill="#94a3b8" font-size="8" text-anchor="middle">(s10-s12)</text>
+
+  <line x1="251" y1="106" x2="269" y2="106" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="272" y="80" width="100" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="322" y="102" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">LLM call</text>
+  <text x="322" y="116" fill="#94a3b8" font-size="8" text-anchor="middle">(s11 retry)</text>
+
+  <line x1="372" y1="106" x2="390" y2="106" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- TOOL DISPATCH (expanded) -->
+  <rect x="393" y="76" width="210" height="60" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="498" y="94" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">TOOL DISPATCH</text>
+  <text x="408" y="110" fill="#2563eb" font-size="9">fast? → 同期実行 (s12)</text>
+  <text x="408" y="124" fill="#ea580c" font-size="9" font-weight="600">slow? → run_in_background ★</text>
+
+  <!-- Loop back -->
+  <path d="M 603 106 L 640 106 L 640 148 L 70 148 L 70 126" fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+
+  <!-- ===== Background execution (orange) ===== -->
+  <rect x="40" y="172" width="310" height="80" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+  <text x="195" y="194" fill="#9a3412" font-size="11" font-weight="700" text-anchor="middle">バックグラウンドスレッド実行</text>
+  <text x="60" y="212" fill="#ea580c" font-size="9">run_in_background(tool_use_id, fn, *args)</text>
+  <text x="60" y="226" fill="#6b7280" font-size="8">threading.Thread(target=worker, daemon=True)</text>
+  <text x="60" y="240" fill="#6b7280" font-size="8">結果 → background_results[id] (threading.Lock で保護)</text>
+
+  <!-- Arrow: dispatch → background -->
+  <path d="M 440 136 L 440 158 L 250 158 L 250 172" fill="none" stroke="#ea580c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+  <text x="320" y="170" fill="#ea580c" font-size="9">slow op</text>
+
+  <!-- ===== Notification injection (orange) ===== -->
+  <rect x="390" y="172" width="330" height="80" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+  <text x="555" y="194" fill="#9a3412" font-size="11" font-weight="700" text-anchor="middle">通知注入</text>
+  <text x="408" y="212" fill="#ea580c" font-size="9">collect_background_results() 毎ターン確認</text>
+  <text x="408" y="226" fill="#6b7280" font-size="8">完了 → tool_result を messages に注入</text>
+  <text x="408" y="240" fill="#6b7280" font-size="8">未完了 → "[Running in background...]" プレースホルダー</text>
+
+  <!-- Arrow: background → notification -->
+  <path d="M 350 220 L 390 220" fill="none" stroke="#ea580c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+
+  <!-- ===== Slow operation heuristic ===== -->
+  <rect x="40" y="274" width="680" height="48" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="60" y="296" fill="#1e3a5f" font-size="11" font-weight="600">ヒューリスティック判定:</text>
+  <rect x="155" y="284" width="56" height="18" rx="4" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+  <text x="183" y="297" fill="#16a34a" font-size="9" text-anchor="middle">fast</text>
+  <text x="218" y="297" fill="#475569" font-size="9">read_file · git status · glob</text>
+  <rect x="360" y="284" width="56" height="18" rx="4" fill="#fff7ed" stroke="#ea580c" stroke-width="1"/>
+  <text x="388" y="297" fill="#ea580c" font-size="9" text-anchor="middle">slow</text>
+  <text x="423" y="297" fill="#475569" font-size="9">npm install · pip install · pytest (timeout > 30s)</text>
+
+  <!-- ===== Timeline comparison ===== -->
+  <rect x="40" y="340" width="330" height="84" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1"/>
+  <text x="205" y="360" fill="#991b1b" font-size="10" font-weight="700" text-anchor="middle">s12 同期ブロッキング</text>
+  <rect x="60" y="370" width="80" height="14" rx="3" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+  <text x="100" y="381" fill="#1e40af" font-size="8" text-anchor="middle">思考</text>
+  <rect x="145" y="370" width="160" height="14" rx="3" fill="#fecaca" stroke="#dc2626" stroke-width="1"/>
+  <text x="225" y="381" fill="#991b1b" font-size="8" text-anchor="middle">bash 待ち 3分...</text>
+  <rect x="310" y="370" width="40" height="14" rx="3" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+  <text x="330" y="381" fill="#1e40af" font-size="7" text-anchor="middle">継続</text>
+  <text x="60" y="410" fill="#991b1b" font-size="9">合計 ~3分、Agent は3分間待機</text>
+
+  <rect x="390" y="340" width="330" height="84" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1"/>
+  <text x="555" y="360" fill="#166534" font-size="10" font-weight="700" text-anchor="middle">s13 バックグラウンド実行</text>
+  <rect x="410" y="370" width="80" height="14" rx="3" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+  <text x="450" y="381" fill="#1e40af" font-size="8" text-anchor="middle">思考</text>
+  <rect x="495" y="370" width="100" height="14" rx="3" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="545" y="381" fill="#166534" font-size="8" text-anchor="middle">別の作業を継続</text>
+  <rect x="600" y="370" width="100" height="14" rx="3" fill="#fff7ed" stroke="#ea580c" stroke-width="1"/>
+  <text x="650" y="381" fill="#ea580c" font-size="8" text-anchor="middle">通知: 結果完了</text>
+  <text x="410" y="410" fill="#166534" font-size="9">合計 ~3分、Agent は遊ばず</text>
+</svg>

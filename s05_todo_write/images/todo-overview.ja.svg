@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="800" height="420" fill="#fafbfc" rx="8"/>
+
+  <!-- タイトル -->
+  <rect x="0" y="0" width="800" height="48" fill="url(#header)" rx="8"/>
+  <rect x="0" y="40" width="800" height="8" fill="url(#header)"/>
+  <text x="400" y="31" fill="#fff" font-size="15" font-weight="700" text-anchor="middle">TodoWrite — ループ不変、ツール一つ追加で自動ディスパッチ</text>
+
+  <!-- ===== s04 保持（灰色） ===== -->
+  <text x="50" y="76" fill="#94a3b8" font-size="11" font-weight="600">s04 保持</text>
+
+  <!-- messages -->
+  <rect x="40" y="90" width="100" height="44" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="90" y="117" fill="#1e3a5f" font-size="12" font-weight="600" text-anchor="middle">messages[]</text>
+
+  <!-- → LLM -->
+  <line x1="140" y1="112" x2="188" y2="112" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- LLM -->
+  <rect x="190" y="86" width="110" height="52" rx="8" fill="#fff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="245" y="108" fill="#1e3a5f" font-size="13" font-weight="700" text-anchor="middle">LLM</text>
+  <text x="245" y="126" fill="#64748b" font-size="9" text-anchor="middle">stop_reason=tool_use?</text>
+
+  <!-- No → 返却 -->
+  <line x1="245" y1="138" x2="245" y2="162" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="258" y="156" fill="#16a34a" font-size="9" font-weight="600">No</text>
+  <rect x="195" y="164" width="100" height="28" rx="14" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="245" y="182" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">結果を返す</text>
+
+  <!-- Yes → PreToolUse -->
+  <line x1="300" y1="112" x2="348" y2="112" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="320" y="104" fill="#d97706" font-size="9" font-weight="600">Yes</text>
+
+  <!-- PreToolUse (s04) -->
+  <rect x="350" y="88" width="100" height="48" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="400" y="110" fill="#166534" font-size="9" font-weight="600" text-anchor="middle">trigger_hooks</text>
+  <text x="400" y="124" fill="#166534" font-size="8" text-anchor="middle">PreToolUse</text>
+
+  <!-- → TOOL_HANDLERS -->
+  <line x1="450" y1="112" x2="498" y2="112" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== s05 新規：todo_write ===== -->
+  <!-- TOOL_HANDLERS 枠（拡大、todo_write を含む） -->
+  <rect x="500" y="74" width="120" height="140" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="560" y="94" fill="#166534" font-size="10" font-weight="700" text-anchor="middle">TOOL_HANDLERS</text>
+
+  <!-- s04 保持のツール -->
+  <rect x="512" y="102" width="96" height="22" rx="4" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="560" y="117" fill="#1e3a5f" font-size="9" text-anchor="middle">bash · read · write</text>
+
+  <rect x="512" y="130" width="96" height="22" rx="4" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="560" y="145" fill="#1e3a5f" font-size="9" text-anchor="middle">edit · glob</text>
+
+  <!-- s05 新規：todo_write -->
+  <rect x="512" y="158" width="96" height="22" rx="4" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="560" y="173" fill="#166534" font-size="9" font-weight="700" text-anchor="middle">todo_write</text>
+  <text x="560" y="232" fill="#16a34a" font-size="11" font-weight="600" text-anchor="middle">s05 新規</text>
+
+  <text x="560" y="196" fill="#64748b" font-size="8" text-anchor="middle">→ .tasks/current_todos.json</text>
+
+  <!-- ループバック -->
+  <path d="M 620 112 L 660 112 L 660 260 L 90 260 L 90 134" fill="none" stroke="#555" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+  <text x="370" y="280" fill="#64748b" font-size="10" text-anchor="middle">結果を messages[] に追加、ループ継続</text>
+
+  <!-- ===== Nag リマインダー ===== -->
+  <rect x="100" y="310" width="600" height="56" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="1"/>
+  <text x="120" y="332" fill="#92400e" font-size="11" font-weight="700">Nag リマインダー（催促機構）</text>
+  <text x="120" y="352" fill="#92400e" font-size="10">モデルが連続 3 ラウンド todo_write 未呼び出し → 自動注入 &lt;reminder&gt;Update your todos.&lt;/reminder&gt;</text>
+
+  <!-- 凡例 -->
+  <rect x="100" y="384" width="600" height="28" rx="6" fill="#f1f5f9"/>
+  <rect x="120" y="392" width="12" height="12" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="140" y="402" fill="#334155" font-size="10">s04 保持（ループ、フック、5 つの基本ツール）</text>
+  <rect x="400" y="392" width="12" height="12" rx="2" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="420" y="402" fill="#334155" font-size="10">s05 新規（todo_write + Nag リマインダー）</text>
+</svg>

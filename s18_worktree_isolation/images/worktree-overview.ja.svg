@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 450" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#b45309"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="450" fill="#fafbfc" rx="8"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="760" height="44" fill="url(#header)" rx="8"/>
+  <rect x="0" y="36" width="760" height="8" fill="url(#header)"/>
+  <text x="380" y="28" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Worktree Isolation — Git Worktree + タスク・ディレクトリ紐付け + イベントログ</text>
+
+  <!-- Legend -->
+  <rect x="40" y="56" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="58" y="66" fill="#2563eb" font-size="10" font-weight="600">s17 保持</text>
+  <rect x="130" y="56" width="12" height="10" rx="2" fill="#fffbeb" stroke="#b45309" stroke-width="1"/>
+  <text x="148" y="66" fill="#b45309" font-size="10" font-weight="600">s18 新規</text>
+
+  <!-- ===== Row 1: Lead Loop ===== -->
+  <rect x="20" y="90" width="70" height="40" rx="8" fill="#eef2ff" stroke="#4f46e5" stroke-width="1.5"/>
+  <text x="55" y="114" fill="#4f46e5" font-size="8" font-weight="600" text-anchor="middle">turn</text>
+
+  <line x1="90" y1="110" x2="104" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="107" y="90" width="70" height="40" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="142" y="114" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">messages</text>
+
+  <line x1="177" y1="110" x2="191" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="194" y="86" width="80" height="48" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="234" y="114" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">prompt</text>
+
+  <line x1="274" y1="110" x2="288" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="291" y="86" width="70" height="48" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="326" y="114" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">LLM</text>
+
+  <line x1="361" y1="110" x2="375" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="378" y="76" width="356" height="70" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="556" y="94" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">TOOL DISPATCH（s17 + s18）</text>
+  <text x="394" y="110" fill="#2563eb" font-size="8">bash · read · write · task(4) · send · inbox</text>
+  <text x="394" y="123" fill="#7c3aed" font-size="8" font-weight="700">request_shutdown · request_plan · review_plan</text>
+  <text x="394" y="136" fill="#b45309" font-size="8" font-weight="700">★ create_worktree · remove_worktree · keep_worktree</text>
+
+  <!-- Loop back -->
+  <path d="M 734 110 L 748 110 L 748 150 L 55 150 L 55 130" fill="none" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)" stroke-dasharray="5,4"/>
+
+  <!-- ===== Row 2: Worktree Topology ===== -->
+  <rect x="30" y="172" width="700" height="215" rx="8" fill="#fffbeb" stroke="#b45309" stroke-width="2"/>
+  <text x="380" y="194" fill="#78350f" font-size="11" font-weight="700" text-anchor="middle">Worktree 隔離（s18 新規：各タスクに独立ディレクトリ + 独立ブランチ）</text>
+
+  <!-- Main repo box -->
+  <rect x="230" y="208" width="300" height="36" rx="6" fill="#fff" stroke="#b45309" stroke-width="1.5"/>
+  <text x="380" y="231" fill="#78350f" font-size="10" font-weight="600" text-anchor="middle">メインリポジトリ（.tasks/ + .worktrees/ + .mailboxes/）</text>
+
+  <!-- Arrow: Main repo → Worktree 1 (Alice) -->
+  <line x1="310" y1="244" x2="178" y2="272" stroke="#b45309" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+  <text x="200" y="262" fill="#b45309" font-size="7" font-weight="600" transform="rotate(-12 200 262)">create + bind</text>
+
+  <!-- Arrow: Main repo → Worktree 2 (Bob) -->
+  <line x1="450" y1="244" x2="582" y2="272" stroke="#b45309" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+  <text x="530" y="252" fill="#b45309" font-size="7" font-weight="600" transform="rotate(12 530 252)">create + bind</text>
+
+  <!-- Worktree 1: Alice -->
+  <rect x="50" y="275" width="255" height="78" rx="6" fill="#fff" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="177" y="294" fill="#166534" font-size="10" font-weight="700" text-anchor="middle">Alice: .worktrees/auth/</text>
+  <text x="65" y="310" fill="#374151" font-size="8">branch: wt/auth-refactor</text>
+  <text x="65" y="324" fill="#374151" font-size="8">Task: 認証モジュールのリファクタリング</text>
+  <text x="65" y="344" fill="#16a34a" font-size="8" font-weight="600">✓ 隔離、Bob とメインリポジトリに影響なし</text>
+
+  <!-- Worktree 2: Bob -->
+  <rect x="455" y="275" width="255" height="78" rx="6" fill="#fff" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="582" y="294" fill="#166534" font-size="10" font-weight="700" text-anchor="middle">Bob: .worktrees/ui/</text>
+  <text x="470" y="310" fill="#374151" font-size="8">branch: wt/ui-login</text>
+  <text x="470" y="324" fill="#374151" font-size="8">Task: UI ログインページのリファクタリング</text>
+  <text x="470" y="344" fill="#16a34a" font-size="8" font-weight="600">✓ 隔離、Alice とメインリポジトリに影響なし</text>
+
+  <!-- Event log + Lifecycle -->
+  <rect x="50" y="362" width="310" height="20" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="205" y="376" fill="#92400e" font-size="8" text-anchor="middle">イベントログ: .worktrees/events.jsonl → create / remove / keep</text>
+
+  <rect x="400" y="362" width="310" height="20" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="555" y="376" fill="#92400e" font-size="8" text-anchor="middle">片付け: keep（ブランチ保持 review）/ remove（削除+完了マーク）</text>
+
+  <!-- ===== Row 3: Bottom notes ===== -->
+  <rect x="30" y="400" width="700" height="42" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <rect x="50" y="412" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="70" y="422" fill="#475569" font-size="10">s17: idle_poll + auto_claim + protocols + WORK/IDLE ライフサイクル</text>
+  <rect x="50" y="426" width="12" height="10" rx="2" fill="#fffbeb" stroke="#b45309" stroke-width="1"/>
+  <text x="70" y="436" fill="#475569" font-size="10">s18: create_worktree + bind_task + remove/keep + events.jsonl（Lead 14→17）</text>
+</svg>
