@@ -128,6 +128,44 @@ def list_memory_files() -> list[dict]:
         })
     return result
 
+def _memory_signature(mem: dict) -> tuple[str, str, str]:
+    return (
+        str(mem.get("name", "")).strip().lower(),
+        str(mem.get("description", "")).strip().lower(),
+        str(mem.get("body", "")).strip().lower(),
+    )
+
+def _response_text(blocks) -> str:
+    parts = []
+    for block in blocks:
+        if getattr(block, "type", None) == "text":
+            parts.append(getattr(block, "text", ""))
+    return "\n".join(p for p in parts if p).strip()
+
+
+def _store_memories(items: list[dict], existing: list[dict] | None = None) -> int:
+    existing = existing if existing is not None else list_memory_files()
+    seen = {_memory_signature(mem) for mem in existing}
+    count = 0
+
+    for mem in items:
+        name = str(mem.get("name", "")).strip() or f"memory-{int(time.time())}"
+        mem_type = mem.get("type", "user")
+        desc = str(mem.get("description", "")).strip()
+        body = str(mem.get("body", "")).strip()
+        if mem_type not in MEMORY_TYPES or not desc or not body:
+            continue
+
+        sig = _memory_signature({"name": name, "description": desc, "body": body})
+        if sig in seen:
+            continue
+
+        write_memory_file(name, mem_type, desc, body)
+        seen.add(sig)
+        count += 1
+
+    return count
+
 
 def select_relevant_memories(messages: list, max_items: int = 5) -> list[str]:
     """Select relevant memory filenames by matching recent conversation against
@@ -177,7 +215,7 @@ def select_relevant_memories(messages: list, max_items: int = 5) -> list[str]:
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,
         )
-        text = response.content[0].text.strip()
+        text = _response_text(response.content)
         # Extract JSON array from response
         match = re.search(r'\[.*?\]', text, re.DOTALL)
         if match:
@@ -238,7 +276,6 @@ def extract_memories(messages: list):
     if not dialogue.strip():
         return
 
-    # Check existing memories to avoid duplicates
     existing = list_memory_files()
     existing_desc = "\n".join(f"- {m['name']}: {m['description']}" for m in existing) if existing else "(none)"
 
@@ -259,27 +296,20 @@ def extract_memories(messages: list):
         response = client.messages.create(
             model=MODEL, messages=[{"role": "user", "content": prompt}], max_tokens=800
         )
-        text = response.content[0].text.strip()
+        text = _response_text(response.content)
         # Extract JSON array from response
         match = re.search(r'\[.*\]', text, re.DOTALL)
         if not match:
+            print("\033[90m[Memory: no JSON returned by extractor]\033[0m")
             return
         items = json.loads(match.group())
         if not items:
             return
-        count = 0
-        for mem in items:
-            name = mem.get("name", f"memory_{int(time.time())}")
-            mem_type = mem.get("type", "user")
-            desc = mem.get("description", "")
-            body = mem.get("body", "")
-            if desc and body:
-                write_memory_file(name, mem_type, desc, body)
-                count += 1
+        count = _store_memories(items, existing=existing)
         if count:
-            print(f"\n\033[33m[Memory: extracted {count} new memories]\033[0m")
-    except Exception:
-        pass
+            print(f"\n\033[33m[Memory: llm-extracted {count} new memories]\033[0m")
+    except Exception as e:
+        print(f"\033[31m[Memory extraction failed] {e}\033[0m")
 
 
 CONSOLIDATE_THRESHOLD = 10
@@ -309,7 +339,7 @@ def consolidate_memories():
         response = client.messages.create(
             model=MODEL, messages=[{"role": "user", "content": prompt}], max_tokens=3000
         )
-        text = response.content[0].text.strip()
+        text = _response_text(response.content)
         match = re.search(r'\[.*\]', text, re.DOTALL)
         if not match:
             return
