@@ -1,0 +1,40 @@
+spec_version: "0.1.0"
+name: learn-claude-code
+version: 1.0.0
+description: >
+  A progressive, hands-on harness-engineering curriculum built on top of the
+  Anthropic SDK. Teaches developers how to build production-grade Claude Code–style
+  agent harnesses from first principles — covering tool dispatch, permission
+  governance, context compaction, skill loading, subagent spawning, task graphs,
+  background tasks, cron scheduling, async team coordination, worktree isolation,
+  MCP plugins, and autonomous agent patterns. Each of the 20 chapters ships a
+  runnable Python module that progressively adds one new harness capability, with
+  English, Chinese, and Japanese documentation.
+author: shareAI-lab
+license: MIT
+
+model:
+  preferred: anthropic:claude-sonnet-4-6
+  constraints:
+    max_tokens: 8192
+    temperature: 0.3
+
+skills:
+  - agent-builder
+  - code-review
+  - mcp-builder
+  - pdf
+
+runtime:
+  max_turns: 50
+  timeout: 600
+
+compliance:
+  risk_tier: standard
+  supervision:
+    human_in_the_loop: destructive
+    kill_switch: true
+  recordkeeping:
+    audit_logging: true
+  data_governance:
+    pii_handling: redact
