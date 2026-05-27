@@ -1,0 +1,1386 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "learn-claude-code",
+    "languages": ["python", "typescript", "tsx", "javascript", "yaml"],
+    "frameworks": ["Next.js", "React", "TailwindCSS"],
+    "description": "Teaches agent harness engineering through 12 progressive Python sessions (s01-s12), each adding one mechanism to a minimal agent loop. Includes a Next.js web app with interactive visualizations.",
+    "analyzedAt": "2026-05-27T00:00:00Z",
+    "gitCommitHash": "c86d638e96301e4a99ac53944517132f8512f688"
+  },
+
+  "nodes": [
+    {
+      "id": "file:README.md",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "Project overview explaining the 12-session progression and how to run agent scripts and the web app.",
+      "tags": ["documentation", "overview"],
+      "type": "file"
+    },
+    {
+      "id": "file:CLAUDE.md",
+      "name": "CLAUDE.md",
+      "filePath": "CLAUDE.md",
+      "summary": "Claude Code instructions describing project structure, session progression, web app architecture, and CI setup.",
+      "tags": ["configuration", "claude"],
+      "type": "file"
+    },
+    {
+      "id": "file:.env.example",
+      "name": ".env.example",
+      "filePath": ".env.example",
+      "summary": "Environment variable template for ANTHROPIC_API_KEY, MODEL_ID, and optional ANTHROPIC_BASE_URL.",
+      "tags": ["configuration", "environment"],
+      "type": "file"
+    },
+    {
+      "id": "file:requirements.txt",
+      "name": "requirements.txt",
+      "filePath": "requirements.txt",
+      "summary": "Python dependencies: anthropic, python-dotenv, pyyaml.",
+      "tags": ["configuration", "dependencies"],
+      "type": "file"
+    },
+    {
+      "id": "file:pyproject.toml",
+      "name": "pyproject.toml",
+      "filePath": "pyproject.toml",
+      "summary": "Python project configuration with pytest settings.",
+      "tags": ["configuration", "dependencies"],
+      "type": "file"
+    },
+    {
+      "id": "file:hello.py",
+      "name": "hello.py",
+      "filePath": "hello.py",
+      "summary": "Minimal hello world Python script, likely a starting placeholder.",
+      "tags": ["python"],
+      "type": "file"
+    },
+    {
+      "id": "file:agents/__init__.py",
+      "name": "__init__.py",
+      "filePath": "agents/__init__.py",
+      "summary": "Package initializer for the agents module.",
+      "tags": ["python", "package"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:agents/s01_agent_loop.py",
+      "name": "s01_agent_loop.py",
+      "filePath": "agents/s01_agent_loop.py",
+      "summary": "Session 1: The core agent loop pattern -- a while loop that calls the LLM, checks for tool_use, executes bash commands, and appends results. Foundation of all sessions.",
+      "tags": ["python", "agent", "s01", "loop", "bash"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s01_agent_loop.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s01_agent_loop.py",
+      "summary": "Core agent loop: calls client.messages.create with tools, appends assistant response, executes bash on tool_use, appends results, repeats until done.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+    {
+      "id": "function:agents/s01_agent_loop.py:run_bash",
+      "name": "run_bash",
+      "filePath": "agents/s01_agent_loop.py",
+      "summary": "Sandboxed bash execution with dangerous command blocking (rm -rf, sudo, shutdown) and 120s timeout.",
+      "tags": ["python", "tool", "bash"],
+      "type": "function",
+      "signature": "(command: str) -> str"
+    },
+
+    {
+      "id": "file:agents/s02_tool_use.py",
+      "name": "s02_tool_use.py",
+      "filePath": "agents/s02_tool_use.py",
+      "summary": "Session 2: Tool dispatch with named handlers (bash, read_file, write_file, edit_file) routed through a TOOL_HANDLERS dict instead of inline execution.",
+      "tags": ["python", "agent", "s02", "tools", "dispatch"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s02_tool_use.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s02_tool_use.py",
+      "summary": "Agent loop with TOOL_HANDLERS dispatch: looks up handler by tool name, calls with block.input, handles unknown tools gracefully.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+
+    {
+      "id": "file:agents/s03_todo_write.py",
+      "name": "s03_todo_write.py",
+      "filePath": "agents/s03_todo_write.py",
+      "summary": "Session 3: TodoWrite planning pattern. The model creates, updates, and reads a todo list before each action, giving it explicit task tracking.",
+      "tags": ["python", "agent", "s03", "planning", "todo"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s03_todo_write.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s03_todo_write.py",
+      "summary": "Agent loop with TodoWrite tool: the model manages a todo list to track pending/in_progress/completed tasks.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+
+    {
+      "id": "file:agents/s04_subagent.py",
+      "name": "s04_subagent.py",
+      "filePath": "agents/s04_subagent.py",
+      "summary": "Session 4: Subagent isolation. The parent can spawn child agents with fresh message contexts and a filtered tool set; only the final summary returns to the parent.",
+      "tags": ["python", "agent", "s04", "subagent", "isolation"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s04_subagent.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s04_subagent.py",
+      "summary": "Parent agent loop with task tool: spawns run_subagent when task tool is called, otherwise dispatches base tools.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+    {
+      "id": "function:agents/s04_subagent.py:run_subagent",
+      "name": "run_subagent",
+      "filePath": "agents/s04_subagent.py",
+      "summary": "Spawns a child agent with fresh messages[], SUBAGENT_SYSTEM prompt, and CHILD_TOOLS. Runs up to 30 iterations, returns only final text summary.",
+      "tags": ["python", "subagent", "isolation"],
+      "type": "function",
+      "signature": "(prompt: str) -> str"
+    },
+
+    {
+      "id": "file:agents/s05_skill_loading.py",
+      "name": "s05_skill_loading.py",
+      "filePath": "agents/s05_skill_loading.py",
+      "summary": "Session 5: On-demand skill loading. SkillLoader class parses SKILL.md files from a skills directory, extracting frontmatter for descriptions and full content on demand.",
+      "tags": ["python", "agent", "s05", "skills", "knowledge"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s05_skill_loading.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s05_skill_loading.py",
+      "summary": "Agent loop with skill listing/loading tools: the model can browse available skills and load their content dynamically.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+    {
+      "id": "class:agents/s05_skill_loading.py:SkillLoader",
+      "name": "SkillLoader",
+      "filePath": "agents/s05_skill_loading.py",
+      "summary": "Parses SKILL.md files with YAML frontmatter. Methods: get_descriptions() lists all skills, get_content(name) loads full content.",
+      "tags": ["python", "skill", "parser"],
+      "type": "class"
+    },
+
+    {
+      "id": "file:agents/s06_context_compact.py",
+      "name": "s06_context_compact.py",
+      "filePath": "agents/s06_context_compact.py",
+      "summary": "Session 6: Context compression with three layers: micro_compact (shrinks old tool_results), auto_compact (full summary at token threshold), and manual compact tool.",
+      "tags": ["python", "agent", "s06", "memory", "compression"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s06_context_compact.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s06_context_compact.py",
+      "summary": "Agent loop with three compression layers: micro_compact before each call, auto_compact at threshold, manual compact on trigger.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+
+    {
+      "id": "file:agents/s07_task_system.py",
+      "name": "s07_task_system.py",
+      "filePath": "agents/s07_task_system.py",
+      "summary": "Session 7: Task system with TaskManager class. CRUD operations on JSON-persisted tasks with dependency graphs (blockedBy), status transitions, and dependency auto-clearing.",
+      "tags": ["python", "agent", "s07", "tasks", "dependencies"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s07_task_system.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s07_task_system.py",
+      "summary": "Agent loop with task CRUD tools: create, get, update, list_all backed by TaskManager.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+    {
+      "id": "class:agents/s07_task_system.py:TaskManager",
+      "name": "TaskManager",
+      "filePath": "agents/s07_task_system.py",
+      "summary": "Task CRUD with dependency tracking. Persists as task_*.json files. Methods: create, get, update, list_all, _clear_dependency.",
+      "tags": ["python", "task", "persistence"],
+      "type": "class"
+    },
+
+    {
+      "id": "file:agents/s08_background_tasks.py",
+      "name": "s08_background_tasks.py",
+      "filePath": "agents/s08_background_tasks.py",
+      "summary": "Session 8: Background tasks using threading. Long-running operations run in daemon threads, results collected via BG.drain_notifications() injected before LLM calls.",
+      "tags": ["python", "agent", "s08", "background", "concurrency"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s08_background_tasks.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s08_background_tasks.py",
+      "summary": "Agent loop that drains background notifications and injects them as user messages before each LLM call.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+
+    {
+      "id": "file:agents/s09_agent_teams.py",
+      "name": "s09_agent_teams.py",
+      "filePath": "agents/s09_agent_teams.py",
+      "summary": "Session 9: Agent teams with MessageBus. Multiple agents communicate via JSONL inbox files. Supports send, broadcast, and read_inbox operations.",
+      "tags": ["python", "agent", "s09", "teams", "messaging", "collaboration"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s09_agent_teams.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s09_agent_teams.py",
+      "summary": "Lead agent loop that reads the MessageBus inbox and injects messages before LLM calls. Can spawn and broadcast to teammates.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+    {
+      "id": "class:agents/s09_agent_teams.py:MessageBus",
+      "name": "MessageBus",
+      "filePath": "agents/s09_agent_teams.py",
+      "summary": "JSONL-based message bus with per-teammate inbox files. Methods: send, read_inbox, broadcast.",
+      "tags": ["python", "messaging", "ipc"],
+      "type": "class"
+    },
+
+    {
+      "id": "file:agents/s10_team_protocols.py",
+      "name": "s10_team_protocols.py",
+      "filePath": "agents/s10_team_protocols.py",
+      "summary": "Session 10: Team protocols with plan_approval, shutdown_request, and shutdown_response. Teammates run in threads with structured communication protocols.",
+      "tags": ["python", "agent", "s10", "teams", "protocols", "collaboration"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s10_team_protocols.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s10_team_protocols.py",
+      "summary": "Lead agent loop with team protocol tools: plan_approval, shutdown_request, shutdown_response for structured team coordination.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+
+    {
+      "id": "file:agents/s11_autonomous_agents.py",
+      "name": "s11_autonomous_agents.py",
+      "filePath": "agents/s11_autonomous_agents.py",
+      "summary": "Session 11: Autonomous agents with a SharedBoard for cross-agent state coordination and finite-state machine phases (idle, poll, claim, work).",
+      "tags": ["python", "agent", "s11", "autonomous", "fsm", "collaboration"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s11_autonomous_agents.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s11_autonomous_agents.py",
+      "summary": "Autonomous agent loop with SharedBoard coordination, FSM state transitions, and task claiming from a shared board.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+
+    {
+      "id": "file:agents/s12_worktree_task_isolation.py",
+      "name": "s12_worktree_task_isolation.py",
+      "filePath": "agents/s12_worktree_task_isolation.py",
+      "summary": "Session 12: Worktree isolation for multi-agent teams. Each agent gets a dedicated git worktree, preventing filesystem conflicts. Combines TaskManager, MessageBus, and worktrees.",
+      "tags": ["python", "agent", "s12", "worktree", "isolation", "git"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s12_worktree_task_isolation.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s12_worktree_task_isolation.py",
+      "summary": "Full agent loop with worktree isolation: each agent operates in its own git worktree directory with TaskManager and MessageBus.",
+      "tags": ["python", "agent", "core-loop"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+
+    {
+      "id": "file:agents/s_full.py",
+      "name": "s_full.py",
+      "filePath": "agents/s_full.py",
+      "summary": "Capstone reference combining all mechanisms from s01-s11: tool dispatch, subagents, skill loading, context compression, task system, background tasks, and message bus in one integrated agent.",
+      "tags": ["python", "agent", "capstone", "integrated"],
+      "type": "file"
+    },
+    {
+      "id": "function:agents/s_full.py:agent_loop",
+      "name": "agent_loop",
+      "filePath": "agents/s_full.py",
+      "summary": "Full-featured agent loop integrating all mechanisms: tool dispatch, subagent spawning, skill loading, context compression, task management, background tasks, and message bus.",
+      "tags": ["python", "agent", "core-loop", "capstone"],
+      "type": "function",
+      "signature": "(messages: list) -> None"
+    },
+    {
+      "id": "class:agents/s_full.py:SkillLoader",
+      "name": "SkillLoader",
+      "filePath": "agents/s_full.py",
+      "summary": "Integrated SkillLoader in the capstone. Parses SKILL.md files with YAML frontmatter for on-demand skill loading.",
+      "tags": ["python", "skill", "capstone"],
+      "type": "class"
+    },
+    {
+      "id": "class:agents/s_full.py:TaskManager",
+      "name": "TaskManager",
+      "filePath": "agents/s_full.py",
+      "summary": "Integrated TaskManager in the capstone with full CRUD and dependency tracking via JSON persistence.",
+      "tags": ["python", "task", "capstone"],
+      "type": "class"
+    },
+    {
+      "id": "class:agents/s_full.py:MessageBus",
+      "name": "MessageBus",
+      "filePath": "agents/s_full.py",
+      "summary": "Integrated MessageBus in the capstone for inter-agent JSONL-based communication.",
+      "tags": ["python", "messaging", "capstone"],
+      "type": "class"
+    },
+    {
+      "id": "function:agents/s_full.py:run_subagent",
+      "name": "run_subagent",
+      "filePath": "agents/s_full.py",
+      "summary": "Integrated subagent spawning with fresh context, filtered child tools (bash, read, write, edit), and summary-only return.",
+      "tags": ["python", "subagent", "capstone"],
+      "type": "function",
+      "signature": "(prompt: str) -> str"
+    },
+
+    {
+      "id": "file:web/src/components/visualizations/index.tsx",
+      "name": "index.tsx (visualizations)",
+      "filePath": "web/src/components/visualizations/index.tsx",
+      "summary": "Visualization registry mapping session IDs (s01-s12) to lazy-loaded React components. SessionVisualization renders the appropriate component for a given version.",
+      "tags": ["tsx", "component", "registry", "visualizations"],
+      "type": "file"
+    },
+    {
+      "id": "component:web/src/components/visualizations/index.tsx:SessionVisualization",
+      "name": "SessionVisualization",
+      "filePath": "web/src/components/visualizations/index.tsx",
+      "summary": "Renders the appropriate step-through visualization for a given session version using lazy loading and Suspense.",
+      "tags": ["tsx", "component", "lazy-loading"],
+      "type": "component"
+    },
+
+    {
+      "id": "file:web/src/components/visualizations/s01-agent-loop.tsx",
+      "name": "s01-agent-loop.tsx",
+      "filePath": "web/src/components/visualizations/s01-agent-loop.tsx",
+      "summary": "Step-through animation of the core agent loop: user input -> LLM call -> tool_use check -> bash execution -> result append.",
+      "tags": ["tsx", "visualization", "s01"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/s02-tool-dispatch.tsx",
+      "name": "s02-tool-dispatch.tsx",
+      "filePath": "web/src/components/visualizations/s02-tool-dispatch.tsx",
+      "summary": "Visualization of tool dispatch: LLM calls named tools routed through a handler map (bash, read, write, edit).",
+      "tags": ["tsx", "visualization", "s02"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/s03-todo-write.tsx",
+      "name": "s03-todo-write.tsx",
+      "filePath": "web/src/components/visualizations/s03-todo-write.tsx",
+      "summary": "Visualization of TodoWrite planning: tasks transition through pending/in_progress/completed states.",
+      "tags": ["tsx", "visualization", "s03"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/s04-subagent.tsx",
+      "name": "s04-subagent.tsx",
+      "filePath": "web/src/components/visualizations/s04-subagent.tsx",
+      "summary": "Visualization of subagent isolation: parent context, spawn child, independent work, compress result, return summary.",
+      "tags": ["tsx", "visualization", "s04"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/s05-skill-loading.tsx",
+      "name": "s05-skill-loading.tsx",
+      "filePath": "web/src/components/visualizations/s05-skill-loading.tsx",
+      "summary": "Visualization of on-demand skill loading: browsing available skills, loading SKILL.md content into context.",
+      "tags": ["tsx", "visualization", "s05"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/s06-context-compact.tsx",
+      "name": "s06-context-compact.tsx",
+      "filePath": "web/src/components/visualizations/s06-context-compact.tsx",
+      "summary": "Visualization of three-layer context compression: growing context, micro-compact, auto-compact, manual /compact.",
+      "tags": ["tsx", "visualization", "s06"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/s07-task-system.tsx",
+      "name": "s07-task-system.tsx",
+      "filePath": "web/src/components/visualizations/s07-task-system.tsx",
+      "summary": "Visualization of the task system: creating tasks with dependencies, updating status, blockedBy relationships.",
+      "tags": ["tsx", "visualization", "s07"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/s08-background-tasks.tsx",
+      "name": "s08-background-tasks.tsx",
+      "filePath": "web/src/components/visualizations/s08-background-tasks.tsx",
+      "summary": "Visualization of background tasks: spawning threads, collecting notifications, injecting results before LLM calls.",
+      "tags": ["tsx", "visualization", "s08"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/s09-agent-teams.tsx",
+      "name": "s09-agent-teams.tsx",
+      "filePath": "web/src/components/visualizations/s09-agent-teams.tsx",
+      "summary": "Visualization of agent teams: MessageBus inbox files, send/broadcast/read_inbox between teammates.",
+      "tags": ["tsx", "visualization", "s09"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/s10-team-protocols.tsx",
+      "name": "s10-team-protocols.tsx",
+      "filePath": "web/src/components/visualizations/s10-team-protocols.tsx",
+      "summary": "Visualization of team protocols: plan_approval, shutdown_request, shutdown_response for structured coordination.",
+      "tags": ["tsx", "visualization", "s10"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/s11-autonomous-agents.tsx",
+      "name": "s11-autonomous-agents.tsx",
+      "filePath": "web/src/components/visualizations/s11-autonomous-agents.tsx",
+      "summary": "Visualization of autonomous agents with FSM: idle -> poll -> claim -> work phases, SharedBoard coordination, timer rings.",
+      "tags": ["tsx", "visualization", "s11"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/s12-worktree-task-isolation.tsx",
+      "name": "s12-worktree-task-isolation.tsx",
+      "filePath": "web/src/components/visualizations/s12-worktree-task-isolation.tsx",
+      "summary": "Visualization of worktree isolation: git worktrees per agent preventing filesystem conflicts.",
+      "tags": ["tsx", "visualization", "s12"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/visualizations/shared/step-controls.tsx",
+      "name": "step-controls.tsx",
+      "filePath": "web/src/components/visualizations/shared/step-controls.tsx",
+      "summary": "Shared StepControls component used by all visualizations. Provides play/pause, prev/next, reset, and step indicators.",
+      "tags": ["tsx", "component", "shared", "ui"],
+      "type": "file"
+    },
+    {
+      "id": "component:web/src/components/visualizations/shared/step-controls.tsx:StepControls",
+      "name": "StepControls",
+      "filePath": "web/src/components/visualizations/shared/step-controls.tsx",
+      "summary": "Reusable controls: reset, prev, play/pause auto-play, next buttons plus step dot indicators and title/description display.",
+      "tags": ["tsx", "component", "shared"],
+      "type": "component"
+    },
+
+    {
+      "id": "file:web/src/components/ui/badge.tsx",
+      "name": "badge.tsx",
+      "filePath": "web/src/components/ui/badge.tsx",
+      "summary": "Reusable badge UI component with variant styling.",
+      "tags": ["tsx", "ui", "shared"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/ui/card.tsx",
+      "name": "card.tsx",
+      "filePath": "web/src/components/ui/card.tsx",
+      "summary": "Reusable card UI component with header, content, and footer areas.",
+      "tags": ["tsx", "ui", "shared"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/ui/tabs.tsx",
+      "name": "tabs.tsx",
+      "filePath": "web/src/components/ui/tabs.tsx",
+      "summary": "Reusable tabs UI component with trigger and content panels.",
+      "tags": ["tsx", "ui", "shared"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:web/src/components/layout/header.tsx",
+      "name": "header.tsx",
+      "filePath": "web/src/components/layout/header.tsx",
+      "summary": "App header with navigation, locale switching, and theme toggle.",
+      "tags": ["tsx", "layout", "navigation"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/layout/sidebar.tsx",
+      "name": "sidebar.tsx",
+      "filePath": "web/src/components/layout/sidebar.tsx",
+      "summary": "Sidebar navigation listing all sessions with session links and progress indicators.",
+      "tags": ["tsx", "layout", "navigation"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:web/src/components/architecture/arch-diagram.tsx",
+      "name": "arch-diagram.tsx",
+      "filePath": "web/src/components/architecture/arch-diagram.tsx",
+      "summary": "Architecture diagram showing class composition across sessions with color-coded layers (tools, planning, memory, concurrency, collaboration).",
+      "tags": ["tsx", "architecture", "diagram"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/architecture/design-decisions.tsx",
+      "name": "design-decisions.tsx",
+      "filePath": "web/src/components/architecture/design-decisions.tsx",
+      "summary": "Design decisions component with expandable cards showing rationale, alternatives, and i18n support.",
+      "tags": ["tsx", "architecture", "decisions"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/architecture/execution-flow.tsx",
+      "name": "execution-flow.tsx",
+      "filePath": "web/src/components/architecture/execution-flow.tsx",
+      "summary": "SVG-based execution flow diagram per session showing LLM calls, tool checks, subprocess execution, and data flow.",
+      "tags": ["tsx", "architecture", "diagram", "flow"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/architecture/message-flow.tsx",
+      "name": "message-flow.tsx",
+      "filePath": "web/src/components/architecture/message-flow.tsx",
+      "summary": "Message flow visualization showing how messages pass through the agent loop.",
+      "tags": ["tsx", "architecture", "diagram"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:web/src/components/simulator/agent-loop-simulator.tsx",
+      "name": "agent-loop-simulator.tsx",
+      "filePath": "web/src/components/simulator/agent-loop-simulator.tsx",
+      "summary": "Interactive agent loop simulator with visual message flow and tool execution steps.",
+      "tags": ["tsx", "simulator", "interactive"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/simulator/simulator-controls.tsx",
+      "name": "simulator-controls.tsx",
+      "filePath": "web/src/components/simulator/simulator-controls.tsx",
+      "summary": "Controls for the agent loop simulator: start, pause, step-through, reset.",
+      "tags": ["tsx", "simulator", "controls"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/simulator/simulator-message.tsx",
+      "name": "simulator-message.tsx",
+      "filePath": "web/src/components/simulator/simulator-message.tsx",
+      "summary": "Message display component for simulator: shows user/assistant/tool messages with role badges.",
+      "tags": ["tsx", "simulator", "display"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:web/src/components/code/source-viewer.tsx",
+      "name": "source-viewer.tsx",
+      "filePath": "web/src/components/code/source-viewer.tsx",
+      "summary": "Source code viewer with syntax highlighting and line numbers.",
+      "tags": ["tsx", "code", "viewer"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/diff/code-diff.tsx",
+      "name": "code-diff.tsx",
+      "filePath": "web/src/components/diff/code-diff.tsx",
+      "summary": "Code diff viewer showing changes between consecutive sessions with highlighted additions/removals.",
+      "tags": ["tsx", "diff", "comparison"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/diff/whats-new.tsx",
+      "name": "whats-new.tsx",
+      "filePath": "web/src/components/diff/whats-new.tsx",
+      "summary": "WhatsNew component highlighting new additions in each session compared to the previous one.",
+      "tags": ["tsx", "diff", "summary"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/docs/doc-renderer.tsx",
+      "name": "doc-renderer.tsx",
+      "filePath": "web/src/components/docs/doc-renderer.tsx",
+      "summary": "Markdown document renderer that processes extracted doc content with proper formatting.",
+      "tags": ["tsx", "docs", "renderer"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/components/timeline/timeline.tsx",
+      "filePath": "web/src/components/timeline/timeline.tsx",
+      "summary": "Timeline component showing the progression of agent capabilities across sessions.",
+      "tags": ["tsx", "timeline", "progression"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:web/src/app/page.tsx",
+      "name": "page.tsx (root)",
+      "filePath": "web/src/app/page.tsx",
+      "summary": "Root page that redirects to the default locale.",
+      "tags": ["tsx", "page", "routing"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/app/[locale]/page.tsx",
+      "name": "page.tsx (locale)",
+      "filePath": "web/src/app/[locale]/page.tsx",
+      "summary": "Locale-aware home page with session overview, hero section, and session cards for all 12 sessions.",
+      "tags": ["tsx", "page", "home", "routing"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/app/[locale]/layout.tsx",
+      "name": "layout.tsx (locale)",
+      "filePath": "web/src/app/[locale]/layout.tsx",
+      "summary": "Locale root layout with I18nProvider, theme provider, and global metadata.",
+      "tags": ["tsx", "layout", "i18n"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/app/[locale]/(learn)/layout.tsx",
+      "name": "layout.tsx (learn)",
+      "filePath": "web/src/app/[locale]/(learn)/layout.tsx",
+      "summary": "Learn section layout with Header and Sidebar for navigation.",
+      "tags": ["tsx", "layout", "navigation"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/app/[locale]/(learn)/[version]/page.tsx",
+      "name": "page.tsx (version)",
+      "filePath": "web/src/app/[locale]/(learn)/[version]/page.tsx",
+      "summary": "Version-specific session page with documentation, code viewer, and visualization.",
+      "tags": ["tsx", "page", "session"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/app/[locale]/(learn)/[version]/client.tsx",
+      "name": "client.tsx (version)",
+      "filePath": "web/src/app/[locale]/(learn)/[version]/client.tsx",
+      "summary": "Client component for version pages: renders SessionVisualization, AgentLoopSimulator, and tabbed interface.",
+      "tags": ["tsx", "client-component", "session"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/app/[locale]/(learn)/[version]/diff/page.tsx",
+      "name": "page.tsx (diff)",
+      "filePath": "web/src/app/[locale]/(learn)/[version]/diff/page.tsx",
+      "summary": "Diff page showing code changes between consecutive sessions.",
+      "tags": ["tsx", "page", "diff"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/app/[locale]/(learn)/[version]/diff/diff-content.tsx",
+      "name": "diff-content.tsx",
+      "filePath": "web/src/app/[locale]/(learn)/[version]/diff/diff-content.tsx",
+      "summary": "Diff content component rendering unified diff with line-by-line comparison.",
+      "tags": ["tsx", "diff", "content"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/app/[locale]/(learn)/compare/page.tsx",
+      "name": "page.tsx (compare)",
+      "filePath": "web/src/app/[locale]/(learn)/compare/page.tsx",
+      "summary": "Compare page for side-by-side session comparison.",
+      "tags": ["tsx", "page", "comparison"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/app/[locale]/(learn)/layers/page.tsx",
+      "name": "page.tsx (layers)",
+      "filePath": "web/src/app/[locale]/(learn)/layers/page.tsx",
+      "summary": "Architecture layers overview page showing how mechanisms stack across sessions.",
+      "tags": ["tsx", "page", "architecture"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/app/[locale]/(learn)/timeline/page.tsx",
+      "name": "page.tsx (timeline)",
+      "filePath": "web/src/app/[locale]/(learn)/timeline/page.tsx",
+      "summary": "Timeline page showing chronological progression of agent capabilities.",
+      "tags": ["tsx", "page", "timeline"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:web/src/lib/i18n.tsx",
+      "name": "i18n.tsx",
+      "filePath": "web/src/lib/i18n.tsx",
+      "summary": "i18n provider and hooks. I18nProvider wraps the app with locale context, useTranslations returns localized strings by namespace.",
+      "tags": ["tsx", "i18n", "provider"],
+      "type": "file"
+    },
+    {
+      "id": "component:web/src/lib/i18n.tsx:I18nProvider",
+      "name": "I18nProvider",
+      "filePath": "web/src/lib/i18n.tsx",
+      "summary": "React context provider for internationalization. Wraps children with locale and messages from the appropriate language bundle.",
+      "tags": ["tsx", "component", "i18n", "provider"],
+      "type": "component"
+    },
+    {
+      "id": "file:web/src/lib/i18n-server.ts",
+      "name": "i18n-server.ts",
+      "filePath": "web/src/lib/i18n-server.ts",
+      "summary": "Server-side i18n utilities for loading localized messages and detecting locale from URL params.",
+      "tags": ["typescript", "i18n", "server"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/lib/constants.ts",
+      "name": "constants.ts",
+      "filePath": "web/src/lib/constants.ts",
+      "summary": "Shared constants: session metadata, layer definitions, version info used across the web app.",
+      "tags": ["typescript", "constants", "config"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/lib/utils.ts",
+      "name": "utils.ts",
+      "filePath": "web/src/lib/utils.ts",
+      "summary": "Utility functions including cn() for Tailwind class merging.",
+      "tags": ["typescript", "utils"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:web/src/hooks/useDarkMode.ts",
+      "name": "useDarkMode.ts",
+      "filePath": "web/src/hooks/useDarkMode.ts",
+      "summary": "React hook for dark mode: reads system preference, persists choice, toggles class on document root.",
+      "tags": ["typescript", "hook", "theme"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/hooks/useSimulator.ts",
+      "name": "useSimulator.ts",
+      "filePath": "web/src/hooks/useSimulator.ts",
+      "summary": "React hook for agent loop simulation state: message queue, execution control, and step tracking.",
+      "tags": ["typescript", "hook", "simulator"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/src/hooks/useSteppedVisualization.ts",
+      "name": "useSteppedVisualization.ts",
+      "filePath": "web/src/hooks/useSteppedVisualization.ts",
+      "summary": "React hook for stepped visualizations: currentStep, next, prev, reset, goToStep, auto-play with interval.",
+      "tags": ["typescript", "hook", "visualization"],
+      "type": "file"
+    },
+    {
+      "id": "function:web/src/hooks/useSteppedVisualization.ts:useSteppedVisualization",
+      "name": "useSteppedVisualization",
+      "filePath": "web/src/hooks/useSteppedVisualization.ts",
+      "summary": "Hook returning { currentStep, totalSteps, next, prev, reset, goToStep, isPlaying, toggleAutoPlay, isFirstStep, isLastStep } with auto-play support.",
+      "tags": ["typescript", "hook"],
+      "type": "function",
+      "signature": "(options: SteppedVisualizationOptions) => SteppedVisualizationReturn"
+    },
+
+    {
+      "id": "file:web/src/types/agent-data.ts",
+      "name": "agent-data.ts",
+      "filePath": "web/src/types/agent-data.ts",
+      "summary": "Type definitions for AgentVersion, VersionDiff, FlowNode, FlowEdge, and other shared data schemas.",
+      "tags": ["typescript", "types", "schema"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:web/src/data/execution-flows.ts",
+      "name": "execution-flows.ts",
+      "filePath": "web/src/data/execution-flows.ts",
+      "summary": "EXECUTION_FLOWS data for each session: nodes and edges defining the SVG flow diagrams used by ExecutionFlow component.",
+      "tags": ["typescript", "data", "flows"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:web/next.config.ts",
+      "name": "next.config.ts",
+      "filePath": "web/next.config.ts",
+      "summary": "Next.js configuration with i18n locale detection and build settings.",
+      "tags": ["typescript", "configuration", "nextjs"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/postcss.config.mjs",
+      "name": "postcss.config.mjs",
+      "filePath": "web/postcss.config.mjs",
+      "summary": "PostCSS configuration for TailwindCSS processing.",
+      "tags": ["javascript", "configuration", "postcss"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/scripts/extract-content.ts",
+      "name": "extract-content.ts",
+      "filePath": "web/scripts/extract-content.ts",
+      "summary": "Build script that extracts documentation content from docs/{en,ja,zh}/ directories into structured data for the web app. Runs as predev/prebuild hook.",
+      "tags": ["typescript", "build", "script"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/vercel.json",
+      "name": "vercel.json",
+      "filePath": "web/vercel.json",
+      "summary": "Vercel deployment configuration.",
+      "tags": ["configuration", "deployment"],
+      "type": "file"
+    },
+    {
+      "id": "file:web/package.json",
+      "name": "package.json",
+      "filePath": "web/package.json",
+      "summary": "Web app dependencies: Next.js 16, React 19, TailwindCSS 4, TypeScript, framer-motion, lucide-react.",
+      "tags": ["configuration", "dependencies"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:skills/agent-builder/SKILL.md",
+      "name": "SKILL.md (agent-builder)",
+      "filePath": "skills/agent-builder/SKILL.md",
+      "summary": "Skill definition for building new agent patterns with references to minimal-agent, subagent-pattern, and tool-templates.",
+      "tags": ["skill", "documentation", "teaching"],
+      "type": "file"
+    },
+    {
+      "id": "file:skills/code-review/SKILL.md",
+      "name": "SKILL.md (code-review)",
+      "filePath": "skills/code-review/SKILL.md",
+      "summary": "Skill definition for code review patterns and practices.",
+      "tags": ["skill", "documentation", "teaching"],
+      "type": "file"
+    },
+    {
+      "id": "file:skills/mcp-builder/SKILL.md",
+      "name": "SKILL.md (mcp-builder)",
+      "filePath": "skills/mcp-builder/SKILL.md",
+      "summary": "Skill definition for building MCP (Model Context Protocol) servers.",
+      "tags": ["skill", "documentation", "teaching"],
+      "type": "file"
+    },
+    {
+      "id": "file:skills/pdf/SKILL.md",
+      "name": "SKILL.md (pdf)",
+      "filePath": "skills/pdf/SKILL.md",
+      "summary": "Skill definition for PDF processing capabilities.",
+      "tags": ["skill", "documentation", "teaching"],
+      "type": "file"
+    },
+    {
+      "id": "file:skills/agent-builder/references/minimal-agent.py",
+      "name": "minimal-agent.py",
+      "filePath": "skills/agent-builder/references/minimal-agent.py",
+      "summary": "Reference implementation of a minimal agent with execute_tool and agent functions. Teaching material.",
+      "tags": ["python", "reference", "teaching"],
+      "type": "file"
+    },
+    {
+      "id": "file:skills/agent-builder/references/subagent-pattern.py",
+      "name": "subagent-pattern.py",
+      "filePath": "skills/agent-builder/references/subagent-pattern.py",
+      "summary": "Reference implementation of the subagent pattern with parent-child context isolation.",
+      "tags": ["python", "reference", "teaching"],
+      "type": "file"
+    },
+    {
+      "id": "file:skills/agent-builder/references/tool-templates.py",
+      "name": "tool-templates.py",
+      "filePath": "skills/agent-builder/references/tool-templates.py",
+      "summary": "Reference templates for common tool implementations (bash, read, write, edit).",
+      "tags": ["python", "reference", "teaching"],
+      "type": "file"
+    },
+    {
+      "id": "file:skills/agent-builder/scripts/init_agent.py",
+      "name": "init_agent.py",
+      "filePath": "skills/agent-builder/scripts/init_agent.py",
+      "summary": "Script to initialize a new agent project scaffold.",
+      "tags": ["python", "script", "scaffold"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:tests/test_agents_smoke.py",
+      "name": "test_agents_smoke.py",
+      "filePath": "tests/test_agents_smoke.py",
+      "summary": "Smoke tests: verifies all agent scripts exist and compile without syntax errors using py_compile.",
+      "tags": ["python", "test", "smoke"],
+      "type": "file"
+    },
+    {
+      "id": "file:tests/test_s_full_background.py",
+      "name": "test_s_full_background.py",
+      "filePath": "tests/test_s_full_background.py",
+      "summary": "Unit tests for s_full.py background task functionality, testing notification draining and placeholder results.",
+      "tags": ["python", "test", "background-tasks"],
+      "type": "file"
+    },
+
+    {
+      "id": "file:.github/workflows/ci.yml",
+      "name": "ci.yml",
+      "filePath": ".github/workflows/ci.yml",
+      "summary": "CI workflow: web type-check and production build on push/PR to main.",
+      "tags": ["yaml", "ci", "github-actions"],
+      "type": "file"
+    },
+    {
+      "id": "file:.github/workflows/test.yml",
+      "name": "test.yml",
+      "filePath": ".github/workflows/test.yml",
+      "summary": "Test workflow: Python smoke tests (pytest) and web build on push/PR to main.",
+      "tags": ["yaml", "ci", "github-actions"],
+      "type": "file"
+    }
+  ],
+
+  "edges": [
+    {"from": "file:agents/s01_agent_loop.py", "to": "file:agents/s02_tool_use.py", "type": "related", "label": "s02 extends s01"},
+    {"from": "file:agents/s02_tool_use.py", "to": "file:agents/s03_todo_write.py", "type": "related", "label": "s03 extends s02"},
+    {"from": "file:agents/s03_todo_write.py", "to": "file:agents/s04_subagent.py", "type": "related", "label": "s04 extends s03"},
+    {"from": "file:agents/s04_subagent.py", "to": "file:agents/s05_skill_loading.py", "type": "related", "label": "s05 extends s04"},
+    {"from": "file:agents/s05_skill_loading.py", "to": "file:agents/s06_context_compact.py", "type": "related", "label": "s06 extends s05"},
+    {"from": "file:agents/s06_context_compact.py", "to": "file:agents/s07_task_system.py", "type": "related", "label": "s07 extends s06"},
+    {"from": "file:agents/s07_task_system.py", "to": "file:agents/s08_background_tasks.py", "type": "related", "label": "s08 extends s07"},
+    {"from": "file:agents/s08_background_tasks.py", "to": "file:agents/s09_agent_teams.py", "type": "related", "label": "s09 extends s08"},
+    {"from": "file:agents/s09_agent_teams.py", "to": "file:agents/s10_team_protocols.py", "type": "related", "label": "s10 extends s09"},
+    {"from": "file:agents/s10_team_protocols.py", "to": "file:agents/s11_autonomous_agents.py", "type": "related", "label": "s11 extends s10"},
+    {"from": "file:agents/s11_autonomous_agents.py", "to": "file:agents/s12_worktree_task_isolation.py", "type": "related", "label": "s12 extends s11"},
+
+    {"from": "file:agents/s_full.py", "to": "file:agents/s01_agent_loop.py", "type": "depends_on", "label": "integrates s01"},
+    {"from": "file:agents/s_full.py", "to": "file:agents/s02_tool_use.py", "type": "depends_on", "label": "integrates s02"},
+    {"from": "file:agents/s_full.py", "to": "file:agents/s03_todo_write.py", "type": "depends_on", "label": "integrates s03"},
+    {"from": "file:agents/s_full.py", "to": "file:agents/s04_subagent.py", "type": "depends_on", "label": "integrates s04"},
+    {"from": "file:agents/s_full.py", "to": "file:agents/s05_skill_loading.py", "type": "depends_on", "label": "integrates s05"},
+    {"from": "file:agents/s_full.py", "to": "file:agents/s06_context_compact.py", "type": "depends_on", "label": "integrates s06"},
+    {"from": "file:agents/s_full.py", "to": "file:agents/s07_task_system.py", "type": "depends_on", "label": "integrates s07"},
+    {"from": "file:agents/s_full.py", "to": "file:agents/s08_background_tasks.py", "type": "depends_on", "label": "integrates s08"},
+    {"from": "file:agents/s_full.py", "to": "file:agents/s09_agent_teams.py", "type": "depends_on", "label": "integrates s09"},
+
+    {"from": "file:agents/s01_agent_loop.py", "to": "function:agents/s01_agent_loop.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s01_agent_loop.py", "to": "function:agents/s01_agent_loop.py:run_bash", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s02_tool_use.py", "to": "function:agents/s02_tool_use.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s03_todo_write.py", "to": "function:agents/s03_todo_write.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s04_subagent.py", "to": "function:agents/s04_subagent.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s04_subagent.py", "to": "function:agents/s04_subagent.py:run_subagent", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s05_skill_loading.py", "to": "function:agents/s05_skill_loading.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s05_skill_loading.py", "to": "class:agents/s05_skill_loading.py:SkillLoader", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s06_context_compact.py", "to": "function:agents/s06_context_compact.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s07_task_system.py", "to": "function:agents/s07_task_system.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s07_task_system.py", "to": "class:agents/s07_task_system.py:TaskManager", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s08_background_tasks.py", "to": "function:agents/s08_background_tasks.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s09_agent_teams.py", "to": "function:agents/s09_agent_teams.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s09_agent_teams.py", "to": "class:agents/s09_agent_teams.py:MessageBus", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s10_team_protocols.py", "to": "function:agents/s10_team_protocols.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s11_autonomous_agents.py", "to": "function:agents/s11_autonomous_agents.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s12_worktree_task_isolation.py", "to": "function:agents/s12_worktree_task_isolation.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s_full.py", "to": "function:agents/s_full.py:agent_loop", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s_full.py", "to": "function:agents/s_full.py:run_subagent", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s_full.py", "to": "class:agents/s_full.py:SkillLoader", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s_full.py", "to": "class:agents/s_full.py:TaskManager", "type": "contains", "label": "defines"},
+    {"from": "file:agents/s_full.py", "to": "class:agents/s_full.py:MessageBus", "type": "contains", "label": "defines"},
+
+    {"from": "function:agents/s01_agent_loop.py:agent_loop", "to": "function:agents/s01_agent_loop.py:run_bash", "type": "calls", "label": "executes tools via"},
+    {"from": "function:agents/s04_subagent.py:agent_loop", "to": "function:agents/s04_subagent.py:run_subagent", "type": "calls", "label": "spawns"},
+    {"from": "function:agents/s_full.py:agent_loop", "to": "function:agents/s_full.py:run_subagent", "type": "calls", "label": "spawns"},
+
+    {"from": "class:agents/s05_skill_loading.py:SkillLoader", "to": "class:agents/s_full.py:SkillLoader", "type": "related", "label": "integrated into capstone"},
+    {"from": "class:agents/s07_task_system.py:TaskManager", "to": "class:agents/s_full.py:TaskManager", "type": "related", "label": "integrated into capstone"},
+    {"from": "class:agents/s09_agent_teams.py:MessageBus", "to": "class:agents/s_full.py:MessageBus", "type": "related", "label": "integrated into capstone"},
+
+    {"from": "file:web/src/components/visualizations/s01-agent-loop.tsx", "to": "file:agents/s01_agent_loop.py", "type": "documents", "label": "visualizes"},
+    {"from": "file:web/src/components/visualizations/s02-tool-dispatch.tsx", "to": "file:agents/s02_tool_use.py", "type": "documents", "label": "visualizes"},
+    {"from": "file:web/src/components/visualizations/s03-todo-write.tsx", "to": "file:agents/s03_todo_write.py", "type": "documents", "label": "visualizes"},
+    {"from": "file:web/src/components/visualizations/s04-subagent.tsx", "to": "file:agents/s04_subagent.py", "type": "documents", "label": "visualizes"},
+    {"from": "file:web/src/components/visualizations/s05-skill-loading.tsx", "to": "file:agents/s05_skill_loading.py", "type": "documents", "label": "visualizes"},
+    {"from": "file:web/src/components/visualizations/s06-context-compact.tsx", "to": "file:agents/s06_context_compact.py", "type": "documents", "label": "visualizes"},
+    {"from": "file:web/src/components/visualizations/s07-task-system.tsx", "to": "file:agents/s07_task_system.py", "type": "documents", "label": "visualizes"},
+    {"from": "file:web/src/components/visualizations/s08-background-tasks.tsx", "to": "file:agents/s08_background_tasks.py", "type": "documents", "label": "visualizes"},
+    {"from": "file:web/src/components/visualizations/s09-agent-teams.tsx", "to": "file:agents/s09_agent_teams.py", "type": "documents", "label": "visualizes"},
+    {"from": "file:web/src/components/visualizations/s10-team-protocols.tsx", "to": "file:agents/s10_team_protocols.py", "type": "documents", "label": "visualizes"},
+    {"from": "file:web/src/components/visualizations/s11-autonomous-agents.tsx", "to": "file:agents/s11_autonomous_agents.py", "type": "documents", "label": "visualizes"},
+    {"from": "file:web/src/components/visualizations/s12-worktree-task-isolation.tsx", "to": "file:agents/s12_worktree_task_isolation.py", "type": "documents", "label": "visualizes"},
+
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s01-agent-loop.tsx", "type": "imports", "label": "registers"},
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s02-tool-dispatch.tsx", "type": "imports", "label": "registers"},
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s03-todo-write.tsx", "type": "imports", "label": "registers"},
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s04-subagent.tsx", "type": "imports", "label": "registers"},
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s05-skill-loading.tsx", "type": "imports", "label": "registers"},
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s06-context-compact.tsx", "type": "imports", "label": "registers"},
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s07-task-system.tsx", "type": "imports", "label": "registers"},
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s08-background-tasks.tsx", "type": "imports", "label": "registers"},
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s09-agent-teams.tsx", "type": "imports", "label": "registers"},
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s10-team-protocols.tsx", "type": "imports", "label": "registers"},
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s11-autonomous-agents.tsx", "type": "imports", "label": "registers"},
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/components/visualizations/s12-worktree-task-isolation.tsx", "type": "imports", "label": "registers"},
+
+    {"from": "file:web/src/components/visualizations/s01-agent-loop.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+    {"from": "file:web/src/components/visualizations/s02-tool-dispatch.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+    {"from": "file:web/src/components/visualizations/s03-todo-write.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+    {"from": "file:web/src/components/visualizations/s04-subagent.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+    {"from": "file:web/src/components/visualizations/s05-skill-loading.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+    {"from": "file:web/src/components/visualizations/s06-context-compact.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+    {"from": "file:web/src/components/visualizations/s07-task-system.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+    {"from": "file:web/src/components/visualizations/s08-background-tasks.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+    {"from": "file:web/src/components/visualizations/s09-agent-teams.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+    {"from": "file:web/src/components/visualizations/s10-team-protocols.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+    {"from": "file:web/src/components/visualizations/s11-autonomous-agents.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+    {"from": "file:web/src/components/visualizations/s12-worktree-task-isolation.tsx", "to": "file:web/src/components/visualizations/shared/step-controls.tsx", "type": "imports", "label": "uses"},
+
+    {"from": "file:web/src/components/visualizations/shared/step-controls.tsx", "to": "file:web/src/hooks/useSteppedVisualization.ts", "type": "imports", "label": "uses hook"},
+
+    {"from": "file:web/src/app/[locale]/(learn)/[version]/client.tsx", "to": "file:web/src/components/visualizations/index.tsx", "type": "imports", "label": "renders"},
+    {"from": "file:web/src/app/[locale]/(learn)/[version]/client.tsx", "to": "file:web/src/components/simulator/agent-loop-simulator.tsx", "type": "imports", "label": "renders"},
+    {"from": "file:web/src/app/[locale]/(learn)/layout.tsx", "to": "file:web/src/components/layout/header.tsx", "type": "imports", "label": "renders"},
+    {"from": "file:web/src/app/[locale]/(learn)/layout.tsx", "to": "file:web/src/components/layout/sidebar.tsx", "type": "imports", "label": "renders"},
+    {"from": "file:web/src/app/[locale]/layout.tsx", "to": "file:web/src/lib/i18n.tsx", "type": "imports", "label": "wraps with I18nProvider"},
+
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "file:web/src/lib/i18n.tsx", "type": "imports", "label": "uses useTranslations"},
+    {"from": "file:web/src/components/visualizations/shared/step-controls.tsx", "to": "file:web/src/lib/utils.ts", "type": "imports", "label": "uses cn()"},
+
+    {"from": "file:web/src/components/architecture/execution-flow.tsx", "to": "file:web/src/data/execution-flows.ts", "type": "imports", "label": "consumes flow data"},
+    {"from": "file:web/src/components/architecture/execution-flow.tsx", "to": "file:web/src/types/agent-data.ts", "type": "imports", "label": "imports types"},
+
+    {"from": "file:web/src/hooks/useSteppedVisualization.ts", "to": "file:web/src/hooks/useSteppedVisualization.ts", "type": "contains", "label": "defines"},
+    {"from": "component:web/src/components/visualizations/shared/step-controls.tsx:StepControls", "to": "function:web/src/hooks/useSteppedVisualization.ts:useSteppedVisualization", "type": "calls", "label": "consumes hook"},
+
+    {"from": "file:tests/test_agents_smoke.py", "to": "file:agents/s01_agent_loop.py", "type": "tested_by", "label": "smoke tests"},
+    {"from": "file:tests/test_agents_smoke.py", "to": "file:agents/s02_tool_use.py", "type": "tested_by", "label": "smoke tests"},
+    {"from": "file:tests/test_agents_smoke.py", "to": "file:agents/s_full.py", "type": "tested_by", "label": "smoke tests"},
+    {"from": "file:tests/test_s_full_background.py", "to": "file:agents/s_full.py", "type": "tested_by", "label": "unit tests"},
+
+    {"from": "file:.github/workflows/test.yml", "to": "file:tests/test_agents_smoke.py", "type": "configures", "label": "runs"},
+    {"from": "file:.github/workflows/test.yml", "to": "file:web/package.json", "type": "configures", "label": "builds"},
+    {"from": "file:.github/workflows/ci.yml", "to": "file:web/package.json", "type": "configures", "label": "type-checks and builds"},
+
+    {"from": "file:skills/agent-builder/SKILL.md", "to": "file:skills/agent-builder/references/minimal-agent.py", "type": "related", "label": "references"},
+    {"from": "file:skills/agent-builder/SKILL.md", "to": "file:skills/agent-builder/references/subagent-pattern.py", "type": "related", "label": "references"},
+    {"from": "file:skills/agent-builder/SKILL.md", "to": "file:skills/agent-builder/references/tool-templates.py", "type": "related", "label": "references"},
+
+    {"from": "file:README.md", "to": "file:agents/s01_agent_loop.py", "type": "documents", "label": "describes sessions"},
+    {"from": "file:CLAUDE.md", "to": "file:agents/s01_agent_loop.py", "type": "documents", "label": "documents architecture"},
+    {"from": "file:CLAUDE.md", "to": "file:web/src/components/visualizations/index.tsx", "type": "documents", "label": "documents web app"},
+
+    {"from": "file:web/scripts/extract-content.ts", "to": "file:web/next.config.ts", "type": "configures", "label": "runs as predev/prebuild"},
+
+    {"from": "file:agents/s05_skill_loading.py", "to": "file:skills/agent-builder/SKILL.md", "type": "imports", "label": "parses SKILL.md files from"},
+
+    {"from": "file:web/src/components/visualizations/index.tsx", "to": "component:web/src/components/visualizations/index.tsx:SessionVisualization", "type": "contains", "label": "defines"},
+    {"from": "file:web/src/components/visualizations/shared/step-controls.tsx", "to": "component:web/src/components/visualizations/shared/step-controls.tsx:StepControls", "type": "contains", "label": "defines"},
+    {"from": "file:web/src/lib/i18n.tsx", "to": "component:web/src/lib/i18n.tsx:I18nProvider", "type": "contains", "label": "defines"},
+    {"from": "file:web/src/hooks/useSteppedVisualization.ts", "to": "function:web/src/hooks/useSteppedVisualization.ts:useSteppedVisualization", "type": "contains", "label": "defines"},
+
+    {"from": "file:web/src/components/simulator/agent-loop-simulator.tsx", "to": "file:web/src/hooks/useSimulator.ts", "type": "imports", "label": "uses hook"},
+    {"from": "file:web/src/components/simulator/agent-loop-simulator.tsx", "to": "file:web/src/components/simulator/simulator-message.tsx", "type": "imports", "label": "renders"},
+    {"from": "file:web/src/components/simulator/agent-loop-simulator.tsx", "to": "file:web/src/components/simulator/simulator-controls.tsx", "type": "imports", "label": "renders"},
+
+    {"from": "file:web/src/app/[locale]/(learn)/[version]/diff/page.tsx", "to": "file:web/src/app/[locale]/(learn)/[version]/diff/diff-content.tsx", "type": "imports", "label": "renders"},
+    {"from": "file:web/src/app/[locale]/(learn)/[version]/diff/diff-content.tsx", "to": "file:web/src/components/diff/code-diff.tsx", "type": "imports", "label": "renders"},
+
+    {"from": "file:web/src/app/[locale]/(learn)/layers/page.tsx", "to": "file:web/src/components/architecture/arch-diagram.tsx", "type": "imports", "label": "renders"},
+    {"from": "file:web/src/app/[locale]/(learn)/layers/page.tsx", "to": "file:web/src/components/architecture/execution-flow.tsx", "type": "imports", "label": "renders"},
+    {"from": "file:web/src/app/[locale]/(learn)/timeline/page.tsx", "to": "file:web/src/components/timeline/timeline.tsx", "type": "imports", "label": "renders"},
+
+    {"from": "function:agents/s_full.py:agent_loop", "to": "class:agents/s_full.py:SkillLoader", "type": "calls", "label": "uses skills"},
+    {"from": "function:agents/s_full.py:agent_loop", "to": "class:agents/s_full.py:TaskManager", "type": "calls", "label": "manages tasks"},
+    {"from": "function:agents/s_full.py:agent_loop", "to": "class:agents/s_full.py:MessageBus", "type": "calls", "label": "reads inbox"},
+    {"from": "function:agents/s_full.py:run_subagent", "to": "function:agents/s_full.py:run_subagent", "type": "calls", "label": "calls tools"},
+
+    {"from": "file:agents/s01_agent_loop.py", "to": "file:.env.example", "type": "configures", "label": "reads env vars from"},
+    {"from": "file:requirements.txt", "to": "file:agents/s01_agent_loop.py", "type": "configures", "label": "provides dependencies for"},
+
+    {"from": "file:web/src/data/execution-flows.ts", "to": "file:web/src/types/agent-data.ts", "type": "imports", "label": "uses types"},
+    {"from": "file:web/src/lib/constants.ts", "to": "file:web/src/types/agent-data.ts", "type": "imports", "label": "uses types"}
+  ],
+
+  "layers": [
+    {
+      "id": "agent-core",
+      "name": "Agent Core",
+      "description": "Foundation sessions: basic loop, tool dispatch, planning, subagent isolation. These establish the core patterns all later sessions build on.",
+      "color": "#3b82f6",
+      "nodeIds": [
+        "file:agents/s01_agent_loop.py",
+        "file:agents/s02_tool_use.py",
+        "file:agents/s03_todo_write.py",
+        "file:agents/s04_subagent.py",
+        "function:agents/s01_agent_loop.py:agent_loop",
+        "function:agents/s01_agent_loop.py:run_bash",
+        "function:agents/s02_tool_use.py:agent_loop",
+        "function:agents/s03_todo_write.py:agent_loop",
+        "function:agents/s04_subagent.py:agent_loop",
+        "function:agents/s04_subagent.py:run_subagent"
+      ]
+    },
+    {
+      "id": "agent-advanced",
+      "name": "Agent Advanced",
+      "description": "Advanced sessions: skill loading, context compression, task system, background tasks, agent teams, protocols, autonomous agents, and worktree isolation.",
+      "color": "#8b5cf6",
+      "nodeIds": [
+        "file:agents/s05_skill_loading.py",
+        "file:agents/s06_context_compact.py",
+        "file:agents/s07_task_system.py",
+        "file:agents/s08_background_tasks.py",
+        "file:agents/s09_agent_teams.py",
+        "file:agents/s10_team_protocols.py",
+        "file:agents/s11_autonomous_agents.py",
+        "file:agents/s12_worktree_task_isolation.py",
+        "function:agents/s05_skill_loading.py:agent_loop",
+        "class:agents/s05_skill_loading.py:SkillLoader",
+        "function:agents/s06_context_compact.py:agent_loop",
+        "function:agents/s07_task_system.py:agent_loop",
+        "class:agents/s07_task_system.py:TaskManager",
+        "function:agents/s08_background_tasks.py:agent_loop",
+        "function:agents/s09_agent_teams.py:agent_loop",
+        "class:agents/s09_agent_teams.py:MessageBus",
+        "function:agents/s10_team_protocols.py:agent_loop",
+        "function:agents/s11_autonomous_agents.py:agent_loop",
+        "function:agents/s12_worktree_task_isolation.py:agent_loop"
+      ]
+    },
+    {
+      "id": "capstone",
+      "name": "Capstone",
+      "description": "s_full.py combines all mechanisms from s01-s11 into a single integrated agent. The reference implementation for understanding the full architecture.",
+      "color": "#ef4444",
+      "nodeIds": [
+        "file:agents/s_full.py",
+        "function:agents/s_full.py:agent_loop",
+        "function:agents/s_full.py:run_subagent",
+        "class:agents/s_full.py:SkillLoader",
+        "class:agents/s_full.py:TaskManager",
+        "class:agents/s_full.py:MessageBus"
+      ]
+    },
+    {
+      "id": "web-visualizations",
+      "name": "Web Visualizations",
+      "description": "Step-through animation components for each session. Each visualization uses useSteppedVisualization hook and StepControls for interactive step navigation.",
+      "color": "#10b981",
+      "nodeIds": [
+        "file:web/src/components/visualizations/index.tsx",
+        "file:web/src/components/visualizations/s01-agent-loop.tsx",
+        "file:web/src/components/visualizations/s02-tool-dispatch.tsx",
+        "file:web/src/components/visualizations/s03-todo-write.tsx",
+        "file:web/src/components/visualizations/s04-subagent.tsx",
+        "file:web/src/components/visualizations/s05-skill-loading.tsx",
+        "file:web/src/components/visualizations/s06-context-compact.tsx",
+        "file:web/src/components/visualizations/s07-task-system.tsx",
+        "file:web/src/components/visualizations/s08-background-tasks.tsx",
+        "file:web/src/components/visualizations/s09-agent-teams.tsx",
+        "file:web/src/components/visualizations/s10-team-protocols.tsx",
+        "file:web/src/components/visualizations/s11-autonomous-agents.tsx",
+        "file:web/src/components/visualizations/s12-worktree-task-isolation.tsx",
+        "file:web/src/components/visualizations/shared/step-controls.tsx",
+        "component:web/src/components/visualizations/index.tsx:SessionVisualization",
+        "component:web/src/components/visualizations/shared/step-controls.tsx:StepControls"
+      ]
+    },
+    {
+      "id": "web-ui",
+      "name": "Web UI",
+      "description": "Shared UI components: badges, cards, tabs, layout header, sidebar, simulator, code viewer, diff viewer, doc renderer, and timeline.",
+      "color": "#f59e0b",
+      "nodeIds": [
+        "file:web/src/components/ui/badge.tsx",
+        "file:web/src/components/ui/card.tsx",
+        "file:web/src/components/ui/tabs.tsx",
+        "file:web/src/components/layout/header.tsx",
+        "file:web/src/components/layout/sidebar.tsx",
+        "file:web/src/components/simulator/agent-loop-simulator.tsx",
+        "file:web/src/components/simulator/simulator-controls.tsx",
+        "file:web/src/components/simulator/simulator-message.tsx",
+        "file:web/src/components/code/source-viewer.tsx",
+        "file:web/src/components/diff/code-diff.tsx",
+        "file:web/src/components/diff/whats-new.tsx",
+        "file:web/src/components/docs/doc-renderer.tsx",
+        "file:web/src/components/timeline/timeline.tsx",
+        "file:web/src/components/architecture/arch-diagram.tsx",
+        "file:web/src/components/architecture/design-decisions.tsx",
+        "file:web/src/components/architecture/execution-flow.tsx",
+        "file:web/src/components/architecture/message-flow.tsx"
+      ]
+    },
+    {
+      "id": "web-pages",
+      "name": "Web Pages",
+      "description": "Next.js App Router pages: root redirect, locale home, version session pages, diff views, compare, layers, and timeline. Includes layouts for locale and learn routes.",
+      "color": "#ec4899",
+      "nodeIds": [
+        "file:web/src/app/page.tsx",
+        "file:web/src/app/[locale]/page.tsx",
+        "file:web/src/app/[locale]/layout.tsx",
+        "file:web/src/app/[locale]/(learn)/layout.tsx",
+        "file:web/src/app/[locale]/(learn)/[version]/page.tsx",
+        "file:web/src/app/[locale]/(learn)/[version]/client.tsx",
+        "file:web/src/app/[locale]/(learn)/[version]/diff/page.tsx",
+        "file:web/src/app/[locale]/(learn)/[version]/diff/diff-content.tsx",
+        "file:web/src/app/[locale]/(learn)/compare/page.tsx",
+        "file:web/src/app/[locale]/(learn)/layers/page.tsx",
+        "file:web/src/app/[locale]/(learn)/timeline/page.tsx"
+      ]
+    },
+    {
+      "id": "web-infrastructure",
+      "name": "Web Infrastructure",
+      "description": "Infrastructure: i18n providers and hooks, useSteppedVisualization, useSimulator, useDarkMode, shared types, execution flow data, constants, and build scripts.",
+      "color": "#6366f1",
+      "nodeIds": [
+        "file:web/src/lib/i18n.tsx",
+        "file:web/src/lib/i18n-server.ts",
+        "file:web/src/lib/constants.ts",
+        "file:web/src/lib/utils.ts",
+        "file:web/src/hooks/useDarkMode.ts",
+        "file:web/src/hooks/useSimulator.ts",
+        "file:web/src/hooks/useSteppedVisualization.ts",
+        "file:web/src/types/agent-data.ts",
+        "file:web/src/data/execution-flows.ts",
+        "file:web/scripts/extract-content.ts",
+        "file:web/next.config.ts",
+        "file:web/postcss.config.mjs",
+        "component:web/src/lib/i18n.tsx:I18nProvider",
+        "function:web/src/hooks/useSteppedVisualization.ts:useSteppedVisualization"
+      ]
+    },
+    {
+      "id": "skills",
+      "name": "Skills",
+      "description": "Reusable agent skill definitions. Teaching materials used by s05 skill loading pattern. Each skill has a SKILL.md with YAML frontmatter.",
+      "color": "#14b8a6",
+      "nodeIds": [
+        "file:skills/agent-builder/SKILL.md",
+        "file:skills/code-review/SKILL.md",
+        "file:skills/mcp-builder/SKILL.md",
+        "file:skills/pdf/SKILL.md",
+        "file:skills/agent-builder/references/minimal-agent.py",
+        "file:skills/agent-builder/references/subagent-pattern.py",
+        "file:skills/agent-builder/references/tool-templates.py",
+        "file:skills/agent-builder/scripts/init_agent.py"
+      ]
+    },
+    {
+      "id": "tests",
+      "name": "Tests",
+      "description": "Test suite: smoke tests verify all agent scripts compile, and unit tests verify s_full.py background task behavior.",
+      "color": "#84cc16",
+      "nodeIds": [
+        "file:tests/test_agents_smoke.py",
+        "file:tests/test_s_full_background.py"
+      ]
+    },
+    {
+      "id": "config",
+      "name": "Config",
+      "description": "Configuration and documentation: CI workflows, Python and web dependencies, env templates, project metadata, and root files.",
+      "color": "#78716c",
+      "nodeIds": [
+        "file:README.md",
+        "file:CLAUDE.md",
+        "file:.env.example",
+        "file:requirements.txt",
+        "file:pyproject.toml",
+        "file:hello.py",
+        "file:agents/__init__.py",
+        "file:web/package.json",
+        "file:web/vercel.json",
+        "file:.github/workflows/ci.yml",
+        "file:.github/workflows/test.yml"
+      ]
+    }
+  ],
+
+  "tour": [
+    {
+      "step": 1,
+      "title": "Project Overview",
+      "description": "Start with README.md and CLAUDE.md to understand the 12-session progression and how the Python agents and Next.js web app fit together.",
+      "nodeId": "file:README.md",
+      "layer": "config"
+    },
+    {
+      "step": 2,
+      "title": "The Core Agent Loop (s01)",
+      "description": "Study s01_agent_loop.py -- the fundamental pattern: a while loop calls the LLM with tools, checks stop_reason, executes tool calls, appends results, and repeats. agent_loop() and run_bash() are the only two functions you need to understand.",
+      "nodeId": "file:agents/s01_agent_loop.py",
+      "layer": "agent-core"
+    },
+    {
+      "step": 3,
+      "title": "Tool Dispatch and Planning (s02-s03)",
+      "description": "s02 introduces TOOL_HANDLERS dict for dispatching named tools (bash, read, write, edit). s03 adds TodoWrite for explicit task planning. Both extend the same agent_loop pattern.",
+      "nodeId": "file:agents/s02_tool_use.py",
+      "layer": "agent-core"
+    },
+    {
+      "step": 4,
+      "title": "Subagent Isolation (s04)",
+      "description": "s04 adds run_subagent(): spawning a child with fresh messages[] and filtered tools. Only the summary returns to the parent. This is the key isolation pattern for context management.",
+      "nodeId": "file:agents/s04_subagent.py",
+      "layer": "agent-core"
+    },
+    {
+      "step": 5,
+      "title": "Skills, Compression, and Tasks (s05-s07)",
+      "description": "s05: SkillLoader parses SKILL.md files for on-demand knowledge. s06: Three-layer context compression (micro, auto, manual). s07: TaskManager with JSON persistence and dependency graphs.",
+      "nodeId": "file:agents/s05_skill_loading.py",
+      "layer": "agent-advanced"
+    },
+    {
+      "step": 6,
+      "title": "Concurrency and Collaboration (s08-s12)",
+      "description": "s08: Background tasks via threading. s09: MessageBus for team communication. s10: Structured protocols (plan_approval, shutdown). s11: Autonomous FSM agents with SharedBoard. s12: git worktree isolation.",
+      "nodeId": "file:agents/s08_background_tasks.py",
+      "layer": "agent-advanced"
+    },
+    {
+      "step": 7,
+      "title": "Capstone: All Mechanisms Combined (s_full.py)",
+      "description": "s_full.py integrates everything: tool dispatch, subagent spawning, SkillLoader, context compression, TaskManager, background tasks, and MessageBus in one 90-symbol file. The definitive reference for the full architecture.",
+      "nodeId": "file:agents/s_full.py",
+      "layer": "capstone"
+    },
+    {
+      "step": 8,
+      "title": "Web App: Interactive Visualizations",
+      "description": "The Next.js web app brings the sessions to life. Each session has a step-through visualization (s01-agent-loop.tsx through s12-worktree-task-isolation.tsx) driven by useSteppedVisualization hook and StepControls. The SessionVisualization registry in visualizations/index.tsx ties it all together.",
+      "nodeId": "file:web/src/components/visualizations/index.tsx",
+      "layer": "web-visualizations"
+    }
+  ]
+}

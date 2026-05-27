@@ -1,0 +1,112 @@
+# .understandignore — patterns for files/dirs to exclude from analysis
+# Syntax: same as .gitignore (globs, # comments, ! negation, trailing / for dirs)
+# Lines below are suggestions — uncomment to activate.
+# Use ! prefix to force-include something excluded by defaults.
+#
+# Built-in defaults (always excluded unless negated):
+#   node_modules/, .git/, dist/, build/, obj/, *.lock, *.min.js, etc.
+#
+# --- From .gitignore (uncomment to exclude) ---
+
+# *.py[codz]
+# *$py.class
+# *.so
+# .Python
+# develop-eggs/
+# downloads/
+# eggs/
+# .eggs/
+# /lib/
+# /lib64/
+# parts/
+# sdist/
+# var/
+# wheels/
+# share/python-wheels/
+# *.egg-info/
+# .installed.cfg
+# *.egg
+# MANIFEST
+# *.manifest
+# *.spec
+# pip-log.txt
+# pip-delete-this-directory.txt
+# htmlcov/
+# .tox/
+# .nox/
+# .coverage
+# .coverage.*
+# nosetests.xml
+# coverage.xml
+# *.cover
+# *.py.cover
+# .hypothesis/
+# .pytest_cache/
+# cover/
+# *.mo
+# *.pot
+# local_settings.py
+# db.sqlite3
+# db.sqlite3-journal
+# instance/
+# .webassets-cache
+# .scrapy
+# docs/_build/
+# .pybuilder/
+# .ipynb_checkpoints
+# profile_default/
+# ipython_config.py
+# .pdm-python
+# .pdm-build/
+# .pixi
+# __pypackages__/
+# celerybeat-schedule
+# celerybeat.pid
+# *.sage.py
+# .env
+# .envrc
+# env/
+# ENV/
+# env.bak/
+# venv.bak/
+# .spyderproject
+# .spyproject
+# .ropeproject
+# /site
+# .mypy_cache/
+# .dmypy.json
+# dmypy.json
+# .pyre/
+# .pytype/
+# cython_debug/
+# .abstra/
+# .transcripts/
+# .task_outputs/
+# .tasks/
+# .teams/
+# .ruff_cache/
+# .pypirc
+# .cursorignore
+# .cursorindexingignore
+# marimo/_static/
+# marimo/_lsp/
+# __marimo__/
+# web/node_modules/
+# web/.next/
+# web/out/
+# .vercel
+# .env*.local
+# test_providers.py
+# analysis/
+# analysis_progress.md
+
+# --- Detected directories (uncomment to exclude) ---
+
+# tests/
+# docs/
+
+# --- Test file patterns (uncomment to exclude) ---
+
+# *.test.*
+# *.spec.*
+# *.snap
