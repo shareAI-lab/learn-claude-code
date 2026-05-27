@@ -44,6 +44,7 @@ cd web && npx tsc --noEmit
 ### Environment
 - Copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY` and `MODEL_ID` before running agent scripts.
 - Optional: `ANTHROPIC_BASE_URL` for Anthropic-compatible providers.
+- **Local dev**: `.env` uses a local vLLM proxy (`http://127.0.0.1:15721`) serving `Qwen3.6-27B-FP8` via `cc-switch-proxy`. Activate the `.venv` before running scripts: `source .venv/bin/activate`.
 
 ## Session Progression
 
