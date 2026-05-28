@@ -68,9 +68,9 @@
   <rect x="416" y="170" width="132" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
   <text x="482" y="186" fill="#92400e" font-size="9" font-weight="600" text-anchor="middle">闸门 3: 用户审批</text>
 
-  <!-- 拒绝 → 返回拒绝信息 -->
-  <path d="M 402 188 L 376 188 L 376 174 L 350 174" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-red)"/>
-  <text x="378" y="184" fill="#dc2626" font-size="8" font-weight="600">拒绝</text>
+  <!-- 拒绝 → 拒绝信息作为 tool_result 回到 messages[]（与通过路径汇合） -->
+  <path d="M 440 198 L 440 230" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="446" y="218" fill="#dc2626" font-size="8" font-weight="600">拒绝</text>
 
   <!-- 通过 → 工具执行 -->
   <line x1="562" y1="138" x2="598" y2="138" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
