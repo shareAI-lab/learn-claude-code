@@ -68,9 +68,9 @@
   <rect x="416" y="170" width="132" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
   <text x="482" y="186" fill="#92400e" font-size="9" font-weight="600" text-anchor="middle">ゲート 3: ユーザー承認</text>
 
-  <!-- 拒否 → 拒否メッセージは tool_result として messages[] に戻る（通過パスと合流） -->
-  <path d="M 440 198 L 440 230" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-red)"/>
-  <text x="446" y="218" fill="#dc2626" font-size="8" font-weight="600">拒否</text>
+  <!-- 拒否：拒否は tool_result となり、通過パスの出力と合流する -->
+  <path d="M 440 198 L 440 216" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="446" y="210" fill="#dc2626" font-size="8" font-weight="600">拒否</text>
 
   <!-- 通過 → ツール実行 -->
   <line x1="562" y1="138" x2="598" y2="138" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
@@ -85,8 +85,15 @@
   <text x="650" y="166" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">HANDLERS</text>
   <text x="650" y="184" fill="#64748b" font-size="8" text-anchor="middle">bash/read/write/...</text>
 
-  <!-- 矢印：ツール結果 → メッセージリストに戻る -->
-  <path d="M 700 162 L 710 162 L 710 230 L 120 230 L 120 128" fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+  <!-- 通過の出力：TOOL_HANDLERS の結果 → tool_result -->
+  <path d="M 650 194 L 650 230 L 492 230" fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+
+  <!-- tool_result：成功した出力も拒否も tool_result になる -->
+  <rect x="370" y="216" width="122" height="28" rx="6" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="431" y="234" fill="#1e3a5f" font-size="11" font-weight="600" text-anchor="middle">tool_result</text>
+
+  <!-- tool_result → メッセージリストに戻る -->
+  <path d="M 370 230 L 120 230 L 120 128" fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
 
   <!-- ===== 凡例 ===== -->
   <rect x="60" y="260" width="600" height="44" rx="6" fill="#f1f5f9"/>

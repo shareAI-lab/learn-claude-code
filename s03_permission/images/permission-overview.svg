@@ -68,9 +68,9 @@
   <rect x="416" y="170" width="132" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
   <text x="482" y="186" fill="#92400e" font-size="9" font-weight="600" text-anchor="middle">闸门 3: 用户审批</text>
 
-  <!-- 拒绝 → 拒绝信息作为 tool_result 回到 messages[]（与通过路径汇合） -->
-  <path d="M 440 198 L 440 230" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-red)"/>
-  <text x="446" y="218" fill="#dc2626" font-size="8" font-weight="600">拒绝</text>
+  <!-- 拒绝：拒绝信息成为 tool_result，与通过路径的输出汇合 -->
+  <path d="M 440 198 L 440 216" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="446" y="210" fill="#dc2626" font-size="8" font-weight="600">拒绝</text>
 
   <!-- 通过 → 工具执行 -->
   <line x1="562" y1="138" x2="598" y2="138" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
@@ -85,8 +85,15 @@
   <text x="650" y="166" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">HANDLERS</text>
   <text x="650" y="184" fill="#64748b" font-size="8" text-anchor="middle">bash/read/write/...</text>
 
-  <!-- 箭头：工具结果 → 回到消息列表 -->
-  <path d="M 700 162 L 710 162 L 710 230 L 120 230 L 120 128" fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+  <!-- 通过路径的输出：TOOL_HANDLERS 结果 → tool_result -->
+  <path d="M 650 194 L 650 230 L 492 230" fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+
+  <!-- tool_result：成功的输出和拒绝都会成为 tool_result -->
+  <rect x="370" y="216" width="122" height="28" rx="6" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="431" y="234" fill="#1e3a5f" font-size="11" font-weight="600" text-anchor="middle">tool_result</text>
+
+  <!-- tool_result → 回到消息列表 -->
+  <path d="M 370 230 L 120 230 L 120 128" fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
 
   <!-- ===== 图例 ===== -->
   <rect x="60" y="260" width="600" height="44" rx="6" fill="#f1f5f9"/>
