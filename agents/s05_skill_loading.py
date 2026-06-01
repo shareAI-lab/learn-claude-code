@@ -65,11 +65,16 @@ class SkillLoader:
     def _load_all(self):
         if not self.skills_dir.exists():
             return
+        i = 0
         for f in sorted(self.skills_dir.rglob("SKILL.md")):
             text = f.read_text()
             meta, body = self._parse_frontmatter(text)
             name = meta.get("name", f.parent.name)
+            i = i + 1
+            print("============= start skill-{i} ======================== ")
+            print(f"meta: {meta} |\n body: {body} |\n path: {f}")
             self.skills[name] = {"meta": meta, "body": body, "path": str(f)}
+            print("============= end skill-{i} ======================== ")
 
     def _parse_frontmatter(self, text: str) -> tuple:
         """Parse YAML frontmatter between --- delimiters."""
@@ -86,14 +91,15 @@ class SkillLoader:
         """Layer 1: short descriptions for the system prompt."""
         if not self.skills:
             return "(no skills available)"
-        lines = []
         for name, skill in self.skills.items():
+        lines = []
             desc = skill["meta"].get("description", "No description")
             tags = skill["meta"].get("tags", "")
             line = f"  - {name}: {desc}"
             if tags:
                 line += f" [{tags}]"
-            lines.append(line)
+        lines.append(line)
+        print(f'line: {line}')
         return "\n".join(lines)
 
     def get_content(self, name: str) -> str:
@@ -101,7 +107,7 @@ class SkillLoader:
         skill = self.skills.get(name)
         if not skill:
             return f"Error: Unknown skill '{name}'. Available: {', '.join(self.skills.keys())}"
-        return f"<skill name=\"{name}\">\n{skill['body']}\n</skill>"
+        return f'<skill name="{name}">\n{skill["body"]}\n</skill>'
 
 
 SKILL_LOADER = SkillLoader(SKILLS_DIR)
@@ -121,17 +127,25 @@ def safe_path(p: str) -> Path:
         raise ValueError(f"Path escapes workspace: {p}")
     return path
 
+
 def run_bash(command: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
     if any(d in command for d in dangerous):
         return "Error: Dangerous command blocked"
     try:
-        r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                           capture_output=True, text=True, timeout=120)
+        r = subprocess.run(
+            command,
+            shell=True,
+            cwd=WORKDIR,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
         out = (r.stdout + r.stderr).strip()
         return out[:50000] if out else "(no output)"
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
+
 
 def run_read(path: str, limit: int = None) -> str:
     try:
@@ -142,6 +156,7 @@ def run_read(path: str, limit: int = None) -> str:
     except Exception as e:
         return f"Error: {e}"
 
+
 def run_write(path: str, content: str) -> str:
     try:
         fp = safe_path(path)
@@ -150,6 +165,7 @@ def run_write(path: str, content: str) -> str:
         return f"Wrote {len(content)} bytes"
     except Exception as e:
         return f"Error: {e}"
+
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
@@ -164,32 +180,76 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
 
 
 TOOL_HANDLERS = {
-    "bash":       lambda **kw: run_bash(kw["command"]),
-    "read_file":  lambda **kw: run_read(kw["path"], kw.get("limit")),
+    "bash": lambda **kw: run_bash(kw["command"]),
+    "read_file": lambda **kw: run_read(kw["path"], kw.get("limit")),
     "write_file": lambda **kw: run_write(kw["path"], kw["content"]),
-    "edit_file":  lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"]),
+    "edit_file": lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"]),
     "load_skill": lambda **kw: SKILL_LOADER.get_content(kw["name"]),
 }
 
 TOOLS = [
-    {"name": "bash", "description": "Run a shell command.",
-     "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
-    {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["path"]}},
-    {"name": "write_file", "description": "Write content to file.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
-    {"name": "edit_file", "description": "Replace exact text in file.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
-    {"name": "load_skill", "description": "Load specialized knowledge by name.",
-     "input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "Skill name to load"}}, "required": ["name"]}},
+    {
+        "name": "bash",
+        "description": "Run a shell command.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"command": {"type": "string"}},
+            "required": ["command"],
+        },
+    },
+    {
+        "name": "read_file",
+        "description": "Read file contents.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"path": {"type": "string"}, "limit": {"type": "integer"}},
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "write_file",
+        "description": "Write content to file.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"path": {"type": "string"}, "content": {"type": "string"}},
+            "required": ["path", "content"],
+        },
+    },
+    {
+        "name": "edit_file",
+        "description": "Replace exact text in file.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "old_text": {"type": "string"},
+                "new_text": {"type": "string"},
+            },
+            "required": ["path", "old_text", "new_text"],
+        },
+    },
+    {
+        "name": "load_skill",
+        "description": "Load specialized knowledge by name.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Skill name to load"}
+            },
+            "required": ["name"],
+        },
+    },
 ]
 
 
 def agent_loop(messages: list):
     while True:
         response = client.messages.create(
-            model=MODEL, system=SYSTEM, messages=messages,
-            tools=TOOLS, max_tokens=8000,
+            model=MODEL,
+            system=SYSTEM,
+            messages=messages,
+            tools=TOOLS,
+            max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
@@ -199,12 +259,22 @@ def agent_loop(messages: list):
             if block.type == "tool_use":
                 handler = TOOL_HANDLERS.get(block.name)
                 try:
-                    output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
+                    output = (
+                        handler(**block.input)
+                        if handler
+                        else f"Unknown tool: {block.name}"
+                    )
                 except Exception as e:
                     output = f"Error: {e}"
                 print(f"> {block.name}:")
                 print(str(output)[:200])
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
+                results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": str(output),
+                    }
+                )
         messages.append({"role": "user", "content": results})
 
 
