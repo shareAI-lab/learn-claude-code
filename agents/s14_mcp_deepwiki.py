@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Harness: external tool providers -- tools from outside the agent process.
 """
-s06_5_mcp_deepwiki.py - MCP Tools (DeepWiki Example)
+s14_mcp_deepwiki.py - MCP Tools (DeepWiki Example)
 
 Connect to a real MCP server (DeepWiki) that provides repository knowledge tools.
 DeepWiki indexes any public GitHub repo and serves AI-generated docs.
@@ -359,7 +359,7 @@ if __name__ == "__main__":
     history = []
     while True:
         try:
-            query = input("\033[36ms06_5 >> \033[0m")
+            query = input("\033[36ms14 >> \033[0m")
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in ("q", "exit", ""):
