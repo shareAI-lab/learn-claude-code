@@ -57,6 +57,7 @@ s03 的循环和权限逻辑完全保留。唯一的变动是把 `check_permissi
 ## 工作原理
 
 **hook 注册表**：一个字典，事件名映射到回调列表。
+**异常隔离**：单个 hook 失败不影响其他 hook 执行。
 
 ```python
 HOOKS = {
@@ -70,11 +71,24 @@ def register_hook(event: str, callback):
     HOOKS[event].append(callback)
 
 def trigger_hooks(event: str, *args):
+    """Execute all registered hooks for an event with fault isolation.
+    
+    Individual hook failures do not prevent other hooks from executing.
+    Returns the first non-None blocking result, or None if all hooks pass.
+    """
+    blocking_result = None
+    
     for callback in HOOKS[event]:
-        result = callback(*args)
-        if result is not None:   # 返回值 ≠ None → hook 说"停"
-            return result
-    return None
+        try:
+            result = callback(*args)
+            # Capture the first blocking result to prevent execution
+            if result is not None and blocking_result is None:
+                blocking_result = result
+        except Exception as e:
+            # Print error but continue executing remaining hooks
+            print(f"\033[31m[HOOK ERROR] {event} -> {callback.__name__}: {e}\033[0m")
+    
+    return blocking_result
 ```
 
 教学版中，PreToolUse 的非 None 返回值会阻止本次工具执行，Stop 的非 None 返回值会强制续跑。UserPromptSubmit 和 PostToolUse 的返回值未被使用。

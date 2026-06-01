@@ -162,11 +162,19 @@ def register_hook(event: str, callback):
     HOOKS[event].append(callback)
 
 def trigger_hooks(event: str, *args):
+    blocking_result = None
+    
     for callback in HOOKS[event]:
-        result = callback(*args)
-        if result is not None:  # teaching shortcut: block this tool call
-            return result
-    return None
+        try:
+            result = callback(*args)
+            # Capture the first blocking result to prevent execution
+            if result is not None and blocking_result is None:
+                blocking_result = result
+        except Exception as e:
+            # Print error but continue executing remaining hooks
+            print(f"\033[31m[HOOK ERROR] {event} -> {callback.__name__}: {e}\033[0m")
+    
+    return blocking_result
 
 
 # s03 permission check logic, now wrapped as a hook

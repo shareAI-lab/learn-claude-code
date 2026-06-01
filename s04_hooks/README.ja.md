@@ -57,6 +57,7 @@ s03 のループと権限ロジックは完全に保持される。唯一の変�
 ## 仕組み
 
 **フック登録簿**：イベント名をコールバックリストにマッピングする辞書。
+**例外分離**：個々のフック失敗が他のフック実行を妨げない。
 
 ```python
 HOOKS = {
@@ -70,11 +71,24 @@ def register_hook(event: str, callback):
     HOOKS[event].append(callback)
 
 def trigger_hooks(event: str, *args):
+    """Execute all registered hooks for an event with fault isolation.
+    
+    Individual hook failures do not prevent other hooks from executing.
+    Returns the first non-None blocking result, or None if all hooks pass.
+    """
+    blocking_result = None
+    
     for callback in HOOKS[event]:
-        result = callback(*args)
-        if result is not None:   # 戻り値 ≠ None → フックが「止め」と指示
-            return result
-    return None
+        try:
+            result = callback(*args)
+            # Capture the first blocking result to prevent execution
+            if result is not None and blocking_result is None:
+                blocking_result = result
+        except Exception as e:
+            # Print error but continue executing remaining hooks
+            print(f"\033[31m[HOOK ERROR] {event} -> {callback.__name__}: {e}\033[0m")
+    
+    return blocking_result
 ```
 
 教学版では、PreToolUse の非 None 戻り値は実行阻止を意味し、Stop の非 None 戻り値は強制続行を意味する。UserPromptSubmit と PostToolUse の戻り値は未使用。

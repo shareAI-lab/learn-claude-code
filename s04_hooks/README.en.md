@@ -57,6 +57,7 @@ Extensions are added via `register_hook()`. The loop only calls `trigger_hooks()
 ## How It Works
 
 **Hook registry**: a dict mapping event names to callback lists.
+**Fault isolation**: Individual hook failures don't prevent other hooks from executing.
 
 ```python
 HOOKS = {
@@ -70,11 +71,24 @@ def register_hook(event: str, callback):
     HOOKS[event].append(callback)
 
 def trigger_hooks(event: str, *args):
+    """Execute all registered hooks for an event with fault isolation.
+    
+    Individual hook failures do not prevent other hooks from executing.
+    Returns the first non-None blocking result, or None if all hooks pass.
+    """
+    blocking_result = None
+    
     for callback in HOOKS[event]:
-        result = callback(*args)
-        if result is not None:   # return value ≠ None → hook says "stop"
-            return result
-    return None
+        try:
+            result = callback(*args)
+            # Capture the first blocking result to prevent execution
+            if result is not None and blocking_result is None:
+                blocking_result = result
+        except Exception as e:
+            # Print error but continue executing remaining hooks
+            print(f"\033[31m[HOOK ERROR] {event} -> {callback.__name__}: {e}\033[0m")
+    
+    return blocking_result
 ```
 
 In the teaching version, PreToolUse returning non-None means block execution; Stop returning non-None means force continuation. UserPromptSubmit and PostToolUse return values are unused.
