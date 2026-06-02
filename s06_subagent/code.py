@@ -28,6 +28,7 @@ Run: python s06_subagent/code.py
 Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
 """
 
+import json
 import os, subprocess
 from pathlib import Path
 
@@ -122,6 +123,7 @@ def run_glob(pattern: str) -> str:
         return f"Error: {e}"
 
 def run_todo_write(todos: list) -> str:
+    todos=json.loads(todos)
     global CURRENT_TODOS
     for i, t in enumerate(todos):
         if "content" not in t or "status" not in t:

@@ -458,6 +458,7 @@ def call_tool_handler(handler, args: dict, name: str) -> str:
 
 
 def run_todo_write(todos: list) -> str:
+    todos = json.loads(todos) if isinstance(todos, str) else todos
     global CURRENT_TODOS
     for i, todo in enumerate(todos):
         if "content" not in todo or "status" not in todo:

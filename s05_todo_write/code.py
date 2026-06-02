@@ -28,6 +28,7 @@ Run: python s05_todo_write/code.py
 Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
 """
 
+import json
 import os, subprocess
 from pathlib import Path
 
@@ -122,6 +123,7 @@ def run_glob(pattern: str) -> str:
 # ═══════════════════════════════════════════════════════════
 
 def run_todo_write(todos: list) -> str:
+    todos=json.loads(todos)
     global CURRENT_TODOS
     # validate required fields
     for i, t in enumerate(todos):

@@ -26,6 +26,7 @@ Run: python s07_skill_loading/code.py
 Needs: pip install anthropic python-dotenv pyyaml + ANTHROPIC_API_KEY in .env
 """
 
+import json
 import os, subprocess
 from pathlib import Path
 import yaml
@@ -169,6 +170,7 @@ def run_glob(pattern: str) -> str:
         return f"Error: {e}"
 
 def run_todo_write(todos: list) -> str:
+    todos=json.loads(todos)
     global CURRENT_TODOS
     for i, t in enumerate(todos):
         if "content" not in t or "status" not in t:

@@ -166,6 +166,7 @@ def run_glob(pattern: str) -> str:
     except Exception as e: return f"Error: {e}"
 
 def run_todo_write(todos: list) -> str:
+    todos = json.loads(todos) if isinstance(todos, str) else todos
     global CURRENT_TODOS
     for i, t in enumerate(todos):
         if "content" not in t or "status" not in t:
