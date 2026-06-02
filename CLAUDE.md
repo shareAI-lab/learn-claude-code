@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-"Learn Claude Code" teaches agent harness engineering through 12 progressive Python sessions (s01-s12), each adding one mechanism to a minimal agent loop. The repo has two independent parts:
+"Learn Claude Code" teaches agent harness engineering through progressive Python sessions (s01-s19), each adding one mechanism to a minimal agent loop. The repo has two independent parts:
 
 - **Python agents** (`agents/`): Self-contained, runnable Python scripts that implement agent patterns from a single bash tool (s01) to worktree-isolated multi-agent teams (s12). Each session builds on the previous one. `s_full.py` combines all mechanisms from s01-s11 as a capstone reference.
 - **Next.js web app** (`web/`): Interactive visualizations, documentation, and diff views for each session. Multi-language (en/ja/zh) with i18n.
@@ -48,7 +48,7 @@ cd web && npx tsc --noEmit
 
 ## Session Progression
 
-Sessions are numbered s01-s12 and each introduces exactly one harness concept:
+Sessions are numbered s01-s19 and each introduces exactly one harness concept:
 
 | Session | Concept | Key File |
 |---------|---------|----------|
@@ -64,6 +64,13 @@ Sessions are numbered s01-s12 and each introduces exactly one harness concept:
 | s10 | Team protocols | `agents/s10_team_protocols.py` |
 | s11 | Autonomous agents | `agents/s11_autonomous_agents.py` |
 | s12 | Worktree isolation | `agents/s12_worktree_task_isolation.py` |
+| s13 | Slash commands | `agents/s13_slash_commands.py` |
+| s14 | MCP tools | `agents/s14_mcp_deepwiki.py` |
+| s15 | Workflow orchestration | `agents/s15_workflow_orchestration.py` |
+| s16 | Model routing / tiers | `agents/s16_model_routing.py` |
+| s17 | Structured output | `agents/s17_structured_output.py` |
+| s18 | Prompt caching | `agents/s18_prompt_caching.py` |
+| s19 | Agent memory / persistence | `agents/s19_agent_memory.py` |
 
 Each Python file is self-contained (imports only stdlib + anthropic + dotenv) and runnable standalone. They don't import each other.
 

@@ -91,15 +91,15 @@ class SkillLoader:
         """Layer 1: short descriptions for the system prompt."""
         if not self.skills:
             return "(no skills available)"
-        for name, skill in self.skills.items():
         lines = []
+        for name, skill in self.skills.items():
             desc = skill["meta"].get("description", "No description")
             tags = skill["meta"].get("tags", "")
             line = f"  - {name}: {desc}"
             if tags:
                 line += f" [{tags}]"
-        lines.append(line)
-        print(f'line: {line}')
+            lines.append(line)
+        return "\n".join(lines)
         return "\n".join(lines)
 
     def get_content(self, name: str) -> str:
