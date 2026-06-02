@@ -71,6 +71,10 @@ Sessions are numbered s01-s19 and each introduces exactly one harness concept:
 | s17 | Structured output | `agents/s17_structured_output.py` |
 | s18 | Prompt caching | `agents/s18_prompt_caching.py` |
 | s19 | Agent memory / persistence | `agents/s19_agent_memory.py` |
+| s20 | Approval policy | `agents/s20_approval_policy.py` |
+| s21 | AGENTS.md hierarchy | `agents/s21_agents_md.py` |
+| s22 | Plan/Autopilot mode | `agents/s22_plan_autopilot.py` |
+| s23 | Sandbox modes | `agents/s23_sandbox_modes.py` |
 
 Each Python file is self-contained (imports only stdlib + anthropic + dotenv) and runnable standalone. They don't import each other.
 
