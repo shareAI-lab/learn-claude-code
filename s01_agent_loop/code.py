@@ -29,6 +29,7 @@ Usage:
 
 import os
 import subprocess
+import sys
 
 try:
     import readline
@@ -118,10 +119,14 @@ if __name__ == "__main__":
     print("s01: Agent Loop")
     print("输入问题，回车发送。输入 q 退出。\n")
 
+    prompt = "s01 >> "
+    if sys.stdout.isatty():
+        prompt = "\001\033[36m\002s01 >> \001\033[0m\002"
+
     history = []
     while True:
         try:
-            query = input("\033[36ms01 >> \033[0m")
+            query = input(prompt)
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in ("q", "exit", ""):
