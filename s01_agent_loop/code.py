@@ -29,6 +29,7 @@ Usage:
 
 import os
 import subprocess
+import sys
 
 try:
     import readline
@@ -121,7 +122,11 @@ if __name__ == "__main__":
     history = []
     while True:
         try:
-            query = input("\033[36ms01 >> \033[0m")
+            if sys.stdout.isatty():
+                print("\033[36ms01 >> \033[0m", end="", flush=True)
+                query = input()
+            else:
+                query = input("s01 >> ")
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in ("q", "exit", ""):
