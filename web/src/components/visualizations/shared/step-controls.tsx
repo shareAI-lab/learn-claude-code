@@ -1,7 +1,6 @@
 "use client";
 
 import { Play, Pause, SkipBack, SkipForward, RotateCcw } from "lucide-react";
-import { useTranslations } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 interface StepControlsProps {
@@ -29,8 +28,6 @@ export function StepControls({
   stepDescription,
   className,
 }: StepControlsProps) {
-  const t = useTranslations("sim");
-
   return (
     <div className={cn("space-y-3", className)}>
       {/* Annotation */}
@@ -49,8 +46,7 @@ export function StepControls({
           <button
             onClick={onReset}
             className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-            title={t("reset")}
-            aria-label={t("reset")}
+            title="Reset"
           >
             <RotateCcw size={16} />
           </button>
@@ -58,16 +54,14 @@ export function StepControls({
             onClick={onPrev}
             disabled={currentStep === 0}
             className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-            title={t("previous_step")}
-            aria-label={t("previous_step")}
+            title="Previous step"
           >
             <SkipBack size={16} />
           </button>
           <button
             onClick={onToggleAutoPlay}
             className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-            title={isPlaying ? t("pause") : t("autoplay")}
-            aria-label={isPlaying ? t("pause") : t("autoplay")}
+            title={isPlaying ? "Pause" : "Auto-play"}
           >
             {isPlaying ? <Pause size={16} /> : <Play size={16} />}
           </button>
@@ -75,8 +69,7 @@ export function StepControls({
             onClick={onNext}
             disabled={currentStep === totalSteps - 1}
             className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-            title={t("next_step")}
-            aria-label={t("next_step")}
+            title="Next step"
           >
             <SkipForward size={16} />
           </button>

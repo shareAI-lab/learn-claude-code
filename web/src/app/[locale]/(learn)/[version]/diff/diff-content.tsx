@@ -2,9 +2,8 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { useLocale, useTranslations } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n";
 import { VERSION_META } from "@/lib/constants";
-import { getVersionContent } from "@/lib/version-content";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { LayerBadge } from "@/components/ui/badge";
 import { CodeDiff } from "@/components/diff/code-diff";
@@ -20,9 +19,7 @@ interface DiffPageContentProps {
 
 export function DiffPageContent({ version }: DiffPageContentProps) {
   const locale = useLocale();
-  const tSession = useTranslations("sessions");
   const meta = VERSION_META[version];
-  const content = getVersionContent(version, locale);
 
   const { currentVersion, prevVersion, diff } = useMemo(() => {
     const current = data.versions.find((v) => v.id === version);
@@ -51,9 +48,9 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
           className="mb-6 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
         >
           <ArrowLeft size={14} />
-          Back to {tSession(version) || meta.title}
+          Back to {meta.title}
         </Link>
-        <h1 className="text-3xl font-bold">{tSession(version) || meta.title}</h1>
+        <h1 className="text-3xl font-bold">{meta.title}</h1>
         <p className="mt-4 text-zinc-500">
           This is the first version -- there is no previous version to compare against.
         </p>
@@ -62,9 +59,6 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
   }
 
   const prevMeta = VERSION_META[prevVersion.id];
-  const prevContent = getVersionContent(prevVersion.id, locale);
-  const currentTitle = tSession(version) || meta.title;
-  const prevTitle = tSession(prevVersion.id) || prevMeta?.title || prevVersion.id;
 
   return (
     <div className="py-4">
@@ -73,13 +67,13 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
         className="mb-6 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
       >
         <ArrowLeft size={14} />
-        Back to {currentTitle}
+        Back to {meta.title}
       </Link>
 
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold">
-          {prevTitle} → {currentTitle}
+          {prevMeta?.title || prevVersion.id} → {meta.title}
         </h1>
         <p className="mt-2 text-zinc-500 dark:text-zinc-400">
           {prevVersion.id} ({prevVersion.loc} LOC) → {version} ({currentVersion.loc} LOC)
@@ -171,8 +165,8 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card className="border-l-4 border-l-red-300 dark:border-l-red-700">
           <CardHeader>
-            <CardTitle>{prevTitle}</CardTitle>
-            <p className="text-sm text-zinc-500">{prevContent.subtitle}</p>
+            <CardTitle>{prevMeta?.title || prevVersion.id}</CardTitle>
+            <p className="text-sm text-zinc-500">{prevMeta?.subtitle}</p>
           </CardHeader>
           <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
             <p>{prevVersion.loc} LOC</p>
@@ -182,8 +176,8 @@ export function DiffPageContent({ version }: DiffPageContentProps) {
         </Card>
         <Card className="border-l-4 border-l-green-300 dark:border-l-green-700">
           <CardHeader>
-            <CardTitle>{currentTitle}</CardTitle>
-            <p className="text-sm text-zinc-500">{content.subtitle}</p>
+            <CardTitle>{meta.title}</CardTitle>
+            <p className="text-sm text-zinc-500">{meta.subtitle}</p>
           </CardHeader>
           <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
             <p>{currentVersion.loc} LOC</p>

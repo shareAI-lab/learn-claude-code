@@ -41,7 +41,6 @@ export function SimulatorControls({
             onClick={onPause}
             className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-white transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
             title={t("pause")}
-            aria-label={t("pause")}
           >
             <Pause size={16} />
           </button>
@@ -51,7 +50,6 @@ export function SimulatorControls({
             disabled={isComplete}
             className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-white transition-colors hover:bg-zinc-700 disabled:opacity-40 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
             title={t("play")}
-            aria-label={t("play")}
           >
             <Play size={16} />
           </button>
@@ -61,7 +59,6 @@ export function SimulatorControls({
           disabled={isComplete}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] transition-colors hover:bg-zinc-100 disabled:opacity-40 dark:hover:bg-zinc-800"
           title={t("step")}
-          aria-label={t("step")}
         >
           <SkipForward size={16} />
         </button>
@@ -69,7 +66,6 @@ export function SimulatorControls({
           onClick={onReset}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
           title={t("reset")}
-          aria-label={t("reset")}
         >
           <RotateCcw size={16} />
         </button>

@@ -66,7 +66,7 @@
 | 許可權閘門 | `types/permissions.ts`、`hooks/toolPermission/*`、審批處理器 | `s07` | 執行安全是明確閘門，不是“某個 hook 順手乾的事”，所以必須早於 hook。 |
 | Hook 與側邊擴充套件 | `types/hooks.ts`、hook runner、生命週期接線 | `s08` | 參考倉庫把擴充套件點和許可權分開。教學順序保持“先 gate，再 extend”是對的。 |
 | 持久記憶選擇 | `memdir/*`、`services/SessionMemory/*`、記憶提取與篩選 | `s09` | 參考倉庫把 memory 處理成“跨會話、選擇性裝配”的層，不是通用筆記本。 |
-| Prompt 組裝 | `constants/prompts.ts`、prompt sections、memory prompt 注入 | `s10`、`s10a` | 參考倉庫明顯把輸入拆成多個 section。教學版把 prompt 講成管線，而不是一段大字串，是正確的。 |
+| Prompt 組裝 | `constants/prompts.ts`、prompt sections、memory prompt 注入 | `s10`、`s10a` | 參考倉庫明顯把輸入拆成多個 section。教學版把 prompt 講成流水線，而不是一段大字串，是正確的。 |
 | 恢復與續行 | query transition、retry 分支、compact retry、token recovery | `s11`、`s00c` | 真實系統裡“為什麼繼續下一輪”是顯式存在的，所以恢復應當晚於 loop / tools / compact / permissions / memory / prompt。 |
 | 持久工作圖 | 任務記錄、任務板、依賴解鎖 | `s12` | 當前教程把“持久任務目標”和“會話內待辦”分開，是對的。 |
 | 活著的執行時任務 | `tasks/types.ts`、`LocalShellTask`、`LocalAgentTask`、`RemoteAgentTask`、`MonitorMcpTask` | `s13`、`s13a` | 參考倉庫裡 runtime task 是明確的聯合型別，這強烈證明 `TaskRecord` 和 `RuntimeTaskState` 必須分開教。 |

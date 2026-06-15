@@ -8,14 +8,14 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { key: "reference", href: "/reference" },
+  { key: "timeline", href: "/timeline" },
   { key: "compare", href: "/compare" },
+  { key: "layers", href: "/layers" },
 ] as const;
 
 const LOCALES = [
   { code: "en", label: "EN" },
-  { code: "zh", label: "简中" },
-  { code: "zh-tw", label: "繁中" },
+  { code: "zh", label: "中文" },
   { code: "ja", label: "日本語" },
 ];
 
@@ -25,14 +25,11 @@ export function Header() {
   const locale = useLocale();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dark, setDark] = useState(false);
-  const [fontSize, setFontSize] = useState<"sm" | "md" | "lg">("md");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     setDark(document.documentElement.classList.contains("dark"));
-    const f = document.documentElement.getAttribute("data-font");
-    setFontSize(f === "sm" || f === "lg" ? f : "md");
   }, []);
 
   function toggleDark() {
@@ -41,22 +38,6 @@ export function Header() {
     document.documentElement.classList.toggle("dark", next);
     localStorage.setItem("theme", next ? "dark" : "light");
   }
-
-  function changeFontSize(size: "sm" | "md" | "lg") {
-    setFontSize(size);
-    if (size === "md") {
-      document.documentElement.removeAttribute("data-font");
-    } else {
-      document.documentElement.setAttribute("data-font", size);
-    }
-    localStorage.setItem("font-size", size);
-  }
-
-  const FONT_SIZES: { code: "sm" | "md" | "lg"; label: string; cls: string }[] = [
-    { code: "sm", label: "A", cls: "text-[10px]" },
-    { code: "md", label: "A", cls: "text-xs" },
-    { code: "lg", label: "A", cls: "text-sm" },
-  ];
 
   function switchLocale(newLocale: string) {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`);
@@ -105,26 +86,6 @@ export function Header() {
             ))}
           </div>
 
-          {/* Font size switcher */}
-          <div className="flex items-center gap-0.5 rounded-lg border border-[var(--color-border)] p-0.5">
-            {FONT_SIZES.map((f) => (
-              <button
-                key={f.code}
-                onClick={() => changeFontSize(f.code)}
-                aria-label={`Font size ${f.code}`}
-                className={cn(
-                  "rounded-md px-1.5 py-1 font-semibold leading-none transition-colors",
-                  f.cls,
-                  mounted && fontSize === f.code
-                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-                    : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
           <button
             onClick={toggleDark}
             className="rounded-md p-1.5 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-white"
@@ -164,25 +125,6 @@ export function Header() {
               {t(item.key)}
             </Link>
           ))}
-          <div className="mt-3 flex items-center gap-2 border-t border-[var(--color-border)] pt-3">
-            <span className="text-xs text-zinc-500">字體</span>
-            {FONT_SIZES.map((f) => (
-              <button
-                key={f.code}
-                onClick={() => changeFontSize(f.code)}
-                aria-label={`Font size ${f.code}`}
-                className={cn(
-                  "flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md font-semibold",
-                  f.cls,
-                  mounted && fontSize === f.code
-                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-                    : "border border-[var(--color-border)]"
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
           <div className="mt-3 flex items-center justify-between border-t border-[var(--color-border)] pt-3">
             <div className="flex gap-2">
               {LOCALES.map((l) => (

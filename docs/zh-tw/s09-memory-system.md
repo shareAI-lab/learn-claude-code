@@ -192,7 +192,7 @@ MEMORY_TYPES = ("user", "feedback", "project", "reference")
 - `type`
 - `content`
 
-### 第三步：每條 memory 獨立存檔
+### 第三步：每條 memory 獨立落盤
 
 ```python
 def save_memory(name, description, mem_type, content):
