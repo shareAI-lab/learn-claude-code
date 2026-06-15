@@ -1,38 +1,27 @@
 {
   "version": "s10",
-  "title": "Team Protocols",
-  "description": "Request-response protocols for shutdown and plan approval",
+  "title": "System Prompt",
+  "description": "The system prompt is assembled from runtime state and cached by a deterministic context key.",
   "steps": [
     {
-      "type": "user_message",
-      "content": "Work is done. Shut down the team gracefully.",
-      "annotation": "Can't just kill threads -- need coordinated shutdown"
-    },
-    {
-      "type": "tool_call",
-      "content": "shutdown_request(\n  teammate: \"backend-dev\",\n  request_id: \"req_abc123\"\n)",
-      "toolName": "shutdown_teammate",
-      "annotation": "request_id correlates the request with the response"
+      "type": "system_event",
+      "content": "context={workspace:\"/repo\", memories:true, skills:[\"code-review\"], tools:[\"bash\",\"read_file\"]}",
+      "annotation": "Prompt inputs are explicit runtime data."
     },
     {
       "type": "system_event",
-      "content": "[Shutdown FSM] req_abc123: pending\n  Lead -> backend-dev inbox:\n  { type: \"shutdown_request\", request_id: \"req_abc123\" }",
-      "annotation": "FSM tracks state: pending -> approved | rejected"
-    },
-    {
-      "type": "system_event",
-      "content": "[backend-dev] Received shutdown request req_abc123\n  Current task: none (idle)\n  Decision: approve\n  -> lead inbox: { type: \"shutdown_response\", request_id: \"req_abc123\", approve: true }",
-      "annotation": "Teammate decides whether to approve based on its own state"
-    },
-    {
-      "type": "system_event",
-      "content": "[Shutdown FSM] req_abc123: approved\n  backend-dev thread stopped\n  Status: idle -> shutdown",
-      "annotation": "Same request_id pattern works for plan approval too"
+      "content": "cache miss -> assemble_system_prompt(context)",
+      "annotation": "A new context key causes sections to be selected and joined."
     },
     {
       "type": "assistant_text",
-      "content": "backend-dev shut down gracefully. The same request_id + FSM pattern handles plan approval: teammate submits plan, lead approves/rejects with the correlated request_id.",
-      "annotation": "One pattern (request_id correlation), two applications (shutdown + plan approval)"
+      "content": "I can use the workspace, memory index, tool guidance, and available skills for this task.",
+      "annotation": "The LLM sees the assembled prompt, not a hardcoded static string."
+    },
+    {
+      "type": "system_event",
+      "content": "same context key -> reuse cached prompt",
+      "annotation": "Repeated turns avoid rebuilding identical prompt text."
     }
   ]
 }

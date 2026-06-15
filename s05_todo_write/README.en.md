@@ -32,19 +32,21 @@ The dispatch mechanism is unchanged; the new tool is still routed through `TOOL_
 
 ## How It Works
 
-**The todo_write tool**, accepts a list with statuses, persists to `.tasks/current_todos.json` (teaching version writes to disk for observability), and displays progress in the terminal:
+**The todo_write tool** accepts a list with statuses, keeps it in the current process memory, and displays progress in the terminal:
 
 ```python
+CURRENT_TODOS: list[dict] = []
+
 def run_todo_write(todos: list) -> str:
-    tasks_file = TASKS_DIR / "current_todos.json"
-    tasks_file.write_text(json.dumps(todos, indent=2, ensure_ascii=False))
+    global CURRENT_TODOS
+    CURRENT_TODOS = todos
 
     lines = ["\n## Current Tasks"]
-    for t in todos:
+    for t in CURRENT_TODOS:
         icon = {"pending": " ", "in_progress": "▸", "completed": "✓"}[t["status"]]
         lines.append(f"  [{icon}] {t['content']}")
     print("\n".join(lines))
-    return f"Updated {len(todos)} tasks"
+    return f"Updated {len(CURRENT_TODOS)} tasks"
 ```
 
 The tool definition joins the other 5 in the dispatch map:
@@ -135,7 +137,7 @@ The Agent can plan now. But if a task is too large, say "refactor the entire aut
 
 CC has two task systems coexisting (`tasks.ts:133-139`):
 
-- **TodoWrite (V1)**: A simple list tool, data maintained in memory AppState (`TodoWriteTool.ts:65-103`). The teaching version writes to `.tasks/current_todos.json` for observability; the real V1 does not write to disk.
+- **TodoWrite (V1)**: A simple list tool, data maintained in memory AppState (`TodoWriteTool.ts:65-103`). The teaching version also keeps it in process memory and clears it on exit.
 - **Task System (V2 = s12)**: File-persisted, dependency graph, concurrency locks, ownership.
 
 The switch is controlled by `isTodoV2Enabled()`. In the current source: V2 is enabled by default in interactive sessions, V1 in non-interactive (SDK) sessions; setting `CLAUDE_CODE_ENABLE_TASKS` forces V2 regardless. Note the source comment "Force-enable tasks in non-interactive mode" describes the env var path's purpose, not the default branch's return semantics.

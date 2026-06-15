@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ca8a04"/>
+    </marker>
+  </defs>
+
+  <rect width="720" height="300" fill="#fafbfc" rx="8"/>
+  <rect x="0" y="0" width="720" height="38" fill="url(#header)" rx="8"/>
+  <rect x="0" y="30" width="720" height="8" fill="url(#header)"/>
+  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">L2: microCompact — 旧结果占位替换</text>
+
+  <!-- 痛点 -->
+  <rect x="20" y="54" width="680" height="36" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
+  <text x="35" y="70" fill="#991b1b" font-size="11" font-weight="600">痛点</text>
+  <text x="75" y="70" fill="#991b1b" font-size="11">Agent 连续读了 10 个文件，第 1-7 次的完整文件内容还躺在上下文里，占着位置但早就没用了</text>
+
+  <!-- Before -->
+  <text x="155" y="114" fill="#64748b" font-size="12" font-weight="600" text-anchor="middle">压缩前（10 条 tool_result 全部完整）</text>
+  <rect x="20" y="122" width="310" height="95" rx="6" fill="#fff" stroke="#94a3b8" stroke-width="1"/>
+  <rect x="30" y="130" width="290" height="10" rx="2" fill="#e2e8f0"/>
+  <text x="38" y="138" fill="#94a3b8" font-size="8" font-family="monospace">Read file A: (完整内容, 3200 字符)...</text>
+  <rect x="30" y="145" width="290" height="10" rx="2" fill="#e2e8f0"/>
+  <text x="38" y="153" fill="#94a3b8" font-size="8" font-family="monospace">Read file B: (完整内容, 1800 字符)...</text>
+  <rect x="30" y="160" width="290" height="10" rx="2" fill="#e2e8f0"/>
+  <text x="38" y="168" fill="#94a3b8" font-size="8" font-family="monospace">Read file C: (完整内容, 4500 字符)...</text>
+  <rect x="30" y="175" width="290" height="10" rx="2" fill="#fef3c7"/>
+  <text x="38" y="183" fill="#92400e" font-size="8" font-family="monospace">Read file J: (完整内容, 2800 字符)</text>
+  <text x="175" y="212" fill="#ef4444" font-size="9" font-weight="600">7 条旧结果白占 ~25K 字符</text>
+
+  <!-- Arrow -->
+  <line x1="335" y1="170" x2="375" y2="170" stroke="#ca8a04" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- After -->
+  <text x="535" y="114" fill="#ca8a04" font-size="12" font-weight="600" text-anchor="middle">压缩后（只保留最近 3 条完整）</text>
+  <rect x="390" y="122" width="310" height="95" rx="6" fill="#fefce8" stroke="#ca8a04" stroke-width="1"/>
+  <rect x="400" y="130" width="290" height="10" rx="2" fill="#fef3c7"/>
+  <text x="408" y="138" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <rect x="400" y="145" width="290" height="10" rx="2" fill="#fef3c7"/>
+  <text x="408" y="153" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <rect x="400" y="160" width="290" height="10" rx="2" fill="#fef3c7"/>
+  <text x="408" y="168" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <rect x="400" y="175" width="290" height="10" rx="2" fill="#fef3c7"/>
+  <text x="408" y="183" fill="#92400e" font-size="8" font-family="monospace">Read file J: (完整内容, 2800 字符)</text>
+  <text x="545" y="212" fill="#ca8a04" font-size="9" font-weight="600">只保留最近 3 条，前 7 条变占位</text>
+
+  <!-- 原理 -->
+  <rect x="20" y="228" width="680" height="62" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="35" y="248" fill="#1e3a5f" font-size="11" font-weight="600">怎么做（教学版）</text>
+  <text x="115" y="248" fill="#475569" font-size="10">遍历 tool_result，只保留最近 3 条完整，更旧的替换为占位符。</text>
+  <text x="35" y="264" fill="#1e3a5f" font-size="11" font-weight="600">真实 CC</text>
+  <text x="95" y="264" fill="#475569" font-size="10">通过 API cache_edits 清除旧结果（不破坏 prompt cache 前缀），仅对 COMPACTABLE_TOOLS 生效：</text>
+  <text x="95" y="280" fill="#94a3b8" font-size="9">Read, Bash, Grep, Glob, WebSearch, WebFetch, Edit, Write。教学版用文本占位模拟同样效果。</text>
+</svg>

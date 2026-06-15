@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 590" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="pre" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dbeafe"/><stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+    <linearGradient id="auto" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fecaca"/><stop offset="100%" stop-color="#fca5a5"/>
+    </linearGradient>
+    <linearGradient id="emergency" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fed7aa"/><stop offset="100%" stop-color="#fdba74"/>
+    </linearGradient>
+    <marker id="arrow-d" viewBox="0 0 10 10" refX="5" refY="10" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 5 10 L 10 0 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="590" fill="#fafbfc" rx="8"/>
+
+  <!-- Title bar -->
+  <rect x="0" y="0" width="760" height="44" fill="url(#header)" rx="8"/>
+  <rect x="0" y="36" width="760" height="8" fill="url(#header)"/>
+  <text x="380" y="28" fill="#fff" font-size="15" font-weight="700" text-anchor="middle">Context Compaction — Pre-processing Pipeline + Auto-compact + Emergency Fallback</text>
+
+  <!-- Design principles (left) -->
+  <rect x="20" y="62" width="220" height="80" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="130" y="82" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">Design Principles</text>
+  <text x="130" y="100" fill="#475569" font-size="10" text-anchor="middle">Cheap operations first, expensive later</text>
+  <text x="130" y="116" fill="#475569" font-size="10" text-anchor="middle">Trim text before dropping messages</text>
+  <text x="130" y="132" fill="#475569" font-size="10" text-anchor="middle">Drop messages before calling LLM</text>
+
+  <!-- Cost escalation (right) -->
+  <rect x="530" y="62" width="210" height="80" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="635" y="82" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">Increasing Cost</text>
+  <text x="635" y="104" fill="#475569" font-size="10" text-anchor="middle">Text ops → LLM summary → Emergency trim</text>
+  <text x="635" y="124" fill="#94a3b8" font-size="9" text-anchor="middle">0 API · 0 API · 0 API · 1 API · 1 API</text>
+
+  <!-- ===== Pre-processing pipeline title ===== -->
+  <rect x="20" y="146" width="720" height="24" rx="4" fill="#f1f5f9"/>
+  <text x="55" y="163" fill="#64748b" font-size="11" font-weight="600">Pre-processing Pipeline (execution order: L3 → L1 → L2, before every LLM call, 0 API)</text>
+
+  <!-- L3: toolResultBudget -->
+  <rect x="80" y="180" width="600" height="46" rx="7" fill="url(#pre)" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="100" y="200" fill="#1e40af" font-size="12" font-weight="600">L3</text>
+  <text x="135" y="200" fill="#1e40af" font-size="13" font-weight="700">toolResultBudget</text>
+  <text x="260" y="200" fill="#1e40af" font-size="11">tool_result total &gt; 200KB → spill largest item</text>
+  <text x="650" y="200" fill="#1e40af" font-size="10" text-anchor="end">keep full content</text>
+  <text x="135" y="218" fill="#2563eb" font-size="9">Trigger: every turn, before microCompact can replace full content</text>
+
+  <!-- Arrow L3→L1 -->
+  <line x1="380" y1="226" x2="380" y2="238" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow-d)"/>
+
+  <!-- L1: snipCompact -->
+  <rect x="80" y="240" width="600" height="46" rx="7" fill="url(#pre)" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="100" y="260" fill="#1e40af" font-size="12" font-weight="600">L1</text>
+  <text x="135" y="260" fill="#1e40af" font-size="13" font-weight="700">snipCompact</text>
+  <text x="260" y="260" fill="#1e40af" font-size="11">messages &gt; 50 → trim middle</text>
+  <text x="650" y="260" fill="#1e40af" font-size="10" text-anchor="end">keep head/tail</text>
+  <text x="135" y="278" fill="#2563eb" font-size="9">Trigger: message count exceeds threshold</text>
+
+  <!-- Arrow L1→L2 -->
+  <line x1="380" y1="286" x2="380" y2="298" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow-d)"/>
+
+  <!-- L2: microCompact -->
+  <rect x="80" y="300" width="600" height="46" rx="7" fill="url(#pre)" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="100" y="320" fill="#1e40af" font-size="12" font-weight="600">L2</text>
+  <text x="135" y="320" fill="#1e40af" font-size="13" font-weight="700">microCompact</text>
+  <text x="260" y="320" fill="#1e40af" font-size="11">old tool_result → placeholder (keep latest 3)</text>
+  <text x="650" y="320" fill="#1e40af" font-size="10" text-anchor="end">compact old</text>
+  <text x="135" y="338" fill="#2563eb" font-size="9">Trigger: every turn automatically; tutorial uses text placeholder</text>
+
+  <!-- ===== Auto-compact title ===== -->
+  <rect x="20" y="358" width="720" height="24" rx="4" fill="#f1f5f9"/>
+  <text x="70" y="375" fill="#64748b" font-size="11" font-weight="600">Auto-compact Decision (triggered when pre-processing is insufficient, 1 API call)</text>
+
+  <!-- L4: autoCompact -->
+  <rect x="80" y="390" width="600" height="58" rx="7" fill="url(#auto)" stroke="#dc2626" stroke-width="2"/>
+  <text x="100" y="412" fill="#991b1b" font-size="12" font-weight="600">L4</text>
+  <text x="135" y="412" fill="#991b1b" font-size="13" font-weight="700">autoCompact</text>
+  <text x="260" y="412" fill="#991b1b" font-size="11">tokens over threshold → LLM summary</text>
+  <text x="650" y="412" fill="#991b1b" font-size="10" text-anchor="end">1 API call</text>
+  <text x="135" y="428" fill="#dc2626" font-size="9">Threshold: contextWindow - maxOutputTokens - 13,000 · Try sessionMemoryCompact first, then LLM</text>
+  <text x="135" y="442" fill="#dc2626" font-size="9">Circuit breaker: stop retrying after 3 consecutive failures</text>
+
+  <!-- ===== Emergency fallback title ===== -->
+  <rect x="20" y="460" width="720" height="24" rx="4" fill="#f1f5f9"/>
+  <text x="55" y="477" fill="#64748b" font-size="11" font-weight="600">Emergency Fallback (triggered when API still returns prompt_too_long)</text>
+
+  <!-- Emergency: reactiveCompact -->
+  <rect x="80" y="492" width="600" height="62" rx="7" fill="url(#emergency)" stroke="#c2410c" stroke-width="1.5"/>
+  <text x="100" y="512" fill="#9a3412" font-size="12" font-weight="600">Emrg</text>
+  <text x="135" y="512" fill="#9a3412" font-size="13" font-weight="700">reactiveCompact</text>
+  <text x="135" y="528" fill="#9a3412" font-size="10">API returns 413 / prompt_too_long → byte-level trim</text>
+  <text x="135" y="544" fill="#c2410c" font-size="9">Keep last 5 + summary; more aggressive than autoCompact</text>
+
+</svg>

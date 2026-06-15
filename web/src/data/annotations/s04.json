@@ -2,45 +2,45 @@
   "version": "s04",
   "decisions": [
     {
-      "id": "context-isolation",
-      "title": "Subagents Get Fresh Context, Not Shared History",
-      "description": "When a parent agent spawns a subagent via the Task tool, the subagent starts with a clean message history containing only the system prompt and the delegated task description. It does NOT inherit the parent's conversation. This is context isolation: the subagent can focus entirely on its specific subtask without being distracted by hundreds of messages from the parent's broader conversation. The result is returned to the parent as a single tool_result, collapsing potentially dozens of subagent turns into one concise answer.",
-      "alternatives": "Sharing the parent's full context would give the subagent more information, but it would also flood the subagent with irrelevant details. Context window is finite -- filling it with parent history leaves less room for the subagent's own work. Fork-based approaches (copy the parent context) are a middle ground but still waste tokens on irrelevant history.",
+      "id": "hooks-around-loop",
+      "title": "Hooks Wrap the Loop Instead of Rewriting It",
+      "description": "UserPromptSubmit, PreToolUse, PostToolUse, and Stop hooks attach behavior at lifecycle points while the model-tool-result loop stays unchanged.",
+      "alternatives": "Inlining logging and permission into the loop is quicker at first, but every new cross-cutting concern would make the loop harder to read.",
       "zh": {
-        "title": "子代理获得全新上下文，而非共享历史",
-        "description": "当父代理通过 Task 工具创建子代理时，子代理从全新的消息历史开始，只包含系统提示词和委派的任务描述，不继承父代理的对话。这就是上下文隔离：子代理可以完全专注于特定子任务，不会被父代理长达数百条消息的对话干扰。结果作为单条 tool_result 返回给父代理，将子代理可能数十轮的交互压缩为一个简洁的回答。"
+        "title": "Hook 包裹循环，而不是改写循环",
+        "description": "UserPromptSubmit、PreToolUse、PostToolUse、Stop 等 hook 挂在生命周期节点上，模型-工具-结果循环本身保持不变。"
       },
       "ja": {
-        "title": "サブエージェントは共有履歴ではなく新しいコンテキストを取得",
-        "description": "親エージェントが Task ツールでサブエージェントを生成すると、サブエージェントはシステムプロンプトと委任されたタスク説明のみを含むクリーンなメッセージ履歴から開始します。親の会話は引き継ぎません。これがコンテキスト分離です：サブエージェントは親の広範な会話の何百ものメッセージに気を取られることなく、特定のサブタスクに完全に集中できます。結果は単一の tool_result として親に返され、サブエージェントの数十ターンが1つの簡潔な回答に凝縮されます。"
+        "title": "フックはループを書き換えず包み込む",
+        "description": "UserPromptSubmit、PreToolUse、PostToolUse、Stop の各フックはライフサイクル地点に処理を追加し、model-tool-result ループ自体は保ちます。"
       }
     },
     {
-      "id": "tool-filtering",
-      "title": "Explore Agents Cannot Write Files",
-      "description": "When spawning a subagent with the 'Explore' type, it receives only read-only tools: bash (with restrictions), read_file, and search tools. It cannot call write_file or edit_file. This implements the principle of least privilege: an agent tasked with 'find all usages of function X' doesn't need write access. Removing write tools eliminates the risk of accidental file modification during exploration, and it also narrows the tool space so the model makes better decisions with fewer options.",
-      "alternatives": "Giving all subagents full tool access is simpler to implement but violates least privilege. A permission-request system (subagent asks parent for write access) adds complexity and latency. Static tool filtering by role is the pragmatic middle ground -- simple to implement, effective at preventing accidents.",
+      "id": "pretooluse-can-block",
+      "title": "PreToolUse Is the Policy Boundary",
+      "description": "PreToolUse hooks run after the model chooses a tool but before the handler executes. That is the natural point for permission, logging, and safety policy.",
+      "alternatives": "Checking after execution can only report damage; checking before execution can prevent it.",
       "zh": {
-        "title": "Explore 代理不能写入文件",
-        "description": "创建 Explore 类型的子代理时，它只获得只读工具：bash（有限制）、read_file 和搜索工具，不能调用 write_file 或 edit_file。这实现了最小权限原则：一个被委派'查找函数 X 所有使用位置'的代理不需要写权限。移除写工具消除了探索过程中误修改文件的风险，同时缩小了工具空间，让模型在更少的选项中做出更好的决策。"
+        "title": "PreToolUse 是策略边界",
+        "description": "PreToolUse 在模型选择工具之后、handler 执行之前运行。这是权限、日志和安全策略最自然的插入点。"
       },
       "ja": {
-        "title": "Explore エージェントはファイルを書き込めない",
-        "description": "Explore タイプのサブエージェントを生成すると、読み取り専用ツールのみが提供されます：bash（制限付き）、read_file、検索ツール。write_file や edit_file は使えません。これは最小権限の原則の実装です：「関数 X の全使用箇所を見つける」タスクに書き込み権限は不要です。書き込みツールを除外することで探索中の誤ったファイル変更リスクを排除し、ツール空間を狭めてモデルがより良い判断を下せるようにします。"
+        "title": "PreToolUse はポリシー境界",
+        "description": "PreToolUse はモデルがツールを選んだ後、handler 実行前に動きます。権限、ログ、安全ポリシーを入れる自然な場所です。"
       }
     },
     {
-      "id": "no-recursive-task",
-      "title": "Subagents Cannot Spawn Their Own Subagents",
-      "description": "The Task tool is not included in the subagent's tool set. A subagent must complete its work directly -- it cannot delegate further. This prevents infinite delegation loops: without this constraint, an agent could spawn a subagent that spawns another subagent, each one re-delegating the same task in slightly different words, consuming tokens without making progress. One level of delegation handles the vast majority of use cases. If a task is too complex for a single subagent, the parent should decompose it differently.",
-      "alternatives": "Allowing recursive delegation (bounded by depth) would handle deeply nested tasks but adds complexity and the risk of runaway token consumption. In practice, single-level delegation covers most real-world coding tasks. Multi-level delegation is addressed in later versions (v6+) through persistent team structures instead of recursive spawning.",
+      "id": "posttooluse-observability",
+      "title": "PostToolUse Keeps Results Observable",
+      "description": "PostToolUse hooks can inspect output size, record traces, or transform metadata without changing every tool handler.",
+      "alternatives": "Each tool could log its own result, but cross-tool behavior would drift.",
       "zh": {
-        "title": "子代理不能再创建子代理",
-        "description": "Task 工具不包含在子代理的工具集中。子代理必须直接完成工作，不能继续委派。这防止了无限委派循环：没有这个约束，一个代理可能创建子代理，子代理又创建子代理，每一层都用略微不同的措辞重新委派同一任务，消耗 token 却毫无进展。一层委派足以处理绝大多数场景。如果任务对单个子代理来说太复杂，应该由父代理重新分解。"
+        "title": "PostToolUse 让结果可观察",
+        "description": "PostToolUse 可以检查输出大小、记录 trace 或转换元数据，而不需要修改每个工具 handler。"
       },
       "ja": {
-        "title": "サブエージェントは自身のサブエージェントを生成できない",
-        "description": "Task ツールはサブエージェントのツールセットに含まれません。サブエージェントは作業を直接完了しなければならず、さらなる委任はできません。これにより無限委任ループを防止します：この制約がなければ、エージェントがサブエージェントを生成し、そのサブエージェントがさらにサブエージェントを生成し、それぞれが微妙に異なる言葉で同じタスクを再委任してトークンを消費するだけで進捗しない可能性があります。一段階の委任で大多数のユースケースに対応できます。"
+        "title": "PostToolUse が結果を観測可能にする",
+        "description": "PostToolUse は出力サイズ確認、trace 記録、メタデータ変換を各 handler へ散らさずに行えます。"
       }
     }
   ]

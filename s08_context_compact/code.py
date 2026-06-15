@@ -32,7 +32,7 @@ Builds on s07 (skill loading). Usage:
     Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
 """
 
-import os, subprocess, json, time
+import ast, json, os, subprocess, time
 from pathlib import Path
 
 try:
@@ -51,9 +51,9 @@ WORKDIR = Path.cwd()
 SKILLS_DIR = WORKDIR / "skills"
 TRANSCRIPT_DIR = WORKDIR / ".transcripts"
 TOOL_RESULTS_DIR = WORKDIR / ".task_outputs" / "tool-results"
-TASKS_DIR = WORKDIR / ".tasks"; TASKS_DIR.mkdir(exist_ok=True)
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
+CURRENT_TODOS: list[dict] = []
 
 # s07: Skill catalog scan (inherited from s07)
 def _parse_frontmatter(text: str) -> tuple[dict, str]:
@@ -165,20 +165,38 @@ def run_glob(pattern: str) -> str:
         return "\n".join(results) if results else "(no matches)"
     except Exception as e: return f"Error: {e}"
 
-def run_todo_write(todos: list) -> str:
+def _normalize_todos(todos):
+    if isinstance(todos, str):
+        try:
+            todos = json.loads(todos)
+        except json.JSONDecodeError:
+            try:
+                todos = ast.literal_eval(todos)
+            except (SyntaxError, ValueError):
+                return None, "Error: todos must be a list or JSON array string"
+    if not isinstance(todos, list):
+        return None, "Error: todos must be a list"
     for i, t in enumerate(todos):
+        if not isinstance(t, dict):
+            return None, f"Error: todos[{i}] must be an object"
         if "content" not in t or "status" not in t:
-            return f"Error: todos[{i}] missing 'content' or 'status'"
+            return None, f"Error: todos[{i}] missing 'content' or 'status'"
         if t["status"] not in ("pending", "in_progress", "completed"):
-            return f"Error: todos[{i}] has invalid status '{t['status']}'"
-    tasks_file = TASKS_DIR / "current_todos.json"
-    tasks_file.write_text(json.dumps(todos, indent=2, ensure_ascii=False))
+            return None, f"Error: todos[{i}] has invalid status '{t['status']}'"
+    return todos, None
+
+def run_todo_write(todos: list) -> str:
+    global CURRENT_TODOS
+    todos, error = _normalize_todos(todos)
+    if error:
+        return error
+    CURRENT_TODOS = todos
     lines = ["\n\033[33m## Current Tasks\033[0m"]
-    for t in todos:
+    for t in CURRENT_TODOS:
         icon = {"pending": " ", "in_progress": "\033[36m▸\033[0m", "completed": "\033[32m✓\033[0m"}[t["status"]]
         lines.append(f"  [{icon}] {t['content']}")
     print("\n".join(lines))
-    return f"Updated {len(todos)} tasks"
+    return f"Updated {len(CURRENT_TODOS)} tasks"
 
 def extract_text(content) -> str:
     if not isinstance(content, list): return str(content)
@@ -250,13 +268,45 @@ PERSIST_THRESHOLD = 30000
 
 def estimate_size(msgs): return len(str(msgs))
 
+def _block_type(block):
+    return block.get("type") if isinstance(block, dict) else getattr(block, "type", None)
+
+
+def _message_has_tool_use(msg):
+    if msg.get("role") != "assistant":
+        return False
+    content = msg.get("content")
+    if not isinstance(content, list):
+        return False
+    return any(_block_type(block) == "tool_use" for block in content)
+
+
+def _is_tool_result_message(msg):
+    if msg.get("role") != "user":
+        return False
+    content = msg.get("content")
+    if not isinstance(content, list):
+        return False
+    return any(isinstance(block, dict) and block.get("type") == "tool_result"
+               for block in content)
+
 
 # L1: snipCompact — trim middle messages
 def snip_compact(messages, max_messages=50):
     if len(messages) <= max_messages: return messages
     keep_head, keep_tail = 3, max_messages - 3
-    snipped = len(messages) - keep_head - keep_tail
-    return messages[:keep_head] + [{"role": "user", "content": f"[snipped {snipped} messages]"}] + messages[-keep_tail:]
+    head_end, tail_start = keep_head, len(messages) - keep_tail
+    if head_end > 0 and _message_has_tool_use(messages[head_end - 1]):
+        while head_end < len(messages) and _is_tool_result_message(messages[head_end]):
+            head_end += 1
+    if (tail_start > 0 and tail_start < len(messages)
+            and _is_tool_result_message(messages[tail_start])
+            and _message_has_tool_use(messages[tail_start - 1])):
+        tail_start -= 1
+    if head_end >= tail_start:
+        return messages
+    snipped = tail_start - head_end
+    return messages[:head_end] + [{"role": "user", "content": f"[snipped {snipped} messages]"}] + messages[tail_start:]
 
 
 # L2: microCompact — old result placeholders
@@ -333,7 +383,12 @@ def compact_history(messages):
 def reactive_compact(messages):
     transcript = write_transcript(messages)
     summary = summarize_history(messages)
-    return [{"role": "user", "content": f"[Reactive compact]\n\n{summary}"}, *messages[-5:]]
+    tail_start = max(0, len(messages) - 5)
+    if (tail_start > 0 and tail_start < len(messages)
+            and _is_tool_result_message(messages[tail_start])
+            and _message_has_tool_use(messages[tail_start - 1])):
+        tail_start -= 1
+    return [{"role": "user", "content": f"[Reactive compact]\n\n{summary}"}, *messages[tail_start:]]
 
 
 # ═══════════════════════════════════════════════════════════

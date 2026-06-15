@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 430" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="430" fill="#fafbfc" rx="8"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="760" height="44" fill="url(#header)" rx="8"/>
+  <rect x="0" y="36" width="760" height="8" fill="url(#header)"/>
+  <text x="380" y="28" fill="#fff" font-size="15" font-weight="700" text-anchor="middle">Memory — 在 s08 压缩管线上，插入记忆加载、提取与整理</text>
+
+  <!-- Legend -->
+  <rect x="40" y="56" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="58" y="66" fill="#2563eb" font-size="10" font-weight="600">s08 保留</text>
+  <rect x="140" y="56" width="12" height="10" rx="2" fill="#f3e8ff" stroke="#7c3aed" stroke-width="1"/>
+  <text x="158" y="66" fill="#7c3aed" font-size="10" font-weight="600">s09 新增</text>
+
+  <!-- ===== messages[] ===== -->
+  <rect x="30" y="96" width="100" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="80" y="126" fill="#1e3a5f" font-size="12" font-weight="600" text-anchor="middle">messages[]</text>
+
+  <!-- arrow → compression -->
+  <line x1="130" y1="122" x2="152" y2="122" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ===== Compression pipeline (s08) ===== -->
+  <rect x="155" y="86" width="135" height="72" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="222" y="108" fill="#1e3a5f" font-size="11" font-weight="700" text-anchor="middle">压缩管线</text>
+  <text x="222" y="124" fill="#64748b" font-size="9" text-anchor="middle">budget → snip → micro</text>
+  <text x="222" y="138" fill="#64748b" font-size="9" text-anchor="middle">→ autoCompact</text>
+  <text x="222" y="152" fill="#94a3b8" font-size="8" text-anchor="middle">(s08)</text>
+
+  <!-- arrow → Loading (purple) -->
+  <line x1="290" y1="122" x2="317" y2="122" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+
+  <!-- ===== Loading (s09) ===== -->
+  <rect x="320" y="86" width="120" height="72" rx="8" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2"/>
+  <text x="380" y="108" fill="#5b21b6" font-size="11" font-weight="700" text-anchor="middle">Loading</text>
+  <text x="380" y="124" fill="#7c3aed" font-size="9" text-anchor="middle">LLM side-query 选文件</text>
+  <text x="380" y="138" fill="#7c3aed" font-size="9" text-anchor="middle">注入文件内容</text>
+  <text x="380" y="152" fill="#a78bfa" font-size="8" text-anchor="middle">≤ 5 条</text>
+
+  <!-- arrow → LLM -->
+  <line x1="440" y1="122" x2="472" y2="122" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ===== LLM (s08) ===== -->
+  <rect x="475" y="96" width="80" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="515" y="114" fill="#1e3a5f" font-size="14" font-weight="700" text-anchor="middle">LLM</text>
+  <text x="515" y="132" fill="#64748b" font-size="9" text-anchor="middle">stop_reason</text>
+  <text x="515" y="144" fill="#64748b" font-size="9" text-anchor="middle">=tool_use?</text>
+
+  <!-- LLM → 否 → 返回结果 -->
+  <line x1="515" y1="148" x2="515" y2="178" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="528" y="168" fill="#16a34a" font-size="9" font-weight="600">否，停止</text>
+  <rect x="460" y="180" width="110" height="24" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="515" y="196" fill="#166534" font-size="10" font-weight="600" text-anchor="middle">返回结果</text>
+
+  <!-- LLM → 是 → TOOL_HANDLERS -->
+  <line x1="555" y1="122" x2="587" y2="122" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="568" y="114" fill="#64748b" font-size="9" font-weight="600">是</text>
+
+  <!-- ===== TOOL_HANDLERS (s08) ===== -->
+  <rect x="590" y="88" width="130" height="68" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="655" y="112" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">TOOL_HANDLERS</text>
+  <text x="655" y="128" fill="#64748b" font-size="9" text-anchor="middle">bash · read · write</text>
+  <text x="655" y="142" fill="#94a3b8" font-size="8" text-anchor="middle">edit · glob · task</text>
+
+  <!-- ===== Memory Files (s09) ===== -->
+  <rect x="155" y="232" width="430" height="36" rx="6" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <text x="370" y="255" fill="#5b21b6" font-size="11" font-weight="600" text-anchor="middle">.memory/ — MEMORY.md 索引 + *.md 文件（跨会话持久化）</text>
+
+  <!-- Arrow: Memory Files → Loading -->
+  <path d="M 395 232 L 395 162" fill="none" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <text x="408" y="200" fill="#7c3aed" font-size="9">读取</text>
+
+  <!-- Arrow: 返回结果 → Extraction → Memory Files -->
+  <path d="M 515 204 L 515 232" fill="none" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <text x="528" y="222" fill="#7c3aed" font-size="9">Extraction（每轮结束后）</text>
+
+  <!-- Consolidation note -->
+  <text x="222" y="284" fill="#a78bfa" font-size="9">Consolidation: 文件数 ≥ 10 时触发，去重·合并·剪枝</text>
+
+  <!-- ===== Loop back ===== -->
+  <path d="M 720 122 L 748 122 Q 756 122 756 130 L 756 310 Q 756 318 748 318 L 88 318 Q 80 318 80 310 L 80 148" fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+  <text x="400" y="340" fill="#64748b" font-size="10" text-anchor="middle">工具结果追加到 messages[] → 压缩 → 加载记忆 → LLM → 每轮结束后提取</text>
+
+  <!-- ===== Bottom notes ===== -->
+  <rect x="40" y="358" width="680" height="56" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <rect x="60" y="372" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="80" y="382" fill="#475569" font-size="10">s08 保留：压缩管线（budget → snip → micro → auto）+ 应急裁剪 + 循环</text>
+  <rect x="60" y="392" width="12" height="10" rx="2" fill="#f3e8ff" stroke="#7c3aed" stroke-width="1"/>
+  <text x="80" y="402" fill="#475569" font-size="10">s09 新增：Loading（索引常驻 + 按需注入）+ Extraction（每轮结束后）+ Consolidation（阈值触发）</text>
+</svg>

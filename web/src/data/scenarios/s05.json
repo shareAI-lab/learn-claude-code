@@ -1,44 +1,40 @@
 {
   "version": "s05",
-  "title": "Skills",
-  "description": "Agent loads external knowledge from SKILL.md files",
+  "title": "TodoWrite",
+  "description": "A planning tool makes the agent's intended work visible and keeps long tasks from drifting.",
   "steps": [
     {
       "type": "user_message",
-      "content": "Set up a new Next.js project with TypeScript",
-      "annotation": "Task requires framework-specific knowledge"
-    },
-    {
-      "type": "system_event",
-      "content": "[SkillLoader] Scanning for SKILL.md files... Found: nextjs.SKILL.md",
-      "annotation": "SkillLoader finds a matching skill file before the loop runs"
-    },
-    {
-      "type": "system_event",
-      "content": "[Skill injected] nextjs.SKILL.md -> tool_result message appended",
-      "annotation": "Skill content is injected as a tool_result, not bloating the system prompt"
-    },
-    {
-      "type": "assistant_text",
-      "content": "I have knowledge about Next.js setup. Let me create the project structure.",
-      "annotation": "Model now has framework-specific knowledge from the skill file"
+      "content": "Refactor the parser and add a regression test.",
+      "annotation": "The task has multiple steps, so planning should become visible."
     },
     {
       "type": "tool_call",
-      "content": "npx create-next-app@latest my-app --typescript --tailwind --eslint --app --src-dir",
-      "toolName": "bash",
-      "annotation": "Using skill-provided knowledge for correct flags"
+      "toolName": "todo_write",
+      "content": "[{\"content\":\"Inspect parser\",\"status\":\"in_progress\"},{\"content\":\"Refactor parsing branch\",\"status\":\"pending\"},{\"content\":\"Add regression test\",\"status\":\"pending\"}]",
+      "annotation": "The model records a plan before acting."
     },
     {
       "type": "tool_result",
-      "content": "Success! Created my-app at /workspace/my-app",
-      "toolName": "bash",
-      "annotation": "Project created with correct configuration"
+      "toolName": "todo_write",
+      "content": "Todos updated.",
+      "annotation": "The current todo list is kept by the harness."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "read_file",
+      "content": "{\"path\":\"parser.py\"}",
+      "annotation": "Normal tools continue through the same dispatch table."
+    },
+    {
+      "type": "system_event",
+      "content": "<reminder>Update todo status after 3 rounds without todo_write.</reminder>",
+      "annotation": "The nag reminder keeps the plan fresh during long work."
     },
     {
       "type": "assistant_text",
-      "content": "Next.js project created with TypeScript, Tailwind CSS, ESLint, App Router, and src/ directory.",
-      "annotation": "Skills inject via tool_result, not system prompt -- keeping context lean"
+      "content": "I inspected the parser and will update the todo list before making the code change.",
+      "annotation": "The planning state guides the next turn."
     }
   ]
 }

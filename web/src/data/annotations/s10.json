@@ -2,45 +2,45 @@
   "version": "s10",
   "decisions": [
     {
-      "id": "jsonl-inbox",
-      "title": "JSONL Inbox Files Instead of Shared Memory",
-      "description": "Each teammate has its own inbox file (a JSONL file in the team directory). Sending a message means appending a JSON line to the recipient's inbox file. Reading messages means reading the inbox file and tracking which line was last read. JSONL is append-only by nature, which means concurrent writers don't corrupt each other's data (appends to different file positions). This works across processes without any shared memory, mutex, or IPC mechanism. It's also crash-safe: if the writer crashes mid-append, the worst case is one partial line that the reader can skip.",
-      "alternatives": "Shared memory (Python multiprocessing.Queue) would be faster but doesn't work if agents are separate processes launched independently. A message broker (Redis, RabbitMQ) provides robust pub/sub but adds infrastructure dependencies. Unix domain sockets would work but are harder to debug (no human-readable message log). JSONL files are the simplest approach that provides persistence, cross-process communication, and debuggability.",
+      "id": "prompt-from-state",
+      "title": "The System Prompt Is Built from Runtime State",
+      "description": "Prompt sections are selected from real state: workspace, available tools, memory, and skills. The prompt becomes a product of the runtime rather than a single hardcoded string.",
+      "alternatives": "A static prompt is easier to inspect, but it goes stale as capabilities change.",
       "zh": {
-        "title": "JSONL 收件箱文件而非共享内存",
-        "description": "每个队友都有自己的收件箱文件（团队目录中的 JSONL 文件）。发送消息意味着向接收者的收件箱文件追加一行 JSON。读取消息意味着读取收件箱文件并追踪上次读到的行。JSONL 天然是仅追加的，这意味着并发写入不会破坏彼此的数据（追加到不同的文件位置）。这在无需共享内存、互斥锁或 IPC 机制的情况下跨进程工作。它也是崩溃安全的：如果写入者在追加中途崩溃，最坏情况是一行不完整的数据，读取者可以跳过。"
+        "title": "系统提示词由运行时状态构建",
+        "description": "Prompt section 来自真实状态：workspace、可用工具、memory 和 skills。提示词是运行时的产物，而不是单个硬编码字符串。"
       },
       "ja": {
-        "title": "共有メモリではなく JSONL インボックスファイル",
-        "description": "各チームメイトはチームディレクトリ内に独自のインボックスファイル（JSONL ファイル）を持ちます。メッセージの送信は受信者のインボックスファイルに JSON 行を追記することです。メッセージの読み取りはインボックスファイルを読んで最後に読んだ行を追跡することです。JSONL は本質的に追記専用で、並行ライターが互いのデータを破壊しません（異なるファイル位置への追記）。共有メモリ、ミューテックス、IPC メカニズムなしにプロセス間で動作します。"
+        "title": "システムプロンプトはランタイム状態から作る",
+        "description": "workspace、利用可能ツール、memory、skills などの実状態から prompt section を選びます。プロンプトは単一の固定文字列ではなくランタイムの産物です。"
       }
     },
     {
-      "id": "five-message-types",
-      "title": "Exactly Five Message Types Cover All Coordination Patterns",
-      "description": "The messaging system supports exactly five types: (1) 'message' for point-to-point communication between two agents, (2) 'broadcast' for team-wide announcements, (3) 'shutdown_request' for graceful termination, (4) 'shutdown_response' for acknowledging shutdown, (5) 'plan_approval_response' for the lead to approve or reject a teammate's plan. These five types map to the fundamental coordination patterns: direct communication, broadcast, lifecycle management, and approval workflows.",
-      "alternatives": "A single generic message type with metadata fields would be more flexible but makes it harder to enforce protocol correctness. Many more types (10+) would provide finer-grained semantics but increase the model's decision burden. Five types is the sweet spot where every type has a clear, distinct purpose.",
+      "id": "deterministic-cache-key",
+      "title": "A Deterministic Cache Avoids Reassembly",
+      "description": "The context object is serialized with stable ordering. If the key has not changed, the prompt can be reused safely.",
+      "alternatives": "Rebuilding every turn is simple, but hides when the prompt actually changed.",
       "zh": {
-        "title": "恰好五种消息类型覆盖所有协调模式",
-        "description": "消息系统恰好支持五种类型：(1) message 用于两个 agent 间的点对点通信；(2) broadcast 用于全团队公告；(3) shutdown_request 用于优雅终止；(4) shutdown_response 用于确认终止；(5) plan_approval_response 用于组长批准或拒绝队友的计划。这五种类型映射到基本协调模式：直接通信、广播、生命周期管理和审批流程。"
+        "title": "确定性缓存避免重复组装",
+        "description": "Context 对象用稳定顺序序列化。如果 key 没变，提示词就可以安全复用。"
       },
       "ja": {
-        "title": "正確に5つのメッセージタイプで全連携パターンをカバー",
-        "description": "メッセージングシステムは正確に5つのタイプをサポートします：(1) message は2つのエージェント間のポイントツーポイント通信、(2) broadcast はチーム全体への通知、(3) shutdown_request はグレースフルな終了要求、(4) shutdown_response はシャットダウンの確認応答、(5) plan_approval_response はリーダーによるチームメイトの計画の承認・却下。"
+        "title": "決定的キャッシュで再組み立てを避ける",
+        "description": "context オブジェクトを安定した順序でシリアライズします。key が変わらなければプロンプトを安全に再利用できます。"
       }
     },
     {
-      "id": "inbox-before-api-call",
-      "title": "Check Inbox Before Every LLM Call",
-      "description": "Teammates check their inbox file at the top of every agent loop iteration, before calling the LLM API. This ensures maximum responsiveness to incoming messages: a shutdown request is seen within one loop iteration (typically seconds), not after the current task completes (potentially minutes). The inbox check is cheap (read a small file, check if new lines exist) compared to the LLM call (seconds of latency, thousands of tokens). This placement also means incoming messages can influence the next LLM call -- a message saying 'stop working on X, switch to Y' takes effect immediately.",
-      "alternatives": "Checking inbox after each tool execution would be more responsive but adds overhead to every tool call, which is more frequent than LLM calls. A separate watcher thread could monitor the inbox continuously but adds threading complexity. Checking once per LLM call is the pragmatic sweet spot: responsive enough for coordination, cheap enough to not impact performance.",
+      "id": "sections-have-owners",
+      "title": "Prompt Sections Have Owners",
+      "description": "Identity, tools, workspace, and memory are separate sections. This makes it easier to debug which subsystem injected a bad instruction.",
+      "alternatives": "Concatenating arbitrary strings works until the prompt grows and no one knows where a rule came from.",
       "zh": {
-        "title": "每次 LLM 调用前检查收件箱",
-        "description": "队友在每次 agent 循环迭代的顶部、调用 LLM API 之前检查收件箱文件。这确保了对传入消息的最大响应性：一个终止请求会在一个循环迭代内被看到（通常几秒钟），而非在当前任务完成后（可能数分钟）。收件箱检查成本很低（读取小文件，检查是否有新行），相比 LLM 调用（秒级延迟，数千 token）微不足道。这个位置还意味着传入消息可以影响下一次 LLM 调用——一条'停止 X，转去做 Y'的消息会立即生效。"
+        "title": "Prompt Section 有明确归属",
+        "description": "identity、tools、workspace、memory 是分开的 section。这样更容易定位哪一层注入了错误指令。"
       },
       "ja": {
-        "title": "毎回の LLM 呼び出し前にインボックスを確認",
-        "description": "チームメイトはエージェントループの各イテレーションの冒頭、LLM API を呼び出す前にインボックスファイルを確認します。これにより受信メッセージへの応答性を最大化します：シャットダウンリクエストは1ループイテレーション以内（通常数秒）で確認され、現在のタスク完了後（数分かかる可能性）ではありません。"
+        "title": "prompt section には所有者がある",
+        "description": "identity、tools、workspace、memory を別 section にします。どのサブシステムが悪い指示を入れたかを追いやすくなります。"
       }
     }
   ]

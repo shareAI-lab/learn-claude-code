@@ -1,0 +1,47 @@
+{
+  "version": "s18",
+  "decisions": [
+    {
+      "id": "worktree-name-validation",
+      "title": "Worktree Names Are Validated Before Git Runs",
+      "description": "The tool validates names before creating branches or directories. That keeps a teaching implementation from normalizing unsafe user input into shell or filesystem operations.",
+      "alternatives": "Passing names directly to git is shorter, but it turns a collaboration feature into an injection hazard.",
+      "zh": {
+        "title": "运行 Git 前先校验 Worktree 名称",
+        "description": "工具在创建分支或目录前先校验名称。这样教学实现不会把不安全的用户输入直接传入 shell 或文件系统操作。"
+      },
+      "ja": {
+        "title": "git 実行前に worktree 名を検証する",
+        "description": "ブランチやディレクトリ作成前に名前を検証します。学習用実装が危険なユーザー入力を shell やファイルシステム操作へ流し込むことを防ぎます。"
+      }
+    },
+    {
+      "id": "task-bound-worktree",
+      "title": "The Task Record Owns the Worktree Binding",
+      "description": "A task stores its assigned worktree so future commands know where to run. The binding is explicit data, not a hidden convention based on naming or current working directory.",
+      "alternatives": "Deriving the worktree path from branch names is convenient, but brittle when tasks are renamed or moved.",
+      "zh": {
+        "title": "任务记录持有 Worktree 绑定关系",
+        "description": "任务会记录自己分配到的 worktree，因此后续命令知道应该在哪里运行。这个绑定是显式数据，而不是依赖命名或当前目录的隐藏约定。"
+      },
+      "ja": {
+        "title": "タスクレコードが worktree の紐付けを持つ",
+        "description": "タスクは割り当てられた worktree を保持し、後続コマンドは実行場所を把握できます。この紐付けは命名や現在ディレクトリに依存する暗黙の規約ではなく、明示的なデータです。"
+      }
+    },
+    {
+      "id": "lifecycle-event-stream",
+      "title": "Lifecycle Events Stay Separate from Tool Results",
+      "description": "Creation, status, keep, and removal events are emitted to a side-channel log. That makes worktree state observable without overloading the conversational transcript.",
+      "alternatives": "Only returning tool results is simpler, but later debugging needs a durable audit trail of worktree lifecycle changes.",
+      "zh": {
+        "title": "生命周期事件与工具结果分离",
+        "description": "创建、状态、保留和移除事件会写入旁路日志。这样 worktree 状态可观察，同时不会把对话 transcript 塞满运行时事件。"
+      },
+      "ja": {
+        "title": "ライフサイクルイベントをツール結果から分離する",
+        "description": "作成、状態、保持、削除のイベントはサイドチャネルログへ出力します。会話 transcript をランタイムイベントで埋めずに worktree 状態を観測できます。"
+      }
+    }
+  ]
+}

@@ -159,6 +159,8 @@ def agent_loop(messages):
 
 Every lesson layers one harness mechanism on top of this loop -- the loop itself never changes. The loop belongs to the agent. The mechanisms belong to the harness.
 
+The loop is constant. Tools, knowledge, and permissions change. Agent = Model (LLM) + a generalized operational environment (Harness).
+
 ---
 
 ## Version Status

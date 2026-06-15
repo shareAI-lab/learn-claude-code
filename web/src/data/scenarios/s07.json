@@ -1,53 +1,34 @@
 {
   "version": "s07",
-  "title": "Tasks",
-  "description": "Agent uses persistent file-based tasks with dependencies",
+  "title": "Skills",
+  "description": "The agent sees a cheap skill catalog first, then loads full SKILL.md content only when needed.",
   "steps": [
     {
+      "type": "system_event",
+      "content": "build_system: skills available: agent-builder, code-review, mcp-builder, pdf",
+      "annotation": "Startup scans the skills directory and injects short descriptions into the system prompt."
+    },
+    {
       "type": "user_message",
-      "content": "Build a REST API with user auth, database, and deployment config",
-      "annotation": "Multi-part task requiring dependency tracking"
+      "content": "Review this change like a code reviewer.",
+      "annotation": "The user asks for specialized behavior."
     },
     {
       "type": "tool_call",
-      "content": "create_task(\"Set up database schema\", deps=[])\ncreate_task(\"Implement user model\", deps=[1])\ncreate_task(\"Add auth endpoints\", deps=[2])\ncreate_task(\"Write deployment config\", deps=[3])",
-      "toolName": "task_manager",
-      "annotation": "TaskManager creates file-based tasks with explicit dependencies"
+      "toolName": "load_skill",
+      "content": "{\"name\":\"code-review\"}",
+      "annotation": "The model chooses to load the full skill on demand."
     },
     {
       "type": "tool_result",
-      "content": "Created 4 tasks in .tasks/\n  #1 Set up database schema [ready]\n  #2 Implement user model [blocked by #1]\n  #3 Add auth endpoints [blocked by #2]\n  #4 Write deployment config [blocked by #3]",
-      "toolName": "task_manager",
-      "annotation": "Tasks persisted to .tasks/ directory as JSON files"
-    },
-    {
-      "type": "tool_call",
-      "content": "schema.sql\n---\nCREATE TABLE users (id SERIAL PRIMARY KEY, email TEXT UNIQUE, password_hash TEXT);",
-      "toolName": "write_file",
-      "annotation": "Working on task #1"
-    },
-    {
-      "type": "tool_result",
-      "content": "File written successfully",
-      "toolName": "write_file",
-      "annotation": "Schema created"
-    },
-    {
-      "type": "tool_call",
-      "content": "complete_task(1)",
-      "toolName": "task_manager",
-      "annotation": "Completing task #1 automatically unblocks task #2"
-    },
-    {
-      "type": "tool_result",
-      "content": "Task #1 completed. Task #2 is now ready.",
-      "toolName": "task_manager",
-      "annotation": "File-based persistence outlives process memory"
+      "toolName": "load_skill",
+      "content": "# Code Review Skill\nFocus on bugs, regressions, and missing tests...",
+      "annotation": "Full skill text is injected as a tool result, not permanently in the system prompt."
     },
     {
       "type": "assistant_text",
-      "content": "Database schema is done. Moving to user model implementation.",
-      "annotation": "Dependency graph ensures tasks execute in correct order"
+      "content": "I'll review the diff for behavioral risks first, then note test gaps.",
+      "annotation": "The loaded skill guides the next response."
     }
   ]
 }

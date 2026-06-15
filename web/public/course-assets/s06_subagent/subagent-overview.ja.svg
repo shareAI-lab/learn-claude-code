@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="800" height="500" fill="#fafbfc" rx="8"/>
+
+  <!-- タイトル -->
+  <rect x="0" y="0" width="800" height="48" fill="url(#header)" rx="8"/>
+  <rect x="0" y="40" width="800" height="8" fill="url(#header)"/>
+  <text x="400" y="31" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Subagent — 独立した messages[]、中間過程はすべて破棄</text>
+
+  <!-- ===== 親 Agent（左側） ===== -->
+  <rect x="30" y="68" width="310" height="268" rx="12" fill="#f0f4ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="185" y="92" fill="#1e3a5f" font-size="13" font-weight="700" text-anchor="middle">親 Agent</text>
+
+  <!-- messages[] -->
+  <rect x="50" y="100" width="110" height="36" rx="6" fill="#fff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="105" y="123" fill="#1e3a5f" font-size="11" font-weight="600" text-anchor="middle">messages[]</text>
+
+  <!-- → LLM -->
+  <line x1="160" y1="118" x2="198" y2="118" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+  <!-- LLM -->
+  <rect x="200" y="96" width="100" height="44" rx="6" fill="#fff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="250" y="123" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">LLM</text>
+
+  <!-- LLM → ディスパッチ -->
+  <line x1="250" y1="140" x2="250" y2="156" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="264" y="152" fill="#64748b" font-size="8">tool_use</text>
+
+  <!-- TOOL_HANDLERS -->
+  <rect x="50" y="158" width="280" height="74" rx="6" fill="#e0e7ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="190" y="176" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">TOOL_HANDLERS</text>
+
+  <!-- 他のツール（灰色） -->
+  <rect x="65" y="190" width="115" height="32" rx="4" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="122" y="206" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">基本ツール</text>
+  <text x="122" y="219" fill="#64748b" font-size="8" text-anchor="middle">bash / read / write / ...</text>
+
+  <!-- task → spawn -->
+  <rect x="200" y="193" width="110" height="26" rx="4" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="255" y="210" fill="#5b21b6" font-size="10" font-weight="600" text-anchor="middle">task → spawn</text>
+
+  <!-- Parent tool_result target -->
+  <rect x="190" y="270" width="120" height="34" rx="5" fill="#dcfce7" stroke="#16a34a" stroke-width="1.2"/>
+  <text x="250" y="291" fill="#166534" font-size="9" font-weight="700" text-anchor="middle">tool_result</text>
+  <path d="M 250 232 L 250 270" fill="none" stroke="#16a34a" stroke-width="1.4" marker-end="url(#arrow-green)"/>
+  <path d="M 190 287 L 42 287 L 42 118 L 50 118" fill="none" stroke="#16a34a" stroke-width="1.2" marker-end="url(#arrow-green)" stroke-dasharray="4,3"/>
+  <text x="110" y="304" fill="#94a3b8" font-size="8" text-anchor="middle">messages[] に追加</text>
+  <text x="210" y="256" fill="#94a3b8" font-size="8" text-anchor="middle">通常ツール結果も messages[] に戻る</text>
+
+  <!-- ===== サブエージェント（右側） ===== -->
+  <rect x="430" y="68" width="340" height="268" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2"/>
+  <text x="600" y="92" fill="#5b21b6" font-size="13" font-weight="700" text-anchor="middle">サブエージェント（新規コンテキスト）</text>
+
+  <!-- 新規 messages -->
+  <rect x="450" y="100" width="150" height="36" rx="6" fill="#fff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="525" y="116" fill="#5b21b6" font-size="10" font-weight="600" text-anchor="middle">messages = [task]</text>
+  <text x="525" y="130" fill="#7c3aed" font-size="8" text-anchor="middle">新規 — 親の会話を継承しない</text>
+
+  <!-- → LLM -->
+  <line x1="600" y1="118" x2="648" y2="118" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+
+  <!-- サブエージェント LLM -->
+  <rect x="650" y="96" width="100" height="44" rx="6" fill="#fff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="700" y="123" fill="#5b21b6" font-size="12" font-weight="700" text-anchor="middle">LLM</text>
+
+  <!-- 独自ループ -->
+  <rect x="455" y="150" width="300" height="56" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="605" y="170" fill="#5b21b6" font-size="10" font-weight="600" text-anchor="middle">独自の while ループ（最大 30 ラウンド）</text>
+  <text x="605" y="186" fill="#5b21b6" font-size="9" text-anchor="middle">bash · read · write · edit · glob</text>
+  <text x="605" y="198" fill="#94a3b8" font-size="8" text-anchor="middle">task なし — 再帰 spawn 禁止</text>
+
+  <!-- 中間結果 → 破棄 -->
+  <rect x="460" y="218" width="290" height="44" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="605" y="238" fill="#64748b" font-size="10" text-anchor="middle">中間 30+ ラウンドのツール呼び出し + 結果</text>
+  <text x="605" y="254" fill="#dc2626" font-size="10" font-weight="600" text-anchor="middle">すべて破棄 ✗</text>
+
+  <!-- 最後のテキストのみ抽出 -->
+  <rect x="460" y="272" width="290" height="28" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="605" y="290" fill="#166534" font-size="10" font-weight="600" text-anchor="middle">✓ 最後のテキストのみ抽出 → 親に返却</text>
+
+  <!-- ===== ディスパッチ線：親 → サブエージェント（上） ===== -->
+  <path d="M 310 206 L 362 206 Q 370 206 370 198 L 370 126 Q 370 118 378 118 L 450 118" fill="none" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#arrow-purple)"/>
+  <rect x="342" y="152" width="80" height="20" rx="4" fill="#faf5ff" stroke="#7c3aed" stroke-width="1"/>
+  <text x="382" y="166" fill="#7c3aed" font-size="9" font-weight="700" text-anchor="middle">① task 説明</text>
+
+  <!-- ===== 返却線：サブエージェント → Parent tool_result ===== -->
+  <path d="M 460 286 L 310 286" fill="none" stroke="#16a34a" stroke-width="2.5" marker-end="url(#arrow-green)"/>
+  <rect x="350" y="268" width="70" height="20" rx="4" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="385" y="282" fill="#166534" font-size="9" font-weight="700" text-anchor="middle">② summary</text>
+
+  <!-- ===== 凡例 ===== -->
+  <rect x="60" y="370" width="680" height="56" rx="8" fill="#f1f5f9"/>
+
+  <rect x="80" y="384" width="16" height="12" rx="3" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="104" y="394" fill="#334155" font-size="10">s05 保持：ループ、フック、todo_write、6 つの基本ツール</text>
+
+  <rect x="80" y="404" width="16" height="12" rx="3" fill="#ede9fe" stroke="#7c3aed" stroke-width="1"/>
+  <text x="104" y="414" fill="#334155" font-size="10">s06 新規：task ツール + spawn_subagent() — 独立 messages[]、要約のみ返却</text>
+
+  <!-- データフローラベル -->
+  <rect x="430" y="440" width="310" height="44" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="445" y="458" fill="#7c3aed" font-size="10" font-weight="600">① 親 → サブ：</text>
+  <text x="580" y="458" fill="#64748b" font-size="10">task description（短い文字列）</text>
+  <text x="445" y="476" fill="#16a34a" font-size="10" font-weight="600">② サブ → 親：</text>
+  <text x="580" y="476" fill="#64748b" font-size="10">extract_text()（最終結論のみ）</text>
+</svg>

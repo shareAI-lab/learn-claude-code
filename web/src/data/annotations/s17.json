@@ -1,0 +1,47 @@
+{
+  "version": "s17",
+  "decisions": [
+    {
+      "id": "idle-poll-loop",
+      "title": "Autonomy Starts from Idle Polling",
+      "description": "The agent becomes autonomous by doing useful checks while idle: scanning tasks, reading inbox messages, and deciding whether to claim work. No new magic planner is introduced.",
+      "alternatives": "A central scheduler could assign every task, but this lesson focuses on local autonomy inside each teammate loop.",
+      "zh": {
+        "title": "自治从空闲轮询开始",
+        "description": "Agent 通过在空闲时做有用检查获得自治能力：扫描任务、读取 inbox、判断是否 claim 工作。这里没有引入新的神秘规划器。"
+      },
+      "ja": {
+        "title": "自律性はアイドルポーリングから始まる",
+        "description": "エージェントはアイドル時にタスク走査、受信箱確認、作業の claim 判断を行うことで自律的になります。新しい魔法のプランナーは導入しません。"
+      }
+    },
+    {
+      "id": "claim-before-work",
+      "title": "Claim Before Work Prevents Collisions",
+      "description": "A teammate must claim a task before entering WORK state. Ownership checks make autonomous pickup safe when multiple agents poll the same task board.",
+      "alternatives": "Agents could simply pick any open task, but two agents might duplicate work or overwrite each other's result.",
+      "zh": {
+        "title": "先 Claim 再工作，避免冲突",
+        "description": "队友必须先 claim 任务，再进入 WORK 状态。多个 agent 轮询同一个任务板时，所有权检查让自治领取任务更安全。"
+      },
+      "ja": {
+        "title": "作業前に claim して衝突を防ぐ",
+        "description": "チームメイトは WORK 状態へ入る前にタスクを claim します。複数のエージェントが同じタスクボードをポーリングしても、所有権チェックにより安全に取得できます。"
+      }
+    },
+    {
+      "id": "identity-reinjection",
+      "title": "Identity Is Re-injected on Each Autonomous Turn",
+      "description": "Autonomous agents need a stable sense of who they are and what they are allowed to do. Re-injecting identity keeps a teammate from drifting into the lead's responsibilities.",
+      "alternatives": "A one-time identity prompt is shorter, but long-running loops are prone to context drift.",
+      "zh": {
+        "title": "每个自治回合都重新注入身份",
+        "description": "自治 agent 需要稳定知道自己是谁、允许做什么。重新注入身份可以防止队友逐渐漂移到 lead 的职责上。"
+      },
+      "ja": {
+        "title": "各自律ターンでアイデンティティを再注入する",
+        "description": "自律エージェントには、自分が誰で何を許可されているかという安定した認識が必要です。アイデンティティを再注入することで、チームメイトがリードの責務へ漂うことを防ぎます。"
+      }
+    }
+  ]
+}

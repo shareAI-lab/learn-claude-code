@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="dep" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="400" fill="#fafbfc" rx="8"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="760" height="44" fill="#0d9488" rx="8"/>
+  <rect x="0" y="36" width="760" height="8" fill="#0d9488"/>
+  <text x="380" y="28" fill="#fff" font-size="15" font-weight="700" text-anchor="middle">Task DAG — Dependency Example: Database → API → Tests → Deploy</text>
+
+  <!-- Row 1: schema (completed) -->
+  <rect x="295" y="70" width="170" height="48" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="380" y="92" fill="#166534" font-size="12" font-weight="700" text-anchor="middle">✓ schema</text>
+  <text x="380" y="108" fill="#16a34a" font-size="9" text-anchor="middle">completed</text>
+
+  <!-- Arrows: schema → endpoints, schema → docs -->
+  <path d="M 340 118 L 240 162" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#dep)"/>
+  <path d="M 420 118 L 520 162" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#dep)"/>
+
+  <!-- Row 2: endpoints (in_progress), docs (pending) -->
+  <rect x="115" y="164" width="170" height="48" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="200" y="186" fill="#1e40af" font-size="12" font-weight="700" text-anchor="middle">● endpoints</text>
+  <text x="200" y="202" fill="#2563eb" font-size="9" text-anchor="middle">in_progress · owner: agent-1</text>
+
+  <rect x="475" y="164" width="170" height="48" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="560" y="186" fill="#475569" font-size="12" font-weight="700" text-anchor="middle">○ docs</text>
+  <text x="560" y="202" fill="#94a3b8" font-size="9" text-anchor="middle">pending · blockedBy: schema ✓</text>
+
+  <!-- Arrows: endpoints → tests, docs → deploy -->
+  <path d="M 200 212 L 200 262" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#dep)"/>
+  <path d="M 510 212 L 440 262" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#dep)"/>
+
+  <!-- Row 3: tests (pending), deploy (pending) -->
+  <rect x="115" y="264" width="170" height="48" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="200" y="286" fill="#475569" font-size="12" font-weight="700" text-anchor="middle">○ tests</text>
+  <text x="200" y="302" fill="#94a3b8" font-size="9" text-anchor="middle">blockedBy: endpoints ●</text>
+
+  <!-- Arrow: tests → deploy -->
+  <path d="M 285 288 L 375 288" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#dep)"/>
+
+  <rect x="375" y="264" width="170" height="48" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="460" y="286" fill="#475569" font-size="12" font-weight="700" text-anchor="middle">○ deploy</text>
+  <text x="460" y="302" fill="#94a3b8" font-size="9" text-anchor="middle">blockedBy: tests, docs</text>
+
+  <!-- Legend -->
+  <rect x="40" y="338" width="680" height="46" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <rect x="60" y="352" width="14" height="12" rx="3" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="80" y="363" fill="#475569" font-size="10">completed</text>
+  <rect x="160" y="352" width="14" height="12" rx="3" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+  <text x="180" y="363" fill="#475569" font-size="10">in_progress</text>
+  <rect x="270" y="352" width="14" height="12" rx="3" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+  <text x="290" y="363" fill="#475569" font-size="10">pending</text>
+  <text x="370" y="363" fill="#94a3b8" font-size="10">→ blockedBy (arrows = dependency direction)</text>
+  <text x="60" y="378" fill="#94a3b8" font-size="9">docs' blockedBy (schema) is completed → can_start returns True, can be claimed</text>
+</svg>

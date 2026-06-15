@@ -1,51 +1,48 @@
 {
   "version": "s12",
-  "title": "Worktree + Task Isolation",
-  "description": "Use a shared task board with optional worktree lanes for clean parallel execution",
+  "title": "Task System",
+  "description": "A file-persisted task graph tracks status, ownership, and blockedBy dependencies.",
   "steps": [
     {
       "type": "user_message",
-      "content": "Implement auth refactor and login UI updates in parallel",
-      "annotation": "Two active tasks in one workspace would collide"
+      "content": "Break the release into tasks and block deployment until tests pass.",
+      "annotation": "The user asks for durable multi-step coordination."
     },
     {
       "type": "tool_call",
-      "content": "task_create(subject: \"Auth refactor\")\ntask_create(subject: \"Login UI polish\")",
-      "toolName": "task_manager",
-      "annotation": "Shared board remains the coordination source of truth"
+      "toolName": "create_task",
+      "content": "{\"subject\":\"Run tests\"}",
+      "annotation": "Tasks are created as JSON files under .tasks/."
     },
     {
       "type": "tool_call",
-      "content": "worktree_create(name: \"auth-refactor\", task_id: 1)\nworktree_create(name: \"ui-login\")\ntask_bind_worktree(task_id: 2, worktree: \"ui-login\")",
-      "toolName": "worktree_manager",
-      "annotation": "Lane allocation and task association are composable; task 2 binds after lane creation"
-    },
-    {
-      "type": "system_event",
-      "content": "worktree.create.before/after emitted\n.tasks/task_1.json -> { status: \"in_progress\", worktree: \"auth-refactor\" }\n.tasks/task_2.json -> { status: \"in_progress\", worktree: \"ui-login\" }\n.worktrees/index.json updated",
-      "annotation": "Control-plane state remains canonical; hook-style consumers can react to lifecycle events without owning canonical state writes"
+      "toolName": "create_task",
+      "content": "{\"subject\":\"Deploy release\",\"blockedBy\":[\"task_tests\"]}",
+      "annotation": "blockedBy encodes dependency ordering."
     },
     {
       "type": "tool_call",
-      "content": "worktree_run(name: \"auth-refactor\", command: \"pytest tests/auth -q\")\nworktree_run(name: \"ui-login\", command: \"npm test -- login\")",
-      "toolName": "worktree_run",
-      "annotation": "In this teaching runtime, commands route by lane-scoped cwd; other runtimes may use session-level directory switches. The invariant is explicit execution context."
+      "toolName": "claim_task",
+      "content": "{\"task_id\":\"task_deploy\",\"owner\":\"agent\"}",
+      "annotation": "The claim fails until dependencies are complete."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "claim_task",
+      "content": "Blocked by: [\"task_tests\"]",
+      "annotation": "The task graph prevents premature work."
     },
     {
       "type": "tool_call",
-      "content": "worktree_keep(name: \"ui-login\")\nworktree_remove(name: \"auth-refactor\", complete_task: true)\nworktree_events(limit: 10)",
-      "toolName": "worktree_manager",
-      "annotation": "Closeout is explicit tool-driven state transition: mix keep/remove decisions and query lifecycle events in one pass"
+      "toolName": "complete_task",
+      "content": "{\"task_id\":\"task_tests\"}",
+      "annotation": "Completing a dependency can unblock downstream tasks."
     },
     {
-      "type": "system_event",
-      "content": "worktree.keep emitted for ui-login\nworktree.remove.before/after emitted for auth-refactor\ntask.completed emitted for #1\n.worktrees/events.jsonl appended",
-      "annotation": "Lifecycle transitions become explicit records while task/worktree files remain source-of-truth"
-    },
-    {
-      "type": "assistant_text",
-      "content": "Task board handles coordination, worktrees handle isolation. Parallel tracks stay clean and auditable.",
-      "annotation": "Coordinate in one board, isolate by lane only where needed, and run optional policy/audit side effects from lifecycle events"
+      "type": "tool_result",
+      "toolName": "complete_task",
+      "content": "Completed task_tests\nUnblocked: Deploy release",
+      "annotation": "The harness reports newly available work."
     }
   ]
 }

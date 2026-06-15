@@ -1,6 +1,6 @@
 {
   "version": "s02",
-  "title": "Tools",
+  "title": "Tool Use",
   "description": "Agent with read, write, edit, and bash tools",
   "steps": [
     {

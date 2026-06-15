@@ -21,13 +21,14 @@ def agent_loop(messages):
     while True:
         # ... LLM call ...
         for block in response.content:
-            if block.type == "tool_use":
-                log_to_file(block)          # added a line
-                check_permission(block)     # added a line
-                notify_slack(block)         # added another line
-                output = execute(block)
-                auto_git_add(block)         # yet another line
-                # ... the loop is unrecognizable
+            if block.type != "tool_use":
+                continue
+            log_to_file(block)          # added a line
+            check_permission(block)     # added a line
+            notify_slack(block)         # added another line
+            output = execute(block)
+            auto_git_add(block)         # yet another line
+            # ... the loop is unrecognizable
 ```
 
 What you want to extend is the Agent's behavior, but what you're modifying is the loop itself. The loop should be a stable core; extensions should hang on the outside.

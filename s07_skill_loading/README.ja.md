@@ -37,7 +37,7 @@ SYSTEM = (
 | 層 | 場所 | タイミング | コスト |
 |---|------|-----------|--------|
 | 1. カタログ | system prompt | 起動時に注入（harness が skills/ をスキャン） | ~100 トークン/スキル、毎ターン携帯 |
-| 2. 内容 | tool_result | Agent が load_skill を呼び出したとき | ~2000 トークン/スキル、オンデマンド |
+| 2. 内容 | tool_result | Agent が load_skill を呼び出したとき。SKILL.md は、必要に応じて read_file/bash で追加リソースへアクセスするための手がかりになる | ~2000 トークン/スキル、オンデマンド |
 
 ディスパッチ機構は変わらず、`load_skill` は `TOOL_HANDLERS[block.name]` を通じて自動的にディスパッチされる。
 
@@ -90,7 +90,7 @@ def build_system() -> str:
 SYSTEM = build_system()
 ```
 
-**第 2 層：load_skill**：Agent が「SQL スタイルガイドが必要」と判断し、`load_skill("sql-style")` を呼び出す。レジストリを通じて検索し、ファイルパスを経由しないため、パストラバーサルのリスクがない。内容は `tool_result` を通じて注入される：
+**第 2 層：load_skill**：Agent が「SQL スタイルガイドが必要」と判断し、`load_skill("sql-style")` を呼び出す。レジストリを通じて検索し、ファイルパスを経由しないため、パストラバーサルのリスクがない。SKILL.md の内容は `tool_result` を通じて注入され、既存の file および bash ツールを通じて、参照される `references/`、`scripts/`、`assets/` へのその後のアクセスも含められる。
 
 ```python
 def load_skill(name: str) -> str:
@@ -109,7 +109,7 @@ def load_skill(name: str) -> str:
 | コンポーネント | 変更前 (s06) | 変更後 (s07) |
 |---------------|-------------|-------------|
 | ツール数 | 7 (bash, read, write, edit, glob, todo_write, task) | 8 (+load_skill) |
-| 知識読み込み | なし | 2 層：起動時カタログ注入 SYSTEM + 実行時 load_skill |
+| 知識読み込み | なし | 2 層：起動時カタログ注入 SYSTEM + 実行時 load_skill。SKILL.md がその後のリソースアクセスを案内できる |
 | SYSTEM プロンプト | 静的文字列 | 起動時に skills/ をスキャンしてカタログ注入 |
 | スキルレジストリ | なし | SKILL_REGISTRY（起動時に充填、パストラバーサル防止） |
 | ループ | 変更なし | 変更なし（スキルツールは自動ディスパッチ） |
@@ -168,15 +168,15 @@ CC の SKILL.md YAML frontmatter は `parseSkillFrontmatterFields()`（`loadSkil
 ### 三、2 層読み込みの正確な実装
 
 1. **カタログ（起動時）**：`getSkillDirCommands()` がディレクトリをスキャン → メタデータのみを含む `Command` オブジェクトとして登録。`getSkillListingAttachments()` がスキルリストを添付ファイルとしてフォーマット、コンテキストウィンドウの ~1% を予算とする（上限 8000 文字）。
-2. **読み込み（呼び出し時）**：モデルが `Skill` ツールを呼び出す（入力フィールドは `skill` + オプションの `args`、教育版は `name` を使用）→ `getPromptForCommand()` が完全な SKILL.md 内容を展開 → `SkillTool` が返す tool_result の表示テキストは `"Launching skill: {name}"` のみ、実際のスキル内容は `newMessages` を通じて注入される。教育版では両者を「tool_result を通じて注入」として簡略化している。
+2. **読み込み（呼び出し時）**：モデルが `Skill` ツールを呼び出す（入力フィールドは `skill` + オプションの `args`、教育版は `name` を使用）→ `getPromptForCommand()` が完全な SKILL.md 内容を展開 → `SkillTool` が返す tool_result の表示テキストは `"Launching skill: {name}"` のみ、実際のスキル内容は `newMessages` を通じて注入される。教育版では両者を「tool_result を通じて注入」として簡略化している。読み込まれた SKILL.md は、モデルが後続で既存の file/bash ツールから関連リソースへアクセスする際の手がかりにもなる。
 
 ### 教育版の単純化は意図的
 
 - 複数ファイル・複数ソース → 1 つの `skills/` ディレクトリ：2 層読み込みの核心概念を示すのに十分
 - 複数の frontmatter フィールド → name/description のみ解析：解析の複雑さを削減
-- forked skills（`context: 'fork'`）→ 省略：教学版では inline skill loading のみ展開する
+- forked skills（`context: 'fork'`）→ 省略：教育版では inline skill loading のみ展開する
 - `Skill` ツールの入力 `skill`+`args` → 教育版は `name` を使用：追加の引数解析の複雑さを回避
 
 </details>
 
-<!-- translation-sync: zh@v1, en@v1, ja@v1 -->
+<!-- translation-sync: zh@v2, en@v2, ja@v2 -->

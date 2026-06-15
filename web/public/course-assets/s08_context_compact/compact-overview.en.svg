@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 520" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/>
+    </marker>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="820" height="520" fill="#fafbfc" rx="8"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="820" height="48" fill="url(#header)" rx="8"/>
+  <rect x="0" y="40" width="820" height="8" fill="url(#header)"/>
+  <text x="410" y="31" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">Context Compact — Compression Before LLM Call, Three Trigger Modes</text>
+
+  <!-- Labels -->
+  <text x="50" y="74" fill="#94a3b8" font-size="11" font-weight="600">s07 Preserved</text>
+  <text x="180" y="74" fill="#d97706" font-size="11" font-weight="600">s08 New</text>
+
+  <!-- ===== ① messages[] ===== -->
+  <rect x="40" y="132" width="100" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="90" y="155" fill="#1e3a5f" font-size="12" font-weight="600" text-anchor="middle">messages[]</text>
+  <text x="90" y="172" fill="#64748b" font-size="9" text-anchor="middle">(s07 preserved)</text>
+
+  <!-- messages → pipeline entry -->
+  <line x1="140" y1="158" x2="168" y2="158" stroke="#d97706" stroke-width="2" marker-end="url(#arrow-amber)"/>
+
+  <!-- ===== ② Compression Pipeline ===== -->
+  <rect x="170" y="82" width="200" height="252" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+  <text x="270" y="102" fill="#92400e" font-size="11" font-weight="700" text-anchor="middle">Compression Pipeline</text>
+
+  <!-- ── ① Every Turn Auto ── -->
+  <rect x="186" y="110" width="168" height="16" rx="3" fill="#fde68a" stroke="#d97706" stroke-width="0.8"/>
+  <text x="270" y="122" fill="#92400e" font-size="8" font-weight="700" text-anchor="middle">① Every Turn · Unconditional · 0 API</text>
+
+  <rect x="186" y="130" width="168" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="270" y="146" fill="#92400e" font-size="10" font-weight="600" text-anchor="middle">L3 tool_result_budget</text>
+
+  <rect x="186" y="158" width="168" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="270" y="174" fill="#92400e" font-size="10" font-weight="600" text-anchor="middle">L1 snip_compact</text>
+
+  <rect x="186" y="186" width="168" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="270" y="202" fill="#92400e" font-size="10" font-weight="600" text-anchor="middle">L2 micro_compact</text>
+
+  <!-- ↓ → ◇ -->
+  <line x1="270" y1="210" x2="270" y2="222" stroke="#555" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- ◇ Decision Diamond -->
+  <polygon points="270,226 300,244 270,262 240,244" fill="#f0f4ff" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="270" y="247" fill="#9a3412" font-size="7" font-weight="600" text-anchor="middle">Over threshold?</text>
+
+  <!-- No: right annotation -->
+  <text x="306" y="240" fill="#16a34a" font-size="9" font-weight="700">No → Pass</text>
+  <text x="306" y="252" fill="#94a3b8" font-size="7">Straight to LLM</text>
+
+  <!-- Yes: below annotation -->
+  <text x="284" y="260" fill="#ea580c" font-size="8" font-weight="600">Yes↓</text>
+
+  <!-- ── ② Conditional Trigger ── -->
+  <rect x="186" y="268" width="168" height="16" rx="3" fill="#fed7aa" stroke="#ea580c" stroke-width="0.8"/>
+  <text x="270" y="280" fill="#9a3412" font-size="8" font-weight="700" text-anchor="middle">② Conditional · Token Over Threshold · 1 API</text>
+
+  <rect x="186" y="288" width="168" height="24" rx="4" fill="#fed7aa" stroke="#ea580c" stroke-width="1"/>
+  <text x="270" y="304" fill="#9a3412" font-size="10" font-weight="600" text-anchor="middle">L4 compact_history</text>
+
+  <!-- Pipeline exit → LLM -->
+  <line x1="370" y1="158" x2="438" y2="158" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- ===== ③ LLM ===== -->
+  <rect x="440" y="132" width="100" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="490" y="155" fill="#1e3a5f" font-size="14" font-weight="700" text-anchor="middle">LLM</text>
+  <text x="490" y="172" fill="#64748b" font-size="9" text-anchor="middle">stop_reason=tool_use?</text>
+
+  <!-- LLM No → Return -->
+  <line x1="490" y1="184" x2="490" y2="278" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <text x="502" y="262" fill="#16a34a" font-size="10" font-weight="600">No</text>
+  <rect x="435" y="280" width="110" height="26" rx="13" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="490" y="297" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">Return Result</text>
+
+  <!-- LLM Yes → TOOL_HANDLERS -->
+  <line x1="540" y1="158" x2="578" y2="158" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="554" y="150" fill="#64748b" font-size="10" font-weight="600">Yes</text>
+
+  <!-- ④ TOOL_HANDLERS -->
+  <rect x="580" y="126" width="130" height="64" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="645" y="150" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">TOOL_HANDLERS</text>
+  <text x="645" y="166" fill="#64748b" font-size="9" text-anchor="middle">bash · read · write</text>
+  <text x="645" y="180" fill="#64748b" font-size="9" text-anchor="middle">task · load_skill · ...</text>
+
+  <!-- LLM API error → emergency compact → retry next turn -->
+  <path d="M 535 184 L 570 216 L 580 228" fill="none" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-red)"/>
+  <text x="552" y="204" fill="#991b1b" font-size="8" font-weight="600">API error</text>
+  <path d="M 665 266 L 665 340 L 160 340 L 160 142 L 186 142" fill="none" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-red)"/>
+  <text x="530" y="328" fill="#991b1b" font-size="8" font-weight="600">retry to compression pipeline</text>
+
+  <!-- ===== ③ Emergency Trigger (after LLM API failure) ===== -->
+  <rect x="580" y="210" width="170" height="56" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="665" y="228" fill="#991b1b" font-size="9" font-weight="700" text-anchor="middle">③ Emergency Trigger</text>
+  <text x="665" y="242" fill="#991b1b" font-size="8" text-anchor="middle">API returns prompt_too_long</text>
+  <text x="665" y="256" fill="#991b1b" font-size="8" text-anchor="middle">→ reactive_compact → retry</text>
+
+  <!-- ===== Loop Back ===== -->
+  <path d="M 710 158 L 760 158 L 760 348 L 90 348 L 90 184" fill="none" stroke="#555" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+  <text x="410" y="366" fill="#64748b" font-size="10" text-anchor="middle">Tool results appended to messages[] → next turn → compress again → LLM</text>
+
+  <!-- ===== Legend ===== -->
+  <rect x="50" y="390" width="720" height="116" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+
+  <rect x="70" y="404" width="16" height="12" rx="3" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="94" y="414" fill="#334155" font-size="10">s07 Preserved: loop, hooks, skill loading, sub-agents</text>
+
+  <rect x="70" y="426" width="16" height="12" rx="3" fill="#fde68a" stroke="#d97706" stroke-width="1"/>
+  <text x="94" y="436" fill="#334155" font-size="10">① Every Turn Auto: L3→L1→L2 run unconditionally before each LLM call, 0 API</text>
+
+  <rect x="70" y="448" width="16" height="12" rx="3" fill="#fed7aa" stroke="#ea580c" stroke-width="1"/>
+  <text x="94" y="458" fill="#334155" font-size="10">② Conditional: after L3/L1/L2, tokens still over threshold → compact_history, 1 API</text>
+
+  <rect x="70" y="470" width="16" height="12" rx="3" fill="#fef2f2" stroke="#dc2626" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="94" y="480" fill="#334155" font-size="10">③ Emergency: API returns prompt_too_long → reactive_compact → retry</text>
+
+  <text x="70" y="498" fill="#94a3b8" font-size="9">Three modes with increasing cost: 0 API → 1 API → 1 API + more aggressive trimming</text>
+</svg>

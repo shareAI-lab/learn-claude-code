@@ -2,45 +2,45 @@
   "version": "s09",
   "decisions": [
     {
-      "id": "teammate-vs-subagent",
-      "title": "Persistent Teammates vs One-Shot Subagents",
-      "description": "In s04, subagents are ephemeral: spawn, do one task, return result, die. Their knowledge dies with them. In s09, teammates are persistent threads with identity (name, role) and config files. A teammate can complete task A, then be assigned task B, carrying forward everything it learned. Persistent teammates accumulate project knowledge, understand established patterns, and don't need to re-read the same files for every task.",
-      "alternatives": "One-shot subagents (s04 style) are simpler and provide perfect context isolation -- no risk of one task's context polluting another. But the re-learning cost is high: every new task starts from zero. A middle ground (subagents with shared memory/knowledge base) was considered but adds complexity without the full benefit of persistent identity and state.",
+      "id": "memory-index",
+      "title": "A Small Index Keeps Memory Cheap",
+      "description": "MEMORY.md stays short and always present. Full memory files are loaded only when the index suggests they are relevant.",
+      "alternatives": "Injecting all memories every turn would turn long-term knowledge into context bloat.",
       "zh": {
-        "title": "持久化队友 vs 一次性 Subagent",
-        "description": "在 s04 中，Subagent 是临时的：创建、执行一个任务、返回结果、销毁。它们的知识随之消亡。在 s09 中，队友是具有身份（名称、角色）和配置文件的持久化线程。队友可以完成任务 A，然后被分配任务 B，并携带之前学到的所有知识。持久化队友积累项目知识，理解已建立的模式，不需要为每个任务重新阅读相同的文件。"
+        "title": "小索引让记忆保持低成本",
+        "description": "MEMORY.md 保持短小并始终存在。只有当索引显示相关时，才加载完整记忆文件。"
       },
       "ja": {
-        "title": "永続的なチームメイト vs 使い捨てサブエージェント",
-        "description": "s04 ではサブエージェントは一時的です：生成、1つのタスクを実行、結果を返却、消滅。その知識も一緒に消えます。s09 ではチームメイトはアイデンティティ（名前、役割）と設定ファイルを持つ永続的なスレッドです。チームメイトはタスク A を完了した後、学んだ全てを引き継いでタスク B に割り当てられます。永続的なチームメイトはプロジェクトの知識を蓄積し、確立されたパターンを理解し、タスクごとに同じファイルを再読する必要がありません。"
+        "title": "小さな索引でメモリを低コストに保つ",
+        "description": "MEMORY.md は短く常に存在します。索引が関連性を示す場合だけ、完全なメモリファイルを読み込みます。"
       }
     },
     {
-      "id": "file-based-team-config",
-      "title": "Team Config Persisted to .teams/{name}/config.json",
-      "description": "Team structure (member names, roles, agent IDs) is stored in a JSON config file, not in any agent's memory. Any agent can discover its teammates by reading the config file -- no need for a discovery service or shared memory. If an agent crashes and restarts, it reads the config to find out who else is on the team. This is consistent with the s07 philosophy: the filesystem is the coordination layer.",
-      "alternatives": "In-memory team registries are faster but don't survive process restarts and require a central process to maintain. Service discovery (like DNS or a discovery server) is more robust at scale but overkill for a local multi-agent system. File-based config is the simplest approach that works across independent processes.",
+      "id": "extract-after-turn",
+      "title": "Memory Extraction Happens After the Turn",
+      "description": "The agent first solves the user's task, then extracts durable facts from the original messages. This avoids interrupting the working loop with memory bookkeeping.",
+      "alternatives": "Writing memory during every tool step would make the loop noisy and increase accidental persistence.",
       "zh": {
-        "title": "团队配置持久化到 .teams/{name}/config.json",
-        "description": "团队结构（成员名称、角色、agent ID）存储在 JSON 配置文件中，而非任何 agent 的内存中。任何 agent 都可以通过读取配置文件发现队友——无需发现服务或共享内存。如果 agent 崩溃并重启，它读取配置即可知道团队中还有谁。这与 s07 的理念一致：文件系统就是协调层。配置文件人类可读，便于手动添加或移除团队成员、调试团队配置问题。"
+        "title": "记忆提取发生在回合之后",
+        "description": "Agent 先完成用户任务，再从原始消息中提取持久事实。这样不会用记忆账务打断工作循环。"
       },
       "ja": {
-        "title": "チーム設定を .teams/{name}/config.json に永続化",
-        "description": "チーム構成（メンバー名、役割、エージェント ID）はエージェントのメモリではなく JSON 設定ファイルに保存されます。どのエージェントも設定ファイルを読むことでチームメイトを発見できます――ディスカバリーサービスや共有メモリは不要です。エージェントがクラッシュして再起動した場合、設定を読んで他のチームメンバーを把握します。これは s07 の思想と一貫しています：ファイルシステムが連携レイヤーです。"
+        "title": "メモリ抽出はターン後に行う",
+        "description": "エージェントはまずユーザーのタスクを解き、その後で元メッセージから永続的な事実を抽出します。作業ループをメモリ管理で中断しません。"
       }
     },
     {
-      "id": "tool-filtering-by-role",
-      "title": "Teammates Get Subset of Tools, Lead Gets All",
-      "description": "The team lead receives ALL_TOOLS (including spawn, send, read_inbox, etc.) while teammates receive TEAMMATE_TOOLS (a reduced set focused on task execution). This enforces a clear separation of concerns: teammates focus on doing work (coding, testing, researching), while the lead focuses on coordination (creating tasks, assigning work, managing communication). Giving teammates coordination tools would let them create their own sub-teams or reassign tasks, undermining the lead's ability to maintain a coherent plan.",
-      "alternatives": "Giving all agents identical tools is simpler and more egalitarian, but in practice leads to coordination chaos -- multiple agents trying to manage each other, creating conflicting task assignments. Static role-based filtering is predictable and easy to reason about.",
+      "id": "dream-consolidation",
+      "title": "Consolidation Is Periodic, Not Constant",
+      "description": "Dream-style consolidation can merge and prune memories periodically. The runtime separates everyday retrieval from heavier memory maintenance.",
+      "alternatives": "Consolidating on every turn is costly and risks rewriting memories before they prove useful.",
       "zh": {
-        "title": "队友获得工具子集，组长获得全部工具",
-        "description": "团队组长获得 ALL_TOOLS（包括 spawn、send、read_inbox 等），而队友获得 TEAMMATE_TOOLS（专注于任务执行的精简工具集）。这强制了清晰的职责分离：队友专注于做事（编码、测试、研究），组长专注于协调（创建任务、分配工作、管理沟通）。给队友协调工具会让他们创建自己的子团队或重新分配任务，破坏组长维持连贯计划的能力。"
+        "title": "整合是周期性的，不是每回合都做",
+        "description": "Dream 式整合可以周期性合并和修剪记忆。运行时把日常检索和更重的记忆维护分开。"
       },
       "ja": {
-        "title": "チームメイトはツールのサブセット、リーダーは全ツール",
-        "description": "チームリーダーは ALL_TOOLS（spawn、send、read_inbox など含む）を受け取り、チームメイトは TEAMMATE_TOOLS（タスク実行に特化した縮小セット）を受け取ります。これにより明確な関心の分離が強制されます：チームメイトは作業（コーディング、テスト、調査）に集中し、リーダーは調整（タスク作成、作業割り当て、コミュニケーション管理）に集中します。"
+        "title": "統合は常時ではなく定期的に行う",
+        "description": "Dream 型の統合はメモリの結合や剪定を定期的に行います。日常の検索と重いメモリ保守を分離します。"
       }
     }
   ]

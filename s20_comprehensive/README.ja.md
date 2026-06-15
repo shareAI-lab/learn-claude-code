@@ -118,7 +118,7 @@ if blocked:
 
 S20 には 2 層の plan がある：
 
-- `todo_write`: current session 用の軽量 plan。`.tasks/current_todos.json` に保存。
+- `todo_write`: current session 用の軽量 plan。メモリに保持。
 - task graph: cross-session、dependency-aware、claimable な task file。`.tasks/task_*.json` に保存。
 
 前者は単独 agent の drift を防ぐ。後者は team coordination の土台になる。

@@ -1,0 +1,57 @@
+{
+  "version": "s20",
+  "title": "Comprehensive Agent",
+  "description": "The final agent composes context assembly, tools, memory, teams, background work, cron, worktrees, and MCP.",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "Plan a release: inspect tasks, run checks, delegate docs, and keep long scans in the background.",
+      "annotation": "The final lesson combines many earlier capabilities in one request."
+    },
+    {
+      "type": "system_event",
+      "content": "assemble_prompt: memory + task graph + skills + available tools + policy",
+      "annotation": "The runtime builds the prompt from layered sources of context."
+    },
+    {
+      "type": "assistant_text",
+      "content": "I'll inspect the task graph, delegate docs, start the slow scan in the background, and use the release checklist skill.",
+      "annotation": "The model chooses multiple mechanisms while keeping one coherent plan."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "load_skill",
+      "content": "{\"name\":\"release-check\"}",
+      "annotation": "Skills contribute procedural context before execution."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "spawn_teammate",
+      "content": "{\"name\":\"docs\",\"role\":\"Update release notes in its worktree.\"}",
+      "annotation": "Team delegation handles a parallel slice of the release."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "bash",
+      "content": "npm run lint && npm run test",
+      "toolInput": "{\"background\":true}",
+      "annotation": "Long-running validation goes through the background task path."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "connect_mcp",
+      "content": "{\"server\":\"deploy\",\"command\":\"mock-deploy-server\"}",
+      "annotation": "External capabilities are added only when needed."
+    },
+    {
+      "type": "system_event",
+      "content": "recover: background task done, teammate replied, MCP deploy status ready",
+      "annotation": "The integrated runtime folds asynchronous results back into the loop."
+    },
+    {
+      "type": "assistant_text",
+      "content": "Release preparation is ready: checks passed, docs are updated in the teammate worktree, and deployment status is available.",
+      "annotation": "The comprehensive agent returns a single user-facing outcome."
+    }
+  ]
+}

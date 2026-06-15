@@ -1,0 +1,46 @@
+{
+  "version": "s17",
+  "title": "Autonomous Agents",
+  "description": "Idle teammates can scan the task board, claim eligible work, and return to idle after completion.",
+  "steps": [
+    {
+      "type": "system_event",
+      "content": "teammate(worker-a): state=IDLE -> idle_poll()",
+      "annotation": "Autonomy starts from an idle lifecycle tick, not a direct user command."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "list_tasks",
+      "content": "{\"status\":\"open\"}",
+      "annotation": "The idle agent scans the shared task board."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "list_tasks",
+      "content": "[{\"id\":\"task_5\",\"status\":\"open\",\"owner\":null,\"title\":\"Update README\"}]",
+      "annotation": "Only unclaimed work is eligible for autonomous pickup."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "claim_task",
+      "content": "{\"id\":\"task_5\",\"owner\":\"worker-a\"}",
+      "annotation": "The task manager enforces ownership before work begins."
+    },
+    {
+      "type": "system_event",
+      "content": "worker-a: state=WORK task=task_5",
+      "annotation": "The lifecycle moves from IDLE to WORK."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "complete_task",
+      "content": "{\"id\":\"task_5\",\"result\":\"README updated with setup notes.\"}",
+      "annotation": "Completion writes the result back to the shared board."
+    },
+    {
+      "type": "system_event",
+      "content": "worker-a: state=IDLE next_poll_in=5s",
+      "annotation": "After finishing, the agent becomes available for more work."
+    }
+  ]
+}

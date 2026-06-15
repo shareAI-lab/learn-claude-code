@@ -1,0 +1,47 @@
+{
+  "version": "s14",
+  "decisions": [
+    {
+      "id": "scheduler-outside-agent-loop",
+      "title": "The Scheduler Runs Outside the Agent Loop",
+      "description": "Cron matching is handled by a daemon loop rather than by asking the LLM to remember future times. This separates timekeeping from reasoning and makes recurring work reliable even when no user is actively chatting.",
+      "alternatives": "The agent could poll schedules inside each conversation turn, but missed turns would mean missed jobs.",
+      "zh": {
+        "title": "调度器运行在 Agent 循环之外",
+        "description": "Cron 匹配由独立守护循环处理，而不是让 LLM 记住未来时间。这把计时和推理分开，使定期任务在没有用户对话时也能可靠触发。"
+      },
+      "ja": {
+        "title": "スケジューラはエージェントループの外で動く",
+        "description": "cron の照合は LLM に未来時刻を覚えさせるのではなく、デーモンループで処理します。時間管理と推論を分離し、ユーザーが会話していない時でも定期処理を確実にします。"
+      }
+    },
+    {
+      "id": "queue-decouples-time-from-work",
+      "title": "A Queue Decouples Due Time from Execution",
+      "description": "When a schedule matches, the scheduler enqueues work and lets a queue processor invoke the agent loop. That keeps cron matching fast and prevents long agent runs from blocking future schedule checks.",
+      "alternatives": "The scheduler could call the agent directly, but a slow job would stall the scheduler itself.",
+      "zh": {
+        "title": "队列把到期判断和任务执行解耦",
+        "description": "当 schedule 匹配时，调度器只把任务放入队列，由队列处理器调用 agent_loop。这样 cron 匹配保持快速，长时间运行的 agent 任务不会阻塞后续调度检查。"
+      },
+      "ja": {
+        "title": "キューが期限判定と実行を分離する",
+        "description": "スケジュールが一致すると、スケジューラは作業をキューへ入れ、キュープロセッサが agent_loop を呼び出します。cron 照合は速く保たれ、長いエージェント実行が次の確認を妨げません。"
+      }
+    },
+    {
+      "id": "durable-schedules",
+      "title": "Schedules Are Durable Data",
+      "description": "Cron jobs are stored in a small JSON file so they survive process restarts. The lesson treats scheduled work as data that can be listed, cancelled, and inspected, not as hidden timers.",
+      "alternatives": "In-memory timers are shorter to implement, but they disappear on restart and are difficult to audit.",
+      "zh": {
+        "title": "计划任务是持久数据",
+        "description": "Cron job 存储在小型 JSON 文件中，因此进程重启后仍然存在。课程把计划任务视为可列出、可取消、可检查的数据，而不是隐藏的计时器。"
+      },
+      "ja": {
+        "title": "スケジュールは永続データ",
+        "description": "cron ジョブは小さな JSON ファイルに保存され、プロセス再起動後も残ります。予定された作業を、一覧化、取り消し、検査できるデータとして扱います。"
+      }
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "version": "s13",
+  "decisions": [
+    {
+      "id": "explicit-background-boundary",
+      "title": "Background Work Is an Execution Mode, Not a New Tool",
+      "description": "The lesson keeps the familiar tool surface and adds a background execution flag around slow operations. That makes the new mechanism visible: the same bash call can either block the loop or be moved to a thread. The agent learns that responsiveness is a runtime concern, not a reason to invent a separate tool for every slow task.",
+      "alternatives": "A dedicated background_bash tool would be simpler to route, but it would hide the more general idea that any slow operation can be scheduled asynchronously.",
+      "zh": {
+        "title": "后台任务是执行模式，而不是新工具",
+        "description": "课程保留原有工具表面，只在慢操作外增加后台执行标记。这样能清楚看到：同一个 bash 调用既可以阻塞主循环，也可以放入线程。Agent 学到的是响应性属于运行时问题，而不是每个慢任务都要发明一个新工具。"
+      },
+      "ja": {
+        "title": "バックグラウンド処理は新ツールではなく実行モード",
+        "description": "このレッスンでは既存のツール面を保ち、遅い操作にバックグラウンド実行フラグを加えます。同じ bash 呼び出しがループをブロックすることも、スレッドへ移すこともできる点が見えます。応答性はランタイムの責務であり、遅いタスクごとに新しいツールを作る必要はありません。"
+      }
+    },
+    {
+      "id": "notification-reentry",
+      "title": "Completed Threads Re-enter as Notifications",
+      "description": "Background results are injected as task notifications instead of pretending to be immediate tool results. This preserves the chronology of the conversation: the model first sees that work started, and later sees that a task completed.",
+      "alternatives": "The thread could mutate the last tool result in place, but that would make the transcript impossible to reason about and hard to replay.",
+      "zh": {
+        "title": "线程完成后以通知形式回到循环",
+        "description": "后台结果会作为任务通知注入，而不是伪装成立即返回的 tool result。这样保留了对话时间线：模型先看到任务已启动，之后再看到任务完成。"
+      },
+      "ja": {
+        "title": "完了したスレッドは通知として戻る",
+        "description": "バックグラウンド結果は即時の tool result ではなくタスク通知として注入されます。モデルはまず作業開始を見て、その後に完了を知るため、会話の時系列が保たれます。"
+      }
+    },
+    {
+      "id": "shared-result-store",
+      "title": "A Small Shared Store Keeps Threads Observable",
+      "description": "The implementation tracks background task state and results in explicit dictionaries. That keeps the code teachable while still exposing the hard parts of concurrency: ids, lifecycle state, and safe collection.",
+      "alternatives": "A full queue or job database would be more production-ready, but it would obscure the minimal moving parts needed to understand threaded agent work.",
+      "zh": {
+        "title": "小型共享存储让线程可观察",
+        "description": "实现用显式字典记录后台任务状态和结果。这样代码仍然易学，同时暴露并发中的关键问题：任务 id、生命周期状态和结果收集。"
+      },
+      "ja": {
+        "title": "小さな共有ストアでスレッドを観測可能にする",
+        "description": "実装は辞書でバックグラウンドタスクの状態と結果を追跡します。コードを学びやすく保ちながら、id、ライフサイクル、安全な収集という並行処理の要点を示します。"
+      }
+    }
+  ]
+}

@@ -21,13 +21,14 @@ def agent_loop(messages):
     while True:
         # ... LLM call ...
         for block in response.content:
-            if block.type == "tool_use":
-                log_to_file(block)          # 一行追加
-                check_permission(block)     # 一行追加
-                notify_slack(block)         # さらに一行追加
-                output = execute(block)
-                auto_git_add(block)         # さらに一行追加
-                # ... もうループが見えない
+            if block.type != "tool_use":
+                continue
+            log_to_file(block)          # 一行追加
+            check_permission(block)     # 一行追加
+            notify_slack(block)         # さらに一行追加
+            output = execute(block)
+            auto_git_add(block)         # さらに一行追加
+            # ... もうループが見えない
 ```
 
 拡張したいのは Agent の振る舞いなのに、変更しているのはループそのもの。ループは安定した核心であるべき。拡張は外側に掛ける。

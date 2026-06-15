@@ -177,7 +177,7 @@ def select_relevant_memories(messages: list, max_items: int = 5) -> list[str]:
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,
         )
-        text = response.content[0].text.strip()
+        text = extract_text(response.content).strip()
         # Extract JSON array from response
         match = re.search(r'\[.*?\]', text, re.DOTALL)
         if match:
@@ -259,7 +259,7 @@ def extract_memories(messages: list):
         response = client.messages.create(
             model=MODEL, messages=[{"role": "user", "content": prompt}], max_tokens=800
         )
-        text = response.content[0].text.strip()
+        text = extract_text(response.content).strip()
         # Extract JSON array from response
         match = re.search(r'\[.*\]', text, re.DOTALL)
         if not match:
@@ -309,7 +309,7 @@ def consolidate_memories():
         response = client.messages.create(
             model=MODEL, messages=[{"role": "user", "content": prompt}], max_tokens=3000
         )
-        text = response.content[0].text.strip()
+        text = extract_text(response.content).strip()
         match = re.search(r'\[.*\]', text, re.DOTALL)
         if not match:
             return
@@ -343,8 +343,6 @@ def build_system() -> str:
         "Relevant memories are injected below. Respect user preferences from memory.\n"
         "When the user says 'remember' or expresses a clear preference, extract it as a memory."
     )
-
-SYSTEM = build_system()
 
 SUB_SYSTEM = (
     f"You are a coding agent at {WORKDIR}. "
@@ -451,9 +449,38 @@ CONTEXT_LIMIT = 50000; KEEP_RECENT = 3; PERSIST_THRESHOLD = 30000
 
 def estimate_size(msgs): return len(str(msgs))
 
+def _block_type(block):
+    return block.get("type") if isinstance(block, dict) else getattr(block, "type", None)
+
+def _message_has_tool_use(msg):
+    if msg.get("role") != "assistant":
+        return False
+    content = msg.get("content")
+    if not isinstance(content, list):
+        return False
+    return any(_block_type(block) == "tool_use" for block in content)
+
+def _is_tool_result_message(msg):
+    if msg.get("role") != "user":
+        return False
+    content = msg.get("content")
+    if not isinstance(content, list):
+        return False
+    return any(isinstance(block, dict) and block.get("type") == "tool_result" for block in content)
+
 def snip_compact(msgs, mx=50):
     if len(msgs) <= mx: return msgs
-    return msgs[:3] + [{"role": "user", "content": f"[snipped {len(msgs)-mx} msgs]"}] + msgs[-(mx-3):]
+    head_end, tail_start = 3, len(msgs) - (mx - 3)
+    if head_end > 0 and _message_has_tool_use(msgs[head_end - 1]):
+        while head_end < len(msgs) and _is_tool_result_message(msgs[head_end]):
+            head_end += 1
+    if (tail_start > 0 and tail_start < len(msgs)
+            and _is_tool_result_message(msgs[tail_start])
+            and _message_has_tool_use(msgs[tail_start - 1])):
+        tail_start -= 1
+    if head_end >= tail_start:
+        return msgs
+    return msgs[:head_end] + [{"role": "user", "content": f"[snipped {tail_start - head_end} msgs]"}] + msgs[tail_start:]
 
 def collect_tool_results(msgs):
     blocks = []
@@ -504,7 +531,7 @@ def summarize_history(msgs):
         "Summarize this coding-agent conversation so work can continue.\n"
         "Preserve: 1. current goal, 2. key findings, 3. files changed, 4. remaining work, 5. user constraints.\n\n" + conv}],
         max_tokens=2000)
-    return r.content[0].text.strip()
+    return extract_text(r.content).strip()
 
 def compact_history(msgs):
     write_transcript(msgs)
@@ -514,7 +541,12 @@ def compact_history(msgs):
 def reactive_compact(msgs):
     write_transcript(msgs)
     summary = summarize_history(msgs)
-    return [{"role": "user", "content": f"[Reactive compact]\n\n{summary}"}, *msgs[-5:]]
+    tail_start = max(0, len(msgs) - 5)
+    if (tail_start > 0 and tail_start < len(msgs)
+            and _is_tool_result_message(msgs[tail_start])
+            and _message_has_tool_use(msgs[tail_start - 1])):
+        tail_start -= 1
+    return [{"role": "user", "content": f"[Reactive compact]\n\n{summary}"}, *msgs[tail_start:]]
 
 
 # ═══════════════════════════════════════════════════════════
@@ -550,13 +582,13 @@ MAX_REACTIVE_RETRIES = 1
 
 def agent_loop(messages: list):
     reactive_retries = 0
-    while True:
-        # s09: rebuild system with current memory index + relevant memories
-        system = build_system()
-        memories_content = load_memories(messages)
-        if memories_content:
-            system += "\n\n" + memories_content
+    # s09: inject relevant memory content into the current user turn
+    memories_content = load_memories(messages)
+    memory_turn = len(messages) - 1 if messages and isinstance(messages[-1].get("content"), str) else None
+    # s09: build system once per user turn; memory is updated after the loop returns
+    system = build_system()
 
+    while True:
         # s09: save pre-compression snapshot for accurate memory extraction
         pre_compress = [m if isinstance(m, dict) else {"role": m.get("role",""),
             "content": str(m.get("content",""))} for m in messages]
@@ -571,8 +603,15 @@ def agent_loop(messages: list):
             messages[:] = compact_history(messages)
 
         try:
+            request_messages = messages
+            if memories_content and memory_turn is not None and memory_turn < len(messages):
+                request_messages = messages.copy()
+                request_messages[memory_turn] = {
+                    **messages[memory_turn],
+                    "content": memories_content + "\n\n" + messages[memory_turn]["content"],
+                }
             response = client.messages.create(
-                model=MODEL, system=system, messages=messages, tools=TOOLS, max_tokens=8000
+                model=MODEL, system=system, messages=request_messages, tools=TOOLS, max_tokens=8000
             )
             reactive_retries = 0
         except Exception as e:

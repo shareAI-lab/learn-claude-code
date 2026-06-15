@@ -39,20 +39,24 @@ s07 のフック構造、スキルロード、サブ Agent の骨格を維持し
 
 Agent が 80 ラウンドの会話を実行し、`messages` が 160 件まで溜まった。先頭の「hello.py を作って」は現在の作業とほぼ無関係だが、スペースを占有し続けている。
 
-メッセージ数が 50 を超えた場合 → 先頭 3 件（初期コンテキスト）と末尾 47 件（現在の作業）を保持し、中間を切り捨て：
+メッセージ数が 50 を超えた場合 → 先頭 3 件（初期コンテキスト）と末尾 47 件（現在の作業）を保持して中間を切り詰める。ただし切れ目だけは調整し、`assistant(tool_use)` と後続の `user(tool_result)` を分断しない：
 
 ```python
 def snip_compact(messages, max_messages=50):
     if len(messages) <= max_messages:
         return messages
-    keep_head, keep_tail = 3, max_messages - 3
-    snipped = len(messages) - keep_head - keep_tail
-    placeholder = {"role": "user",
-                   "content": f"[snipped {snipped} messages from conversation middle]"}
-    return messages[:keep_head] + [placeholder] + messages[-keep_tail:]
+    head_end, tail_start = 3, len(messages) - (max_messages - 3)
+    if _message_has_tool_use(messages[head_end - 1]):
+        while head_end < len(messages) and _is_tool_result_message(messages[head_end]):
+            head_end += 1
+    if _is_tool_result_message(messages[tail_start]) and _message_has_tool_use(messages[tail_start - 1]):
+        tail_start -= 1
+    snipped = tail_start - head_end
+    placeholder = {"role": "user", "content": f"[snipped {snipped} messages from conversation middle]"}
+    return messages[:head_end] + [placeholder] + messages[tail_start:]
 ```
 
-メッセージ全体は切り捨てたが、残ったメッセージ内の `tool_result` 内容はまだ蓄積され続けている。34 番目のメッセージに 30KB の古いファイル内容が残っているかもしれない。→ L2。
+切り捨て自体は単純なままで、境界だけを保護する。残ったメッセージ内の `tool_result` 内容はまだ蓄積され続けている。34 番目のメッセージに 30KB の古いファイル内容が残っているかもしれない。→ L2。
 
 ### L2: micro_compact — 古いツール結果をプレースホルダに置換
 
@@ -130,15 +134,17 @@ def compact_history(messages):
 
 API がまだ `prompt_too_long`（413）を返すことがある。コンテキストの増加速度が圧縮のトリガー速度を上回る場合。
 
-この時 **reactive_compact** がトリガーされる：compact_history よりもさらに積極的で、末尾からバイト単位の精度で API が受け入れ可能なサイズまで切り詰め、最後の 5 件のメッセージ + 要約のみを保持。
+この時 **reactive_compact** がトリガーされる：compact_history よりもさらに積極的だが、末尾を残す際も孤立した `tool_result` を残さないようにする。
 
 ```python
 def reactive_compact(messages):
     transcript = write_transcript(messages)
     summary = summarize_history(messages)
-    tail = messages[-5:]
+    tail_start = max(0, len(messages) - 5)
+    if _is_tool_result_message(messages[tail_start]) and _message_has_tool_use(messages[tail_start - 1]):
+        tail_start -= 1
     return [{"role": "user",
-             "content": f"[Reactive compact]\n\n{summary}"}, *tail]
+             "content": f"[Reactive compact]\n\n{summary}"}, *messages[tail_start:]]
 ```
 
 reactive compact にはリトライ上限がある（デフォルト 1 回）。さらに失敗した場合は例外をスローし、無限ループしない。完全なエラー回復ロジックは s11 に委ねる。
@@ -252,6 +258,12 @@ CC ソース `query.ts` での実際の順序：
 
 教学版の budget → snip → micro の順序はこれと一致する。教学版には contextCollapse メカニズムがない。
 
+### read_file のトレードオフ
+
+教学版の `micro_compact` は、古い `tool_result` を一律にプレースホルダへ置き換える。`read_file` も例外ではない。これは通常、機能的な正しさには影響しない。後でファイル内容が必要になれば、モデルはもう一度そのファイルを読めばよい。代償は、追加のツール呼び出しが発生し得ることと、prompt cache のヒット率が下がり得ること。
+
+Claude Code は、この問題を教学版のような単純なルールでは処理していない。`Read` も microcompact 可能なツール集合に入れる一方で、別途 `readFileState` を維持している。変更されていないファイルの再読込では `FILE_UNCHANGED_STUB` を返し、compact 後には予算内で直近に読んだファイル内容を復元する（例：最大 5 ファイル、1 ファイル 5K token、合計 50K token）。これは本番実装向けのキャッシュと復元メカニズムである。教学版ではそこまで展開せず、「古い結果を圧縮し、必要なら再読込する」という単純な trade-off を残している。
+
 ### 完全な定数リファレンス
 
 | 定数 | 値 | ソースファイル |
@@ -282,6 +294,7 @@ CC の圧縮プロンプトには 2 つの厳格な要件がある：
 ### 教学版の簡略化は意図的
 
 - micro_compact でテキストプレースホルダを使用 → API 層の `cache_edits` 権限がないため
+- read_file は特別扱いしない → 教学版では必要時の再読込を受け入れ、readFileState と圧縮後復元の仕組みを導入しない
 - token を文字数で推定 → 精密な tokenizer は教学の対象外
 - 圧縮後のリカバリを省略 → 教学版は要約のみを保持し、ファイルの自動再付加を行わない
 - 2 つの補助メカニズムを展開しない → 10% の細部に属する
@@ -290,4 +303,4 @@ CC の圧縮プロンプトには 2 つの厳格な要件がある：
 
 </details>
 
-<!-- translation-sync: zh@v1, en@v1, ja@v1 -->
+<!-- translation-sync: zh@v2, en@v2, ja@v2 -->

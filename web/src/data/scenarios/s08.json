@@ -1,56 +1,33 @@
 {
   "version": "s08",
-  "title": "Background Tasks",
-  "description": "Agent executes long-running tasks in background threads",
+  "title": "Context Compact",
+  "description": "A layered compaction pipeline trims cheap context first and calls the LLM summary only when needed.",
   "steps": [
     {
-      "type": "user_message",
-      "content": "Run the test suite and while it's running, fix the linting errors",
-      "annotation": "Two tasks that can run concurrently"
-    },
-    {
-      "type": "assistant_text",
-      "content": "I'll start the tests in the background and fix linting in parallel.",
-      "annotation": "Agent recognizes opportunity for concurrent execution"
-    },
-    {
-      "type": "tool_call",
-      "content": "pytest tests/ -v --timeout=300",
-      "toolName": "background_task",
-      "annotation": "BackgroundManager spawns a thread for long-running test suite"
+      "type": "system_event",
+      "content": "messages: 72 entries, tool_result output: 180k chars",
+      "annotation": "The context window is approaching the budget."
     },
     {
       "type": "system_event",
-      "content": "[BackgroundManager] Thread spawned: task_001\nRunning: pytest tests/ -v --timeout=300\nStatus: in_progress",
-      "annotation": "Thread is running independently -- main loop continues"
-    },
-    {
-      "type": "tool_result",
-      "content": "Background task started: task_001",
-      "toolName": "background_task",
-      "annotation": "Control returns immediately to the agent"
-    },
-    {
-      "type": "tool_call",
-      "content": "ruff check --fix .",
-      "toolName": "bash",
-      "annotation": "Agent works on linting while tests run in background"
-    },
-    {
-      "type": "tool_result",
-      "content": "Fixed 12 linting errors in 5 files",
-      "toolName": "bash",
-      "annotation": "Linting fixed concurrently with tests"
+      "content": "tool_result_budget -> persisted large output to .large_outputs/out_001.txt",
+      "annotation": "Large tool outputs are moved out before expensive summarization."
     },
     {
       "type": "system_event",
-      "content": "[Notification] Background task_001 completed\nResult: 47 tests passed, 2 failed\nFailed: test_auth.py::test_token_expiry, test_api.py::test_rate_limit",
-      "annotation": "Background thread notifies main loop via notification queue"
+      "content": "snip_compact -> trimmed middle messages\nmicro_compact -> replaced old tool_results with placeholders",
+      "annotation": "Cheap compaction layers run every turn."
     },
     {
-      "type": "assistant_text",
-      "content": "Linting is fixed. Tests finished: 47 passed, 2 failed. I'll fix the failing tests now.",
-      "annotation": "Non-blocking execution via threads + queue enables parallel work"
+      "type": "system_event",
+      "content": "token estimate still above threshold -> compact_history()",
+      "annotation": "Only after cheap passes fail does the runtime ask the LLM for a summary."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "compact",
+      "content": "Summary: user asked for parser refactor; files inspected: cli.py, parser.py; open task: add test.",
+      "annotation": "The compacted summary replaces older context while preserving task-relevant facts."
     }
   ]
 }

@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 460" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-rose" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/>
+    </marker>
+    <marker id="arrow-rose-left" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#dc2626"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="460" fill="#fafbfc" rx="8"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="760" height="44" fill="url(#header)" rx="8"/>
+  <rect x="0" y="36" width="760" height="8" fill="url(#header)"/>
+  <text x="380" y="28" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">MCP Plugin — 標準プロトコル + 外部ツール接続 + ツールプール組み立て</text>
+
+  <!-- Legend -->
+  <rect x="40" y="56" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="58" y="66" fill="#2563eb" font-size="10" font-weight="600">s18 保持</text>
+  <rect x="130" y="56" width="12" height="10" rx="2" fill="#fff1f2" stroke="#dc2626" stroke-width="1"/>
+  <text x="148" y="66" fill="#dc2626" font-size="10" font-weight="600">s19 新規</text>
+
+  <!-- ===== Row 1: Lead Loop ===== -->
+  <rect x="20" y="90" width="70" height="40" rx="8" fill="#eef2ff" stroke="#4f46e5" stroke-width="1.5"/>
+  <text x="55" y="114" fill="#4f46e5" font-size="8" font-weight="600" text-anchor="middle">turn</text>
+
+  <line x1="90" y1="110" x2="104" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="107" y="90" width="70" height="40" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="142" y="114" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">messages</text>
+
+  <line x1="177" y1="110" x2="191" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="194" y="86" width="80" height="48" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="234" y="114" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">prompt</text>
+
+  <line x1="274" y1="110" x2="288" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="291" y="86" width="70" height="48" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="326" y="114" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">LLM</text>
+
+  <line x1="361" y1="110" x2="375" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="378" y="76" width="356" height="72" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="556" y="94" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">TOOL DISPATCH（Lead 18 tools）</text>
+  <text x="394" y="109" fill="#2563eb" font-size="7.5">bash · read · write · task(4) · send · inbox</text>
+  <text x="394" y="121" fill="#7c3aed" font-size="7.5" font-weight="700">request_shutdown · request_plan · review_plan</text>
+  <text x="394" y="133" fill="#b45309" font-size="7.5" font-weight="700">create_worktree · remove_worktree · keep_worktree</text>
+  <text x="394" y="145" fill="#dc2626" font-size="7.5" font-weight="700">★ connect_mcp + 動的 mcp__server__tool ツール</text>
+
+  <!-- Loop back -->
+  <path d="M 734 110 L 748 110 L 748 150 L 55 150 L 55 130" fill="none" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)" stroke-dasharray="5,4"/>
+
+  <!-- ===== Row 2: MCP Architecture ===== -->
+  <rect x="30" y="172" width="700" height="215" rx="8" fill="#fff1f2" stroke="#dc2626" stroke-width="2"/>
+  <text x="380" y="194" fill="#991b1b" font-size="11" font-weight="700" text-anchor="middle">MCP アーキテクチャ（s19 新規：標準プロトコル + 外部ツール動的統合）</text>
+
+  <!-- Agent Side -->
+  <rect x="50" y="210" width="255" height="140" rx="6" fill="#fff" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="177" y="230" fill="#991b1b" font-size="10" font-weight="700" text-anchor="middle">Agent 側（MCPClient）</text>
+
+  <rect x="65" y="240" width="225" height="24" rx="4" fill="#fef2f2" stroke="#fca5a5" stroke-width="0.5"/>
+  <text x="177" y="256" fill="#475569" font-size="8" text-anchor="middle">connect_mcp → discover → ツール登録</text>
+
+  <rect x="65" y="272" width="225" height="24" rx="4" fill="#fef2f2" stroke="#fca5a5" stroke-width="0.5"/>
+  <text x="177" y="288" fill="#475569" font-size="8" text-anchor="middle">assemble_tool_pool builtin + mcp 組み立て</text>
+
+  <rect x="65" y="304" width="225" height="24" rx="4" fill="#fef2f2" stroke="#fca5a5" stroke-width="0.5"/>
+  <text x="177" y="320" fill="#475569" font-size="8" text-anchor="middle">call_tool("mcp__docs__search", ...)</text>
+
+  <!-- Communication arrows -->
+  <line x1="305" y1="262" x2="435" y2="262" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-rose)"/>
+  <text x="370" y="256" fill="#dc2626" font-size="7" font-weight="600" text-anchor="middle">tools/list</text>
+
+  <line x1="435" y1="296" x2="305" y2="296" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-rose)"/>
+  <text x="370" y="312" fill="#dc2626" font-size="7" font-weight="600" text-anchor="middle">tools/call + response</text>
+
+  <!-- MCP Servers -->
+  <rect x="438" y="210" width="275" height="140" rx="6" fill="#fff" stroke="#ca8a04" stroke-width="1.5"/>
+  <text x="575" y="230" fill="#854d0e" font-size="10" font-weight="700" text-anchor="middle">MCP Servers（外部サービス）</text>
+
+  <rect x="453" y="240" width="245" height="28" rx="4" fill="#fefce8" stroke="#facc15" stroke-width="0.5"/>
+  <text x="575" y="258" fill="#854d0e" font-size="9" font-weight="600" text-anchor="middle">docs server: search · get_version</text>
+
+  <rect x="453" y="276" width="245" height="28" rx="4" fill="#fefce8" stroke="#facc15" stroke-width="0.5"/>
+  <text x="575" y="294" fill="#854d0e" font-size="9" font-weight="600" text-anchor="middle">deploy server: trigger · status</text>
+
+  <rect x="453" y="312" width="245" height="28" rx="4" fill="#fefce8" stroke="#facc15" stroke-width="0.5"/>
+  <text x="575" y="330" fill="#854d0e" font-size="9" font-weight="600" text-anchor="middle">任意言語実装、stdio JSON-RPC のみ必要</text>
+
+  <!-- Naming convention -->
+  <rect x="50" y="360" width="660" height="20" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="380" y="374" fill="#92400e" font-size="8" text-anchor="middle">ツール命名: mcp__{server}__{tool} → 例: mcp__docs__search · mcp__deploy__trigger · サーバー間の名前衝突を防止</text>
+
+  <!-- ===== Row 3: Bottom notes ===== -->
+  <rect x="30" y="400" width="700" height="22" rx="4" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <rect x="50" y="408" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="70" y="418" fill="#475569" font-size="10">s18: worktree + events + protocols（Lead 17）</text>
+  <rect x="420" y="408" width="12" height="10" rx="2" fill="#fff1f2" stroke="#dc2626" stroke-width="1"/>
+  <text x="440" y="418" fill="#475569" font-size="10">s19: MCP + dynamic tools（Lead 18）</text>
+
+  <!-- ===== Final note ===== -->
+  <rect x="30" y="430" width="700" height="22" rx="4" fill="#fff1f2" stroke="#dc2626" stroke-width="1"/>
+  <text x="380" y="444" fill="#991b1b" font-size="9" font-weight="600" text-anchor="middle">次の s20：tools、permissions、teams、worktree、MCP などを 1 つの while True ループに統合。</text>
+</svg>

@@ -118,7 +118,7 @@ if blocked:
 
 S20 同时保留两层计划：
 
-- `todo_write`：当前会话内的轻量计划，写入 `.tasks/current_todos.json`
+- `todo_write`：当前会话内的轻量计划，保存在内存中
 - task graph：跨会话、可依赖、可认领的任务文件，写入 `.tasks/task_*.json`
 
 前者帮助单个 Agent 不漂移；后者支撑团队协作。

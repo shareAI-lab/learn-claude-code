@@ -2,45 +2,45 @@
   "version": "s08",
   "decisions": [
     {
-      "id": "notification-bus",
-      "title": "threading.Queue as the Notification Bus",
-      "description": "Background task results are delivered via a threading.Queue instead of direct callbacks. The background thread puts a notification on the queue when its work completes. The main agent loop polls the queue before each LLM call. This decoupling is important: the background thread doesn't need to know anything about the main loop's state or timing. It just drops a message on the queue and moves on. The main loop picks it up at its own pace -- never mid-API-call, never mid-tool-execution. No race conditions, no callback hell.",
-      "alternatives": "Direct callbacks (background thread calls a function in the main thread) would deliver results faster but create thread-safety issues -- the callback might fire while the main thread is in the middle of building a request. Event-driven systems (asyncio, event emitters) work but add complexity. A queue is the simplest thread-safe communication primitive.",
+      "id": "cheap-first-compaction",
+      "title": "Compaction Runs Cheap Passes First",
+      "description": "Budgeting large tool results, snipping middle history, and replacing old tool outputs run before any LLM summary. Most turns should avoid an extra model call.",
+      "alternatives": "Summarizing immediately is conceptually simple, but expensive and often unnecessary.",
       "zh": {
-        "title": "用 threading.Queue 作为通知总线",
-        "description": "后台任务结果通过 threading.Queue 传递，而非直接回调。后台线程在工作完成时向队列放入通知，主 agent 循环在每次 LLM 调用前轮询队列。这种解耦很重要：后台线程无需了解主循环的状态或时序，只需往队列放入消息然后继续。主循环按自己的节奏取出消息——永远不会在 API 调用中途或工具执行中途。没有竞争条件，没有回调地狱。"
+        "title": "压缩先跑低成本步骤",
+        "description": "大工具结果预算、中段裁剪、旧工具输出占位会先于任何 LLM 摘要运行。多数回合不应该额外调用模型。"
       },
       "ja": {
-        "title": "threading.Queue を通知バスとして使用",
-        "description": "バックグラウンドタスクの結果は直接コールバックではなく threading.Queue を通じて配信されます。バックグラウンドスレッドは作業完了時にキューに通知を投入します。メインのエージェントループは各 LLM 呼び出しの前にキューをポーリングします。この疎結合が重要です：バックグラウンドスレッドはメインループの状態やタイミングを一切知る必要がありません。キューにメッセージを入れて先に進むだけです。メインループは自分のペースで取り出します――API 呼び出しの途中でもツール実行の途中でもありません。レースコンディションもコールバック地獄もありません。"
+        "title": "圧縮は低コストな処理から行う",
+        "description": "大きな tool result の退避、中間履歴の切り詰め、古い出力の置換を LLM 要約より先に行います。多くのターンで追加モデル呼び出しを避けられます。"
       }
     },
     {
-      "id": "daemon-threads",
-      "title": "Background Tasks Run as Daemon Threads",
-      "description": "Background task threads are created with daemon=True. In Python, daemon threads are killed automatically when the main thread exits. This prevents a common problem: if the main agent completes its work and exits, but a background thread is still running (waiting on a long API call, stuck in a loop), the process would hang indefinitely. With daemon threads, exit is clean -- the main thread finishes, all daemon threads die, process exits. No zombie processes, no cleanup code needed.",
-      "alternatives": "Non-daemon threads with explicit cleanup (join with timeout, then terminate) give more control over shutdown but require careful lifecycle management. Process-based parallelism (multiprocessing) provides stronger isolation but higher overhead. Daemon threads are the pragmatic choice: minimal code, correct behavior in the common case.",
+      "id": "large-output-side-store",
+      "title": "Large Outputs Move to a Side Store",
+      "description": "The transcript keeps a pointer while the full output is persisted elsewhere. This preserves recoverability without forcing the model to reread huge logs.",
+      "alternatives": "Dropping output loses evidence; keeping all output burns context.",
       "zh": {
-        "title": "后台任务以守护线程运行",
-        "description": "后台任务线程以 daemon=True 创建。在 Python 中，守护线程在主线程退出时自动被终止。这防止了一个常见问题：如果主 agent 完成工作并退出，但后台线程仍在运行（等待一个长时间 API 调用或陷入循环），进程会无限挂起。使用守护线程，退出是干净的——主线程结束，所有守护线程自动终止，进程退出。没有僵尸进程，不需要清理代码。"
+        "title": "大输出转移到旁路存储",
+        "description": "Transcript 保留指针，完整输出持久化到别处。这样既能恢复证据，又不会强迫模型反复读取巨量日志。"
       },
       "ja": {
-        "title": "バックグラウンドタスクはデーモンスレッドとして実行",
-        "description": "バックグラウンドタスクのスレッドは daemon=True で作成されます。Python ではデーモンスレッドはメインスレッドの終了時に自動的に終了されます。これにより一般的な問題を防ぎます：メインエージェントが作業を完了して終了しても、バックグラウンドスレッドがまだ実行中（長い API 呼び出しを待機、ループに陥っている）だとプロセスが無限にハングします。デーモンスレッドならクリーンに終了できます――メインスレッドが終了すると全デーモンスレッドが自動終了し、プロセスが終了します。ゾンビプロセスもクリーンアップコードも不要です。"
+        "title": "大きな出力はサイドストアへ移す",
+        "description": "transcript にはポインタだけを残し、完全な出力は別に保存します。証拠を失わず、モデルが巨大ログを読み直す必要もありません。"
       }
     },
     {
-      "id": "attachment-format",
-      "title": "Structured Notification Format with Type Tags",
-      "description": "Notifications from background tasks use a structured format: {\"type\": \"attachment\", \"attachment\": {status, result, ...}} instead of plain text strings. The type tag lets the main loop handle different notification types differently: an 'attachment' might be injected into the conversation as a tool_result, while a 'status_update' might just update a progress indicator. Machine-readable notifications also enable programmatic filtering (show only errors, suppress progress updates) and UI rendering (display status as a progress bar, not raw text).",
-      "alternatives": "Plain text notifications are simpler but lose structure. The main loop would have to parse free-form text to determine what happened, which is fragile. A class hierarchy (StatusNotification, ResultNotification, ErrorNotification) is more Pythonic but less portable -- JSON structures work the same way regardless of language or serialization format.",
+      "id": "reactive-compact",
+      "title": "Reactive Compact Handles API Rejection",
+      "description": "Even after estimates, the API may reject a prompt as too long. reactive_compact is the emergency path that compacts and retries.",
+      "alternatives": "Treating prompt_too_long as fatal would make long sessions brittle.",
       "zh": {
-        "title": "带类型标签的结构化通知格式",
-        "description": "后台任务的通知使用结构化格式：{\"type\": \"attachment\", \"attachment\": {status, result, ...}}，而非纯文本字符串。类型标签让主循环可以区别处理不同通知类型：attachment 可能作为 tool_result 注入对话，而 status_update 可能只更新进度指示器。机器可读的通知还支持程序化过滤（只显示错误、抑制进度更新）和 UI 渲染（将状态显示为进度条而非原始文本）。"
+        "title": "Reactive Compact 处理 API 拒绝",
+        "description": "即使有估算，API 仍可能拒绝过长 prompt。reactive_compact 是压缩并重试的应急路径。"
       },
       "ja": {
-        "title": "型タグ付き構造化通知フォーマット",
-        "description": "バックグラウンドタスクからの通知は構造化フォーマットを使用します：プレーンテキストではなく {\"type\": \"attachment\", \"attachment\": {status, result, ...}} です。型タグによりメインループは異なる通知タイプを異なる方法で処理できます：attachment は会話に tool_result として注入され、status_update は進捗インジケーターの更新のみを行うかもしれません。機械可読な通知はプログラム的なフィルタリング（エラーのみ表示、進捗更新の抑制）や UI レンダリング（ステータスを生テキストではなくプログレスバーとして表示）も可能にします。"
+        "title": "Reactive compact が API 拒否を処理する",
+        "description": "見積もり後でも API が prompt_too_long を返すことがあります。reactive_compact は圧縮して再試行する緊急経路です。"
       }
     }
   ]

@@ -1,0 +1,45 @@
+{
+  "version": "s16",
+  "title": "Team Protocols",
+  "description": "Typed requests, request ids, and response matching turn team chat into a protocol.",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "Ask the reviewer agent for a plan before it edits anything.",
+      "annotation": "The lead needs a structured plan request, not free-form chat."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "request_plan",
+      "content": "{\"to\":\"reviewer\",\"task\":\"Review the parser change before editing.\"}",
+      "annotation": "The protocol records a pending request with a request_id."
+    },
+    {
+      "type": "system_event",
+      "content": "pending_requests[req_18] = {kind:\"plan\", to:\"reviewer\", status:\"pending\"}",
+      "annotation": "ProtocolState keeps the request open until a matching response arrives."
+    },
+    {
+      "type": "system_event",
+      "content": "dispatch_message -> reviewer inbox: {type:\"plan_request\", request_id:\"req_18\"}",
+      "annotation": "The message is typed so the teammate knows how to handle it."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "submit_plan",
+      "content": "{\"request_id\":\"req_18\",\"plan\":[\"inspect parser\",\"run fixtures\",\"report risks\"]}",
+      "annotation": "The teammate responds with the same request_id."
+    },
+    {
+      "type": "system_event",
+      "content": "match_response(req_18) -> status: ready_for_review",
+      "annotation": "The lead can correlate the reply with the exact request."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "review_plan",
+      "content": "{\"request_id\":\"req_18\",\"approved\":true}",
+      "annotation": "The lead explicitly approves the plan before work proceeds."
+    }
+  ]
+}

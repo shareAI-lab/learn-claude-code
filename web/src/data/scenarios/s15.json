@@ -1,0 +1,51 @@
+{
+  "version": "s15",
+  "title": "Agent Teams",
+  "description": "A lead agent can spawn teammate loops and coordinate through file-backed mailboxes.",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "Split this task: one agent checks tests, another reviews docs.",
+      "annotation": "The request needs parallel work with separate responsibilities."
+    },
+    {
+      "type": "assistant_text",
+      "content": "I'll spawn teammates with narrow roles and coordinate their updates through the message bus.",
+      "annotation": "The lead keeps orchestration authority while delegating execution."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "spawn_teammate",
+      "content": "{\"name\":\"test-runner\",\"role\":\"Run test commands and report failures.\"}",
+      "annotation": "A teammate thread starts with its own simplified loop."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "send_message",
+      "content": "{\"to\":\"test-runner\",\"message\":\"Run the focused test suite and summarize failures.\"}",
+      "annotation": "The lead sends work through the file-backed mailbox."
+    },
+    {
+      "type": "system_event",
+      "content": ".mailboxes/test-runner.jsonl <- {from:\"lead\", message:\"Run the focused test suite\"}",
+      "annotation": "MessageBus persists the handoff as JSONL."
+    },
+    {
+      "type": "system_event",
+      "content": ".mailboxes/lead.jsonl <- {from:\"test-runner\", message:\"Tests passed.\"}",
+      "annotation": "The teammate replies without sharing the lead's whole conversation."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "check_inbox",
+      "content": "{\"agent\":\"lead\"}",
+      "annotation": "The lead polls its own inbox for teammate updates."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "check_inbox",
+      "content": "test-runner: Tests passed.",
+      "annotation": "Mailbox messages re-enter the lead loop as tool results."
+    }
+  ]
+}

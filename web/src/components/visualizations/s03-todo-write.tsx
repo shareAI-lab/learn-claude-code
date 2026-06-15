@@ -99,12 +99,12 @@ function KanbanColumn({
   headerBg: string;
 }) {
   return (
-    <div className="flex min-h-[280px] flex-1 flex-col rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+    <div className="min-w-0 flex min-h-[220px] flex-col rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 sm:min-h-[280px]">
       <div
-        className={`rounded-t-lg px-3 py-2 text-center text-xs font-bold uppercase tracking-wider ${headerBg}`}
+        className={`flex items-center justify-center gap-1 rounded-t-lg px-3 py-2 text-center text-xs font-bold uppercase tracking-wider ${headerBg}`}
       >
-        {title}
-        <span className={`ml-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${accentClass}`}>
+        <span className="min-w-0 break-words">{title}</span>
+        <span className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${accentClass}`}>
           {tasks.length}
         </span>
       </div>
@@ -147,19 +147,19 @@ function TaskCard({ task }: { task: Task }) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.8 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
-      className={`rounded-md border p-2.5 ${borderStyles[task.status]}`}
+      className={`min-w-0 rounded-md border p-2.5 ${borderStyles[task.status]}`}
     >
-      <div className="mb-1.5 flex items-center justify-between">
+      <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
         <span className="font-mono text-[10px] text-zinc-400 dark:text-zinc-500">
           #{task.id}
         </span>
         <span
-          className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${statusStyles[task.status]}`}
+          className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${statusStyles[task.status]}`}
         >
           {task.status.replace("_", " ")}
         </span>
       </div>
-      <div className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+      <div className="break-words text-xs font-medium leading-snug text-zinc-700 dark:text-zinc-300">
         {task.label}
       </div>
     </motion.div>
@@ -264,7 +264,7 @@ export default function TodoWrite({ title }: { title?: string }) {
         </div>
 
         {/* Kanban board */}
-        <div className="flex gap-3">
+        <div className="grid gap-3 sm:grid-cols-3">
           <KanbanColumn
             title="Pending"
             tasks={pendingTasks}

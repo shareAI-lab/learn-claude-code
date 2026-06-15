@@ -41,6 +41,10 @@ function postProcessHtml(html: string): string {
     '<pre class="ascii-diagram"><code$1>'
   );
 
+  // Keep wide Markdown tables inside the prose column on small screens.
+  html = html.replace(/<table>/g, '<div class="table-scroll"><table>');
+  html = html.replace(/<\/table>/g, '</table></div>');
+
   // Mark the first blockquote as hero callout
   html = html.replace(
     /<blockquote>/,

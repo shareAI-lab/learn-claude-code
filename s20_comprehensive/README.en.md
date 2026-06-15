@@ -118,7 +118,7 @@ That means permission, logging, and audit logic all attach to the same hook poin
 
 S20 keeps two planning layers:
 
-- `todo_write`: lightweight plan for the current session, written to `.tasks/current_todos.json`
+- `todo_write`: lightweight plan for the current session, kept in memory
 - task graph: cross-session, dependency-aware, claimable task files under `.tasks/task_*.json`
 
 The first keeps a single agent from drifting. The second supports team coordination.

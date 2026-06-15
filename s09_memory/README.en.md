@@ -76,9 +76,9 @@ def write_memory_file(name, mem_type, description, body):
 
 ### Loading: Two Paths
 
-**Path 1: Index in SYSTEM.** `build_system()` reads `MEMORY.md` every turn and injects the memory catalog into the SYSTEM prompt. The index in SYSTEM can be cached by prompt cache, avoiding resending it every turn.
+**Path 1: Index in SYSTEM.** `build_system()` reads `MEMORY.md` once at the start of each user request and injects the memory catalog into the SYSTEM prompt. Memory extraction and consolidation run only when the turn ends, so SYSTEM does not need to be rebuilt repeatedly within the same user request.
 
-**Path 2: Relevant memories on demand.** Before each LLM call, `load_memories()` sends the recent conversation and the memory catalog (name + description) to the LLM as a lightweight side-query, selects relevant filenames, then reads and injects their contents. Capped at 5 to control cost.
+**Path 2: Relevant memories on demand.** At the start of each user request, `load_memories()` sends the recent conversation and the memory catalog (name + description) to the LLM as a lightweight side-query, selects relevant filenames, then reads and injects their contents. Capped at 5 to control cost.
 
 ```python
 def select_relevant_memories(messages, max_items=5):

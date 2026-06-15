@@ -2,59 +2,45 @@
   "version": "s07",
   "decisions": [
     {
-      "id": "file-based-persistence",
-      "title": "Tasks Stored as JSON Files, Not In-Memory",
-      "description": "Tasks are persisted as JSON files in a .tasks/ directory on the filesystem instead of being held in memory. This has three critical benefits: (1) Tasks survive process crashes -- if the agent dies mid-task, the task board is still on disk when it restarts. (2) Multiple agents can read and write to the same task directory, enabling multi-agent coordination without shared memory. (3) Humans can inspect and manually edit task files for debugging. The filesystem becomes the shared database.",
-      "alternatives": "In-memory storage (like v2's TodoWrite) is simpler and faster but loses state on crash and doesn't work across multiple agent processes. A proper database (SQLite, Redis) would provide ACID guarantees and better concurrency, but adds a dependency and operational complexity. Files are the zero-dependency persistence layer that works everywhere.",
+      "id": "catalog-first",
+      "title": "Inject a Skill Catalog First",
+      "description": "The system prompt includes only skill names and short descriptions. The model can discover capabilities without paying for every full SKILL.md on every turn.",
+      "alternatives": "Loading all skills upfront is simple, but it wastes context and makes unrelated instructions compete.",
       "zh": {
-        "title": "任务存储为 JSON 文件，而非内存",
-        "description": "任务以 JSON 文件形式持久化在 .tasks/ 目录中，而非保存在内存里。这有三个关键好处：(1) 任务在进程崩溃后仍然存在——如果 agent 在任务中途崩溃，重启后任务板仍在磁盘上；(2) 多个 agent 可以读写同一任务目录，无需共享内存即可实现多代理协调；(3) 人类可以查看和手动编辑任务文件来调试。文件系统就是共享数据库。"
+        "title": "先注入技能目录",
+        "description": "系统提示词只包含技能名和简短描述。模型能发现能力，但不用每轮都为完整 SKILL.md 付出上下文成本。"
       },
       "ja": {
-        "title": "タスクをメモリではなく JSON ファイルとして保存",
-        "description": "タスクはメモリ内ではなく .tasks/ ディレクトリに JSON ファイルとして永続化されます。3つの重要な利点があります：(1) プロセスのクラッシュ後もタスクが存続する――エージェントがタスク途中でクラッシュしても、再起動時にタスクボードはディスク上に残っています。(2) 複数のエージェントが同じタスクディレクトリを読み書きでき、共有メモリなしにマルチエージェント連携が可能になります。(3) 人間がデバッグのためにタスクファイルを検査・手動編集できます。ファイルシステムが共有データベースになります。"
+        "title": "まずスキルカタログを注入する",
+        "description": "システムプロンプトにはスキル名と短い説明だけを入れます。モデルは能力を発見できますが、毎ターン全 SKILL.md を読む必要はありません。"
       }
     },
     {
-      "id": "dependency-graph",
-      "title": "Tasks Have blocks/blockedBy Dependency Fields",
-      "description": "Each task can declare which other tasks it blocks (downstream dependents) and which tasks block it (upstream dependencies). An agent will not start a task that has unresolved blockedBy dependencies. This is essential for multi-agent coordination: when Agent A is writing the database schema and Agent B needs to write queries against it, Agent B's task is blockedBy Agent A's task. Without dependencies, both agents might start simultaneously and Agent B would work against a schema that doesn't exist yet.",
-      "alternatives": "Simple priority ordering (high/medium/low) doesn't capture 'task B literally cannot start until task A finishes.' A centralized coordinator that assigns tasks in order would work but creates a single point of failure and bottleneck. Declarative dependencies let each agent independently determine what it can work on by reading the task files.",
+      "id": "full-skill-via-tool-result",
+      "title": "Full Skills Arrive Through tool_result",
+      "description": "load_skill returns full instructions as a tool result. That makes skill loading an explicit event in the transcript and keeps it compatible with the normal loop.",
+      "alternatives": "Mutating the system prompt mid-turn would hide when the model gained new instructions.",
       "zh": {
-        "title": "任务具有 blocks/blockedBy 依赖字段",
-        "description": "每个任务可以声明它阻塞哪些任务（下游依赖）以及它被哪些任务阻塞（上游依赖）。Agent 不会开始有未解决 blockedBy 依赖的任务。这对多代理协调至关重要：当 Agent A 在编写数据库 schema、Agent B 需要写查询时，Agent B 的任务被 Agent A 的任务阻塞。没有依赖关系，两个 agent 可能同时开始，而 Agent B 会针对一个尚不存在的 schema 工作。"
+        "title": "完整技能通过 tool_result 进入",
+        "description": "load_skill 把完整说明作为 tool result 返回。这样技能加载是 transcript 中的显式事件，也兼容普通循环。"
       },
       "ja": {
-        "title": "タスクに blocks/blockedBy 依存関係フィールド",
-        "description": "各タスクは、自分がブロックするタスク（下流の依存先）と、自分をブロックするタスク（上流の依存元）を宣言できます。エージェントは未解決の blockedBy 依存がある タスクを開始しません。これはマルチエージェント連携に不可欠です：エージェント A がデータベーススキーマを書いていてエージェント B がそれに対するクエリを書く必要がある場合、B のタスクは A のタスクにブロックされます。依存関係がなければ両エージェントが同時に開始し、B はまだ存在しないスキーマに対して作業することになります。"
+        "title": "完全なスキルは tool_result で届く",
+        "description": "load_skill は完全な指示を tool result として返します。スキル読み込みが transcript 上の明示的なイベントになり、通常ループと互換です。"
       }
     },
     {
-      "id": "task-default-todo-coexistence",
-      "title": "Task as Course Default, Todo Still Useful",
-      "description": "TaskManager extends the Todo mental model and becomes the default workflow from s07 onward in this course. Both track work items with statuses, but TaskManager adds file persistence (survives crashes), dependency tracking (blocks/blockedBy), ownership fields, and multi-process coordination. Todo remains useful for short, linear, one-shot tracking where heavyweight coordination is unnecessary.",
-      "alternatives": "Using only Todo keeps the model minimal but weak for long-running or collaborative work. Using only Task everywhere maximizes consistency but can feel heavy for tiny one-off tasks.",
+      "id": "filesystem-skills",
+      "title": "Skills Are Files, Not Code Plugins",
+      "description": "A skill is a directory with SKILL.md. Keeping skills as files makes authoring, reviewing, and loading knowledge straightforward.",
+      "alternatives": "Executable plugins can do more, but this chapter is about instruction loading rather than new runtime code.",
       "zh": {
-        "title": "Task 为课程主线，Todo 仍有适用场景",
-        "description": "TaskManager 延续了 Todo 的心智模型，并在本课程 s07 之后成为默认主线。两者都管理带状态的任务项，但 TaskManager 增加了文件持久化（崩溃后可恢复）、依赖追踪（blocks/blockedBy）、owner 字段与多进程协作能力。Todo 仍适合短、线性、一次性的轻量跟踪。"
+        "title": "技能是文件，不是代码插件",
+        "description": "一个 skill 就是包含 SKILL.md 的目录。把技能保持为文件，便于编写、审查和加载知识。"
       },
       "ja": {
-        "title": "Task を主線にしつつ Todo も併存",
-        "description": "TaskManager は Todo のメンタルモデルを拡張し、本コースでは s07 以降のデフォルトになる。どちらもステータス付き作業項目を扱うが、TaskManager にはファイル永続化（クラッシュ耐性）、依存関係追跡（blocks/blockedBy）、owner、マルチプロセス協調がある。Todo は短く直線的な単発作業では引き続き有効。"
-      }
-    },
-    {
-      "id": "task-write-discipline",
-      "title": "Durability Needs Write Discipline",
-      "description": "File persistence reduces context loss, but it does not remove concurrent-write risks by itself. Before writing task state, reload the JSON, validate expected status/dependency fields, and then save atomically. This prevents one agent from silently overwriting another agent's transition.",
-      "alternatives": "Blind overwrite writes are simpler but can corrupt coordination state under parallel execution. A database with optimistic locking would enforce stronger safety, but the course keeps file-based state for zero-dependency teaching.",
-      "zh": {
-        "title": "持久化仍需要写入纪律",
-        "description": "文件持久化能降低上下文丢失，但不会自动消除并发写入风险。写任务状态前应先重读 JSON、校验 `status/blockedBy` 是否符合预期，再原子写回，避免不同 agent 悄悄覆盖彼此状态。"
-      },
-      "ja": {
-        "title": "耐久性には書き込み規律が必要",
-        "description": "ファイル永続化だけでは並行書き込み競合は防げない。更新前に JSON を再読込し、`status/blockedBy` を検証して原子的に保存することで、他エージェントの遷移上書きを防ぐ。"
+        "title": "スキルはコードプラグインではなくファイル",
+        "description": "スキルは SKILL.md を持つディレクトリです。ファイルとして扱うことで、作成、レビュー、知識読み込みが分かりやすくなります。"
       }
     }
   ]

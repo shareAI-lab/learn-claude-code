@@ -39,20 +39,24 @@ Core design: cheap first, expensive last.
 
 The agent ran 80 turns of conversation, accumulating 160 `messages`. The very first "help me create hello.py" is barely relevant to current work, yet it still occupies space.
 
-Message count exceeds 50 → keep the first 3 (initial context) and the last 47 (current work), trim the middle:
+Message count exceeds 50 → keep the first 3 (initial context) and the last 47 (current work), trim the middle; the only extra boundary rule is that `assistant(tool_use)` must not be separated from the following `user(tool_result)`:
 
 ```python
 def snip_compact(messages, max_messages=50):
     if len(messages) <= max_messages:
         return messages
-    keep_head, keep_tail = 3, max_messages - 3
-    snipped = len(messages) - keep_head - keep_tail
-    placeholder = {"role": "user",
-                   "content": f"[snipped {snipped} messages from conversation middle]"}
-    return messages[:keep_head] + [placeholder] + messages[-keep_tail:]
+    head_end, tail_start = 3, len(messages) - (max_messages - 3)
+    if _message_has_tool_use(messages[head_end - 1]):
+        while head_end < len(messages) and _is_tool_result_message(messages[head_end]):
+            head_end += 1
+    if _is_tool_result_message(messages[tail_start]) and _message_has_tool_use(messages[tail_start - 1]):
+        tail_start -= 1
+    snipped = tail_start - head_end
+    placeholder = {"role": "user", "content": f"[snipped {snipped} messages from conversation middle]"}
+    return messages[:head_end] + [placeholder] + messages[tail_start:]
 ```
 
-Entire messages are trimmed, but `tool_result` content within remaining messages keeps accumulating — message #34 may still hold 30KB of old file contents. → L2.
+Messages are still trimmed directly; this just adds one boundary guard. `tool_result` content within remaining messages still keeps accumulating — message #34 may still hold 30KB of old file contents. → L2.
 
 ### L2: micro_compact — Placeholder for Old Tool Results
 
@@ -130,15 +134,17 @@ def compact_history(messages):
 
 Sometimes the API still returns `prompt_too_long` (413) — when context grows faster than compression triggers.
 
-This triggers **reactive_compact**: more aggressive than compact_history, it retreats from the tail, trimming to an API-acceptable size with byte-level precision, keeping only the last 5 messages + summary.
+This triggers **reactive_compact**: more aggressive than compact_history, it retreats from the tail, but still avoids leaving an orphaned `tool_result`.
 
 ```python
 def reactive_compact(messages):
     transcript = write_transcript(messages)
     summary = summarize_history(messages)
-    tail = messages[-5:]
+    tail_start = max(0, len(messages) - 5)
+    if _is_tool_result_message(messages[tail_start]) and _message_has_tool_use(messages[tail_start - 1]):
+        tail_start -= 1
     return [{"role": "user",
-             "content": f"[Reactive compact]\n\n{summary}"}, *tail]
+             "content": f"[Reactive compact]\n\n{summary}"}, *messages[tail_start:]]
 ```
 
 Reactive compact has a retry limit (default 1). If it still fails, an exception is raised instead of looping forever. Full error recovery is deferred to s11.
@@ -252,6 +258,12 @@ The real order in CC source `query.ts`:
 
 The teaching version's budget → snip → micro order matches this. The teaching version does not have the contextCollapse mechanism.
 
+### read_file Trade-off
+
+The teaching version's `micro_compact` replaces old `tool_result` blocks with placeholders uniformly, including `read_file`. This usually does not affect functional correctness: if the model needs the file contents later, it can read the file again. The cost is an extra tool call and potentially lower prompt cache hit rates.
+
+Claude Code does not solve this with the teaching version's simple rule. It also puts `Read` in the microcompactable tool set, but maintains a separate `readFileState`: repeated reads of unchanged files return `FILE_UNCHANGED_STUB`, and after compaction it restores recently read file contents within a budget (for example, up to 5 files, 5K tokens per file, 50K tokens total). That is a production-level cache and recovery mechanism. The teaching version does not expand into that machinery; it keeps the simpler trade-off of compacting old results and re-reading when needed.
+
 ### Full Constant Reference
 
 | Constant | Value | Source File |
@@ -282,6 +294,7 @@ CC's compression prompt has two hard requirements:
 ### Teaching Version Simplifications Are Intentional
 
 - micro_compact uses text placeholders → we don't have API-level `cache_edits` access
+- read_file is not special-cased → the teaching version accepts re-reading when needed instead of introducing readFileState and post-compaction recovery
 - Tokens estimated via character count → precise tokenizers are out of scope
 - Post-compaction recovery omitted → teaching version only keeps summary, does not auto re-attach files
 - Two auxiliary mechanisms not covered → they fall in the 10% detail category
@@ -290,4 +303,4 @@ The core design principle, cheap first, expensive last, is fully preserved.
 
 </details>
 
-<!-- translation-sync: zh@v1, en@v1, ja@v1 -->
+<!-- translation-sync: zh@v2, en@v2, ja@v2 -->

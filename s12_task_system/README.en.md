@@ -16,7 +16,7 @@ The agent receives a project: set up a database, write APIs, add tests. It uses 
 
 You can't build the roof before laying the foundation. Tasks have ordering. Task dependencies should form a Directed Acyclic Graph (DAG); the teaching version only demonstrates `blockedBy` checking, without cycle detection.
 
-s05's TodoWrite is a list. No dependencies, no persistence — when the conversation ends, the list is gone. What you need is a **task system**: each task is a JSON file, tasks have `blockedBy` dependencies, and they persist across sessions on disk.
+s05's TodoWrite is an execution checklist for the current task, kept in session memory. What you need here is a **task system**: each task is a JSON file, tasks have `blockedBy` dependencies, and they persist across sessions on disk.
 
 ---
 
@@ -30,11 +30,13 @@ TodoWrite vs Task System:
 
 | | TodoWrite (s05) | Task System (s12) |
 |---|---|---|
-| Storage | In-memory list | `.tasks/` JSON files |
-| Dependencies | None | `blockedBy` dependency graph |
-| Persistence | Lost when conversation ends | Cross-session |
-| Multi-agent | None | `owner` field |
-| Status | checked / unchecked | pending → in_progress → completed |
+| Role | Execution checklist for the current task | Recoverable task system |
+| Storage | In-process / session state | `.tasks/{id}.json` |
+| Dependencies | None | `blockedBy` / `blocks` graph |
+| Lifecycle | Current session / current task | Cross-session |
+| Coordination | No task claiming | `owner` / claim |
+| Status | pending / in_progress / completed | pending / in_progress / completed |
+| Granularity | The agent's own steps | Tasks that can be claimed, tracked, and unblocked |
 
 ---
 

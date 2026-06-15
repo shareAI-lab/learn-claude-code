@@ -1,0 +1,47 @@
+{
+  "version": "s16",
+  "decisions": [
+    {
+      "id": "typed-protocol-messages",
+      "title": "Typed Messages Replace Informal Chat",
+      "description": "Plan requests and shutdown requests are encoded as protocol messages with explicit kinds. The teammate can branch on message type instead of guessing intent from free-form text.",
+      "alternatives": "Plain natural-language messages are easier to write, but brittle once the team has multiple request types.",
+      "zh": {
+        "title": "用类型化协议消息替代随意聊天",
+        "description": "计划请求和关闭请求会编码成带有明确 kind 的协议消息。队友可以根据消息类型分支处理，而不是从自由文本中猜意图。"
+      },
+      "ja": {
+        "title": "非公式チャットを型付きプロトコルメッセージに置き換える",
+        "description": "計画要求とシャットダウン要求は明示的な kind を持つプロトコルメッセージとして表現されます。チームメイトは自由文から意図を推測せず、型で分岐できます。"
+      }
+    },
+    {
+      "id": "request-id-correlation",
+      "title": "Request IDs Close the Loop",
+      "description": "Each protocol request creates a pending record with a request_id. Responses must carry the same id, which lets the lead match replies even when multiple teammates are active.",
+      "alternatives": "Matching by latest message works in demos, but fails as soon as two requests overlap.",
+      "zh": {
+        "title": "Request ID 闭合协议循环",
+        "description": "每个协议请求都会创建带 request_id 的 pending 记录。响应必须携带同一个 id，因此即使多个队友同时工作，lead 也能匹配对应回复。"
+      },
+      "ja": {
+        "title": "request_id がループを閉じる",
+        "description": "各プロトコル要求は request_id 付きの pending レコードを作ります。応答も同じ id を持つため、複数のチームメイトが動いていてもリードは対応する返信を照合できます。"
+      }
+    },
+    {
+      "id": "idle-protocol-handling",
+      "title": "Protocol Handling Runs During Idle Time",
+      "description": "Teammates can consume protocol messages while idle, so the lead can request plans or shutdowns without waiting for a separate user turn. This makes team control part of the runtime lifecycle.",
+      "alternatives": "Only checking protocols during active work would delay control messages and make shutdown unreliable.",
+      "zh": {
+        "title": "空闲期也处理协议",
+        "description": "队友在空闲状态也会消费协议消息，因此 lead 可以请求计划或关闭，而不必等待另一个用户回合。这让团队控制成为运行时生命周期的一部分。"
+      },
+      "ja": {
+        "title": "アイドル中にもプロトコルを処理する",
+        "description": "チームメイトはアイドル時にもプロトコルメッセージを消費します。リードは別のユーザーターンを待たずに計画や終了を要求でき、チーム制御がランタイムのライフサイクルに組み込まれます。"
+      }
+    }
+  ]
+}

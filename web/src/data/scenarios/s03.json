@@ -1,53 +1,39 @@
 {
   "version": "s03",
-  "title": "TodoWrite",
-  "description": "Agent creates a visible plan before executing",
+  "title": "Permission",
+  "description": "Tool calls pass through hard denies, rule checks, and optional user approval before execution.",
   "steps": [
     {
       "type": "user_message",
-      "content": "Build a CLI calculator that supports add, subtract, multiply, divide",
-      "annotation": "A multi-step task that benefits from planning"
-    },
-    {
-      "type": "tool_call",
-      "content": "[\n  { \"id\": 1, \"task\": \"Create calc.py with argument parsing\", \"status\": \"in_progress\" },\n  { \"id\": 2, \"task\": \"Implement 4 operations\", \"status\": \"pending\" },\n  { \"id\": 3, \"task\": \"Add error handling\", \"status\": \"pending\" },\n  { \"id\": 4, \"task\": \"Test all operations\", \"status\": \"pending\" }\n]",
-      "toolName": "todo_write",
-      "annotation": "TodoManager creates a visible plan BEFORE any code is written"
-    },
-    {
-      "type": "tool_result",
-      "content": "Todo list created with 4 tasks",
-      "toolName": "todo_write",
-      "annotation": "The plan is now visible and trackable"
-    },
-    {
-      "type": "tool_call",
-      "content": "calc.py\n---\nimport sys\n\ndef calculate(op, a, b):\n    ops = {'+': a+b, '-': a-b, '*': a*b, '/': a/b}\n    return ops.get(op, 'Unknown operator')\n\nif __name__ == '__main__':\n    a, op, b = float(sys.argv[1]), sys.argv[2], float(sys.argv[3])\n    print(calculate(op, a, b))",
-      "toolName": "write_file",
-      "annotation": "Executing task #1 and #2: create file with operations"
-    },
-    {
-      "type": "tool_result",
-      "content": "File written successfully",
-      "toolName": "write_file",
-      "annotation": "Code written"
-    },
-    {
-      "type": "tool_call",
-      "content": "python calc.py 10 + 5",
-      "toolName": "bash",
-      "annotation": "Executing task #4: testing"
-    },
-    {
-      "type": "tool_result",
-      "content": "15.0",
-      "toolName": "bash",
-      "annotation": "Test passes"
+      "content": "Delete the temporary build directory.",
+      "annotation": "The user asks for a filesystem action that may be safe or dangerous depending on the path."
     },
     {
       "type": "assistant_text",
-      "content": "Calculator built and tested. All 4 operations work correctly.",
-      "annotation": "Visible plans improve task completion by making progress trackable"
+      "content": "I'll check the target before running the command.",
+      "annotation": "The model can propose a tool call, but the harness decides whether execution is allowed."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "bash",
+      "content": "rm -rf /tmp/build-cache",
+      "annotation": "A destructive-looking command enters the permission pipeline."
+    },
+    {
+      "type": "system_event",
+      "content": "Gate 1 hard deny: pass\nGate 2 rule match: destructive command -> ask user",
+      "annotation": "The command is not absolutely forbidden, but it requires confirmation."
+    },
+    {
+      "type": "system_event",
+      "content": "User approval: allowed",
+      "annotation": "The runtime pauses before execution and resumes only after approval."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "bash",
+      "content": "(no output)",
+      "annotation": "Allowed commands continue through the normal tool result path."
     }
   ]
 }

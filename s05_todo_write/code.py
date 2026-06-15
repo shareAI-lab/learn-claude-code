@@ -12,7 +12,7 @@ s05: TodoWrite — add a planning tool on top of s04 hooks.
                                       todo_write ← NEW
                                    +------------------+
                                         |
-                        .tasks/current_todos.json
+                         in-memory current_todos
                                         |
                         if rounds_since_todo >= 3:
                           inject <reminder>
@@ -28,7 +28,7 @@ Run: python s05_todo_write/code.py
 Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
 """
 
-import os, subprocess, json
+import ast, json, os, subprocess
 from pathlib import Path
 
 try:
@@ -45,9 +45,9 @@ if os.getenv("ANTHROPIC_BASE_URL"):
     os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
 
 WORKDIR = Path.cwd()
-TASKS_DIR = WORKDIR / ".tasks"; TASKS_DIR.mkdir(exist_ok=True)
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
+CURRENT_TODOS: list[dict] = []
 
 # s05 change: SYSTEM prompt adds planning guidance
 SYSTEM = (
@@ -121,21 +121,38 @@ def run_glob(pattern: str) -> str:
 #  NEW in s05: todo_write tool — plan only, no execution
 # ═══════════════════════════════════════════════════════════
 
-def run_todo_write(todos: list) -> str:
-    # validate required fields
+def _normalize_todos(todos):
+    if isinstance(todos, str):
+        try:
+            todos = json.loads(todos)
+        except json.JSONDecodeError:
+            try:
+                todos = ast.literal_eval(todos)
+            except (SyntaxError, ValueError):
+                return None, "Error: todos must be a list or JSON array string"
+    if not isinstance(todos, list):
+        return None, "Error: todos must be a list"
     for i, t in enumerate(todos):
+        if not isinstance(t, dict):
+            return None, f"Error: todos[{i}] must be an object"
         if "content" not in t or "status" not in t:
-            return f"Error: todos[{i}] missing 'content' or 'status'"
+            return None, f"Error: todos[{i}] missing 'content' or 'status'"
         if t["status"] not in ("pending", "in_progress", "completed"):
-            return f"Error: todos[{i}] has invalid status '{t['status']}'"
-    tasks_file = TASKS_DIR / "current_todos.json"
-    tasks_file.write_text(json.dumps(todos, indent=2, ensure_ascii=False))
+            return None, f"Error: todos[{i}] has invalid status '{t['status']}'"
+    return todos, None
+
+def run_todo_write(todos: list) -> str:
+    global CURRENT_TODOS
+    todos, error = _normalize_todos(todos)
+    if error:
+        return error
+    CURRENT_TODOS = todos
     lines = ["\n\033[33m## Current Tasks\033[0m"]
-    for t in todos:
+    for t in CURRENT_TODOS:
         icon = {"pending": " ", "in_progress": "\033[36m▸\033[0m", "completed": "\033[32m✓\033[0m"}[t["status"]]
         lines.append(f"  [{icon}] {t['content']}")
     print("\n".join(lines))
-    return f"Updated {len(todos)} tasks"
+    return f"Updated {len(CURRENT_TODOS)} tasks"
 
 TOOLS = [
     {"name": "bash", "description": "Run a shell command.",

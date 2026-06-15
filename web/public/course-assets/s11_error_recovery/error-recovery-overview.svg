@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 440" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/>
+    </marker>
+    <linearGradient id="l1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fef3c7"/><stop offset="100%" stop-color="#fde68a"/>
+    </linearGradient>
+    <linearGradient id="l2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fed7aa"/><stop offset="100%" stop-color="#fdba74"/>
+    </linearGradient>
+    <linearGradient id="l3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fecaca"/><stop offset="100%" stop-color="#fca5a5"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="760" height="440" fill="#fafbfc" rx="8"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="760" height="44" fill="url(#header)" rx="8"/>
+  <rect x="0" y="36" width="760" height="8" fill="url(#header)"/>
+  <text x="380" y="28" fill="#fff" font-size="15" font-weight="700" text-anchor="middle">Error Recovery — try/except 包裹 LLM 调用，三种恢复模式</text>
+
+  <!-- Legend -->
+  <rect x="40" y="56" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="58" y="66" fill="#2563eb" font-size="10" font-weight="600">s10 保留</text>
+  <rect x="140" y="56" width="12" height="10" rx="2" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="158" y="66" fill="#d97706" font-size="10" font-weight="600">s11 新增</text>
+
+  <!-- ===== s10 loop (compact) ===== -->
+  <rect x="30" y="92" width="80" height="40" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="70" y="116" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">messages</text>
+
+  <line x1="110" y1="112" x2="128" y2="112" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="131" y="86" width="90" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="176" y="108" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">prompt assembly</text>
+  <text x="176" y="122" fill="#94a3b8" font-size="8" text-anchor="middle">(s10)</text>
+
+  <line x1="221" y1="112" x2="239" y2="112" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="242" y="86" width="100" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="292" y="108" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">compress + load</text>
+  <text x="292" y="122" fill="#94a3b8" font-size="8" text-anchor="middle">(s08-s09)</text>
+
+  <line x1="342" y1="112" x2="360" y2="112" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- LLM (wrapped in try/except) -->
+  <rect x="363" y="86" width="80" height="52" rx="8" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+  <text x="403" y="108" fill="#991b1b" font-size="11" font-weight="700" text-anchor="middle">LLM</text>
+  <text x="403" y="122" fill="#dc2626" font-size="8" text-anchor="middle">try/except</text>
+
+  <line x1="443" y1="112" x2="461" y2="112" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="464" y="86" width="110" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="519" y="108" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">TOOL_HANDLERS</text>
+  <text x="519" y="122" fill="#94a3b8" font-size="8" text-anchor="middle">bash · read · write</text>
+
+  <!-- Arrow: LLM → Recovery -->
+  <path d="M 403 138 L 403 178" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="415" y="164" fill="#dc2626" font-size="9">报错</text>
+
+  <!-- ===== Recovery Section ===== -->
+  <rect x="20" y="182" width="720" height="22" rx="4" fill="#f1f5f9"/>
+  <text x="55" y="197" fill="#64748b" font-size="11" font-weight="600">错误恢复（分类处理，恢复后回到 LLM 重试）</text>
+
+  <!-- Layer 1: max_tokens -->
+  <rect x="40" y="210" width="680" height="48" rx="7" fill="url(#l1)" stroke="#d97706" stroke-width="1.5"/>
+  <text x="60" y="230" fill="#92400e" font-size="12" font-weight="600">路径 1</text>
+  <text x="112" y="230" fill="#92400e" font-size="11" font-weight="700">max_tokens</text>
+  <text x="200" y="230" fill="#92400e" font-size="11">输出被截断 → 升级 8K→64K（一次）/ 续写提示（最多 3 次）</text>
+  <text x="200" y="246" fill="#b45309" font-size="9">触发: stop_reason == "max_tokens" · 代价: 0-1 API · 恢复后 continue</text>
+
+  <!-- Layer 2: prompt_too_long -->
+  <rect x="40" y="266" width="680" height="48" rx="7" fill="url(#l2)" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="60" y="286" fill="#9a3412" font-size="12" font-weight="600">路径 2</text>
+  <text x="112" y="286" fill="#9a3412" font-size="11" font-weight="700">prompt_too_long</text>
+  <text x="230" y="286" fill="#9a3412" font-size="11">上下文超限 → reactive compact → 重试（一次机会）</text>
+  <text x="200" y="302" fill="#c2410c" font-size="9">触发: API 返回 413 · 代价: 1 API · 压缩过还是超 → 退出</text>
+
+  <!-- Layer 3: 429/529 -->
+  <rect x="40" y="322" width="680" height="48" rx="7" fill="url(#l3)" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="60" y="342" fill="#991b1b" font-size="12" font-weight="600">路径 3</text>
+  <text x="112" y="342" fill="#991b1b" font-size="11" font-weight="700">429/529</text>
+  <text x="170" y="342" fill="#991b1b" font-size="11">临时故障 → 指数退避 + 抖动（最多 10 次）/ 3 次 529 → 切换模型</text>
+  <text x="200" y="358" fill="#b91c1c" font-size="9">触发: RateLimitError / OverloadedError · 公式: min(500×2^n, 32s) + jitter</text>
+
+  <!-- ===== Bottom notes ===== -->
+  <rect x="40" y="388" width="680" height="40" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="60" y="406" fill="#475569" font-size="10">三种最常见的恢复模式。CC 实际有 13+ reason code（image_error、aborted_streaming 等），各有专门处理。</text>
+  <text x="60" y="422" fill="#94a3b8" font-size="9">所有路径恢复后 → continue 回到 LLM · 正常流程: 工具结果 → messages → 循环</text>
+</svg>

@@ -1,44 +1,33 @@
 {
   "version": "s09",
-  "title": "Agent Teams",
-  "description": "Persistent teammates communicate via JSONL inboxes",
+  "title": "Memory",
+  "description": "Persistent memory keeps selected project facts available across turns and sessions.",
   "steps": [
     {
+      "type": "system_event",
+      "content": "Loaded .memory/MEMORY.md index with 3 entries.",
+      "annotation": "A cheap index is always available to the system prompt."
+    },
+    {
       "type": "user_message",
-      "content": "Build a full-stack app: frontend in React, backend in Python, with tests",
-      "annotation": "Large task requiring team collaboration"
+      "content": "Use the repository's preferred test command.",
+      "annotation": "The user references a fact that may have been learned earlier."
+    },
+    {
+      "type": "system_event",
+      "content": "Selected memory: project_facts.md -> preferred_test_command=npm run test:unit",
+      "annotation": "Relevant memory content is injected selectively."
     },
     {
       "type": "tool_call",
-      "content": "spawn_teammate(\n  name: \"frontend-dev\",\n  role: \"React specialist\"\n)\nspawn_teammate(\n  name: \"backend-dev\",\n  role: \"Python API specialist\"\n)",
-      "toolName": "teammate_manager",
-      "annotation": "Unlike subagents (s04) that die after one task, teammates persist"
+      "toolName": "bash",
+      "content": "npm run test:unit",
+      "annotation": "The agent acts on durable knowledge without asking again."
     },
     {
       "type": "system_event",
-      "content": "[TeammateManager] Team created:\n  .team/config.json written\n  frontend-dev [idle] - own thread, own agent loop\n  backend-dev [idle] - own thread, own agent loop",
-      "annotation": "Each teammate runs its own while(tool_use) loop in a separate thread"
-    },
-    {
-      "type": "tool_call",
-      "content": "send_message(\n  to: \"backend-dev\",\n  content: \"Build the user API: GET/POST /users\"\n)",
-      "toolName": "send_message",
-      "annotation": "Message appended to .team/inbox/backend-dev.jsonl"
-    },
-    {
-      "type": "system_event",
-      "content": "[backend-dev] Checking inbox... 1 new message\n  From: lead\n  Content: \"Build the user API: GET/POST /users\"\n  (inbox drained after read)",
-      "annotation": "Inbox is read-then-clear: prevents duplicate processing"
-    },
-    {
-      "type": "system_event",
-      "content": "[backend-dev -> frontend-dev] Reply via inbox:\n  \"API ready: GET /users, POST /users, GET /users/:id\"\n  Written to .team/inbox/frontend-dev.jsonl",
-      "annotation": "Teammates message each other through the same JSONL mechanism"
-    },
-    {
-      "type": "assistant_text",
-      "content": "Team is communicating via file-based inboxes. Each teammate has its own .jsonl file -- append to send, drain to read.",
-      "annotation": "JSONL inboxes decouple sender timing from receiver timing"
+      "content": "extract_memory -> wrote feedback_tabs.md",
+      "annotation": "After the turn, new durable facts can be extracted from the original conversation."
     }
   ]
 }

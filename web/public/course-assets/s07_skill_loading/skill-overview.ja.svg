@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 380" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706"/>
+    </marker>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="800" height="380" fill="#fafbfc" rx="8"/>
+
+  <!-- タイトル -->
+  <rect x="0" y="0" width="800" height="48" fill="url(#header)" rx="8"/>
+  <rect x="0" y="40" width="800" height="8" fill="url(#header)"/>
+  <text x="400" y="31" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">Skill Loading — 起動時にカタログ注入、実行時にオンデマンド読み込み</text>
+
+  <!-- ===== 過去章を保持 ===== -->
+  <text x="50" y="96" fill="#94a3b8" font-size="11" font-weight="600">過去章を保持</text>
+
+  <!-- messages[] -->
+  <rect x="40" y="108" width="110" height="44" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="95" y="135" fill="#1e3a5f" font-size="12" font-weight="600" text-anchor="middle">messages[]</text>
+
+  <!-- → LLM -->
+  <line x1="150" y1="130" x2="198" y2="130" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- LLM -->
+  <rect x="200" y="106" width="110" height="48" rx="8" fill="#fff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="255" y="128" fill="#1e3a5f" font-size="13" font-weight="700" text-anchor="middle">LLM</text>
+  <text x="255" y="146" fill="#64748b" font-size="9" text-anchor="middle">stop_reason=tool_use?</text>
+
+  <!-- No → 戻る -->
+  <line x1="255" y1="154" x2="255" y2="178" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <text x="268" y="172" fill="#2563eb" font-size="9" font-weight="600">No</text>
+  <rect x="200" y="180" width="110" height="28" rx="14" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="255" y="198" fill="#1e3a5f" font-size="11" font-weight="600" text-anchor="middle">結果を返す</text>
+
+  <!-- Yes → PreToolUse -->
+  <line x1="310" y1="130" x2="348" y2="130" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="325" y="122" fill="#d97706" font-size="9" font-weight="600">Yes</text>
+
+  <!-- PreToolUse (s04) -->
+  <rect x="350" y="108" width="90" height="44" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="395" y="128" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">trigger_hooks</text>
+  <text x="395" y="142" fill="#64748b" font-size="8" text-anchor="middle">PreToolUse</text>
+
+  <!-- → TOOL_HANDLERS -->
+  <line x1="440" y1="130" x2="488" y2="130" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== TOOL_HANDLERS ===== -->
+  <rect x="490" y="88" width="120" height="130" rx="10" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="550" y="108" fill="#1e3a5f" font-size="10" font-weight="700" text-anchor="middle">TOOL_HANDLERS</text>
+
+  <!-- s06 ツール -->
+  <rect x="500" y="116" width="100" height="18" rx="3" fill="#fff" stroke="#2563eb" stroke-width="0.8"/>
+  <text x="550" y="129" fill="#1e3a5f" font-size="8" text-anchor="middle">bash · read · write</text>
+  <rect x="500" y="138" width="100" height="18" rx="3" fill="#fff" stroke="#2563eb" stroke-width="0.8"/>
+  <text x="550" y="151" fill="#1e3a5f" font-size="8" text-anchor="middle">edit · glob · todo</text>
+  <rect x="500" y="160" width="100" height="18" rx="3" fill="#fff" stroke="#2563eb" stroke-width="0.8"/>
+  <text x="550" y="173" fill="#1e3a5f" font-size="8" text-anchor="middle">task (subagent)</text>
+
+  <rect x="500" y="186" width="100" height="22" rx="3" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="550" y="201" fill="#166534" font-size="9" font-weight="700" text-anchor="middle">load_skill</text>
+
+  <!-- ===== ループバック ===== -->
+  <path d="M 550 218 L 550 270 L 95 270 L 95 152" fill="none" stroke="#555" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+  <text x="320" y="290" fill="#64748b" font-size="10" text-anchor="middle">結果を messages[] に追加、ループ継続</text>
+
+  <!-- ===== s07 2 層注入ラベル（右側） ===== -->
+
+  <text x="710" y="220" fill="#16a34a" font-size="11" font-weight="700" text-anchor="middle">s07 新規</text>
+
+  <!-- ① 起動時 SYSTEM 注入 -->
+  <rect x="640" y="86" width="140" height="56" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="710" y="106" fill="#166534" font-size="10" font-weight="700" text-anchor="middle">① build_system()</text>
+  <text x="710" y="120" fill="#64748b" font-size="8" text-anchor="middle">起動時に skills/ の 1 行目をスキャン</text>
+  <text x="710" y="134" fill="#166534" font-size="8" font-weight="600" text-anchor="middle">→ SYSTEM プロンプトに注入</text>
+
+  <!-- ② 実行時 load_skill → tool_result -->
+  <rect x="640" y="148" width="140" height="56" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="710" y="168" fill="#166534" font-size="10" font-weight="700" text-anchor="middle">② load_skill(name)</text>
+  <text x="710" y="182" fill="#64748b" font-size="8" text-anchor="middle">実行時に完全な SKILL.md を読み取り</text>
+  <text x="710" y="196" fill="#166534" font-size="8" font-weight="600" text-anchor="middle">→ tool_result に注入</text>
+
+  <!-- ① → LLM（上部接続） -->
+  <path d="M 710 86 L 710 68 L 255 68 L 255 106" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-green)"/>
+  <text x="480" y="64" fill="#166534" font-size="7" font-weight="600">SYSTEM にスキルカタログ、毎ターン携帯</text>
+
+  <!-- ② → load_skill（短接続） -->
+  <line x1="640" y1="176" x2="600" y2="197" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <!-- ===== 凡例 ===== -->
+  <rect x="60" y="308" width="680" height="44" rx="6" fill="#f1f5f9"/>
+  <rect x="80" y="322" width="12" height="12" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="100" y="332" fill="#334155" font-size="10">過去章を保持（ループ、フック、TODO、サブ Agent — 変更なし）</text>
+  <rect x="80" y="338" width="12" height="12" rx="2" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="100" y="348" fill="#334155" font-size="10">s07 新規（起動時カタログ注入 SYSTEM + load_skill ツール）</text>
+</svg>

@@ -1,0 +1,47 @@
+{
+  "version": "s15",
+  "decisions": [
+    {
+      "id": "lead-agent-owns-coordination",
+      "title": "The Lead Owns Coordination",
+      "description": "The lead agent decides when to spawn teammates, what to send them, and how to interpret replies. Teammates can work independently, but the user-facing conversation stays anchored in one lead loop.",
+      "alternatives": "A peer-to-peer team would be more flexible, but much harder to explain because no single loop owns the answer.",
+      "zh": {
+        "title": "由 Lead Agent 负责协调",
+        "description": "Lead agent 决定何时创建队友、发送什么任务、如何解释回复。队友可以独立工作，但面向用户的对话始终锚定在一个 lead 循环中。"
+      },
+      "ja": {
+        "title": "調整はリードエージェントが担う",
+        "description": "リードエージェントがチームメイトの生成、送信内容、返信の解釈を決めます。チームメイトは独立して作業できますが、ユーザー向けの会話は一つのリードループに固定されます。"
+      }
+    },
+    {
+      "id": "file-backed-mailboxes",
+      "title": "Mailboxes Make Team Communication Inspectable",
+      "description": "MessageBus writes JSONL mailboxes so every handoff is visible on disk. This avoids magical shared memory and gives learners a concrete artifact for debugging team behavior.",
+      "alternatives": "In-memory channels are faster, but they hide the communication history and disappear when the process stops.",
+      "zh": {
+        "title": "邮箱文件让团队通信可检查",
+        "description": "MessageBus 使用 JSONL 邮箱记录每次交接。这样避免了神秘的共享内存，也给学习者一个能直接调试团队行为的具体文件。"
+      },
+      "ja": {
+        "title": "メールボックスでチーム通信を検査可能にする",
+        "description": "MessageBus は JSONL メールボックスへ各ハンドオフを書き込みます。見えない共有メモリを避け、チーム動作をデバッグできる具体的な成果物を提供します。"
+      }
+    },
+    {
+      "id": "scoped-teammate-tools",
+      "title": "Teammates Use Scoped Tool Sets",
+      "description": "A teammate loop receives a narrower prompt and tool set than the lead. That keeps delegation focused and prevents a helper agent from accidentally taking over orchestration.",
+      "alternatives": "Giving every teammate the full tool pool is simpler, but it blurs roles and makes failures harder to attribute.",
+      "zh": {
+        "title": "队友使用受限工具集",
+        "description": "队友循环拿到比 lead 更窄的提示词和工具集。这样委派更聚焦，也避免 helper agent 意外接管整体协调。"
+      },
+      "ja": {
+        "title": "チームメイトには範囲を絞ったツールセットを与える",
+        "description": "チームメイトループにはリードより狭いプロンプトとツールセットを渡します。委任を集中させ、補助エージェントが誤って全体調整を奪うことを防ぎます。"
+      }
+    }
+  ]
+}

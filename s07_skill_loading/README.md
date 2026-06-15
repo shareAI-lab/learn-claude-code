@@ -37,7 +37,7 @@ SYSTEM = (
 | 层 | 位置 | 时机 | 代价 |
 |---|------|------|------|
 | 1. 目录 | system prompt | 启动时注入（harness 扫描 skills/） | ~100 tokens/skill，每轮都带 |
-| 2. 内容 | tool_result | Agent 调用 load_skill 时 | ~2000 tokens/skill，按需 |
+| 2. 内容 | tool_result | Agent 调用 load_skill 时；SKILL.md 可指引后续的 read_file/bash 调用，用于按需访问额外资源 | ~2000 tokens/skill，按需 |
 
 dispatch 机制不变，load_skill 通过 `TOOL_HANDLERS[block.name]` 分发。
 
@@ -90,7 +90,7 @@ def build_system() -> str:
 SYSTEM = build_system()
 ```
 
-**第二级：load_skill**：Agent 决定"我需要 SQL 风格指南"，调用 `load_skill("sql-style")`。通过注册表查找，不走文件路径，没有路径遍历风险。内容通过 `tool_result` 注入：
+**第二级：load_skill**：Agent 决定"我需要 SQL 风格指南"，调用 `load_skill("sql-style")`。通过注册表查找，不走文件路径，没有路径遍历风险。SKILL.md 内容通过 `tool_result` 注入，并可通过现有的 file 和 bash 工具进一步访问引用的 `references/`、`scripts/` 或 `assets/`。
 
 ```python
 def load_skill(name: str) -> str:
@@ -109,7 +109,7 @@ def load_skill(name: str) -> str:
 | 组件 | 之前 (s06) | 之后 (s07) |
 |------|-----------|-----------|
 | 工具数量 | 7 (bash, read, write, edit, glob, todo_write, task) | 8 (+load_skill) |
-| 知识加载 | 无 | 两级：启动时目录注入 SYSTEM + 运行时 load_skill |
+| 知识加载 | 无 | 两级：启动时目录注入 SYSTEM + 运行时 load_skill；SKILL.md 可指引后续资源访问 |
 | SYSTEM 提示 | 静态字符串 | 启动时扫描 skills/ 注入目录 |
 | 技能注册表 | 无 | SKILL_REGISTRY（启动时填充，防路径遍历） |
 | 循环 | 不变 | 不变（skill 工具自动分发） |
@@ -168,7 +168,7 @@ CC 的 SKILL.md YAML frontmatter 由 `parseSkillFrontmatterFields()` 解析（`l
 ### 三、两级加载的精确实现
 
 1. **Catalog（启动时）**：`getSkillDirCommands()` 扫描目录 → 注册为 `Command` 对象，只包含元数据。`getSkillListingAttachments()` 把技能列表格式化为附件，预算为上下文窗口的 ~1%（上限 8000 字符）。
-2. **Load（调用时）**：模型调 `Skill` 工具（输入字段是 `skill` + 可选 `args`，教学版用 `name`）→ `getPromptForCommand()` 展开完整 SKILL.md 内容 → `SkillTool` 返回的 tool_result 展示文本只是 `"Launching skill: {name}"`，真正的技能内容通过 `newMessages` 注入对话。教学版把两者合并为"通过 tool_result 注入"是一种简化。
+2. **Load（调用时）**：模型调 `Skill` 工具（输入字段是 `skill` + 可选 `args`，教学版用 `name`）→ `getPromptForCommand()` 展开完整 SKILL.md 内容 → `SkillTool` 返回的 tool_result 展示文本只是 `"Launching skill: {name}"`，真正的技能内容通过 `newMessages` 注入对话。教学版把两者合并为"通过 tool_result 注入"是一种简化；加载后的 SKILL.md 仍可作为指引，帮助模型后续通过现有 file/bash 工具访问相关资源。
 
 ### 教学版的简化是刻意的
 
@@ -179,4 +179,4 @@ CC 的 SKILL.md YAML frontmatter 由 `parseSkillFrontmatterFields()` 解析（`l
 
 </details>
 
-<!-- translation-sync: zh@v1, en@v1, ja@v1 -->
+<!-- translation-sync: zh@v2, en@v2, ja@v2 -->

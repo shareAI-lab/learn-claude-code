@@ -28,7 +28,7 @@ Run: python s06_subagent/code.py
 Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
 """
 
-import os, subprocess, json
+import ast, json, os, subprocess
 from pathlib import Path
 
 try:
@@ -45,9 +45,9 @@ if os.getenv("ANTHROPIC_BASE_URL"):
     os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
 
 WORKDIR = Path.cwd()
-TASKS_DIR = WORKDIR / ".tasks"; TASKS_DIR.mkdir(exist_ok=True)
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
+CURRENT_TODOS: list[dict] = []
 
 SYSTEM = (
     f"You are a coding agent at {WORKDIR}. "
@@ -121,26 +121,38 @@ def run_glob(pattern: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-def run_todo_write(todos: list) -> str:
+def _normalize_todos(todos):
+    if isinstance(todos, str):
+        try:
+            todos = json.loads(todos)
+        except json.JSONDecodeError:
+            try:
+                todos = ast.literal_eval(todos)
+            except (SyntaxError, ValueError):
+                return None, "Error: todos must be a list or JSON array string"
+    if not isinstance(todos, list):
+        return None, "Error: todos must be a list"
     for i, t in enumerate(todos):
+        if not isinstance(t, dict):
+            return None, f"Error: todos[{i}] must be an object"
         if "content" not in t or "status" not in t:
-            return f"Error: todos[{i}] missing 'content' or 'status'"
+            return None, f"Error: todos[{i}] missing 'content' or 'status'"
         if t["status"] not in ("pending", "in_progress", "completed"):
-            return f"Error: todos[{i}] has invalid status '{t['status']}'"
-    tasks_file = TASKS_DIR / "current_todos.json"
-    tasks_file.write_text(json.dumps(todos, indent=2, ensure_ascii=False))
+            return None, f"Error: todos[{i}] has invalid status '{t['status']}'"
+    return todos, None
+
+def run_todo_write(todos: list) -> str:
+    global CURRENT_TODOS
+    todos, error = _normalize_todos(todos)
+    if error:
+        return error
+    CURRENT_TODOS = todos
     lines = ["\n\033[33m## Current Tasks\033[0m"]
-    for t in todos:
+    for t in CURRENT_TODOS:
         icon = {"pending": " ", "in_progress": "\033[36m▸\033[0m", "completed": "\033[32m✓\033[0m"}[t["status"]]
         lines.append(f"  [{icon}] {t['content']}")
     print("\n".join(lines))
-    return f"Updated {len(todos)} tasks"
-
-def extract_text(content) -> str:
-    """Extract text from message content blocks."""
-    if not isinstance(content, list):
-        return str(content)
-    return "\n".join(getattr(b, "text", "") for b in content if getattr(b, "type", None) == "text")
+    return f"Updated {len(CURRENT_TODOS)} tasks"
 
 TOOLS = [
     {"name": "bash", "description": "Run a shell command.",
@@ -185,6 +197,12 @@ SUB_HANDLERS = {
     "bash": run_bash, "read_file": run_read, "write_file": run_write,
     "edit_file": run_edit, "glob": run_glob,
 }
+
+def extract_text(content) -> str:
+    """Extract text from message content blocks."""
+    if not isinstance(content, list):
+        return str(content)
+    return "\n".join(getattr(b, "text", "") for b in content if getattr(b, "type", None) == "text")
 
 def spawn_subagent(description: str) -> str:
     """Spawn a subagent with fresh messages[], return summary only."""

@@ -1,51 +1,40 @@
 {
   "version": "s06",
-  "title": "Compact",
-  "description": "Agent compresses context when tokens exceed threshold",
+  "title": "Subagent",
+  "description": "The task tool spawns a fresh subagent context and returns only a final summary to the parent.",
   "steps": [
     {
       "type": "user_message",
-      "content": "Analyze all Python files in this project and summarize each one",
-      "annotation": "A task that will generate large amounts of context"
+      "content": "Explore how the CLI parser works without polluting this main context.",
+      "annotation": "The user asks for exploratory work that can be isolated."
     },
     {
       "type": "tool_call",
-      "content": "find . -name '*.py' -type f",
-      "toolName": "bash",
-      "annotation": "Finding all files to analyze"
-    },
-    {
-      "type": "tool_result",
-      "content": "./src/main.py\n./src/utils.py\n./src/models.py\n./tests/test_main.py\n... (28 more files)",
-      "toolName": "bash",
-      "annotation": "32 files found -- reading all of them will generate massive context"
-    },
-    {
-      "type": "assistant_text",
-      "content": "I'll read and analyze each file systematically.",
-      "annotation": "Agent begins processing files one by one"
-    },
-    {
-      "type": "tool_call",
-      "content": "./src/main.py",
-      "toolName": "read_file",
-      "annotation": "Reading file 1 of 32..."
-    },
-    {
-      "type": "tool_result",
-      "content": "[... 450 lines of code ...]",
-      "toolName": "read_file",
-      "annotation": "Large file content added to messages[]"
+      "toolName": "task",
+      "content": "{\"prompt\":\"Explore the CLI parser and summarize the control flow.\"}",
+      "annotation": "The parent delegates through the task tool."
     },
     {
       "type": "system_event",
-      "content": "[ContextManager] Token count: 148,231 / 150,000 threshold\nTriggering 3-layer compression:\n  1. Drop tool_result content > 1000 chars -> replaced with summary\n  2. Merge sequential assistant turns\n  3. Summarize oldest 50% of conversation\nResult: 148,231 -> 42,087 tokens",
-      "annotation": "Compression fires automatically when approaching the limit"
+      "content": "spawn_subagent: messages=[{role:\"user\", content: prompt}], tools=bash/read/write/edit/glob",
+      "annotation": "The child receives a fresh message history and no recursive task tool."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "read_file",
+      "content": "{\"path\":\"cli.py\"}",
+      "annotation": "Inside the child loop, intermediate tool calls stay private."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "task",
+      "content": "Summary: cli.py parses args, selects a command handler, then dispatches.",
+      "annotation": "Only the subagent's final summary returns to the parent."
     },
     {
       "type": "assistant_text",
-      "content": "Continuing analysis with compressed context. Files 1-18 have been summarized, proceeding with remaining files.",
-      "annotation": "Forgetting old tool results enables infinite work -- the agent can process any number of files"
+      "content": "The parser is isolated in cli.py and dispatches by command name. I'll use that summary in the main plan.",
+      "annotation": "The parent avoids carrying every exploratory detail."
     }
   ]
 }

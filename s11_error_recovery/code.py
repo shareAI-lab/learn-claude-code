@@ -352,10 +352,14 @@ if __name__ == "__main__":
             break
         if query.strip().lower() in ("q", "exit", ""):
             break
+        turn_start = len(history)
         history.append({"role": "user", "content": query})
         agent_loop(history, context)
         context = update_context(context, history)
-        for block in history[-1]["content"]:
-            if getattr(block, "type", None) == "text":
-                print(block.text)
+        for msg in history[turn_start:]:
+            if msg.get("role") != "assistant":
+                continue
+            for block in msg["content"]:
+                if getattr(block, "type", None) == "text":
+                    print(block.text)
         print()

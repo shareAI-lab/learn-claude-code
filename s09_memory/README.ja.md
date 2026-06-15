@@ -76,9 +76,9 @@ def write_memory_file(name, mem_type, description, body):
 
 ### 読み込み：2 つのパス
 
-**パス 1：インデックスを SYSTEM に常駐。** `build_system()` は毎ターン SYSTEM を再構築する際に `MEMORY.md` を読み込み、記憶カタログを注入。SYSTEM prompt 内のインデックスは prompt cache でキャッシュ可能で、毎ターン再送不要。
+**パス 1：インデックスを SYSTEM に常駐。** `build_system()` は各ユーザーリクエストの開始時に 1 回だけ `MEMORY.md` を読み込み、記憶カタログを SYSTEM prompt に注入。記憶の抽出と整理はターン終了時にだけ実行されるため、同じユーザーリクエスト内で SYSTEM を繰り返し再構築する必要はない。
 
-**パス 2：関連記憶をオンデマンド注入。** 各 LLM 呼び出し前、`load_memories()` は最近の会話と記憶カタログ（name + description）を LLM に軽量 side-query として送信し、関連するファイル名を選択、ファイル内容を読み込んで注入。上限 5 件でコストを制御。
+**パス 2：関連記憶をオンデマンド注入。** 各ユーザーリクエストの開始時に、`load_memories()` は最近の会話と記憶カタログ（name + description）を LLM に軽量 side-query として送信し、関連するファイル名を選択、ファイル内容を読み込んで注入。上限 5 件でコストを制御。
 
 ```python
 def select_relevant_memories(messages, max_items=5):

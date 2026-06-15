@@ -37,7 +37,7 @@ Two-level design:
 | Level | Location | Timing | Cost |
 |-------|----------|--------|------|
 | 1. Catalog | system prompt | Injected at startup (harness scans skills/) | ~100 tokens/skill, carried every turn |
-| 2. Content | tool_result | When Agent calls load_skill | ~2000 tokens/skill, on demand |
+| 2. Content | tool_result | When Agent calls load_skill; SKILL.md can guide later read_file/bash access to extra resources | ~2000 tokens/skill, on demand |
 
 The dispatch mechanism is unchanged, `load_skill` auto-dispatches via `TOOL_HANDLERS[block.name]`.
 
@@ -90,7 +90,7 @@ def build_system() -> str:
 SYSTEM = build_system()
 ```
 
-**Level 2: load_skill**: the Agent decides "I need the SQL style guide" and calls `load_skill("sql-style")`. Lookup goes through the registry, not file paths, eliminating path traversal risk. The content is injected via `tool_result`:
+**Level 2: load_skill**: the Agent decides "I need the SQL style guide" and calls `load_skill("sql-style")`. Lookup goes through the registry, not file paths, eliminating path traversal risk. The SKILL.md content is injected via `tool_result`, and can include later access to referenced `references/`, `scripts/`, or `assets/` through the existing file and bash tools.
 
 ```python
 def load_skill(name: str) -> str:
@@ -109,7 +109,7 @@ The key distinction: skill content is not part of the system prompt. It enters t
 | Component | Before (s06) | After (s07) |
 |-----------|-------------|-------------|
 | Tool count | 7 (bash, read, write, edit, glob, todo_write, task) | 8 (+load_skill) |
-| Knowledge loading | None | Two-level: startup catalog in SYSTEM + runtime load_skill |
+| Knowledge loading | None | Two-level: startup catalog in SYSTEM + runtime load_skill; SKILL.md may guide later resource access |
 | SYSTEM prompt | Static string | Startup scan of skills/ injects catalog |
 | Skill registry | None | SKILL_REGISTRY (populated at startup, prevents path traversal) |
 | Loop | Unchanged | Unchanged (skill tool auto-dispatches) |
@@ -168,7 +168,7 @@ The complete field list changes across versions; above are the core fields relev
 ### 3. Precise Implementation of Two-Level Loading
 
 1. **Catalog (at startup)**: `getSkillDirCommands()` scans directory → registers as `Command` objects containing only metadata. `getSkillListingAttachments()` formats the skill list as attachments, budgeted at ~1% of the context window (cap 8000 characters).
-2. **Load (on invocation)**: Model calls `Skill` tool (input fields are `skill` + optional `args`; teaching version uses `name`) → `getPromptForCommand()` expands full SKILL.md content → `SkillTool` returns a tool_result with display text `"Launching skill: {name}"`, while the actual skill content is injected via `newMessages`. The teaching version merges both into "injected via tool_result" as a simplification.
+2. **Load (on invocation)**: Model calls `Skill` tool (input fields are `skill` + optional `args`; teaching version uses `name`) → `getPromptForCommand()` expands full SKILL.md content → `SkillTool` returns a tool_result with display text `"Launching skill: {name}"`, while the actual skill content is injected via `newMessages`. The teaching version merges both into "injected via tool_result" as a simplification; the loaded SKILL.md can still guide later access to referenced resources through existing file/bash tools.
 
 ### The Teaching Version's Simplification Is Intentional
 
@@ -179,4 +179,4 @@ The complete field list changes across versions; above are the core fields relev
 
 </details>
 
-<!-- translation-sync: zh@v1, en@v1, ja@v1 -->
+<!-- translation-sync: zh@v2, en@v2, ja@v2 -->

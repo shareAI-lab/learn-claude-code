@@ -2,45 +2,45 @@
   "version": "s05",
   "decisions": [
     {
-      "id": "tool-result-injection",
-      "title": "Skills Inject via tool_result, Not System Prompt",
-      "description": "When the agent invokes the Skill tool, the skill's content (a SKILL.md file) is returned as a tool_result in a user message, not injected into the system prompt. This is a deliberate caching optimization: the system prompt remains static across turns, which means API providers can cache it (Anthropic's prompt caching, OpenAI's system message caching). If skill content were in the system prompt, it would change every time a new skill is loaded, invalidating the cache. By putting dynamic content in tool_result, we keep the expensive system prompt cacheable while still getting skill knowledge into context.",
-      "alternatives": "Injecting skills into the system prompt is simpler and gives skills higher priority in the model's attention. But it breaks prompt caching (every skill load creates a new system prompt variant) and bloats the system prompt over time as skills accumulate. The tool_result approach keeps things cache-friendly at the cost of slightly lower attention priority.",
+      "id": "todo-as-tool",
+      "title": "TodoWrite Is a Tool, Not a Hidden Planner",
+      "description": "Planning enters the same tool dispatch path as bash or read_file. This keeps the planning state visible and lets the model decide when to update it.",
+      "alternatives": "An automatic planner could create todos behind the scenes, but the user would not see when the model's intent changed.",
       "zh": {
-        "title": "Skill 通过 tool_result 注入，而非系统提示词",
-        "description": "当 agent 调用 Skill 工具时，Skill 内容（SKILL.md 文件）作为 tool_result 在用户消息中返回，而非注入系统提示词。这是一个刻意的缓存优化：系统提示词在各轮次间保持静态，API 提供商可以缓存它（Anthropic 的 prompt caching、OpenAI 的 system message caching）。如果 Skill 内容在系统提示词中，每次加载新 Skill 都会使缓存失效。将动态内容放在 tool_result 中，既保持了昂贵的系统提示词可缓存，又让 Skill 知识进入了上下文。"
+        "title": "TodoWrite 是工具，不是隐藏规划器",
+        "description": "规划通过和 bash、read_file 相同的工具分发路径进入系统。这样计划状态可见，模型也能决定何时更新。"
       },
       "ja": {
-        "title": "スキルはシステムプロンプトではなく tool_result で注入",
-        "description": "エージェントが Skill ツールを呼び出すと、スキルの内容（SKILL.md ファイル）はシステムプロンプトへの注入ではなく、ユーザーメッセージ内の tool_result として返されます。これは意図的なキャッシュ最適化です：システムプロンプトはターン間で静的に保たれるため、API プロバイダーがキャッシュできます（Anthropic のプロンプトキャッシュ、OpenAI のシステムメッセージキャッシュ）。スキル内容がシステムプロンプト内にあると、新しいスキルをロードするたびにキャッシュが無効化されます。動的コンテンツを tool_result に配置することで、高コストなシステムプロンプトのキャッシュ可能性を維持しつつ、スキル知識をコンテキストに取り込めます。"
+        "title": "TodoWrite は隠れたプランナーではなくツール",
+        "description": "計画は bash や read_file と同じツールディスパッチ経路に入ります。計画状態が可視化され、モデルが更新タイミングを選べます。"
       }
     },
     {
-      "id": "lazy-loading",
-      "title": "On-Demand Skill Loading Instead of Upfront",
-      "description": "Skills are not loaded at startup. The agent starts with only the skill names and descriptions (from frontmatter). When the agent decides it needs a specific skill, it calls the Skill tool, which loads the full SKILL.md body into context. This keeps the initial prompt small and focused. An agent solving a Python bug doesn't need the Kubernetes deployment skill loaded -- that would waste context window space and potentially confuse the model with irrelevant instructions.",
-      "alternatives": "Loading all skills upfront guarantees the model always has all knowledge available, but wastes tokens on irrelevant skills and may hit context limits. A recommendation system (model suggests skills, human approves) adds latency. Lazy loading lets the model self-serve the knowledge it needs, when it needs it.",
+      "id": "nag-reminder",
+      "title": "A Lightweight Reminder Prevents Plan Drift",
+      "description": "After several rounds without todo updates, the runtime injects a reminder. The reminder nudges the model without taking over the plan.",
+      "alternatives": "Forcing a todo update every turn would be noisy and slow down simple tasks.",
       "zh": {
-        "title": "按需加载 Skill 而非预加载",
-        "description": "Skill 不会在启动时加载。Agent 初始只拥有 Skill 名称和描述（来自 frontmatter）。当 agent 判断需要特定 Skill 时，调用 Skill 工具将完整的 SKILL.md 内容加载到上下文中。这保持了初始提示词的精简。一个正在修复 Python bug 的 agent 不需要加载 Kubernetes 部署 Skill——那会浪费上下文窗口空间，还可能用无关指令干扰模型。"
+        "title": "轻量提醒防止计划漂移",
+        "description": "多个回合没有更新 todo 后，运行时会注入提醒。它只提醒模型，不接管计划。"
       },
       "ja": {
-        "title": "起動時ではなくオンデマンドでスキルを読み込み",
-        "description": "スキルは起動時に読み込まれません。エージェントは最初、スキルの名前と説明（フロントマターから）のみを持ちます。エージェントが特定のスキルが必要だと判断すると、Skill ツールを呼び出して完全な SKILL.md の内容をコンテキストに読み込みます。これにより初期プロンプトを小さく保ちます。Python のバグを修正しているエージェントに Kubernetes デプロイのスキルは不要です――コンテキストウィンドウの無駄遣いであり、無関係な指示でモデルを混乱させかねません。"
+        "title": "軽量リマインダーで計画の漂流を防ぐ",
+        "description": "数ターン todo 更新がない場合、ランタイムはリマインダーを注入します。計画を奪わず、モデルに更新を促します。"
       }
     },
     {
-      "id": "frontmatter-body-split",
-      "title": "YAML Frontmatter + Markdown Body in SKILL.md",
-      "description": "Each SKILL.md file has two parts: YAML frontmatter (name, description, globs) and a markdown body (the actual instructions). The frontmatter serves as metadata for the skill registry -- it's what gets listed when the agent asks 'what skills are available?' The body is the payload that gets loaded on demand. This separation means you can list 100 skills (reading only frontmatter, a few bytes each) without loading 100 full instruction sets (potentially thousands of tokens each).",
-      "alternatives": "A separate metadata file (skill.yaml + skill.md) would work but doubles the number of files. Embedding metadata in the markdown (as headings or comments) requires parsing the full file to extract metadata. Frontmatter is a well-established convention (Jekyll, Hugo, Astro) that keeps metadata and content co-located but separately parseable.",
+      "id": "in-memory-current-work",
+      "title": "Current Todos Stay Session-Local",
+      "description": "TodoWrite is for the current session's working plan, not durable project management. Later task systems handle persistent work.",
+      "alternatives": "Persisting every todo immediately would blur the difference between a scratch plan and a durable task graph.",
       "zh": {
-        "title": "SKILL.md 采用 YAML Frontmatter + Markdown 正文",
-        "description": "每个 SKILL.md 文件有两部分：YAML frontmatter（名称、描述、globs）和 markdown 正文（实际指令）。Frontmatter 作为 Skill 注册表的元数据——当 agent 问'有哪些可用 Skill'时，展示的就是这些信息。正文是按需加载的有效负载。这种分离意味着可以列出 100 个 Skill（每个只读几字节的 frontmatter）而不必加载 100 套完整指令集（每套可能数千 token）。"
+        "title": "当前 Todo 保持会话内状态",
+        "description": "TodoWrite 面向当前会话的工作计划，不是持久项目管理。后面的任务系统负责持久工作。"
       },
       "ja": {
-        "title": "SKILL.md で YAML フロントマター + Markdown 本文",
-        "description": "各 SKILL.md ファイルは2つの部分で構成されます：YAML フロントマター（名前、説明、globs）と Markdown 本文（実際の指示）。フロントマターはスキルレジストリのメタデータとして機能し、エージェントが「どんなスキルが利用可能か」と問い合わせた際に一覧表示されます。本文はオンデマンドで読み込まれるペイロードです。この分離により、100個のスキル一覧表示（各数バイトのフロントマターのみ読み取り）が100個の完全な指示セット（各数千トークン）のロードなしに可能になります。"
+        "title": "現在の todo はセッション内に留める",
+        "description": "TodoWrite は現在セッションの作業計画であり、永続的なプロジェクト管理ではありません。永続作業は後のタスクシステムが扱います。"
       }
     }
   ]

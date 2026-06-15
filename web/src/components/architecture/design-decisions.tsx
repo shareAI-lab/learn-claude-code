@@ -22,6 +22,14 @@ import s09Annotations from "@/data/annotations/s09.json";
 import s10Annotations from "@/data/annotations/s10.json";
 import s11Annotations from "@/data/annotations/s11.json";
 import s12Annotations from "@/data/annotations/s12.json";
+import s13Annotations from "@/data/annotations/s13.json";
+import s14Annotations from "@/data/annotations/s14.json";
+import s15Annotations from "@/data/annotations/s15.json";
+import s16Annotations from "@/data/annotations/s16.json";
+import s17Annotations from "@/data/annotations/s17.json";
+import s18Annotations from "@/data/annotations/s18.json";
+import s19Annotations from "@/data/annotations/s19.json";
+import s20Annotations from "@/data/annotations/s20.json";
 
 interface DecisionLocaleCopy {
   title?: string;
@@ -56,6 +64,14 @@ const ANNOTATIONS: Record<string, AnnotationFile> = {
   s10: s10Annotations as AnnotationFile,
   s11: s11Annotations as AnnotationFile,
   s12: s12Annotations as AnnotationFile,
+  s13: s13Annotations as AnnotationFile,
+  s14: s14Annotations as AnnotationFile,
+  s15: s15Annotations as AnnotationFile,
+  s16: s16Annotations as AnnotationFile,
+  s17: s17Annotations as AnnotationFile,
+  s18: s18Annotations as AnnotationFile,
+  s19: s19Annotations as AnnotationFile,
+  s20: s20Annotations as AnnotationFile,
 };
 
 const GENERIC_ANNOTATIONS: Record<string, AnnotationFile> = {
@@ -780,7 +796,14 @@ export function DesignDecisions({ version }: DesignDecisionsProps) {
     : ANNOTATIONS[resolveLegacySessionAssetVersion(version)];
 
   if (!annotations || annotations.decisions.length === 0) {
-    return null;
+    return (
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">{t("design_decisions")}</h2>
+        <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] p-6 text-sm text-[var(--color-text-secondary)]">
+          Design decisions are not available for this lesson yet.
+        </div>
+      </div>
+    );
   }
 
   return (

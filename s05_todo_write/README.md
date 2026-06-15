@@ -32,19 +32,21 @@ dispatch 机制不变，新工具仍然走 `TOOL_HANDLERS[block.name]` 分发。
 
 ## 工作原理
 
-**todo_write 工具**，接收一个带状态的列表，持久化到 `.tasks/current_todos.json`（教学版写盘以便观察），同时在终端显示进度：
+**todo_write 工具**，接收一个带状态的列表，保存在当前进程内存中，同时在终端显示进度：
 
 ```python
+CURRENT_TODOS: list[dict] = []
+
 def run_todo_write(todos: list) -> str:
-    tasks_file = TASKS_DIR / "current_todos.json"
-    tasks_file.write_text(json.dumps(todos, indent=2, ensure_ascii=False))
+    global CURRENT_TODOS
+    CURRENT_TODOS = todos
 
     lines = ["\n## Current Tasks"]
-    for t in todos:
+    for t in CURRENT_TODOS:
         icon = {"pending": " ", "in_progress": "▸", "completed": "✓"}[t["status"]]
         lines.append(f"  [{icon}] {t['content']}")
     print("\n".join(lines))
-    return f"Updated {len(todos)} tasks"
+    return f"Updated {len(CURRENT_TODOS)} tasks"
 ```
 
 工具定义和其他 5 个工具一起加入 dispatch map：
@@ -135,7 +137,7 @@ s06 Subagent → 把大任务拆成子任务，每个子任务派一个独立的
 
 CC 中有两套任务系统并存（`tasks.ts:133-139`）：
 
-- **TodoWrite（V1）**：一个简单的列表工具，数据在内存 AppState 中维护（`TodoWriteTool.ts:65-103`）。教学版写盘到 `.tasks/current_todos.json` 是为了可观察性，真实 V1 不写盘
+- **TodoWrite（V1）**：一个简单的列表工具，数据在内存 AppState 中维护（`TodoWriteTool.ts:65-103`）。教学版也保存在进程内存里，退出后清空
 - **Task System（V2 = s12）**：文件持久化、依赖图、并发锁、ownership
 
 切换由 `isTodoV2Enabled()` 控制。当前源码的实现逻辑：交互式会话中 V2 默认启用，非交互式会话（SDK）中 V1 默认启用；设置 `CLAUDE_CODE_ENABLE_TASKS` 环境变量可强制启用 V2。注意源码注释 "Force-enable tasks in non-interactive mode" 描述的是 env var 路径的用途，和默认分支的返回值语义不同，阅读时需区分。
@@ -153,4 +155,4 @@ Task System 相比 TodoWrite 的核心增量：
 
 </details>
 
-<!-- translation-sync: zh@v1, en@v0, ja@v0 -->
+<!-- translation-sync: zh@v1, en@v1, ja@v1 -->

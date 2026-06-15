@@ -1,44 +1,33 @@
 {
   "version": "s11",
-  "title": "Autonomous Agents",
-  "description": "Teammates self-govern with idle cycles and auto-claiming",
+  "title": "Error Recovery",
+  "description": "LLM calls are wrapped with targeted recovery paths for token limits, prompt overflow, and transient provider errors.",
   "steps": [
     {
-      "type": "user_message",
-      "content": "Implement the full feature backlog",
-      "annotation": "Open-ended task for autonomous team execution"
+      "type": "system_event",
+      "content": "try LLM call with max_tokens=8000",
+      "annotation": "The normal path is still a regular model call."
+    },
+    {
+      "type": "system_event",
+      "content": "error=max_tokens -> escalate to 64000 without appending a fake user message",
+      "annotation": "Token exhaustion gets a continuation-aware recovery path."
+    },
+    {
+      "type": "system_event",
+      "content": "error=prompt_too_long -> reactive_compact(messages) -> retry once",
+      "annotation": "Prompt overflow triggers compaction instead of blind retry."
+    },
+    {
+      "type": "system_event",
+      "content": "error=529 -> exponential backoff with jitter; repeated 529 -> fallback model",
+      "annotation": "Transient provider errors use backoff and model fallback."
     },
     {
       "type": "tool_call",
-      "content": "create_tasks([\n  { title: \"User authentication\", status: \"open\" },\n  { title: \"Dashboard UI\", status: \"open\" },\n  { title: \"API rate limiting\", status: \"open\" },\n  { title: \"Integration tests\", status: \"open\" }\n])",
-      "toolName": "task_manager",
-      "annotation": "Tasks created with no owner -- available for auto-claiming"
-    },
-    {
-      "type": "tool_result",
-      "content": "4 tasks created on shared board",
-      "toolName": "task_manager",
-      "annotation": "Unassigned tasks visible to all teammates"
-    },
-    {
-      "type": "system_event",
-      "content": "[frontend-dev] Idle cycle triggered\n  1. Check inbox -> 0 messages\n  2. Poll task board -> found unowned task #2 \"Dashboard UI\"\n  3. Auto-claim task #2\n  4. Status: idle -> working",
-      "annotation": "Idle cycle: check inbox, poll tasks, auto-claim, resume work"
-    },
-    {
-      "type": "system_event",
-      "content": "[backend-dev] Idle cycle triggered\n  1. Check inbox -> 0 messages\n  2. Poll task board -> found unowned task #1 \"User authentication\"\n  3. Auto-claim task #1\n  4. Status: idle -> working",
-      "annotation": "Multiple teammates claim different tasks concurrently"
-    },
-    {
-      "type": "system_event",
-      "content": "[tester] Idle cycle triggered\n  1. Check inbox -> 0 messages\n  2. Poll task board -> task #4 blocked by #1, #2, #3\n  3. No claimable tasks\n  4. Status: idle (will retry in 30s)",
-      "annotation": "Timeout-based polling prevents busy-waiting"
-    },
-    {
-      "type": "assistant_text",
-      "content": "Team is self-organizing: frontend-dev claimed Dashboard UI, backend-dev claimed User auth. Tester is waiting for dependencies to clear.",
-      "annotation": "Polling + timeout makes teammates autonomous -- no micromanagement needed"
+      "toolName": "read_file",
+      "content": "{\"path\":\"README.md\"}",
+      "annotation": "After recovery succeeds, the agent continues the normal tool loop."
     }
   ]
 }

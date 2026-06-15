@@ -2,45 +2,45 @@
   "version": "s03",
   "decisions": [
     {
-      "id": "visible-planning",
-      "title": "Making Plans Visible via TodoWrite",
-      "description": "Instead of letting the model plan silently in its chain-of-thought, we force plans to be externalized through the TodoWrite tool. Each plan item has a status (pending, in_progress, completed) that gets tracked explicitly. This has three benefits: (1) users can see what the agent intends to do before it does it, (2) developers can debug agent behavior by inspecting the plan state, (3) the agent itself can refer back to its plan in later turns when earlier context has scrolled away.",
-      "alternatives": "The model could plan internally via chain-of-thought reasoning (as it does in v0/v1). Internal planning works but is invisible and ephemeral -- once the thinking scrolls out of context, the plan is lost. Claude's extended thinking is another option, but it's not inspectable by the user or by downstream tools.",
+      "id": "permission-before-execution",
+      "title": "Permission Runs Before Tool Execution",
+      "description": "The permission check is inserted between the model's tool call and the handler. The model can ask for an action, but the harness decides whether the action may touch the real workspace.",
+      "alternatives": "Putting permission inside each tool duplicates policy and makes it easier for a new tool to forget the check.",
       "zh": {
-        "title": "通过 TodoWrite 让计划可见",
-        "description": "我们不让模型在思维链中默默规划，而是强制通过 TodoWrite 工具将计划外化。每个计划项都有可追踪的状态（pending、in_progress、completed）。这有三个好处：(1) 用户可以在执行前看到 agent 打算做什么；(2) 开发者可以通过检查计划状态来调试 agent 行为；(3) agent 自身可以在后续轮次中引用计划，即使早期上下文已经滚出窗口。"
+        "title": "权限检查发生在工具执行前",
+        "description": "权限检查插在模型 tool call 和 handler 之间。模型可以请求动作，但是否允许触碰真实工作区由 harness 决定。"
       },
       "ja": {
-        "title": "TodoWrite による計画の可視化",
-        "description": "モデルが思考の連鎖の中で黙って計画するのではなく、TodoWrite ツールを通じて計画を外部化することを強制します。各計画項目には追跡可能なステータス（pending、in_progress、completed）があります。利点は3つ：(1) ユーザーがエージェントの意図を実行前に確認できる、(2) 開発者が計画状態を検査してデバッグできる、(3) エージェント自身が以前のコンテキストがスクロールアウトした後でも計画を参照できる。"
+        "title": "権限確認はツール実行前に行う",
+        "description": "権限確認はモデルの tool call と handler の間に入ります。モデルは操作を要求できますが、実際のワークスペースに触れてよいかは harness が決めます。"
       }
     },
     {
-      "id": "single-in-progress",
-      "title": "Only One Task Can Be In-Progress",
-      "description": "The TodoWrite tool enforces that at most one task has status 'in_progress' at any time. If the model tries to start a second task, it must first complete or abandon the current one. This constraint prevents a subtle failure mode: models that try to 'multitask' by interleaving work on multiple items tend to lose track of state and produce half-finished results. Sequential focus produces higher quality than parallel thrashing.",
-      "alternatives": "Allowing multiple in-progress items would let the agent context-switch between tasks, which seems more flexible. In practice, LLMs handle context-switching poorly -- they lose track of which task they were working on and mix up details between tasks. The single-focus constraint is a guardrail that improves output quality.",
+      "id": "three-gate-model",
+      "title": "Three Gates Keep Policy Explainable",
+      "description": "Hard denies, rule matches, and user approval are separate gates. That makes it clear whether a command was impossible, risky, or simply waiting for confirmation.",
+      "alternatives": "A single allow/deny function is shorter, but it hides why a command stopped.",
       "zh": {
-        "title": "同一时间只允许一个任务进行中",
-        "description": "TodoWrite 工具强制要求任何时候最多只能有一个任务处于 in_progress 状态。如果模型想开始第二个任务，必须先完成或放弃当前任务。这个约束防止了一种隐蔽的失败模式：试图通过交替处理多个项目来'多任务'的模型，往往会丢失状态并产出半成品。顺序执行的专注度远高于并行切换。"
+        "title": "三道门让策略可解释",
+        "description": "硬拒绝、规则匹配、用户确认是分开的关卡。这样能看清命令是绝对禁止、有风险，还是只是在等确认。"
       },
       "ja": {
-        "title": "同時に進行中にできるタスクは1つだけ",
-        "description": "TodoWrite ツールは、同時に 'in_progress' 状態のタスクを最大1つに制限します。モデルが2つ目のタスクを開始しようとする場合、まず現在のタスクを完了または中断する必要があります。この制約は微妙な失敗モードを防ぎます：複数の項目を交互に処理して「マルチタスク」しようとするモデルは、状態を見失い中途半端な結果を生みがちです。逐次的な集中は並行的な切り替えよりも高品質な出力を生み出します。"
+        "title": "三つのゲートでポリシーを説明可能にする",
+        "description": "ハード拒否、ルール照合、ユーザー承認を分けます。コマンドが不可能なのか、危険なのか、確認待ちなのかが明確になります。"
       }
     },
     {
-      "id": "max-twenty-items",
-      "title": "Maximum of 20 Plan Items",
-      "description": "TodoWrite caps the plan at 20 items. This is a deliberate constraint against over-planning. Models tend to decompose tasks into increasingly fine-grained steps when unconstrained, producing 50-item plans where each step is trivial. Long plans are fragile: if step 15 fails, the remaining 35 steps may all be invalid. Short plans (under 20 items) stay at the right abstraction level and are easier to adapt when reality diverges from the plan.",
-      "alternatives": "No cap would give the model full flexibility, but in practice leads to absurdly detailed plans. A dynamic cap (proportional to task complexity) would be smarter but adds complexity. The fixed cap of 20 is a simple heuristic that works well empirically -- most real coding tasks can be expressed in 5-15 meaningful steps.",
+      "id": "continue-with-tool-result",
+      "title": "Blocked Calls Still Produce Loop State",
+      "description": "A blocked tool call must still leave the loop in a coherent state. The user and model need to know why execution did not happen before choosing the next action.",
+      "alternatives": "Silently skipping a blocked tool is simpler, but the model may repeat the same unsafe request.",
       "zh": {
-        "title": "计划项上限为 20 条",
-        "description": "TodoWrite 将计划项限制在 20 条以内。这是对过度规划的刻意约束。不加限制时，模型倾向于将任务分解成越来越细粒度的步骤，产出 50 条的计划，每一步都微不足道。冗长的计划很脆弱：如果第 15 步失败，剩下的 35 步可能全部作废。20 条以内的短计划保持在正确的抽象层级，更容易在现实偏离计划时做出调整。"
+        "title": "被拦截的调用也要留下循环状态",
+        "description": "被拦截的工具调用仍然要让循环状态保持一致。用户和模型都需要知道为什么没有执行，才能决定下一步。"
       },
       "ja": {
-        "title": "計画項目の上限は20個",
-        "description": "TodoWrite は計画を20項目に制限します。これは過度な計画に対する意図的な制約です。制約がないとモデルはタスクをどんどん細かいステップに分解し、各ステップが些末な50項目の計画を作りがちです。長い計画は脆弱です：ステップ15が失敗すると残りの35ステップは全て無効になりかねません。20項目以内の短い計画は適切な抽象度を保ち、現実が計画から逸脱した際の適応が容易です。"
+        "title": "ブロックされた呼び出しもループ状態を残す",
+        "description": "ブロックされたツール呼び出しでも、ループの状態は一貫している必要があります。実行されなかった理由が分かって初めて次の行動を選べます。"
       }
     }
   ]

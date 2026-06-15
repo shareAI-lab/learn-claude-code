@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 590" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="pre" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dbeafe"/><stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+    <linearGradient id="auto" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fecaca"/><stop offset="100%" stop-color="#fca5a5"/>
+    </linearGradient>
+    <linearGradient id="emergency" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fed7aa"/><stop offset="100%" stop-color="#fdba74"/>
+    </linearGradient>
+    <marker id="arrow-d" viewBox="0 0 10 10" refX="5" refY="10" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 5 10 L 10 0 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="590" fill="#fafbfc" rx="8"/>
+
+  <!-- タイトルバー -->
+  <rect x="0" y="0" width="760" height="44" fill="url(#header)" rx="8"/>
+  <rect x="0" y="36" width="760" height="8" fill="url(#header)"/>
+  <text x="380" y="28" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">コンテキスト圧縮 — 前処理パイプライン + 自動圧縮 + 緊急フォールバック</text>
+
+  <!-- 設計原則（左側） -->
+  <rect x="20" y="62" width="220" height="80" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="130" y="82" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">設計原則</text>
+  <text x="130" y="100" fill="#475569" font-size="10" text-anchor="middle">安価な処理を先に、高価な処理を後に</text>
+  <text x="130" y="116" fill="#475569" font-size="10" text-anchor="middle">テキスト修正 → メッセージ削除の順</text>
+  <text x="130" y="132" fill="#475569" font-size="10" text-anchor="middle">メッセージ削除 → LLM 呼び出しの順</text>
+
+  <!-- コスト増加（右側） -->
+  <rect x="530" y="62" width="210" height="80" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="635" y="82" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">コスト増加</text>
+  <text x="635" y="104" fill="#475569" font-size="10" text-anchor="middle">テキスト操作 → LLM 要約 → 緊急トリム</text>
+  <text x="635" y="124" fill="#94a3b8" font-size="9" text-anchor="middle">0 API · 0 API · 0 API · 1 API · 1 API</text>
+
+  <!-- ===== 前処理パイプラインタイトル ===== -->
+  <rect x="20" y="146" width="720" height="24" rx="4" fill="#f1f5f9"/>
+  <text x="55" y="163" fill="#64748b" font-size="11" font-weight="600">前処理パイプライン（実行順：L3 → L1 → L2、各 LLM 呼び出し前に自動実行、0 API）</text>
+
+  <!-- L3: toolResultBudget -->
+  <rect x="80" y="180" width="600" height="46" rx="7" fill="url(#pre)" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="100" y="200" fill="#1e40af" font-size="12" font-weight="600">L3</text>
+  <text x="135" y="200" fill="#1e40af" font-size="13" font-weight="700">toolResultBudget</text>
+  <text x="260" y="200" fill="#1e40af" font-size="11">tool_result 合計 &gt; 200KB → 最大項目を退避</text>
+  <text x="650" y="200" fill="#1e40af" font-size="10" text-anchor="end">完全内容を保持</text>
+  <text x="135" y="218" fill="#2563eb" font-size="9">トリガー：毎ターン、microCompact が完全内容を置換する前に実行</text>
+
+  <!-- 矢印 L3→L1 -->
+  <line x1="380" y1="226" x2="380" y2="238" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow-d)"/>
+
+  <!-- L1: snipCompact -->
+  <rect x="80" y="240" width="600" height="46" rx="7" fill="url(#pre)" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="100" y="260" fill="#1e40af" font-size="12" font-weight="600">L1</text>
+  <text x="135" y="260" fill="#1e40af" font-size="13" font-weight="700">snipCompact</text>
+  <text x="260" y="260" fill="#1e40af" font-size="11">メッセージ &gt; 50 → 中間をトリム</text>
+  <text x="650" y="260" fill="#1e40af" font-size="10" text-anchor="end">先頭/末尾保持</text>
+  <text x="135" y="278" fill="#2563eb" font-size="9">トリガー：メッセージ数が閾値を超過</text>
+
+  <!-- 矢印 L1→L2 -->
+  <line x1="380" y1="286" x2="380" y2="298" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow-d)"/>
+
+  <!-- L2: microCompact -->
+  <rect x="80" y="300" width="600" height="46" rx="7" fill="url(#pre)" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="100" y="320" fill="#1e40af" font-size="12" font-weight="600">L2</text>
+  <text x="135" y="320" fill="#1e40af" font-size="13" font-weight="700">microCompact</text>
+  <text x="260" y="320" fill="#1e40af" font-size="11">古い tool_result → プレースホルダー（最新 3 件保持）</text>
+  <text x="650" y="320" fill="#1e40af" font-size="10" text-anchor="end">旧結果を圧縮</text>
+  <text x="135" y="338" fill="#2563eb" font-size="9">トリガー：毎ターン自動実行、チュートリアル版はテキストプレースホルダーで模擬</text>
+
+  <!-- ===== 自動圧縮タイトル ===== -->
+  <rect x="20" y="358" width="720" height="24" rx="4" fill="#f1f5f9"/>
+  <text x="70" y="375" fill="#64748b" font-size="11" font-weight="600">自動圧縮判定（前処理で不足時にトリガー、1 API 呼び出し）</text>
+
+  <!-- L4: autoCompact -->
+  <rect x="80" y="390" width="600" height="58" rx="7" fill="url(#auto)" stroke="#dc2626" stroke-width="2"/>
+  <text x="100" y="412" fill="#991b1b" font-size="12" font-weight="600">L4</text>
+  <text x="135" y="412" fill="#991b1b" font-size="13" font-weight="700">autoCompact</text>
+  <text x="260" y="412" fill="#991b1b" font-size="11">トークンが閾値超過 → LLM 全量要約</text>
+  <text x="590" y="412" fill="#991b1b" font-size="10" text-anchor="end">1 API 呼び出し</text>
+  <text x="135" y="428" fill="#dc2626" font-size="9">閾値: contextWindow - maxOutputTokens - 13,000 · sessionMemoryCompact を先に試行、不足時のみ LLM 呼び出し</text>
+  <text x="135" y="442" fill="#dc2626" font-size="9">サーキットブレーカー：連続 3 回失敗後にリトライ停止</text>
+
+  <!-- ===== 緊急フォールバックタイトル ===== -->
+  <rect x="20" y="460" width="720" height="24" rx="4" fill="#f1f5f9"/>
+  <text x="55" y="477" fill="#64748b" font-size="11" font-weight="600">緊急フォールバック（API が引き続き prompt_too_long を返す場合にトリガー）</text>
+
+  <!-- 緊急: reactiveCompact -->
+  <rect x="80" y="492" width="600" height="62" rx="7" fill="url(#emergency)" stroke="#c2410c" stroke-width="1.5"/>
+  <text x="100" y="512" fill="#9a3412" font-size="12" font-weight="600">緊急</text>
+  <text x="135" y="512" fill="#9a3412" font-size="13" font-weight="700">reactiveCompact</text>
+  <text x="135" y="528" fill="#9a3412" font-size="10">API が 413 / prompt_too_long を返す → バイト単位でトリム</text>
+  <text x="135" y="544" fill="#c2410c" font-size="9">最後の 5 件 + 要約を保持、autoCompact より積極的</text>
+
+</svg>

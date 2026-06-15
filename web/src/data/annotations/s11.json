@@ -2,45 +2,45 @@
   "version": "s11",
   "decisions": [
     {
-      "id": "polling-not-events",
-      "title": "Polling for Unclaimed Tasks Instead of Event-Driven Notification",
-      "description": "Autonomous teammates poll the shared task board every ~1 second to find unclaimed tasks, rather than waiting for event-driven notifications. Polling is fundamentally simpler than pub/sub: there's no subscription management, no event routing, no missed-event bugs. With file-based persistence, polling is just 'read the directory listing' -- a cheap operation that works regardless of how many agents are running. The 1-second interval balances responsiveness (new tasks are discovered quickly) against filesystem overhead (not hammering the disk with reads).",
-      "alternatives": "Event-driven notification (file watchers via inotify/fsevents, or a pub/sub channel) would reduce latency from seconds to milliseconds. But file watchers are platform-specific and unreliable across network filesystems. A message broker would work but adds infrastructure. For a system where tasks take minutes to complete, discovering new tasks in 1 second instead of 10 milliseconds makes no practical difference.",
+      "id": "classified-recovery",
+      "title": "Different Failures Need Different Recovery Paths",
+      "description": "max_tokens, prompt_too_long, and provider overload mean different things. The runtime classifies the error before retrying.",
+      "alternatives": "Blind retry is easy, but wastes time and can repeat a failure that needs compaction or token escalation.",
       "zh": {
-        "title": "轮询未认领任务而非事件驱动通知",
-        "description": "自主队友每隔约 1 秒轮询共享任务板以寻找未认领的任务，而非等待事件驱动的通知。轮询从根本上比发布/订阅更简单：没有订阅管理、没有事件路由、没有事件丢失的 bug。在基于文件的持久化下，轮询就是'读取目录列表'——一个低成本操作，无论有多少 agent 在运行都能正常工作。1 秒的间隔平衡了响应性（新任务被快速发现）和文件系统开销（不会过度读取磁盘）。"
+        "title": "不同失败需要不同恢复路径",
+        "description": "max_tokens、prompt_too_long 和供应商过载含义不同。运行时会先分类错误，再决定如何重试。"
       },
       "ja": {
-        "title": "イベント駆動通知ではなくポーリングで未割り当てタスクを発見",
-        "description": "自律的なチームメイトはイベント駆動の通知を待つのではなく、約1秒ごとに共有タスクボードをポーリングして未割り当てタスクを探します。ポーリングはパブ/サブより根本的にシンプルです：サブスクリプション管理、イベントルーティング、イベント欠落バグがありません。ファイルベースの永続化では、ポーリングは「ディレクトリ一覧を読む」だけで、実行中のエージェント数に関係なく動作する安価な操作です。"
+        "title": "失敗ごとに異なる回復経路が必要",
+        "description": "max_tokens、prompt_too_long、プロバイダ過負荷は意味が違います。ランタイムは再試行前にエラーを分類します。"
       }
     },
     {
-      "id": "idle-timeout",
-      "title": "60-Second Idle Timeout Before Self-Termination",
-      "description": "When an autonomous teammate has no tasks to work on and no messages in its inbox, it waits up to 60 seconds before giving up and shutting down. This prevents zombie teammates that wait forever for work that never comes -- a real problem when the lead forgets to send a shutdown request, or when all remaining tasks are blocked on external events. The 60-second window is long enough that a brief gap between task completions and new task creation won't cause premature shutdown, but short enough that unused teammates don't waste resources.",
-      "alternatives": "No timeout (wait forever) risks zombie processes. A very short timeout (5s) causes premature exits when the lead is simply thinking or typing. A heartbeat system (lead periodically pings teammates to keep them alive) works but adds protocol complexity. The 60-second fixed timeout is a good default that balances false-positive exits against resource waste.",
+      "id": "recovery-state",
+      "title": "RecoveryState Prevents Infinite Retries",
+      "description": "The runtime tracks token escalation, compact retries, consecutive 529s, and fallback model use. Recovery becomes bounded and inspectable.",
+      "alternatives": "A while-retry loop can accidentally retry forever or hide which mitigation has already run.",
       "zh": {
-        "title": "空闲 60 秒后自动终止",
-        "description": "当自主队友没有任务可做且收件箱中没有消息时，它最多等待 60 秒后放弃并关闭。这防止了永远等待不会到来的工作的僵尸队友——这在组长忘记发送关闭请求、或所有剩余任务都被外部事件阻塞时是真实存在的问题。60 秒窗口足够长，不会因为任务完成到新任务创建之间的短暂间隔而导致过早关闭；又足够短，不会让闲置队友浪费资源。"
+        "title": "RecoveryState 防止无限重试",
+        "description": "运行时记录 token 升级、compact retry、连续 529、fallback model 等状态。恢复因此有边界、可检查。"
       },
       "ja": {
-        "title": "60秒のアイドルタイムアウトで自動終了",
-        "description": "自律的なチームメイトが作業するタスクもインボックスのメッセージもない場合、最大60秒待ってから諦めてシャットダウンします。これにより永遠に来ない仕事を待ち続けるゾンビチームメイトを防ぎます。60秒のウィンドウはタスク完了から新タスク作成までの短い間隔で早期シャットダウンが起きない十分な長さであり、かつ未使用のチームメイトがリソースを浪費しない十分な短さです。"
+        "title": "RecoveryState が無限リトライを防ぐ",
+        "description": "token 拡張、compact retry、連続 529、fallback model の利用を追跡します。回復処理に境界と可観測性を与えます。"
       }
     },
     {
-      "id": "identity-after-compression",
-      "title": "Re-Inject Teammate Identity After Context Compression",
-      "description": "When auto_compact compresses the conversation, the resulting summary loses crucial metadata: the teammate's name, which team it belongs to, and its agent_id. Without this information, the teammate can't claim tasks (tasks are owned by name), can't check its inbox (inbox files are keyed by agent_id), and can't identify itself in messages. So after every auto_compact, the system re-injects a structured identity block into the conversation: 'You are [name] on team [team], your agent_id is [id], your inbox is at [path].' This is the minimum context needed for the teammate to remain functional after memory loss.",
-      "alternatives": "Putting identity in the system prompt (which survives compression) would avoid this problem, but violates the cache-friendly static-system-prompt design from s05. Embedding identity in the summary prompt ('when summarizing, always include your name and team') is unreliable -- the LLM might omit it. Explicit post-compression injection is deterministic and guaranteed to work.",
+      "id": "no-fake-continuation",
+      "title": "Do Not Fake User Messages During Token Recovery",
+      "description": "The first max_tokens escalation retries without appending a synthetic user prompt. The transcript should reflect real events, not internal recovery tricks.",
+      "alternatives": "Always appending 'continue' is tempting, but it pollutes conversation history and may change model behavior.",
       "zh": {
-        "title": "上下文压缩后重新注入队友身份",
-        "description": "自动压缩对话时，生成的摘要会丢失关键元数据：队友的名称、所属团队和 agent_id。没有这些信息，队友无法认领任务（任务按名称归属）、无法检查收件箱（收件箱文件以 agent_id 为键）、也无法在消息中表明身份。因此每次自动压缩后，系统会向对话中重新注入一个结构化的身份块：'你是 [team] 团队的 [name]，你的 agent_id 是 [id]，你的收件箱在 [path]。'这是队友在记忆丢失后保持功能所需的最小上下文。"
+        "title": "Token 恢复时不伪造用户消息",
+        "description": "第一次 max_tokens 升级会直接重试，不追加合成 user prompt。Transcript 应反映真实事件，而不是内部恢复技巧。"
       },
       "ja": {
-        "title": "コンテキスト圧縮後にチームメイトのアイデンティティを再注入",
-        "description": "自動コンパクトが会話を圧縮すると、生成された要約は重要なメタデータを失います：チームメイトの名前、所属チーム、agent_id。この情報がなければチームメイトはタスクを申告できず（タスクは名前で所有）、インボックスを確認できず（インボックスファイルは agent_id をキーとする）、メッセージで自分を識別できません。そのため自動コンパクトの後、システムは構造化されたアイデンティティブロックを会話に再注入します。これはメモリ喪失後もチームメイトが機能し続けるために必要な最小限のコンテキストです。"
+        "title": "トークン回復で偽のユーザーメッセージを入れない",
+        "description": "最初の max_tokens 拡張では合成 user prompt を追加せず再試行します。transcript は内部の回復処理ではなく実際の出来事を反映すべきです。"
       }
     }
   ]

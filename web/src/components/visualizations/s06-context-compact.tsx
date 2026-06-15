@@ -193,6 +193,36 @@ const STEPS = [
   },
 ];
 
+const COMPRESSION_LAYERS = [
+  {
+    label: "Micro",
+    full: "MICRO-COMPACT",
+    trigger: "old tool_result",
+    action: "shrink bulky outputs",
+    step: 3,
+    classes:
+      "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200",
+  },
+  {
+    label: "Auto",
+    full: "AUTO-COMPACT",
+    trigger: "token threshold",
+    action: "summarize the conversation",
+    step: 5,
+    classes:
+      "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200",
+  },
+  {
+    label: "Manual",
+    full: "/compact",
+    trigger: "user command",
+    action: "keep one compact summary",
+    step: 6,
+    classes:
+      "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200",
+  },
+];
+
 export default function ContextCompact({ title }: { title?: string }) {
   const {
     currentStep,
@@ -222,17 +252,17 @@ export default function ContextCompact({ title }: { title?: string }) {
       </h2>
 
       <div
-        className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900"
+        className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900 sm:p-6"
         style={{ minHeight: 500 }}
       >
-        <div className="flex gap-6">
+        <div className="grid gap-5 lg:grid-cols-[140px_1fr]">
           {/* Token Window (tall vertical bar on the left) */}
-          <div className="flex flex-col items-center">
+          <div className="min-w-0 flex flex-col items-center">
             <div className="mb-2 font-mono text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
               Context Window
             </div>
             <div
-              className="relative w-24 overflow-hidden rounded-xl border-2 border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800"
+              className="relative w-20 max-w-full overflow-hidden rounded-xl border-2 border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 sm:w-24"
               style={{ height: WINDOW_HEIGHT }}
             >
               {/* Blocks stacked from bottom up */}
@@ -293,14 +323,14 @@ export default function ContextCompact({ title }: { title?: string }) {
           </div>
 
           {/* Right side: state display and compression stage */}
-          <div className="flex flex-1 flex-col justify-between">
+          <div className="min-w-0">
             {/* Top: horizontal token bar */}
             <div>
-              <div className="mb-1 flex items-center justify-between">
+              <div className="mb-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">
                   Token usage
                 </span>
-                <span className="font-mono text-xs text-zinc-500">
+                <span className="break-words font-mono text-xs text-zinc-500 dark:text-zinc-400">
                   {state.tokenCount.toLocaleString()} / {MAX_TOKENS.toLocaleString()}
                 </span>
               </div>
@@ -314,7 +344,7 @@ export default function ContextCompact({ title }: { title?: string }) {
             </div>
 
             {/* Message type legend */}
-            <div className="mt-4 flex items-center gap-4">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1">
                 <div className="h-3 w-3 rounded bg-blue-500" />
                 <span className="text-[10px] text-zinc-500 dark:text-zinc-400">user</span>
@@ -329,6 +359,37 @@ export default function ContextCompact({ title }: { title?: string }) {
               </div>
             </div>
 
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              {COMPRESSION_LAYERS.map((layer) => {
+                const reached = currentStep >= layer.step;
+                const active = state.compressionLabel === layer.full;
+                return (
+                  <motion.div
+                    key={layer.full}
+                    layout
+                    animate={active ? { y: [0, -2, 0] } : { y: 0 }}
+                    transition={{ duration: 0.8, repeat: active ? Infinity : 0 }}
+                    className={`min-w-0 rounded-lg border p-3 transition-colors ${
+                      reached
+                        ? layer.classes
+                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/70 dark:text-zinc-400"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold">{layer.label}</span>
+                      <span className="rounded bg-white/70 px-1.5 py-0.5 font-mono text-[10px] dark:bg-zinc-900/60">
+                        {reached ? "used" : "waiting"}
+                      </span>
+                    </div>
+                    <div className="mt-2 space-y-1 text-[11px] leading-snug">
+                      <div className="break-words font-mono">{layer.trigger}</div>
+                      <div className="break-words opacity-80">{layer.action}</div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
             {/* Highlight old tool_results at step 2 */}
             <AnimatePresence>
               {currentStep === 2 && (
@@ -336,12 +397,12 @@ export default function ContextCompact({ title }: { title?: string }) {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-700 dark:bg-amber-900/20"
+                  className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-700 dark:bg-amber-900/20"
                 >
                   <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">
                     tool_results are the largest blocks
                   </div>
-                  <div className="text-[11px] text-amber-600 dark:text-amber-400">
+                  <div className="text-[11px] leading-snug text-amber-600 dark:text-amber-400">
                     File contents, command outputs, search results -- each one is thousands of tokens.
                   </div>
                 </motion.div>
@@ -374,7 +435,7 @@ export default function ContextCompact({ title }: { title?: string }) {
                     }`}>
                       {state.compressionLabel}
                     </div>
-                    <div className={`mt-1 text-xs ${
+                    <div className={`mt-1 text-xs leading-snug ${
                       currentStep === 3
                         ? "text-amber-500 dark:text-amber-400"
                         : currentStep === 5
@@ -396,35 +457,21 @@ export default function ContextCompact({ title }: { title?: string }) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
-                className="mt-4 space-y-2"
+                className="mt-4 grid gap-2"
               >
-                <div className="flex items-center gap-2 rounded bg-amber-50 px-3 py-1.5 dark:bg-amber-900/10">
-                  <div className="h-2 w-2 rounded-full bg-amber-500" />
-                  <span className="text-xs text-amber-700 dark:text-amber-300">
-                    Stage 1: Micro -- shrink old tool_results
-                  </span>
-                  <span className="ml-auto font-mono text-[10px] text-amber-500">
-                    automatic
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 rounded bg-blue-50 px-3 py-1.5 dark:bg-blue-900/10">
-                  <div className="h-2 w-2 rounded-full bg-blue-500" />
-                  <span className="text-xs text-blue-700 dark:text-blue-300">
-                    Stage 2: Auto -- summarize entire conversation
-                  </span>
-                  <span className="ml-auto font-mono text-[10px] text-blue-500">
-                    at threshold
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 rounded bg-emerald-50 px-3 py-1.5 dark:bg-emerald-900/10">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                  <span className="text-xs text-emerald-700 dark:text-emerald-300">
-                    Stage 3: /compact -- user-triggered, deepest compression
-                  </span>
-                  <span className="ml-auto font-mono text-[10px] text-emerald-500">
-                    manual
-                  </span>
-                </div>
+                {COMPRESSION_LAYERS.map((layer, index) => (
+                  <div
+                    key={`summary-${layer.full}`}
+                    className={`flex flex-col gap-1 rounded px-3 py-2 sm:flex-row sm:items-center sm:justify-between ${layer.classes}`}
+                  >
+                    <span className="break-words text-xs">
+                      Stage {index + 1}: {layer.label} -- {layer.action}
+                    </span>
+                    <span className="shrink-0 font-mono text-[10px] opacity-80">
+                      {layer.trigger}
+                    </span>
+                  </div>
+                ))}
               </motion.div>
             )}
           </div>

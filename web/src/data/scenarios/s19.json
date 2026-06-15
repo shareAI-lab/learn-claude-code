@@ -1,0 +1,46 @@
+{
+  "version": "s19",
+  "title": "MCP Tools",
+  "description": "The agent discovers external MCP tools and exposes them through a normalized tool namespace.",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "Connect the docs server and search for deployment guidance.",
+      "annotation": "The user asks for a tool source outside the built-in set."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "connect_mcp",
+      "content": "{\"server\":\"docs\",\"command\":\"mock-docs-server\"}",
+      "annotation": "The runtime creates an MCP client for the named server."
+    },
+    {
+      "type": "system_event",
+      "content": "normalize_mcp_name(\"docs\", \"search\") -> mcp__docs__search",
+      "annotation": "External tools are namespaced to avoid collisions."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "connect_mcp",
+      "content": "Connected docs with tools: mcp__docs__search, mcp__docs__read",
+      "annotation": "Tool discovery expands the active tool pool."
+    },
+    {
+      "type": "tool_call",
+      "toolName": "mcp__docs__search",
+      "content": "{\"query\":\"deployment\"}",
+      "annotation": "The LLM can now call the discovered tool by its normalized name."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "mcp__docs__search",
+      "content": "[\"Deploy with npm run build\", \"Use environment variables for tokens\"]",
+      "annotation": "The external result is appended like any other tool result."
+    },
+    {
+      "type": "assistant_text",
+      "content": "The docs server says to build first and keep tokens in environment variables.",
+      "annotation": "The agent summarizes external tool output for the user."
+    }
+  ]
+}

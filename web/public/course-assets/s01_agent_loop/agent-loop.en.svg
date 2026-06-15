@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 530" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="720" height="530" fill="#fafbfc" rx="8"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="720" height="48" fill="url(#header)" rx="8"/>
+  <rect x="0" y="40" width="720" height="8" fill="url(#header)"/>
+  <text x="360" y="31" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">Agent Loop — A while Loop Drives the Entire Agent</text>
+
+  <!-- ===== User Input ===== -->
+  <rect x="60" y="80" width="160" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="140" y="102" fill="#1e3a5f" font-size="13" font-weight="600" text-anchor="middle">User Query</text>
+  <text x="140" y="120" fill="#64748b" font-size="11" text-anchor="middle">"Create hello.py for me"</text>
+
+  <!-- Arrow: User → Messages -->
+  <line x1="140" y1="132" x2="140" y2="162" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+  <!-- ===== Messages ===== -->
+  <rect x="60" y="164" width="160" height="48" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <text x="140" y="185" fill="#334155" font-size="12" font-weight="500" text-anchor="middle">messages[]</text>
+  <text x="140" y="201" fill="#94a3b8" font-size="10" text-anchor="middle">Accumulated message list</text>
+
+  <!-- Arrow: Messages → LLM -->
+  <line x1="220" y1="188" x2="288" y2="188" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ===== LLM ===== -->
+  <rect x="290" y="140" width="180" height="96" rx="8" fill="#fff" stroke="#2563eb" stroke-width="2"/>
+  <text x="380" y="166" fill="#1e3a5f" font-size="14" font-weight="700" text-anchor="middle">LLM</text>
+  <line x1="310" y1="176" x2="450" y2="176" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="380" y="194" fill="#475569" font-size="11" text-anchor="middle">Model reads message history</text>
+  <text x="380" y="210" fill="#475569" font-size="11" text-anchor="middle">Decision: Need a tool?</text>
+  <text x="380" y="228" fill="#64748b" font-size="10" text-anchor="middle">Returns stop_reason signal</text>
+
+  <!-- Arrow: LLM → Decision (down) -->
+  <line x1="380" y1="236" x2="380" y2="276" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ===== Decision Diamond ===== -->
+  <polygon points="380,280 470,316 380,352 290,316" fill="#fff8f0" stroke="#d97706" stroke-width="2"/>
+  <text x="380" y="312" fill="#92400e" font-size="12" font-weight="600" text-anchor="middle">stop_reason</text>
+  <text x="380" y="326" fill="#92400e" font-size="10" text-anchor="middle">== "tool_use"?</text>
+
+  <!-- Arrow: No → End (right) -->
+  <line x1="470" y1="316" x2="540" y2="316" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <text x="505" y="308" fill="#16a34a" font-size="10" font-weight="600" text-anchor="middle">No</text>
+
+  <!-- End Node -->
+  <rect x="542" y="294" width="130" height="44" rx="22" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="607" y="313" fill="#166534" font-size="12" font-weight="600" text-anchor="middle">Return Result</text>
+  <text x="607" y="329" fill="#166534" font-size="10" text-anchor="middle">Loop Ends</text>
+
+  <!-- Arrow: Yes → Tool Execution (down) -->
+  <line x1="380" y1="352" x2="380" y2="392" stroke="#d97706" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="395" y="376" fill="#d97706" font-size="10" font-weight="600">Yes</text>
+
+  <!-- ===== Tool Execution ===== -->
+  <rect x="290" y="394" width="180" height="48" rx="8" fill="#fff7ed" stroke="#d97706" stroke-width="1.5"/>
+  <text x="380" y="415" fill="#92400e" font-size="12" font-weight="600" text-anchor="middle">Execute Tool Call</text>
+  <text x="380" y="432" fill="#92400e" font-size="10" text-anchor="middle">run_bash(command)</text>
+
+  <!-- Arrow: Tool result → Append to messages (loop back) -->
+  <path d="M 290 418 L 40 418 L 40 188 L 58 188" fill="none" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+  <text x="18" y="375" fill="#92400e" font-size="10" font-weight="500" transform="rotate(-90, 18, 375)">Append tool_result to messages</text>
+
+  <!-- Legend -->
+  <rect x="60" y="462" width="600" height="48" rx="6" fill="#f1f5f9"/>
+  <text x="80" y="482" fill="#334155" font-size="10">Core: a</text>
+  <text x="113" y="482" fill="#1e3a5f" font-size="10" font-weight="700" font-family="monospace">while True</text>
+  <text x="186" y="482" fill="#334155" font-size="10">loop. Model calls tool → Execute → Feed back → Ask again. No tool call → Stop.</text>
+  <text x="80" y="500" fill="#64748b" font-size="10">All subsequent chapters layer mechanisms on top of this loop.</text>
+</svg>
