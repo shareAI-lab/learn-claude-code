@@ -27,7 +27,7 @@ def calculate_moving_average(values: List[float], window: int) -> List[float]:
     result = []
     for i in range(len(values)):
         start = max(0, i - window + 1)
-        chunk = values[start:i]  # BUG: 少取了一个元素，应该是 values[start:i+1]
+        chunk = values[start:i + 1]
         result.append(sum(chunk) / len(chunk))
     return result
 
@@ -50,7 +50,7 @@ def merge_sorted_lists(list1: List[int], list2: List[int]) -> List[int]:
             j += 1
 
     result.extend(list1[i:])
-    # BUG: 漏掉了 list2 的剩余元素
+    result.extend(list2[j:])
     return result
 
 
@@ -85,7 +85,8 @@ def sanitize_filename(name: str) -> str:
     cleaned = re.sub(r'[^\w\-\.]', '_', name)
     # 移除开头的点（避免隐藏文件）
     cleaned = cleaned.lstrip('.')
-    # BUG: 空字符串时没有兜底，直接返回空字符串
+    if not cleaned:
+        return "unnamed"
     return cleaned
 
 
@@ -117,9 +118,9 @@ def chunk_text(text: str, max_length: int) -> List[str]:
         # 尝试在最近的换行符处切分
         newline_pos = text.rfind('\n', start, end)
         if newline_pos > start:
-            end = newline_pos
-        # BUG: 当没有找到换行符时，end 应该回退到 start + max_length
-        # 但这里 else 分支缺失，end 保持为 newline_pos 的值（可能是 -1+偏移）
+            end = newline_pos + 1
+        else:
+            end = start + max_length
         chunks.append(text[start:end])
         start = end
 
@@ -137,7 +138,5 @@ def count_words(text: str) -> Dict[str, int]:
     result = {}
     for word in words:
         word = word.lower()
-        # BUG: 使用了 result[word] + 1，但 key 不存在时会 KeyError
-        # 应该用 result.get(word, 0) + 1 或 collections.Counter
-        result[word] = result[word] + 1
+        result[word] = result.get(word, 0) + 1
     return result

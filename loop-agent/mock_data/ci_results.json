@@ -1,0 +1,18 @@
+[
+  {
+    "run_id": 789,
+    "status": "completed",
+    "conclusion": "failure",
+    "commit_sha": "abc1234",
+    "failed_tests": ["test_login_timeout", "test_auth_retry"],
+    "logs": "FAILED test_login_timeout - AssertionError: expected 200, got 504\nFAILED test_auth_retry - ConnectionError: max retries exceeded"
+  },
+  {
+    "run_id": 790,
+    "status": "completed",
+    "conclusion": "failure",
+    "commit_sha": "def5678",
+    "failed_tests": ["test_dark_mode_css", "test_theme_persistence"],
+    "logs": "FAILED test_dark_mode_css - ElementNotFound: .dark-mode-toggle\nFAILED test_theme_persistence - KeyError: 'theme'"
+  }
+]

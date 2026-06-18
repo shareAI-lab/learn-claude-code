@@ -1,0 +1,26 @@
+[
+  {
+    "number": 42,
+    "title": "Fix: login timeout on slow networks",
+    "body": "Users report login fails after 30s on 3G connections. The auth service timeout is set to 15s which is too aggressive. Need to increase timeout and add retry logic.",
+    "labels": ["bug", "priority:high"],
+    "state": "open",
+    "created_at": "2025-06-10T08:00:00Z"
+  },
+  {
+    "number": 43,
+    "title": "Feat: add dark mode toggle to settings",
+    "body": "Add a dark mode toggle in user settings. Should persist preference to localStorage and apply CSS class to document root. Include system preference detection as default.",
+    "labels": ["feature", "ui"],
+    "state": "open",
+    "created_at": "2025-06-11T10:30:00Z"
+  },
+  {
+    "number": 44,
+    "title": "Refactor: extract validation logic to shared module",
+    "body": "The email/phone/password validation is duplicated across 5 components. Extract to src/utils/validators.py with consistent error messages and unit tests.",
+    "labels": ["refactor", "tech-debt"],
+    "state": "open",
+    "created_at": "2025-06-12T14:15:00Z"
+  }
+]

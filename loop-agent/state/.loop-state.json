@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "last_run_ts": 1781712234.3015208,
+  "active_goals": [],
+  "processed_items": [
+    "manual_test"
+  ],
+  "active_worktrees": [],
+  "history": [
+    {
+      "cycle_id": 1,
+      "task_id": "manual_test",
+      "status": "approved",
+      "ts": 1781712166.684636,
+      "feedback": "Looks good"
+    },
+    {
+      "cycle_id": 2,
+      "task_id": "goal_61f1c161",
+      "status": "needs_human",
+      "ts": 1781712234.3015208,
+      "feedback": "Failed to create worktree: Git error: Preparing worktree (new branch 'wt/goal-61f1c161')\nfatal: a branch named 'wt/goal-61f1c161' already exists"
+    }
+  ],
+  "cron_jobs": [],
+  "error_log": [
+    {
+      "task_id": "goal_61f1c161",
+      "error": "Failed to create worktree: Git error: Preparing worktree (new branch 'wt/goal-61f1c161')\nfatal: a branch named 'wt/goal-61f1c161' already exists",
+      "ts": 1781712234.3015208
+    }
+  ]
+}
