@@ -306,8 +306,27 @@ def snip_compact(messages, max_messages=50):
     if head_end >= tail_start:
         return messages
     snipped = tail_start - head_end
-    return messages[:head_end] + [{"role": "user", "content": f"[snipped {snipped} messages]"}] + messages[tail_start:]
 
+    # 构造清晰的系统断层通知，告知 Claude 上下文有缺失，避免其产生幻觉
+    snip_text = f"\n\n[System Note: Snipped {snipped} history messages here for context compression]\n\n"
+    
+    # 对后半段进行深拷贝（Deep Copy）或浅拷贝，防止直接修改和污染外部传入的原始 messages 数组
+    head_part = messages[:head_end]
+    tail_part = [msg.copy() for msg in messages[tail_start:]]
+    
+    # 将提示信息“无损”合并到后半段第一条消息中，天然继承原有的角色交替和工具流结构
+    first_tail_msg = tail_part[0]
+    
+    if isinstance(first_tail_msg["content"], str):
+        # 场景 A：普通的纯文本消息
+        first_tail_msg["content"] = snip_text + first_tail_msg["content"]
+        
+    elif isinstance(first_tail_msg["content"], list):
+        # 场景 B：Claude 3 常见的多模态（含图片）或包含 tool_use/tool_result 的 Content Block 列表
+        # 在列表最前端插入一个标准的 text block
+        first_tail_msg["content"].insert(0, {"type": "text", "text": snip_text})
+
+    return head_part + tail_part
 
 # L2: microCompact — old result placeholders
 def collect_tool_results(messages):
