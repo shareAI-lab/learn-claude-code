@@ -379,6 +379,14 @@ flowchart TD
 | [s19](./s19_mcp_plugin/) | MCP Plugin | 多传输 / 通道路由 / 工具池组装 |
 | [s20](./s20_comprehensive/) | Comprehensive Agent | 全部机制归到一个循环 |
 
+### 补充教程
+
+独立于主 20 章主线的补充课程。
+
+| 教程 | 主题 | 代码 | 文档 |
+|---|---|---|---|
+| s13-补充 | 系统提示词（动态环境） | [s13_system_prompt_manager.py](./s13_system_prompt_manager.py) | [en](./docs/en/s13-system-prompts.md) · [zh](./docs/zh/s13-system-prompts.md) |
+
 ## 项目结构
 
 ```

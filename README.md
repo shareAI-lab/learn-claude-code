@@ -328,6 +328,14 @@ flowchart TD
 | [s19](./s19_mcp_plugin/) | MCP Plugin | multi-transport / channel routing / tool pool assembly |
 | [s20](./s20_comprehensive/) | Comprehensive Agent | all mechanisms around one loop |
 
+### Supplementary Tutorials
+
+Standalone lessons that complement the main 20-lesson track.
+
+| Tutorial | Topic | Code | Docs |
+|---|---|---|---|
+| s13-supplementary | System Prompts (Dynamic Env) | [s13_system_prompt_manager.py](./s13_system_prompt_manager.py) | [en](./docs/en/s13-system-prompts.md) · [zh](./docs/zh/s13-system-prompts.md) |
+
 ---
 
 ## How to Read
