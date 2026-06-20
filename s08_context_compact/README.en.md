@@ -52,8 +52,21 @@ def snip_compact(messages, max_messages=50):
     if _is_tool_result_message(messages[tail_start]) and _message_has_tool_use(messages[tail_start - 1]):
         tail_start -= 1
     snipped = tail_start - head_end
-    placeholder = {"role": "user", "content": f"[snipped {snipped} messages from conversation middle]"}
-    return messages[:head_end] + [placeholder] + messages[tail_start:]
+
+    snip_text = f"\n\n[System Note: Snipped {snipped} history messages here for context compression]\n\n"
+    
+    head_part = messages[:head_end]
+    tail_part = [msg.copy() for msg in messages[tail_start:]]
+    
+    first_tail_msg = tail_part[0]
+    
+    if isinstance(first_tail_msg["content"], str):
+        first_tail_msg["content"] = snip_text + first_tail_msg["content"]
+        
+    elif isinstance(first_tail_msg["content"], list):
+        first_tail_msg["content"].insert(0, {"type": "text", "text": snip_text})
+
+    return head_part + tail_part
 ```
 
 Messages are still trimmed directly; this just adds one boundary guard. `tool_result` content within remaining messages still keeps accumulating — message #34 may still hold 30KB of old file contents. → L2.
