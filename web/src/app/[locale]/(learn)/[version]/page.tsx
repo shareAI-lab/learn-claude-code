@@ -4,6 +4,7 @@ import { LayerBadge } from "@/components/ui/badge";
 import versionsData from "@/data/generated/versions.json";
 import { VersionDetailClient } from "./client";
 import { getTranslations } from "@/lib/i18n-server";
+import { getBeginnerChapter } from "@/data/beginner-content";
 
 export function generateStaticParams() {
   return LEARNING_PATH.map((version) => ({ version }));
@@ -33,6 +34,7 @@ export default async function VersionPage({
   const tSession = getTranslations(locale, "sessions");
   const tLayer = getTranslations(locale, "layer_labels");
   const layer = LAYERS.find((l) => l.id === meta.layer);
+  const beginner = getBeginnerChapter(version);
 
   const pathIndex = LEARNING_PATH.indexOf(version as typeof LEARNING_PATH[number]);
   const prevVersion = pathIndex > 0 ? LEARNING_PATH[pathIndex - 1] : null;
@@ -49,26 +51,30 @@ export default async function VersionPage({
           <span className="rounded-lg bg-zinc-100 px-3 py-1 font-mono text-lg font-bold dark:bg-zinc-800">
             {version}
           </span>
-          <h1 className="text-2xl font-bold sm:text-3xl">{tSession(version) || meta.title}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">
+            {locale === "zh" && beginner
+              ? `${beginner.zhTitle}（${meta.title}）`
+              : (tSession(version) || meta.title)}
+          </h1>
           {layer && (
             <LayerBadge layer={meta.layer}>{tLayer(layer.id)}</LayerBadge>
           )}
         </div>
         <p className="text-lg text-zinc-500 dark:text-zinc-400">
-          {meta.subtitle}
+          {locale === "zh" && beginner ? beginner.plain : meta.subtitle}
         </p>
         <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-500 dark:text-zinc-400">
           <span className="font-mono">{versionData.loc} LOC</span>
           <span>{versionData.tools.length} {t("tools")}</span>
           {meta.coreAddition && (
             <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs dark:bg-zinc-800">
-              {meta.coreAddition}
+              {locale === "zh" && beginner ? beginner.track : meta.coreAddition}
             </span>
           )}
         </div>
         {meta.keyInsight && (
           <blockquote className="border-l-4 border-zinc-300 pl-4 text-sm italic text-zinc-500 dark:border-zinc-600 dark:text-zinc-400">
-            {meta.keyInsight}
+            {locale === "zh" && beginner ? `生活类比：${beginner.analogy}` : meta.keyInsight}
           </blockquote>
         )}
       </header>

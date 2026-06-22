@@ -10,6 +10,7 @@ import { ExecutionFlow } from "@/components/architecture/execution-flow";
 import { SessionVisualization } from "@/components/visualizations";
 import { Tabs } from "@/components/ui/tabs";
 import { useTranslations } from "@/lib/i18n";
+import { BeginnerChapterGuide } from "@/components/beginner/beginner-chapter-guide";
 
 interface VersionDetailClientProps {
   version: string;
@@ -42,6 +43,8 @@ export function VersionDetailClient({
 
   return (
     <div className="space-y-6">
+      <BeginnerChapterGuide version={version} filename={filename} />
+
       {/* Hero Visualization */}
       <SessionVisualization version={version} />
 

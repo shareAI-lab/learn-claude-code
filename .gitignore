@@ -228,6 +228,7 @@ web/out/
 .vercel
 .env*.local
 test_providers.py
+.tutorial-server.pid
 
 # Internal analysis artifacts (not learning material)
 analysis/

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "@/lib/i18n";
 import { LEARNING_PATH, VERSION_META, LAYERS } from "@/lib/constants";
+import { getBeginnerChapter } from "@/data/beginner-content";
 import { LayerBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import versionsData from "@/data/generated/versions.json";
@@ -45,6 +46,8 @@ const MAX_LOC = Math.max(
 export function Timeline() {
   const t = useTranslations("timeline");
   const tv = useTranslations("version");
+  const ts = useTranslations("sessions");
+  const tl = useTranslations("layer_labels");
   const locale = useLocale();
 
   return (
@@ -60,7 +63,9 @@ export function Timeline() {
               <span
                 className={cn("h-3 w-3 rounded-full", LAYER_DOT_BG[layer.id])}
               />
-              <span className="text-xs font-medium">{layer.label}</span>
+              <span className="text-xs font-medium">
+                {locale === "zh" ? tl(layer.id) : layer.label}
+              </span>
             </div>
           ))}
         </div>
@@ -70,6 +75,7 @@ export function Timeline() {
       <div className="relative">
         {LEARNING_PATH.map((versionId, index) => {
           const meta = VERSION_META[versionId];
+          const beginner = getBeginnerChapter(versionId);
           const data = getVersionData(versionId);
           if (!meta || !data) return null;
 
@@ -114,14 +120,14 @@ export function Timeline() {
                   <div className="flex flex-wrap items-start gap-2">
                     <LayerBadge layer={meta.layer}>{versionId}</LayerBadge>
                     <span className="text-xs text-[var(--color-text-secondary)]">
-                      {meta.coreAddition}
+                      {locale === "zh" && beginner ? beginner.track : meta.coreAddition}
                     </span>
                   </div>
 
                   <h3 className="mt-2 text-base font-semibold sm:text-lg">
-                    {meta.title}
+                    {locale === "zh" && beginner ? beginner.zhTitle : (ts(versionId) || meta.title)}
                     <span className="ml-2 text-sm font-normal text-[var(--color-text-secondary)]">
-                      {meta.subtitle}
+                      {locale === "zh" && beginner ? meta.title : meta.subtitle}
                     </span>
                   </h3>
 
@@ -147,9 +153,9 @@ export function Timeline() {
                   </div>
 
                   {/* Key insight */}
-                  {meta.keyInsight && (
+                  {(meta.keyInsight || beginner) && (
                     <p className="mt-3 text-sm italic text-[var(--color-text-secondary)]">
-                      &ldquo;{meta.keyInsight}&rdquo;
+                      &ldquo;{locale === "zh" && beginner ? beginner.plain : meta.keyInsight}&rdquo;
                     </p>
                   )}
 

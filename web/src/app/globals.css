@@ -236,6 +236,103 @@ body {
   content: "terminal";
 }
 
+/* -- Beginner line-by-line code explanations -- */
+
+.prose-custom .beginner-code-explanation {
+  margin: -0.35rem 0 1.25rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.75rem;
+  background: #eff6ff;
+  overflow: hidden;
+}
+
+.prose-custom .beginner-code-explanation summary {
+  cursor: pointer;
+  padding: 0.8rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  list-style-position: inside;
+}
+
+.prose-custom .beginner-code-explanation[open] summary {
+  border-bottom: 1px solid #bfdbfe;
+}
+
+.prose-custom .beginner-code-summary {
+  padding: 0.8rem 1rem 0;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.prose-custom .beginner-code-explanation ol {
+  margin: 0;
+  padding: 0.5rem 1rem 0.9rem;
+  counter-reset: none;
+}
+
+.prose-custom .beginner-code-explanation ol > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.65rem 0;
+  border-bottom: 1px dashed #bfdbfe;
+}
+
+.prose-custom .beginner-code-explanation ol > li::before {
+  display: none;
+}
+
+.prose-custom .beginner-code-explanation ol > li:last-child {
+  border-bottom: 0;
+}
+
+.prose-custom .beginner-code-explanation li code {
+  align-self: start;
+  overflow-wrap: anywhere;
+  color: #be185d;
+}
+
+.prose-custom .beginner-code-explanation li span {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.prose-custom .beginner-code-more {
+  margin: 0;
+  padding: 0 1rem 1rem;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.dark .prose-custom .beginner-code-explanation {
+  border-color: #1e3a8a;
+  background: rgba(30, 58, 138, 0.18);
+}
+
+.dark .prose-custom .beginner-code-explanation summary {
+  color: #93c5fd;
+}
+
+.dark .prose-custom .beginner-code-explanation[open] summary,
+.dark .prose-custom .beginner-code-explanation ol > li {
+  border-color: #1e3a8a;
+}
+
+.dark .prose-custom .beginner-code-summary,
+.dark .prose-custom .beginner-code-explanation li span {
+  color: #cbd5e1;
+}
+
+@media (max-width: 640px) {
+  .prose-custom .beginner-code-explanation ol > li {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+}
+
 /* -- ASCII diagram containers -- */
 
 .prose-custom pre.ascii-diagram {

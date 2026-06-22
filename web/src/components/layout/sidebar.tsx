@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LAYERS, VERSION_META } from "@/lib/constants";
 import { useTranslations } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { getBeginnerChapter } from "@/data/beginner-content";
 
 const LAYER_DOT_BG: Record<string, string> = {
   tools: "bg-blue-500",
@@ -34,6 +35,7 @@ export function Sidebar() {
             <ul className="space-y-0.5">
               {layer.versions.map((vId) => {
                 const meta = VERSION_META[vId];
+                const beginner = getBeginnerChapter(vId);
                 const href = `/${locale}/${vId}`;
                 const isActive =
                   pathname === href ||
@@ -52,7 +54,11 @@ export function Sidebar() {
                       )}
                     >
                       <span className="font-mono text-xs">{vId}</span>
-                      <span className="ml-1.5">{t(vId) || meta?.title}</span>
+                      <span className="ml-1.5">
+                        {locale === "zh" && beginner
+                          ? `${beginner.zhTitle} · ${meta?.title}`
+                          : (t(vId) || meta?.title)}
+                      </span>
                     </Link>
                   </li>
                 );

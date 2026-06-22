@@ -72,7 +72,11 @@ export function SourceViewer({ source, filename }: SourceViewerProps) {
   const lines = useMemo(() => source.split("\n"), [source]);
 
   return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-700">
+    <div className="space-y-3">
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+        <strong>零基础读源码方法：</strong>先按 <kbd>Ctrl</kbd> + <kbd>F</kbd> 搜索本章“小白先看这里”给出的关键词。第一次只看函数名、注释和缩进，不要求从第 1 行读到最后一行。
+      </div>
+      <div className="rounded-lg border border-zinc-200 dark:border-zinc-700">
       <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-2 dark:border-zinc-700">
         <div className="flex gap-1.5">
           <span className="h-3 w-3 rounded-full bg-red-400" />
@@ -96,6 +100,7 @@ export function SourceViewer({ source, filename }: SourceViewerProps) {
             ))}
           </code>
         </pre>
+      </div>
       </div>
     </div>
   );

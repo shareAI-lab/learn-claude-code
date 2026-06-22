@@ -2,6 +2,7 @@
 
 import { useTranslations } from "@/lib/i18n";
 import { Timeline } from "@/components/timeline/timeline";
+import { BeginnerStartGuide } from "@/components/beginner/beginner-start-guide";
 
 export default function TimelinePage() {
   const t = useTranslations("timeline");
@@ -14,6 +15,7 @@ export default function TimelinePage() {
           {t("subtitle")}
         </p>
       </div>
+      <BeginnerStartGuide />
       <Timeline />
     </div>
   );
