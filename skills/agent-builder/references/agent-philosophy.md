@@ -1,3 +1,5 @@
+<!-- Source: Original content from shareAI-lab/learn-claude-code (s01-s12 harness engineering series). Licensed under the project's license. See repository for full context. -->
+
 # The Philosophy of Agent Harness Engineering
 
 > **The model already knows how to be an agent. Your job is to build it a world worth acting in.**
