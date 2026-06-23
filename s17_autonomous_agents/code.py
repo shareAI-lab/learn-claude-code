@@ -301,14 +301,13 @@ def scan_unclaimed_tasks() -> list[dict]:
     return unclaimed
 
 
-def idle_poll(agent_name: str, messages: list,
-              name: str, role: str) -> str:
+def idle_poll(name: str, messages: list, role: str) -> str:
     """Poll for 60s. Return 'work', 'shutdown', or 'timeout'."""
     for _ in range(IDLE_TIMEOUT // IDLE_POLL_INTERVAL):
         time.sleep(IDLE_POLL_INTERVAL)
 
         # Check inbox — dispatch protocol messages first
-        inbox = BUS.read_inbox(agent_name)
+        inbox = BUS.read_inbox(name)
         if inbox:
             # Check for shutdown_request
             for msg in inbox:
@@ -331,7 +330,7 @@ def idle_poll(agent_name: str, messages: list,
         unclaimed = scan_unclaimed_tasks()
         if unclaimed:
             task = unclaimed[0]
-            result = claim_task(task["id"], agent_name)
+            result = claim_task(task["id"], name)
             if "Claimed" in result:
                 messages.append({"role": "user",
                     "content": f"<auto-claimed>Task {task['id']}: "
@@ -498,7 +497,7 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
                 break
 
             # IDLE phase (s17 new)
-            idle_result = idle_poll(name, messages, name, role)
+            idle_result = idle_poll(name, messages, role)
             if idle_result == "shutdown":
                 break
             if idle_result == "timeout":
