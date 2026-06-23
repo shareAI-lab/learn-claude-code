@@ -57,7 +57,7 @@ SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks."
 THRESHOLD = 50000
 TRANSCRIPT_DIR = WORKDIR / ".transcripts"
 KEEP_RECENT = 3
-PRESERVE_RESULT_TOOLS = {"read_file"}
+PRESERVE_RESULT_TOOLS = {"read_file", "write_file", "edit_file"}
 
 
 def estimate_tokens(messages: list) -> int:
