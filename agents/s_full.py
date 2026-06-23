@@ -53,7 +53,7 @@ load_dotenv(override=True)
 if os.getenv("ANTHROPIC_BASE_URL"):
     os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
 
-WORKDIR = Path.cwd()
+WORKDIR = Path(os.getenv("WORKDIR", os.getcwd()))
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
@@ -78,8 +78,7 @@ def safe_path(p: str) -> Path:
     return path
 
 def run_bash(command: str) -> str:
-    dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
-    if any(d in command for d in dangerous):
+    if _DANGEROUS_RE.search(command):
         return "Error: Dangerous command blocked"
     try:
         r = subprocess.run(command, shell=True, cwd=WORKDIR,
@@ -88,6 +87,10 @@ def run_bash(command: str) -> str:
         return out[:50000] if out else "(no output)"
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
+
+_DANGEROUS_RE = re.compile(
+    r'(rm\s+-rf\s+/|sudo\s|shutdown\b|reboot\b|mkfs\b|dd\s+if=|>\s*/dev/sd|:\(\)\s*\{.*\|.*&\})'
+)
 
 def run_read(path: str, limit: int = None) -> str:
     try:
@@ -393,6 +396,7 @@ class MessageBus:
 # === SECTION: shutdown + plan tracking (s10) ===
 shutdown_requests = {}
 plan_requests = {}
+_state_lock = threading.Lock()
 
 
 # === SECTION: team (s09/s11) ===
@@ -451,6 +455,7 @@ class TeammateManager:
             {"name": "send_message", "description": "Send message.", "input_schema": {"type": "object", "properties": {"to": {"type": "string"}, "content": {"type": "string"}}, "required": ["to", "content"]}},
             {"name": "idle", "description": "Signal no more work.", "input_schema": {"type": "object", "properties": {}}},
             {"name": "claim_task", "description": "Claim task by ID.", "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
+            {"name": "plan_approval", "description": "Submit a plan for lead approval.", "input_schema": {"type": "object", "properties": {"plan": {"type": "string"}}, "required": ["plan"]}},
         ]
         while True:
             # -- WORK PHASE --
@@ -482,6 +487,13 @@ class TeammateManager:
                             output = self.task_mgr.claim(block.input["task_id"], name)
                         elif block.name == "send_message":
                             output = self.bus.send(name, block.input["to"], block.input["content"])
+                        elif block.name == "plan_approval":
+                            req_id = str(uuid.uuid4())[:8]
+                            with _state_lock:
+                                plan_requests[req_id] = {"from": name, "plan": block.input["plan"], "status": "pending"}
+                            BUS.send(name, "lead", block.input["plan"], "plan_approval_response",
+                                     {"request_id": req_id, "plan": block.input["plan"]})
+                            output = f"Plan submitted (request_id={req_id}). Waiting for lead approval."
                         else:
                             dispatch = {"bash": lambda **kw: run_bash(kw["command"]),
                                         "read_file": lambda **kw: run_read(kw["path"]),
@@ -559,15 +571,17 @@ Skills: {SKILLS.descriptions()}"""
 # === SECTION: shutdown_protocol (s10) ===
 def handle_shutdown_request(teammate: str) -> str:
     req_id = str(uuid.uuid4())[:8]
-    shutdown_requests[req_id] = {"target": teammate, "status": "pending"}
+    with _state_lock:
+        shutdown_requests[req_id] = {"target": teammate, "status": "pending"}
     BUS.send("lead", teammate, "Please shut down.", "shutdown_request", {"request_id": req_id})
     return f"Shutdown request {req_id} sent to '{teammate}'"
 
 # === SECTION: plan_approval (s10) ===
 def handle_plan_review(request_id: str, approve: bool, feedback: str = "") -> str:
-    req = plan_requests.get(request_id)
-    if not req: return f"Error: Unknown plan request_id '{request_id}'"
-    req["status"] = "approved" if approve else "rejected"
+    with _state_lock:
+        req = plan_requests.get(request_id)
+        if not req: return f"Error: Unknown plan request_id '{request_id}'"
+        req["status"] = "approved" if approve else "rejected"
     BUS.send("lead", req["from"], feedback, "plan_approval_response",
              {"request_id": request_id, "approve": approve, "feedback": feedback})
     return f"Plan {req['status']} for '{req['from']}'"
