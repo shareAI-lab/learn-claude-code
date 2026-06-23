@@ -220,6 +220,15 @@ class TeammateManager:
             self._save_config()
 
     def _exec(self, sender: str, tool_name: str, args: dict) -> str:
+        # Gate major work tools behind plan approval
+        if tool_name in ("bash", "write_file", "edit_file"):
+            with _tracker_lock:
+                has_pending = any(
+                    r["from"] == sender and r["status"] == "pending"
+                    for r in plan_requests.values()
+                )
+            if has_pending:
+                return "Error: Plan submitted but not yet approved. Wait for lead approval before executing major work."
         # these base tools are unchanged from s02
         if tool_name == "bash":
             return _run_bash(args["command"])
