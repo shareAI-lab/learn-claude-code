@@ -191,3 +191,18 @@ Fork Agent 的 `permissionMode: 'bubble'`（`forkSubagent.ts:67`）意味着子 
 </details>
 
 <!-- translation-sync: zh@v1, en@v0, ja@v0 -->
+
+## FAQ
+
+### Q: micro_compact 会破坏 prompt cache 吗？
+
+不会。micro_compact 只替换 tool_result 的 content 字段，不改变 messages 列表的结构与顺序。Anthropic 的 prompt cache 基于前缀匹配，只要 messages 前缀不变，cache 仍然命中。
+
+### Q: context offloading 和 context compaction 有什么区别？
+
+- **Compaction**（本章）：在上下文窗口内压缩，用摘要替换原始消息。信息有损但仍在上下文中。
+- **Offloading**：将上下文转存到外部存储（文件、数据库），从上下文中移除。需要时再读回。s12 的 .transcripts/ 就是 offloading 的体现。
+
+### Q: auto_compact 触发后，之前的 tool_use/tool_result 配对会失效吗？
+
+不会。auto_compact 将整个 messages 替换为单条 summary 消息，配对关系随之消失。但 summary 保留了关键信息，Agent 可基于 summary 继续工作。
