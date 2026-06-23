@@ -449,6 +449,12 @@ learn-claude-code                   claw0
  teams, worktree isolation)            memory, Soul personality)
 ```
 
+## 社区资源
+
+- [Agent 可视化日志](https://github.com/shareAI-lab/learn-claude-code/issues/216) — 社区贡献的 Agent 运行轨迹可视化回放工具
+
+---
+
 ## License
 
 MIT
