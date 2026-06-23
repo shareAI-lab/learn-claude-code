@@ -52,12 +52,19 @@ WORKDIR = Path.cwd()
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
-SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks."
-
 THRESHOLD = 50000
 TRANSCRIPT_DIR = WORKDIR / ".transcripts"
 KEEP_RECENT = 3
 PRESERVE_RESULT_TOOLS = {"read_file"}
+
+SYSTEM = (
+    f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. "
+    f"The conversation has a context limit of {THRESHOLD} tokens. "
+    f"When the conversation becomes long or you notice repeated tool results, "
+    f"call the compact tool to compress history and preserve relevant context. "
+    f"micro_compact triggers automatically near the threshold; use compact manually "
+    f"for proactive compression of completed sub-tasks."
+)
 
 
 def estimate_tokens(messages: list) -> int:
