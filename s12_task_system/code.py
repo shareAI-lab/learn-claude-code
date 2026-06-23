@@ -20,7 +20,7 @@ reactive compact, fallback model) is omitted — in real CC, tasks.ts and
 withRetry are independent layers that compose naturally.
 """
 
-import os, subprocess, json, time, random
+import ast, os, subprocess, json, time, random
 from pathlib import Path
 from dataclasses import dataclass, asdict
 
@@ -214,8 +214,28 @@ def run_write(path: str, content: str) -> str:
 
 # Task tools
 
+def _normalize_blocked_by(blockedBy):
+    if isinstance(blockedBy, str):
+        try:
+            blockedBy = json.loads(blockedBy)
+        except json.JSONDecodeError:
+            try:
+                blockedBy = ast.literal_eval(blockedBy)
+            except (SyntaxError, ValueError):
+                return None, "Error: blockedBy must be a list or JSON array string"
+    if blockedBy is None:
+        return None, None
+    if not isinstance(blockedBy, list):
+        return None, "Error: blockedBy must be a list"
+    if not all(isinstance(dep, str) for dep in blockedBy):
+        return None, "Error: blockedBy entries must be strings"
+    return blockedBy, None
+
 def run_create_task(subject: str, description: str = "",
                     blockedBy: list[str] | None = None) -> str:
+    blockedBy, error = _normalize_blocked_by(blockedBy)
+    if error:
+        return error
     task = create_task(subject, description, blockedBy)
     deps = f" (blockedBy: {', '.join(blockedBy)})" if blockedBy else ""
     print(f"  \033[34m[create] {task.subject}{deps}\033[0m")
