@@ -50,7 +50,7 @@ WORKDIR = Path.cwd()
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
-SYSTEM = f"You are a coding agent at {WORKDIR}. All destructive operations require user approval."
+SYSTEM = f"You are a coding agent at {WORKDIR}. All destructive operations require user approval. You must only access files inside {WORKDIR}. Do not read or modify files outside the workspace."
 
 
 # ═══════════════════════════════════════════════════════════
@@ -64,7 +64,30 @@ def safe_path(p: str) -> Path:
     return path
 
 
+_DANGEROUS_PATTERNS = [
+    "rm -rf /", "sudo", "shutdown", "reboot", "> /dev/",
+    "cat /etc/", "/etc/passwd", "/etc/shadow",
+    "cd / ", "cd ..", "../..",
+]
+
+
+def _escapes_workspace(command: str) -> bool:
+    """Detect commands that access paths outside WORKDIR."""
+    import re
+    for pattern in _DANGEROUS_PATTERNS:
+        if pattern in command:
+            return True
+    abs_paths = re.findall(r'(?:^|\s)(/[^\s]+)', command)
+    workdir_str = str(WORKDIR)
+    for ap in abs_paths:
+        if not ap.startswith(workdir_str):
+            return True
+    return False
+
+
 def run_bash(command: str) -> str:
+    if _escapes_workspace(command):
+        return "Error: Command blocked: escapes workspace"
     try:
         r = subprocess.run(command, shell=True, cwd=WORKDIR,
                            capture_output=True, text=True, timeout=120)
