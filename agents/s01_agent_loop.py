@@ -25,6 +25,7 @@ policy, hooks, and lifecycle controls on top.
 """
 
 import os
+import platform
 import subprocess
 
 try:
@@ -63,12 +64,17 @@ TOOLS = [{
 
 
 def run_bash(command: str) -> str:
-    dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
+    dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/",
+                 "format ", "del /f", "rmdir /s", "reg delete"]
     if any(d in command for d in dangerous):
         return "Error: Dangerous command blocked"
     try:
-        r = subprocess.run(command, shell=True, cwd=os.getcwd(),
-                           capture_output=True, text=True, timeout=120)
+        if platform.system() == "Windows":
+            r = subprocess.run(["powershell", "-NoProfile", "-Command", command],
+                               cwd=os.getcwd(), capture_output=True, text=True, timeout=120)
+        else:
+            r = subprocess.run(command, shell=True, cwd=os.getcwd(),
+                               capture_output=True, text=True, timeout=120)
         out = (r.stdout + r.stderr).strip()
         return out[:50000] if out else "(no output)"
     except subprocess.TimeoutExpired:
