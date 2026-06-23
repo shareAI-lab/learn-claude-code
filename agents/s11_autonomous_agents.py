@@ -228,6 +228,14 @@ class TeammateManager:
                 inbox = BUS.read_inbox(name)
                 for msg in inbox:
                     if msg.get("type") == "shutdown_request":
+                        req_id = msg.get("request_id", "")
+                        with _tracker_lock:
+                            if req_id in shutdown_requests:
+                                shutdown_requests[req_id]["status"] = "approved"
+                        BUS.send(
+                            name, "lead", "",
+                            "shutdown_response", {"request_id": req_id, "approve": True},
+                        )
                         self._set_status(name, "shutdown")
                         return
                     messages.append({"role": "user", "content": json.dumps(msg)})
@@ -274,6 +282,14 @@ class TeammateManager:
                 if inbox:
                     for msg in inbox:
                         if msg.get("type") == "shutdown_request":
+                            req_id = msg.get("request_id", "")
+                            with _tracker_lock:
+                                if req_id in shutdown_requests:
+                                    shutdown_requests[req_id]["status"] = "approved"
+                            BUS.send(
+                                name, "lead", "",
+                                "shutdown_response", {"request_id": req_id, "approve": True},
+                            )
                             self._set_status(name, "shutdown")
                             return
                         messages.append({"role": "user", "content": json.dumps(msg)})
