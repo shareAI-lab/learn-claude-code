@@ -30,15 +30,29 @@ Agent 的核心是一个神经网络 -- Transformer、RNN、一个被训练出�
 
 ### Agent 不是什么
 
-"Agent" 这个词已经被一整个提示词水管工产业劫持了。
+"Agent" 这个词，已经被一整条提示词流水线产业劫持了。
 
-拖拽式工作流构建器。无代码 "AI Agent" 平台。提示词链编排库。它们共享同一个幻觉：把 LLM API 调用用 if-else 分支、节点图、硬编码路由逻辑串在一起就算是 "构建 Agent" 了。
+拖拽式工作流构建器。无代码 "AI Agent" 平台。提示词链编排库。
 
-不是的。它们做出来的东西是鲁布·戈德堡机械 -- 一个过度工程化的、脆弱的过程式规则流水线，LLM 被楔在里面当一个美化了的文本补全节点。那不是 Agent。那是一个有着宏大妄想的 shell 脚本。
+它们共享同一个幻觉：把 LLM API 调用，用 if-else 分支、节点图、硬编码路由串在一起，就算是 "构建 Agent" 了。
 
-**提示词水管工式 "Agent" 是不做模型的程序员的意淫。** 他们试图通过堆叠过程式逻辑来暴力模拟智能 -- 庞大的规则树、节点图、链式提示词瀑布流 -- 然后祈祷足够多的胶水代码能涌现出自主行为。不会的。你不可能通过工程手段编码出 agency。Agency 是学出来的，不是编出来的。
+不是。
 
-那些系统从诞生之日起就已经死了：脆弱、不可扩展、根本不具备泛化能力。它们是 GOFAI（Good Old-Fashioned AI，经典符号 AI）的现代还魂 -- 几十年前就被学界抛弃的符号规则系统，现在喷了一层 LLM 的漆又登场了。换了个包装，同一条死路。
+它们做出来的是鲁布·戈德堡机械——过度工程化、脆弱的过程式规则流水线。LLM 被楔在里面，当一个美化了的文本补全节点。
+
+那不是 Agent。那是一个披着宏大外衣的 shell 脚本。
+
+试图通过堆叠过程式逻辑来暴力模拟智能——庞大的规则树、节点图、链式提示词瀑布——然后祈祷足够多的胶水代码能自发涌现出自主行为。
+
+不会的。
+
+Agency 不可能被编码。Agency 是学出来的，不是编出来的。
+
+那些系统从诞生起就已经死了。脆弱。不可扩展。毫无泛化能力。
+
+它们是 GOFAI（Good Old-Fashioned AI，经典符号 AI）的现代回魂——几十年前被学界抛弃的符号规则系统，现在喷了一层 LLM 的漆，又登场了。
+
+换了个包装，同一条死路。
 
 ### 心智转换：从 "开发 Agent" 到开发 Harness
 
@@ -378,14 +392,7 @@ flowchart TD
 | [s18](./s18_worktree_isolation/) | Worktree Isolation | `WorktreeRecord` / 任务-目录绑定 |
 | [s19](./s19_mcp_plugin/) | MCP Plugin | 多传输 / 通道路由 / 工具池组装 |
 | [s20](./s20_comprehensive/) | Comprehensive Agent | 全部机制归到一个循环 |
-
-### 补充教程
-
-独立于主 20 章主线的补充课程。
-
-| 教程 | 主题 | 代码 | 文档 |
-|---|---|---|---|
-| s13-补充 | 系统提示词（动态环境） | [s13_system_prompt_manager.py](./s13_system_prompt_manager.py) | [en](./docs/en/s13-system-prompts.md) · [zh](./docs/zh/s13-system-prompts.md) |
+| [s21](./s21_system_prompts_analysis/) | System Prompts 分析 | 分析 Claude Code 真实的 525+ 条提示词 |
 
 ## 项目结构
 
@@ -401,6 +408,7 @@ learn-claude-code/
   ...
   s19_mcp_plugin/
   s20_comprehensive/       # 终点章
+  s21_system_prompts_analysis/  # 分析篇：读懂 Claude Code 的提示词
   agents/                  # 旧 12 章可运行副本 + s_full.py
   skills/                  # s07 使用的 skill 文件
   docs/                    # 旧 12 章文档，过渡期保留
