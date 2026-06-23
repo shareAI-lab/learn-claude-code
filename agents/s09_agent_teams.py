@@ -359,6 +359,13 @@ def agent_loop(messages: list):
         )
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
+            # Wait for active teammates before exiting
+            import time
+            for _ in range(120):  # 120 seconds timeout
+                active = [m for m in TEAM.config["members"] if m["status"] == "working"]
+                if not active:
+                    break
+                time.sleep(1)
             return
         results = []
         for block in response.content:
