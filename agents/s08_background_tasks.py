@@ -200,6 +200,13 @@ def agent_loop(messages: list):
         )
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
+            notifs = BG.drain_notifications()
+            if notifs:
+                notif_text = "\n".join(
+                    f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs
+                )
+                messages.append({"role": "user", "content": f"<background-results>\n{notif_text}\n</background-results>"})
+                continue
             return
         results = []
         for block in response.content:
