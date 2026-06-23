@@ -167,6 +167,21 @@ def update_context(context: dict, messages: list) -> dict:
     }
 
 
+def build_system_reminder(context: dict) -> str:
+    """Build a dynamic reminder injected after tool results.
+
+    Reflects current context: memory status, tool availability, workspace.
+    """
+    reminders = []
+    if context.get("memories"):
+        reminders.append(f"Memory loaded ({len(context['memories'])} chars).")
+    else:
+        reminders.append("No memory file found. Use write_file to create .memory/MEMORY.md.")
+    reminders.append(f"Tools available: {', '.join(context.get('enabled_tools', []))}.")
+    reminders.append(f"Workspace: {context.get('workspace', 'unknown')}.")
+    return "\n".join(reminders)
+
+
 # ── Agent Loop ──
 
 def agent_loop(messages: list, context: dict):
@@ -191,6 +206,10 @@ def agent_loop(messages: list, context: dict):
             results.append({"type": "tool_result",
                             "tool_use_id": block.id, "content": output})
         messages.append({"role": "user", "content": results})
+
+        # Inject dynamic system reminder after tool results
+        reminder = build_system_reminder(context)
+        messages.append({"role": "user", "content": f"<system-reminder>\n{reminder}\n</system-reminder>"})
 
         # Re-evaluate context and prompt after each tool round
         context = update_context(context, messages)
