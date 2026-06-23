@@ -449,6 +449,12 @@ learn-claude-code                   claw0
  teams, worktree isolation)            memory, Soul personality)
 ```
 
+## 社区资源
+
+- [Claude Code 架构图](https://github.com/shareAI-lab/learn-claude-code/issues/355) — 社区贡献的可视化架构总览
+
+---
+
 ## License
 
 MIT
