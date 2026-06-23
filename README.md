@@ -467,6 +467,32 @@ learn-claude-code                   claw0
 - [llm-space](https://github.com/shareAI-lab/learn-claude-code/issues/338) — 社区贡献的 LLM 应用脚手架项目
 - [Agent 可视化日志](https://github.com/shareAI-lab/learn-claude-code/issues/216) — 社区贡献的 Agent 运行轨迹可视化回放工具
 
+## 网站状态与故障排除
+
+本仓库 `web/` 目录是一个 Next.js 静态站点，用于交互式展示 s01-s20 的可视化教程。
+
+### 常见问题
+
+| 问题 | 原因 | 解决方案 |
+|------|------|----------|
+| 页面空白 | `npm run build` 失败 | 检查 Node.js 版本（需 ≥ 18），删除 `web/node_modules` 后 `npm install` |
+| 图片不显示 | SVG 路径错误 | 确认 `web/public/course-assets/` 下文件完整 |
+| 链接 404 | docs 路径不匹配 | 运行 `npm run extract` 重新生成 `web/src/data/generated/docs.json` |
+| 样式错乱 | Tailwind 缓存 | 删除 `web/.next` 目录后重新构建 |
+
+### 本地预览
+
+```sh
+cd web
+npm install
+npm run dev
+# 打开 http://localhost:3000
+```
+
+### 部署
+
+主分支推送后由 GitHub Actions 自动部署到 GitHub Pages。
+
 ---
 
 ## License
