@@ -449,6 +449,12 @@ learn-claude-code                   claw0
  teams, worktree isolation)            memory, Soul personality)
 ```
 
+## 社区资源
+
+- [llm-space](https://github.com/shareAI-lab/learn-claude-code/issues/338) — 社区贡献的 LLM 应用脚手架项目
+
+---
+
 ## License
 
 MIT
