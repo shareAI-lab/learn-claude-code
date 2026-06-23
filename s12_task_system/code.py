@@ -216,6 +216,19 @@ def run_write(path: str, content: str) -> str:
 
 def run_create_task(subject: str, description: str = "",
                     blockedBy: list[str] | None = None) -> str:
+    # Normalize blockedBy: LLMs sometimes return a string-form list
+    # (e.g. "['task_001']") or a single string instead of a real list.
+    if isinstance(blockedBy, str):
+        try:
+            parsed = json.loads(blockedBy)
+            blockedBy = parsed if isinstance(parsed, list) else [str(parsed)]
+        except (json.JSONDecodeError, ValueError):
+            cleaned = blockedBy.strip().strip("[]'\" ")
+            blockedBy = ([b.strip().strip("'\"") for b in cleaned.split(",")
+                          if b.strip()] or None)
+    elif blockedBy is not None and not isinstance(blockedBy, list):
+        blockedBy = [str(blockedBy)]
+
     task = create_task(subject, description, blockedBy)
     deps = f" (blockedBy: {', '.join(blockedBy)})" if blockedBy else ""
     print(f"  \033[34m[create] {task.subject}{deps}\033[0m")
