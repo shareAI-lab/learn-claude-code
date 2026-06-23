@@ -464,6 +464,7 @@ learn-claude-code                   claw0
 ## 社区资源
 
 - [Claude Code 架构图](https://github.com/shareAI-lab/learn-claude-code/issues/355) — 社区贡献的可视化架构总览
+- [llm-space](https://github.com/shareAI-lab/learn-claude-code/issues/338) — 社区贡献的 LLM 应用脚手架项目
 
 ---
 
