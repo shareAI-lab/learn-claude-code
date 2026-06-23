@@ -330,6 +330,18 @@ flowchart TD
 
 ---
 
+## API 兼容性说明
+
+本仓库的 agent 代码使用 **Anthropic 原生 API** 的 `tools` 字段格式（`input_schema`）。如果使用 OpenAI 兼容格式的第三方中转 API（如 `function` 类型），需要自行转换：
+
+| Anthropic 原生 | OpenAI 兼容 |
+|----------------|-------------|
+| `{"name": "bash", "input_schema": {...}}` | `{"type": "function", "function": {"name": "bash", "parameters": {...}}}` |
+
+推荐直接使用 Anthropic API 或兼容原生格式的中转服务。
+
+---
+
 ## How to Read
 
 Each chapter is a folder. Open one and you will find:
