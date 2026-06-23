@@ -122,3 +122,7 @@ python agents/s06_context_compact.py
 1. `Read every Python file in the agents/ directory one by one` (micro-compactが古い結果を置換するのを観察する)
 2. `Keep reading files until compression triggers automatically`
 3. `Use the compact tool to manually compress the conversation`
+
+---
+
+詳細は [s06_subagent/README.md](../../s06_subagent/README.md) を参照
