@@ -57,14 +57,14 @@
   <rect x="378" y="80" width="356" height="60" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="556" y="98" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">TOOL DISPATCH (core tool set)</text>
   <text x="394" y="114" fill="#2563eb" font-size="8">bash · read · write · task(4) · spawn · send · inbox</text>
-  <text x="394" y="128" fill="#7c3aed" font-size="8" font-weight="700">★ request_shutdown · request_plan · review_plan</text>
+  <text x="394" y="128" fill="#7c3aed" font-size="8" font-weight="700">★ request_shutdown · submit_plan · review_plan</text>
 
   <!-- Loop back -->
   <path d="M 734 110 L 748 110 L 748 150 L 55 150 L 55 130" fill="none" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)" stroke-dasharray="5,4"/>
 
   <!-- ===== Row 2: Protocol Flow (purple) — request_id lifecycle ===== -->
   <rect x="30" y="176" width="700" height="100" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
-  <text x="380" y="196" fill="#4c1d95" font-size="11" font-weight="700" text-anchor="middle">Request-Response Protocol Flow (request_id throughout)</text>
+  <text x="380" y="196" fill="#4c1d95" font-size="11" font-weight="700" text-anchor="middle">Shutdown Request-Response Flow (request_id throughout)</text>
 
   <!-- Step 1: Send request -->
   <rect x="50" y="208" width="130" height="52" rx="6" fill="#fff" stroke="#7c3aed" stroke-width="1"/>
@@ -99,7 +99,7 @@
   <!-- ===== Row 3: State Machine + Storage ===== -->
   <!-- State Machine -->
   <rect x="30" y="296" width="340" height="85" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
-  <text x="200" y="316" fill="#4c1d95" font-size="10" font-weight="700" text-anchor="middle">State Machine (same for both protocols)</text>
+  <text x="200" y="316" fill="#4c1d95" font-size="10" font-weight="700" text-anchor="middle">State Machine (shared by protocol requests)</text>
 
   <rect x="55" y="330" width="58" height="20" rx="4" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
   <text x="84" y="344" fill="#475569" font-size="9" text-anchor="middle">pending</text>
@@ -125,14 +125,14 @@
 
   <!-- ===== Row 4: Two protocols use same machine ===== -->
   <rect x="30" y="396" width="700" height="48" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
-  <text x="55" y="416" fill="#1e3a5f" font-size="10" font-weight="600">Two protocols, one mechanism:</text>
+  <text x="55" y="416" fill="#1e3a5f" font-size="10" font-weight="600">Two separate flows:</text>
   <rect x="230" y="406" width="130" height="18" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
   <text x="295" y="419" fill="#92400e" font-size="9" text-anchor="middle">shutdown_request</text>
-  <text x="368" y="419" fill="#475569" font-size="10">and</text>
+  <text x="368" y="419" fill="#475569" font-size="10">; plan:</text>
   <rect x="390" y="406" width="140" height="18" rx="4" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
-  <text x="460" y="419" fill="#1e40af" font-size="9" text-anchor="middle">plan_approval_request</text>
-  <text x="540" y="419" fill="#475569" font-size="10">share the same pending→approved/rejected FSM</text>
-  <text x="55" y="436" fill="#6b7280" font-size="8">New protocol type = new msg_type, no new state machine. request_id links request and response.</text>
+  <text x="460" y="419" fill="#1e40af" font-size="9" text-anchor="middle">submit_plan</text>
+  <text x="540" y="419" fill="#475569" font-size="8">→ review_plan → plan_approval_response</text>
+  <text x="55" y="436" fill="#6b7280" font-size="8">request_plan is a plain message; request_id links protocol requests and responses.</text>
 
   <!-- ===== Bottom notes ===== -->
   <rect x="30" y="460" width="700" height="28" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
