@@ -728,7 +728,14 @@ if __name__ == "__main__":
             print(TEAM.list_all())
             continue
         if query.strip() == "/inbox":
-            print(json.dumps(BUS.read_inbox("lead"), indent=2))
+            # Peek without draining — read_inbox() clears the file, which
+            # would make the lead agent miss pending messages.
+            inbox_path = INBOX_DIR / "lead.jsonl"
+            if inbox_path.exists():
+                msgs = [json.loads(line) for line in inbox_path.read_text().strip().splitlines() if line]
+                print(json.dumps(msgs, indent=2))
+            else:
+                print("[]")
             continue
         history.append({"role": "user", "content": query})
         agent_loop(history)
