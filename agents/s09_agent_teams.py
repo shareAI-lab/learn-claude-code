@@ -170,38 +170,56 @@ class TeammateManager:
         )
         messages = [{"role": "user", "content": prompt}]
         tools = self._teammate_tools()
-        for _ in range(50):
-            inbox = BUS.read_inbox(name)
-            for msg in inbox:
-                messages.append({"role": "user", "content": json.dumps(msg)})
-            try:
-                response = client.messages.create(
-                    model=MODEL,
-                    system=sys_prompt,
-                    messages=messages,
-                    tools=tools,
-                    max_tokens=8000,
-                )
-            except Exception:
-                break
-            messages.append({"role": "assistant", "content": response.content})
-            if response.stop_reason != "tool_use":
-                break
-            results = []
-            for block in response.content:
-                if block.type == "tool_use":
-                    output = self._exec(name, block.name, block.input)
-                    print(f"  [{name}] {block.name}: {str(output)[:120]}")
-                    results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": str(output),
-                    })
-            messages.append({"role": "user", "content": results})
-        member = self._find_member(name)
-        if member and member["status"] != "shutdown":
-            member["status"] = "idle"
-            self._save_config()
+        while True:
+            for _ in range(50):
+                inbox = BUS.read_inbox(name)
+                for msg in inbox:
+                    messages.append({"role": "user", "content": json.dumps(msg)})
+                try:
+                    response = client.messages.create(
+                        model=MODEL,
+                        system=sys_prompt,
+                        messages=messages,
+                        tools=tools,
+                        max_tokens=8000,
+                    )
+                except Exception:
+                    break
+                messages.append({"role": "assistant", "content": response.content})
+                if response.stop_reason != "tool_use":
+                    break
+                results = []
+                for block in response.content:
+                    if block.type == "tool_use":
+                        output = self._exec(name, block.name, block.input)
+                        print(f"  [{name}] {block.name}: {str(output)[:120]}")
+                        results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": str(output),
+                        })
+                messages.append({"role": "user", "content": results})
+            member = self._find_member(name)
+            if member and member["status"] != "shutdown":
+                member["status"] = "idle"
+                self._save_config()
+            # Idle wait: poll inbox for new messages
+            import time
+            idle_waited = 0
+            while True:
+                if member and member["status"] == "shutdown":
+                    return
+                inbox = BUS.read_inbox(name)
+                if inbox:
+                    messages = [{"role": "user", "content": json.dumps(inbox[0])}]
+                    if member:
+                        member["status"] = "working"
+                        self._save_config()
+                    break  # re-enter work loop
+                idle_waited += 1
+                if idle_waited > 300:  # 5 minutes timeout
+                    return
+                time.sleep(1)
 
     def _exec(self, sender: str, tool_name: str, args: dict) -> str:
         # these base tools are unchanged from s02
