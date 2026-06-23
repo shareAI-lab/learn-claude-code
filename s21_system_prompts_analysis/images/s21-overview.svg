@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <rect width="800" height="400" fill="#f8fafc"/>
+
+  <!-- Box 1: Piebald-AI Repo -->
+  <rect x="40" y="150" width="200" height="100" rx="12" ry="12" fill="#3b82f6" stroke="#1e40af" stroke-width="2"/>
+  <text x="140" y="190" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="16" font-weight="bold">Piebald-AI Repo</text>
+  <text x="140" y="215" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="13">515+ prompts</text>
+  <text x="140" y="235" text-anchor="middle" fill="#e0e7ff" font-family="sans-serif" font-size="11">claude-code-system-prompts</text>
+
+  <!-- Arrow 1 -->
+  <line x1="245" y1="200" x2="320" y2="200" stroke="#333" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <!-- Box 2: code.py Analyzer -->
+  <rect x="325" y="150" width="180" height="100" rx="12" ry="12" fill="#10b981" stroke="#047857" stroke-width="2"/>
+  <text x="415" y="190" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="16" font-weight="bold">code.py</text>
+  <text x="415" y="215" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="13">Analyzer</text>
+  <text x="415" y="235" text-anchor="middle" fill="#d1fae5" font-family="sans-serif" font-size="11">fetch · regex · aggregate</text>
+
+  <!-- Arrow 2 -->
+  <line x1="510" y1="200" x2="585" y2="200" stroke="#333" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <!-- Box 3: Analysis Report -->
+  <rect x="590" y="150" width="180" height="100" rx="12" ry="12" fill="#f59e0b" stroke="#b45309" stroke-width="2"/>
+  <text x="680" y="190" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="16" font-weight="bold">Analysis Report</text>
+  <text x="680" y="215" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="13">README.md</text>
+  <text x="680" y="235" text-anchor="middle" fill="#fef3c7" font-family="sans-serif" font-size="11">patterns · taxonomy</text>
+
+  <!-- Title -->
+  <text x="400" y="60" text-anchor="middle" fill="#1e293b" font-family="sans-serif" font-size="22" font-weight="bold">s21: System Prompts Analysis Pipeline</text>
+  <text x="400" y="90" text-anchor="middle" fill="#64748b" font-family="sans-serif" font-size="14">Data flow from Piebald-AI repository to analysis report</text>
+
+  <!-- Footer labels -->
+  <text x="140" y="290" text-anchor="middle" fill="#475569" font-family="sans-serif" font-size="12">Source</text>
+  <text x="415" y="290" text-anchor="middle" fill="#475569" font-family="sans-serif" font-size="12">Processing</text>
+  <text x="680" y="290" text-anchor="middle" fill="#475569" font-family="sans-serif" font-size="12">Output</text>
+
+  <!-- Bottom note -->
+  <text x="400" y="350" text-anchor="middle" fill="#94a3b8" font-family="sans-serif" font-size="12">Claude Code v2.1.181 · 515+ prompts · multi-stage decomposition</text>
+</svg>
