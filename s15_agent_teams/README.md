@@ -251,4 +251,28 @@ CC 的队友由 `spawnTeammate()`（`spawnMultiAgent.ts`）创建：
 
 </details>
 
+## 消息总线设计
+
+s15 的 inbox 轮询采用**双模式架构**：
+
+### 系统侧自动注入
+`agent_loop` 每轮迭代末尾自动调用 `BUS.read_inbox("lead")`，将未读消息注入 `history` 作为 `[Inbox]` 用户消息。这保证 teammate 发送的消息不会丢失，即使 LLM 未主动调用 `check_inbox` 工具。
+
+### LLM 侧主动查询
+`check_inbox` 工具保留为 LLM 可调用工具，支持按需检索 inbox 内容。适用于 LLM 需要在工具调用链中检查消息的场景。
+
+### 设计权衡
+| 模式 | 优势 | 劣势 |
+|------|------|------|
+| 自动注入 | 消息不丢失，无需 LLM 决策 | 占用上下文窗口 |
+| 主动查询 | 按需检索，节省上下文 | 依赖 LLM 判断，可能遗漏 |
+
+s15 选择**双模式并存**：自动注入作为保底机制，主动查询作为补充。这与 s14 的 cron_queue 和 s13 的 background_results 设计一致——系统侧主动推送关键事件，LLM 侧保留工具供细粒度查询。
+
+### 与 Issue #413 的关系
+[Issue #413](https://github.com/shareAI-lab/learn-claude-code/issues/413) 提出是否应将 check_inbox 完全交给系统侧。当前设计选择保留双模式，因为：
+1. 自动注入的消息被截断为前 200 字符，LLM 主动查询可获取完整内容
+2. 某些场景下 LLM 需要在特定工具调用后检查 inbox，而非每轮末尾
+3. 教学目的：展示系统侧与 LLM 侧协作的两种模式
+
 <!-- translation-sync: zh@v1, en@v1, ja@v1 -->

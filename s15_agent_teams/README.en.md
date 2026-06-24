@@ -251,4 +251,28 @@ Teammates cannot be nested (`AgentTool.tsx:273` explicitly forbids "teammates sp
 
 </details>
 
+## Message Bus Design
+
+s15's inbox polling uses a **dual-mode architecture**:
+
+### System-Side Auto-Injection
+`agent_loop` automatically calls `BUS.read_inbox("lead")` at the end of each iteration, injecting unread messages into `history` as `[Inbox]` user messages. This ensures teammate messages are never lost, even if the LLM doesn't actively call the `check_inbox` tool.
+
+### LLM-Side Active Query
+The `check_inbox` tool remains available for the LLM to call, supporting on-demand inbox retrieval. Useful when the LLM needs to check messages within a tool call chain.
+
+### Design Trade-offs
+| Mode | Advantage | Disadvantage |
+|------|-----------|--------------|
+| Auto-injection | No messages lost, no LLM decision needed | Consumes context window |
+| Active query | On-demand retrieval, saves context | Depends on LLM judgment, may miss messages |
+
+s15 chooses **dual-mode coexistence**: auto-injection as a safety net, active query as a supplement. This is consistent with s14's cron_queue and s13's background_results design — the system side proactively pushes key events, while the LLM side retains tools for fine-grained queries.
+
+### Relationship to Issue #413
+[Issue #413](https://github.com/shareAI-lab/learn-claude-code/issues/413) raised whether check_inbox should be fully handled by the system side. The current design keeps both modes because:
+1. Auto-injected messages are truncated to the first 200 characters; LLM active queries can retrieve full content
+2. In some scenarios, the LLM needs to check inbox after specific tool calls, not at the end of each round
+3. Teaching purpose: demonstrate two modes of system-side and LLM-side collaboration
+
 <!-- translation-sync: zh@v1, en@v1, ja@v1 -->
