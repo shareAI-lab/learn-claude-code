@@ -1,0 +1,44 @@
+name: Lint and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install "ruff>=0.6.0"
+      - name: Run ruff check
+        run: ruff check agents/ tests/
+      - name: Run ruff format check
+        run: ruff format --check agents/ tests/
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      - name: Run py_compile on all agents
+        run: |
+          python -m py_compile agents/*.py
+      - name: Run pytest
+        run: python -m pytest tests/ -q
+        env:
+          MODEL_ID: test-model
+          ANTHROPIC_API_KEY: test-key
