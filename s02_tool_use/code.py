@@ -13,7 +13,7 @@ s02: Tool Use — 在 s01 基础上新增 4 个工具 + 分发映射。
 循环本身（agent_loop）与 s01 完全一致。
 """
 
-import os, subprocess
+import os, shlex, subprocess
 from pathlib import Path
 
 try:
@@ -44,11 +44,9 @@ SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. Act, d
 # ═══════════════════════════════════════════════════════════
 
 def run_bash(command: str) -> str:
-    dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
-    if any(d in command for d in dangerous):
-        return "Error: Dangerous command blocked"
     try:
-        r = subprocess.run(command, shell=True, cwd=WORKDIR,
+        args = shlex.split(command)
+        r = subprocess.run(args, shell=False, cwd=WORKDIR,
                            capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=120)
         out = (r.stdout + r.stderr).strip()
