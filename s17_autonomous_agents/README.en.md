@@ -42,13 +42,13 @@ After completing a task, the teammate doesn't exit. It enters the IDLE phase —
 IDLE_POLL_INTERVAL = 5   # seconds
 IDLE_TIMEOUT = 60         # seconds
 
-def idle_poll(agent_name, messages, name, role) -> str:
+def idle_poll(name, messages, role) -> str:
     """Return 'work', 'shutdown', or 'timeout'."""
     for _ in range(IDLE_TIMEOUT // IDLE_POLL_INTERVAL):
         time.sleep(IDLE_POLL_INTERVAL)
 
         # ① Check inbox (priority)
-        inbox = BUS.read_inbox(agent_name)
+        inbox = BUS.read_inbox(name)
         if inbox:
             # shutdown_request handled immediately
             for msg in inbox:
@@ -63,7 +63,7 @@ def idle_poll(agent_name, messages, name, role) -> str:
         unclaimed = scan_unclaimed_tasks()
         if unclaimed:
             task = unclaimed[0]
-            result = claim_task(task["id"], agent_name)
+            result = claim_task(task["id"], name)
             if "Claimed" in result:
                 messages.append(...)
                 return "work"
@@ -126,7 +126,7 @@ while True:
             break  # WORK phase ends
 
     # IDLE phase
-    idle_result = idle_poll(name, messages, name, role)
+    idle_result = idle_poll(name, messages, role)
     if idle_result == "shutdown":
         break
     if idle_result == "timeout":
@@ -268,4 +268,4 @@ Teaching version's `idle_poll()` merges CC's four mechanisms into one polling fu
 
 </details>
 
-<!-- translation-sync: zh@v1, en@v1, ja@v1 -->
+<!-- translation-sync: zh@v2, en@v2, ja@v2 -->
