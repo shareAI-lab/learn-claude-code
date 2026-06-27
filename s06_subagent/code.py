@@ -51,6 +51,8 @@ CURRENT_TODOS: list[dict] = []
 
 SYSTEM = (
     f"You are a coding agent at {WORKDIR}. "
+    "Before starting any multi-step task, use todo_write to plan your steps. "
+    "Update status as you go. "
     "For complex sub-problems, use the task tool to spawn a subagent."
 )
 
