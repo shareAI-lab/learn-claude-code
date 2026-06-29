@@ -12,32 +12,29 @@ Changes from s09:
   - agent_loop uses get_system_prompt(context) instead of hardcoded SYSTEM
 
 Memory section loads when .memory/MEMORY.md exists (real state, not keywords).
+
+Env/client setup, the base tools, the base tool schemas and the REPL come from
+common.py; this file adds runtime prompt assembly with caching (skills/hooks/
+subagent/compaction dropped to keep the prompt mechanism in focus).
 """
 
-import os, subprocess, json
+import json
+import sys
 from pathlib import Path
 
-try:
-    import readline
-    readline.parse_and_bind('set bind-tty-special-chars off')
-except ImportError:
-    pass
+# Bootstrap repo root onto sys.path so `from common import ...` works whether
+# this file is run directly or loaded by tests.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from anthropic import Anthropic
-from dotenv import load_dotenv
+from common import init_env, make_base_tools, select_tools, run_repl
 
-load_dotenv(override=True)
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
-WORKDIR = Path.cwd()
+client, MODEL, WORKDIR = init_env()
+safe_path, run_bash, run_read, run_write, _, _ = make_base_tools(WORKDIR)
 MEMORY_DIR = WORKDIR / ".memory"
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
-MODEL = os.environ["MODEL_ID"]
 
 
-# ── Prompt Sections ──
+# ── NEW in s10: Prompt Sections ──
 
 PROMPT_SECTIONS = {
     "identity": "You are a coding agent. Act, don't explain.",
@@ -92,62 +89,9 @@ def get_system_prompt(context: dict) -> str:
     return _last_prompt
 
 
-# ── Tools ──
+# ── Tool Registry (3 base tools only) ──
 
-def safe_path(p: str) -> Path:
-    path = (WORKDIR / p).resolve()
-    if not path.is_relative_to(WORKDIR):
-        raise ValueError(f"Path escapes workspace: {p}")
-    return path
-
-
-def run_bash(command: str) -> str:
-    try:
-        r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                           capture_output=True, text=True, timeout=120)
-        out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
-    except subprocess.TimeoutExpired:
-        return "Error: Timeout (120s)"
-
-
-def run_read(path: str, limit: int | None = None) -> str:
-    try:
-        lines = safe_path(path).read_text().splitlines()
-        if limit and limit < len(lines):
-            lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
-        return "\n".join(lines)
-    except Exception as e:
-        return f"Error: {e}"
-
-
-def run_write(path: str, content: str) -> str:
-    try:
-        file_path = safe_path(path)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content)
-        return f"Wrote {len(content)} bytes to {path}"
-    except Exception as e:
-        return f"Error: {e}"
-
-
-TOOLS = [
-    {"name": "bash", "description": "Run a shell command.",
-     "input_schema": {"type": "object",
-                      "properties": {"command": {"type": "string"}},
-                      "required": ["command"]}},
-    {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "limit": {"type": "integer"}},
-                      "required": ["path"]}},
-    {"name": "write_file", "description": "Write content to a file.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "content": {"type": "string"}},
-                      "required": ["path", "content"]}},
-]
-
+TOOLS = select_tools(("bash", "read_file", "write_file"))
 TOOL_HANDLERS = {"bash": run_bash, "read_file": run_read, "write_file": run_write}
 
 
@@ -197,22 +141,11 @@ def agent_loop(messages: list, context: dict):
         system = get_system_prompt(context)
 
 
+def turn(history, ctx):
+    agent_loop(history, ctx)
+    return update_context(ctx, history)
+
+
 if __name__ == "__main__":
-    print("s10: system prompt — runtime assembly")
-    print("Enter a question, press Enter to send. Type q to quit.\n")
-    history = []
-    context = update_context({}, [])
-    while True:
-        try:
-            query = input("\033[36ms10 >> \033[0m")
-        except (EOFError, KeyboardInterrupt):
-            break
-        if query.strip().lower() in ("q", "exit", ""):
-            break
-        history.append({"role": "user", "content": query})
-        agent_loop(history, context)
-        context = update_context(context, history)
-        for block in history[-1]["content"]:
-            if getattr(block, "type", None) == "text":
-                print(block.text)
-        print()
+    run_repl("\033[36ms10 >> \033[0m", "s10: system prompt — runtime assembly",
+             turn, context=update_context({}, []))

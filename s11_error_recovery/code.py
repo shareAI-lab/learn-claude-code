@@ -22,30 +22,32 @@ ASCII flow:
                                               max_tokens?   prompt_too_long? -> compact
                                               escalate /    429/529? -> backoff
                                               continue      other? -> log + exit
+
+Env/client setup, the base tools and the base tool schemas come from common.py;
+this file adds the error-recovery layer on top of s10's prompt assembly. The
+__main__ REPL stays inline because error recovery can emit multiple assistant
+text blocks per turn (continuation / error) which the standard REPL print
+doesn't cover.
 """
 
-import os, subprocess, time, random, json
+import json
+import os
+import random
+import sys
+import time
 from pathlib import Path
 
-try:
-    import readline
-    readline.parse_and_bind('set bind-tty-special-chars off')
-except ImportError:
-    pass
+# Bootstrap repo root onto sys.path so `from common import ...` works whether
+# this file is run directly or loaded by tests.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from anthropic import Anthropic
-from dotenv import load_dotenv
+from common import init_env, make_base_tools, select_tools
 
-load_dotenv(override=True)
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
-WORKDIR = Path.cwd()
+client, PRIMARY_MODEL, WORKDIR = init_env()
+FALLBACK_MODEL = os.getenv("FALLBACK_MODEL_ID")
+safe_path, run_bash, run_read, run_write, _, _ = make_base_tools(WORKDIR)
 MEMORY_DIR = WORKDIR / ".memory"
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
-PRIMARY_MODEL = os.environ["MODEL_ID"]
-FALLBACK_MODEL = os.getenv("FALLBACK_MODEL_ID")
 
 # ── Constants ──
 
@@ -99,66 +101,13 @@ def get_system_prompt(context: dict) -> str:
     return _last_prompt
 
 
-# ── Tools (unchanged) ──
+# ── Tool Registry (3 base tools only) ──
 
-def safe_path(p: str) -> Path:
-    path = (WORKDIR / p).resolve()
-    if not path.is_relative_to(WORKDIR):
-        raise ValueError(f"Path escapes workspace: {p}")
-    return path
-
-
-def run_bash(command: str) -> str:
-    try:
-        r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                           capture_output=True, text=True, timeout=120)
-        out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
-    except subprocess.TimeoutExpired:
-        return "Error: Timeout (120s)"
-
-
-def run_read(path: str, limit: int | None = None) -> str:
-    try:
-        lines = safe_path(path).read_text().splitlines()
-        if limit and limit < len(lines):
-            lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
-        return "\n".join(lines)
-    except Exception as e:
-        return f"Error: {e}"
-
-
-def run_write(path: str, content: str) -> str:
-    try:
-        file_path = safe_path(path)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content)
-        return f"Wrote {len(content)} bytes to {path}"
-    except Exception as e:
-        return f"Error: {e}"
-
-
-TOOLS = [
-    {"name": "bash", "description": "Run a shell command.",
-     "input_schema": {"type": "object",
-                      "properties": {"command": {"type": "string"}},
-                      "required": ["command"]}},
-    {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "limit": {"type": "integer"}},
-                      "required": ["path"]}},
-    {"name": "write_file", "description": "Write content to a file.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "content": {"type": "string"}},
-                      "required": ["path", "content"]}},
-]
-
+TOOLS = select_tools(("bash", "read_file", "write_file"))
 TOOL_HANDLERS = {"bash": run_bash, "read_file": run_read, "write_file": run_write}
 
 
-# ── Error Recovery (s11 new) ──
+# ── NEW in s11: Error Recovery ──
 
 class RecoveryState:
     """Track recovery attempts across the loop."""
@@ -341,6 +290,9 @@ def agent_loop(messages: list, context: dict):
 
 
 if __name__ == "__main__":
+    # Inline REPL: error recovery can emit multiple assistant text blocks per
+    # turn (continuation / error), so we print every assistant message since
+    # turn_start rather than just the last message.
     print("s11: error recovery")
     print("Enter a question, press Enter to send. Type q to quit.\n")
     history = []

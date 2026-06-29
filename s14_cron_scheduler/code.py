@@ -20,31 +20,38 @@ Four layers:
   2. Queue: cron_queue decouples scheduler from agent loop
   3. Queue processor: wakes the agent when queued work exists and it is idle
   4. Consumer: agent_loop consumes queued jobs and injects them into messages
+
+Env/client setup and the base tools come from common.py. s14 inherits s13's
+run_in_background bash signature (re-defined locally, delegating to the base)
+and adds the cron scheduler on top. The __main__ REPL stays inline because
+the queue_processor_loop daemon thread + agent_lock need a custom main loop.
 """
 
-import os, subprocess, json, time, random, threading
+import json
+import random
+import sys
+import threading
+import time
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, asdict
 
-try:
-    import readline
-    readline.parse_and_bind('set bind-tty-special-chars off')
-except ImportError:
-    pass
+# Bootstrap repo root onto sys.path so `from common import ...` works whether
+# this file is run directly or loaded by tests.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from anthropic import Anthropic
-from dotenv import load_dotenv
+from common import init_env, make_base_tools, select_tools
 
-load_dotenv(override=True)
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
-WORKDIR = Path.cwd()
+client, MODEL, WORKDIR = init_env()
+safe_path, _base_run_bash, run_read, run_write, _, _ = make_base_tools(WORKDIR)
 MEMORY_DIR = WORKDIR / ".memory"
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
-MODEL = os.environ["MODEL_ID"]
+
+
+def run_bash(command: str, run_in_background: bool = False) -> str:
+    # run_in_background is dispatched by agent_loop; the base run_bash does the
+    # actual execution. Re-defined locally to keep s14's tool signature.
+    return _base_run_bash(command)
 
 # ── Task System (from s12, synced) ──
 
@@ -173,46 +180,6 @@ def get_system_prompt(context: dict) -> str:
     _last_context_key = key
     _last_prompt = assemble_system_prompt(context)
     return _last_prompt
-
-
-# ── Tools ──
-
-def safe_path(p: str) -> Path:
-    path = (WORKDIR / p).resolve()
-    if not path.is_relative_to(WORKDIR):
-        raise ValueError(f"Path escapes workspace: {p}")
-    return path
-
-
-def run_bash(command: str, run_in_background: bool = False) -> str:
-    # run_in_background is handled by agent_loop dispatch, not here
-    try:
-        r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                           capture_output=True, text=True, timeout=120)
-        out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
-    except subprocess.TimeoutExpired:
-        return "Error: Timeout (120s)"
-
-
-def run_read(path: str, limit: int | None = None) -> str:
-    try:
-        lines = safe_path(path).read_text().splitlines()
-        if limit and limit < len(lines):
-            lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
-        return "\n".join(lines)
-    except Exception as e:
-        return f"Error: {e}"
-
-
-def run_write(path: str, content: str) -> str:
-    try:
-        fp = safe_path(path)
-        fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
-        return f"Wrote {len(content)} bytes to {path}"
-    except Exception as e:
-        return f"Error: {e}"
 
 
 # Task tools
@@ -593,22 +560,14 @@ def run_cancel_cron(job_id: str) -> str:
 # ── Tool Definitions ──
 
 TOOLS = [
+    # bash carries the s13 run_in_background flag (dispatched by agent_loop)
     {"name": "bash", "description": "Run a shell command.",
      "input_schema": {"type": "object",
                       "properties": {
                           "command": {"type": "string"},
                           "run_in_background": {"type": "boolean"}},
                       "required": ["command"]}},
-    {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "limit": {"type": "integer"}},
-                      "required": ["path"]}},
-    {"name": "write_file", "description": "Write content to a file.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "content": {"type": "string"}},
-                      "required": ["path", "content"]}},
+    *select_tools(("read_file", "write_file")),
     {"name": "create_task",
      "description": "Create a new task with optional blockedBy dependencies.",
      "input_schema": {"type": "object",
