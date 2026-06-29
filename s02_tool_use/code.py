@@ -11,30 +11,22 @@ s02: Tool Use — 在 s01 基础上新增 4 个工具 + 分发映射。
   + safe_path 路径安全校验
 
 循环本身（agent_loop）与 s01 完全一致。
+
+注：本课引入的工具实现（run_bash/safe_path/run_read/run_write/run_edit/run_glob）
+在 common.py 中有同名规范版本，供 s03+ 直接 import 复用；本课为教学完整性保留内联。
 """
 
-import os, subprocess
+import subprocess
+import sys
 from pathlib import Path
 
-try:
-    import readline
-    readline.parse_and_bind('set bind-tty-special-chars off')
-    readline.parse_and_bind('set input-meta on')
-    readline.parse_and_bind('set output-meta on')
-    readline.parse_and_bind('set convert-meta off')
-except ImportError:
-    pass
+# Bootstrap repo root onto sys.path so `from common import ...` works whether
+# this file is run directly or loaded by tests.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from anthropic import Anthropic
-from dotenv import load_dotenv
+from common import init_env, run_repl
 
-load_dotenv(override=True)
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
-WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
-MODEL = os.environ["MODEL_ID"]
+client, MODEL, WORKDIR = init_env()
 
 SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. Act, don't explain."
 
@@ -171,20 +163,5 @@ def agent_loop(messages: list):
 
 
 if __name__ == "__main__":
-    print("s02: Tool Use — 在 s01 基础上加了 4 个工具")
-    print("输入问题，回车发送。输入 q 退出。\n")
-
-    history = []
-    while True:
-        try:
-            query = input("\033[36ms02 >> \033[0m")
-        except (EOFError, KeyboardInterrupt):
-            break
-        if query.strip().lower() in ("q", "exit", ""):
-            break
-        history.append({"role": "user", "content": query})
-        agent_loop(history)
-        for block in history[-1]["content"]:
-            if getattr(block, "type", None) == "text":
-                print(block.text)
-        print()
+    run_repl("\033[36ms02 >> \033[0m", "s02: Tool Use — 在 s01 基础上加了 4 个工具",
+             lambda history, ctx: agent_loop(history))

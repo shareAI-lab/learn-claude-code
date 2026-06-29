@@ -22,36 +22,27 @@ This is the core loop: feed tool results back to the model
 until the model decides to stop. Production agents layer
 policy, hooks, and lifecycle controls on top.
 
+Env/client setup and the REPL live in common.py (shared by every lesson);
+this file focuses on the loop itself and the first tool.
+
 Usage:
     pip install anthropic python-dotenv
     ANTHROPIC_API_KEY=... python s01_agent_loop/code.py
 """
 
-import os
 import subprocess
+import sys
+from pathlib import Path
 
-try:
-    import readline
-    # macOS 的 libedit 在处理中文输入时有退格问题，这四行修复它
-    readline.parse_and_bind('set bind-tty-special-chars off')
-    readline.parse_and_bind('set input-meta on')
-    readline.parse_and_bind('set output-meta on')
-    readline.parse_and_bind('set convert-meta off')
-except ImportError:
-    pass
+# Bootstrap repo root onto sys.path so `from common import ...` works whether
+# this file is run directly (python s01_agent_loop/code.py) or loaded by tests.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from anthropic import Anthropic
-from dotenv import load_dotenv
+from common import init_env, run_repl
 
-load_dotenv(override=True)
+client, MODEL, WORKDIR = init_env()
 
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
-MODEL = os.environ["MODEL_ID"]
-
-SYSTEM = f"You are a coding agent at {os.getcwd()}. Use bash to solve tasks. Act, don't explain."
+SYSTEM = f"You are a coding agent at {WORKDIR}. Use bash to solve tasks. Act, don't explain."
 
 # ── Tool definition: just bash ────────────────────────────
 TOOLS = [{
@@ -71,7 +62,7 @@ def run_bash(command: str) -> str:
     if any(d in command for d in dangerous):
         return "Error: Dangerous command blocked"
     try:
-        r = subprocess.run(command, shell=True, cwd=os.getcwd(),
+        r = subprocess.run(command, shell=True, cwd=WORKDIR,
                            capture_output=True, text=True, timeout=120)
         out = (r.stdout + r.stderr).strip()
         return out[:50000] if out else "(no output)"
@@ -115,23 +106,5 @@ def agent_loop(messages: list):
 
 # ── Entry point ──────────────────────────────────────────
 if __name__ == "__main__":
-    print("s01: Agent Loop")
-    print("输入问题，回车发送。输入 q 退出。\n")
-
-    history = []
-    while True:
-        try:
-            query = input("\033[36ms01 >> \033[0m")
-        except (EOFError, KeyboardInterrupt):
-            break
-        if query.strip().lower() in ("q", "exit", ""):
-            break
-        history.append({"role": "user", "content": query})
-        agent_loop(history)
-        # Print the model's final text response
-        response_content = history[-1]["content"]
-        if isinstance(response_content, list):
-            for block in response_content:
-                if getattr(block, "type", None) == "text":
-                    print(block.text)
-        print()
+    run_repl("\033[36ms01 >> \033[0m", "s01: Agent Loop",
+             lambda history, ctx: agent_loop(history))
