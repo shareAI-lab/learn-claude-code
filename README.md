@@ -339,11 +339,13 @@ s08_context_compact/
   README.md              # full narrative with inline code
   README.en.md           # English translation
   README.ja.md           # Japanese translation
-  code.py                # standalone runnable implementation
+  code.py                # runnable implementation (imports shared boilerplate from common.py)
   images/                # SVG diagrams (where needed)
 ```
 
 Read the `README.md` for the core idea and work through the code. Complex chapters have `<details>` folds for deep dives -- open them when you want to go deeper. Simple chapters have 0-1 diagrams, complex chapters have more.
+
+Each `code.py` only contains what that lesson teaches. The repeated boilerplate every chapter needs -- `readline`/`.env`/client setup, the base file tools (`bash`/`read_file`/`write_file`/`edit_file`/`glob`), their schemas, and the standard REPL -- lives in [`common.py`](./common.py) at the repo root and is pulled in with `from common import ...`. So as you read later chapters the file stays focused on the new mechanism, not the code you already learned.
 
 Read from s01 through s20 in order. Each chapter assumes you've read the previous ones and ends with a hook into the next.
 
@@ -386,11 +388,12 @@ cd web && npm install && npm run dev   # http://localhost:3000
 
 ```
 learn-claude-code/
+  common.py               # shared boilerplate: env/client init, base tools, schemas, REPL
   s01_agent_loop/          # one folder per chapter
     README.md              #   Chinese source (complete narrative)
     README.en.md           #   English translation
     README.ja.md           #   Japanese translation
-    code.py                #   standalone runnable code
+    code.py                #   runnable code (imports shared boilerplate from common.py)
     images/                #   SVG diagrams
   s02_tool_use/
   ...

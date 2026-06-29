@@ -244,6 +244,8 @@ def agent_loop(messages):
 
 新读者请从根目录 `s01_agent_loop/` 读到 `s20_comprehensive/`。如果你是从旧链接或当前 Web 平台进入，大概率看到的是旧 12 章版本。旧版章节号和新版不完全一致，不要混用章节号。
 
+每节课的 `code.py` 只保留本课新教的内容。所有课都重复的稳定样板 —— `readline`/`.env`/客户端初始化、基础文件工具（`bash`/`read_file`/`write_file`/`edit_file`/`glob`）、它们的 schema 以及标准 REPL —— 集中在仓库根目录的 [`common.py`](./common.py) 里，每课通过 `from common import ...` 引入。这样后期课程的文件只聚焦本课新增的机制，不再把已学过的代码重抄一遍。
+
 ### 旧版到新版的对应关系
 
 | 旧 12 章版本 | 新 20 章版本 | 主题 |
@@ -383,11 +385,12 @@ flowchart TD
 
 ```
 learn-claude-code/
+  common.py               # 共享样板: 环境/客户端初始化、基础工具、schema、REPL
   s01_agent_loop/          # 每章一个文件夹
     README.md              #   中文源文档（完整叙事）
     README.en.md           #   英文译本
     README.ja.md           #   日文译本
-    code.py                #   独立可运行代码
+    code.py                #   可运行代码（通过 from common import 引入共享样板）
     images/                #   SVG 流程图
   s02_tool_use/
   ...
