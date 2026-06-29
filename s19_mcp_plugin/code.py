@@ -19,29 +19,38 @@ ASCII flow:
   connect_mcp("docs") → MCPClient discovers tools →
   assemble_tool_pool → [builtin... , mcp__docs__search, mcp__docs__get_version]
   agent_loop uses assembled pool
+
+Env/client setup and the base tool schemas come from common.py. s19's base
+tools gain a ``cwd`` parameter (worktree isolation, inherited from s18), so
+they are re-defined locally and delegate to make_base_tools(cwd or WORKDIR).
+The __main__ REPL stays inline because the lead inbox routing needs a custom
+post-turn step.
 """
 
-import os, subprocess, json, time, random, threading, re
+import json
+import random
+import re
+import subprocess
+import sys
+import threading
+import time
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, asdict, field
 
-try:
-    import readline
-    readline.parse_and_bind('set bind-tty-special-chars off')
-except ImportError:
-    pass
+# Bootstrap repo root onto sys.path so `from common import ...` works whether
+# this file is run directly or loaded by tests.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from anthropic import Anthropic
-from dotenv import load_dotenv
+from common import init_env, make_base_tools, select_tools
 
-load_dotenv(override=True)
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
+client, MODEL, WORKDIR = init_env()
 
-WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
-MODEL = os.environ["MODEL_ID"]
+
+def _base_tools(cwd: Path = None):
+    """Base tool closures bound to cwd (or WORKDIR) — s19's worktree-aware
+    dispatch passes a worktree-specific cwd for teammate tool calls."""
+    return make_base_tools(cwd or WORKDIR)
 
 # ── Task System ──
 
@@ -273,41 +282,19 @@ def assemble_system_prompt(context: dict) -> str:
 # ── Basic Tools ──
 
 def safe_path(p: str, cwd: Path = None) -> Path:
-    base = cwd or WORKDIR
-    path = (base / p).resolve()
-    if not path.is_relative_to(base):
-        raise ValueError(f"Path escapes workspace: {p}")
-    return path
+    return _base_tools(cwd)[0](p)
 
 
 def run_bash(command: str, cwd: Path = None) -> str:
-    try:
-        r = subprocess.run(command, shell=True, cwd=cwd or WORKDIR,
-                           capture_output=True, text=True, timeout=120)
-        out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
-    except subprocess.TimeoutExpired:
-        return "Error: Timeout (120s)"
+    return _base_tools(cwd)[1](command)
 
 
 def run_read(path: str, limit: int | None = None, cwd: Path = None) -> str:
-    try:
-        lines = safe_path(path, cwd).read_text().splitlines()
-        if limit and limit < len(lines):
-            lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
-        return "\n".join(lines)
-    except Exception as e:
-        return f"Error: {e}"
+    return _base_tools(cwd)[2](path, limit)
 
 
 def run_write(path: str, content: str, cwd: Path = None) -> str:
-    try:
-        fp = safe_path(path, cwd)
-        fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
-        return f"Wrote {len(content)} bytes to {path}"
-    except Exception as e:
-        return f"Error: {e}"
+    return _base_tools(cwd)[3](path, content)
 
 
 # ── MessageBus ──
@@ -836,21 +823,7 @@ def run_connect_mcp(name: str) -> str:
 
 # ── Tool Definitions ──
 
-BUILTIN_TOOLS = [
-    {"name": "bash", "description": "Run a shell command.",
-     "input_schema": {"type": "object",
-                      "properties": {"command": {"type": "string"}},
-                      "required": ["command"]}},
-    {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "limit": {"type": "integer"}},
-                      "required": ["path"]}},
-    {"name": "write_file", "description": "Write content to a file.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "content": {"type": "string"}},
-                      "required": ["path", "content"]}},
+BUILTIN_TOOLS = select_tools(("bash", "read_file", "write_file")) + [
     {"name": "create_task", "description": "Create a task.",
      "input_schema": {"type": "object",
                       "properties": {"subject": {"type": "string"},

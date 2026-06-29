@@ -9,9 +9,15 @@ This final chapter intentionally puts the earlier teaching mechanisms back
 together: dispatch, permission, hooks, todo, subagent, skills, compaction,
 memory, prompt assembly, error recovery, task graph, background tasks, cron,
 teams, protocols, autonomous agents, worktrees, and MCP.
+
+Env/client setup and the base tool schemas come from common.py. s20's base
+tools gain a ``cwd`` parameter (worktree isolation) and run_in_background
+(dispatcher); they delegate to make_base_tools(cwd or WORKDIR). The __main__
+REPL stays inline because terminal_print needs thread-safe printing across
+teammate/cron/queue threads.
 """
 
-import ast, json, os, subprocess, time, random, threading, re
+import ast, json, os, subprocess, sys, time, random, threading, re
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, asdict, field
@@ -24,22 +30,25 @@ try:
 except ImportError:
     READLINE_AVAILABLE = False
 
-from anthropic import Anthropic
-from dotenv import load_dotenv
+# Bootstrap repo root onto sys.path so `from common import ...` works whether
+# this file is run directly or loaded by tests.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-load_dotenv(override=True)
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
+from common import init_env, make_base_tools, select_tools
 
-WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
-MODEL = os.environ["MODEL_ID"]
+client, MODEL, WORKDIR = init_env()
 PRIMARY_MODEL = MODEL
 FALLBACK_MODEL = os.getenv("FALLBACK_MODEL_ID")
 
 SKILLS_DIR = WORKDIR / "skills"
 TRANSCRIPT_DIR = WORKDIR / ".transcripts"
 TOOL_RESULTS_DIR = WORKDIR / ".task_outputs" / "tool-results"
+
+
+def _base_tools(cwd: Path = None):
+    """Base tool closures bound to cwd (or WORKDIR) — s20's worktree-aware
+    dispatch passes a worktree-specific cwd for teammate tool calls."""
+    return make_base_tools(cwd or WORKDIR)
 
 DEFAULT_MAX_TOKENS = 8000
 ESCALATED_MAX_TOKENS = 16000
@@ -375,31 +384,24 @@ def assemble_system_prompt(context: dict) -> str:
 
 
 # ── Basic Tools ──
+# s20 adds a cwd param to every base tool (worktree isolation) and
+# run_in_background to bash (dispatcher consumes it). They delegate to
+# make_base_tools(cwd or WORKDIR); run_read also keeps an offset param the
+# base lacks, so it stays local (delegating safe_path for the cwd part).
 
 def safe_path(p: str, cwd: Path = None) -> Path:
-    # File tools stay inside the workspace or teammate worktree. Bash remains
-    # powerful on purpose and is controlled by the permission hook instead.
-    base = cwd or WORKDIR
-    path = (base / p).resolve()
-    if not path.is_relative_to(base):
-        raise ValueError(f"Path escapes workspace: {p}")
-    return path
+    return _base_tools(cwd)[0](p)
 
 
 def run_bash(command: str, cwd: Path = None,
              run_in_background: bool = False) -> str:
     # run_in_background is consumed by the dispatcher; direct execution ignores it.
-    try:
-        r = subprocess.run(command, shell=True, cwd=cwd or WORKDIR,
-                           capture_output=True, text=True, timeout=120)
-        out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
-    except subprocess.TimeoutExpired:
-        return "Error: Timeout (120s)"
+    return _base_tools(cwd)[1](command)
 
 
 def run_read(path: str, limit: int | None = None,
              offset: int = 0, cwd: Path = None) -> str:
+    # s20 adds offset (base run_read only has limit); safe_path delegates cwd.
     try:
         lines = safe_path(path, cwd).read_text().splitlines()
         offset = max(int(offset or 0), 0)
@@ -413,39 +415,16 @@ def run_read(path: str, limit: int | None = None,
 
 
 def run_write(path: str, content: str, cwd: Path = None) -> str:
-    try:
-        fp = safe_path(path, cwd)
-        fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
-        return f"Wrote {len(content)} bytes to {path}"
-    except Exception as e:
-        return f"Error: {e}"
+    return _base_tools(cwd)[3](path, content)
 
 
 def run_edit(path: str, old_text: str, new_text: str,
              cwd: Path = None) -> str:
-    try:
-        fp = safe_path(path, cwd)
-        text = fp.read_text()
-        if old_text not in text:
-            return f"Error: text not found in {path}"
-        fp.write_text(text.replace(old_text, new_text, 1))
-        return f"Edited {path}"
-    except Exception as e:
-        return f"Error: {e}"
+    return _base_tools(cwd)[4](path, old_text, new_text)
 
 
 def run_glob(pattern: str, cwd: Path = None) -> str:
-    import glob as g
-    try:
-        base = cwd or WORKDIR
-        results = []
-        for match in g.glob(pattern, root_dir=base):
-            if (base / match).resolve().is_relative_to(base):
-                results.append(match)
-        return "\n".join(results) if results else "(no matches)"
-    except Exception as e:
-        return f"Error: {e}"
+    return _base_tools(cwd)[5](pattern)
 
 
 def call_tool_handler(handler, args: dict, name: str) -> str:
@@ -969,31 +948,16 @@ SUB_SYSTEM = (
 
 
 SUB_TOOLS = [
-    {"name": "bash", "description": "Run a shell command.",
-     "input_schema": {"type": "object",
-                      "properties": {"command": {"type": "string"}},
-                      "required": ["command"]}},
+    # bash/write_file/edit_file/glob are standard schemas from common.select_tools.
+    # read_file keeps an offset param the base lacks, so it stays inline.
+    *select_tools(("bash",)),
     {"name": "read_file", "description": "Read file contents.",
      "input_schema": {"type": "object",
                       "properties": {"path": {"type": "string"},
                                      "limit": {"type": "integer"},
                                      "offset": {"type": "integer"}},
                       "required": ["path"]}},
-    {"name": "write_file", "description": "Write content to a file.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "content": {"type": "string"}},
-                      "required": ["path", "content"]}},
-    {"name": "edit_file", "description": "Replace exact text in a file once.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "old_text": {"type": "string"},
-                                     "new_text": {"type": "string"}},
-                      "required": ["path", "old_text", "new_text"]}},
-    {"name": "glob", "description": "Find files matching a glob pattern.",
-     "input_schema": {"type": "object",
-                      "properties": {"pattern": {"type": "string"}},
-                      "required": ["pattern"]}},
+    *select_tools(("write_file", "edit_file", "glob")),
 ]
 
 
@@ -1734,21 +1698,10 @@ BUILTIN_TOOLS = [
                                      "limit": {"type": "integer"},
                                      "offset": {"type": "integer"}},
                       "required": ["path"]}},
-    {"name": "write_file", "description": "Write content to a file.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "content": {"type": "string"}},
-                      "required": ["path", "content"]}},
-    {"name": "edit_file", "description": "Replace exact text in a file once.",
-     "input_schema": {"type": "object",
-                      "properties": {"path": {"type": "string"},
-                                     "old_text": {"type": "string"},
-                                     "new_text": {"type": "string"}},
-                      "required": ["path", "old_text", "new_text"]}},
-    {"name": "glob", "description": "Find files matching a glob pattern.",
-     "input_schema": {"type": "object",
-                      "properties": {"pattern": {"type": "string"}},
-                      "required": ["pattern"]}},
+    # Standard write_file/edit_file/glob schemas come from common.select_tools.
+    # bash and read_file stay inline: bash carries run_in_background (the
+    # dispatcher consumes it) and read_file carries offset (base lacks it).
+    *select_tools(("write_file", "edit_file", "glob")),
     {"name": "todo_write",
      "description": "Create and manage a task list for the current session.",
      "input_schema": {"type": "object",
