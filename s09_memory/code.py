@@ -299,7 +299,7 @@ def consolidate_memories():
         "Consolidate the following memory files. Rules:\n"
         "1. Merge duplicates into one\n"
         "2. Remove outdated/contradicted memories\n"
-        "3. Keep the total under 30 memories\n"
+        "3. Keep the total under 8 memories\n"
         "4. Preserve important user preferences above all\n"
         "Return a JSON array. Each item: {name, type, description, body}.\n\n"
         f"{catalog[:16000]}"
