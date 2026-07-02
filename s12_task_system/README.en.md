@@ -159,7 +159,7 @@ Here `claim` / `complete` are actions, while `pending` / `in_progress` / `comple
 - **claim_task**: `pending` → `in_progress`. Sets owner, begins work.
 - **complete_task**: `in_progress` → `completed`. Marks the task done and unblocks downstream.
 
-CC has no `in_progress → pending` release path. If a teammate terminates or shuts down, CC unassigns its unfinished tasks (clears owner) and resets status to `pending`, allowing other agents to reclaim them. The teaching version omits this recovery path.
+The teaching version has no `in_progress → pending` release path. In real CC, if a teammate terminates or shuts down, CC unassigns its unfinished tasks (clears owner) and resets status to `pending`, allowing other agents to reclaim them. The teaching version omits this recovery path.
 
 ### Putting It Together
 

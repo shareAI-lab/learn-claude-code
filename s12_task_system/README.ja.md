@@ -159,7 +159,7 @@ pending ──claim──→ in_progress ──complete──→ completed
 - **claim_task**: `pending` → `in_progress`。owner を設定し、作業を開始。
 - **complete_task**: `in_progress` → `completed`。タスクを完了済みにし、下流をアンロック。
 
-CC には `in_progress → pending` の release パスがない。teammate が終了または shutdown した場合、CC は未完了タスクの owner をクリアし、status を `pending` にリセットし、他の agent が再認識できるようにする。教学版はこの復旧パスを省略。
+教学版には `in_progress → pending` の release パスがない。実際の CC では、teammate が終了または shutdown した場合、CC は未完了タスクの owner をクリアし、status を `pending` にリセットし、他の agent が再認識できるようにする。教学版はこの復旧パスを省略。
 
 ### 組み合わせて実行
 
