@@ -91,36 +91,14 @@ PROMPT_SECTIONS = {
 from mechanisms.prompt_assembly import make_prompt_assembly
 assemble_system_prompt, get_system_prompt = make_prompt_assembly(PROMPT_SECTIONS, verbose=False)
 
-# ── MessageBus (from s15) ──
-
-MAILBOX_DIR = WORKDIR / ".mailboxes"
-MAILBOX_DIR.mkdir(exist_ok=True)
-
-
-class MessageBus:
-    def send(self, from_agent: str, to_agent: str, content: str,
-             msg_type: str = "message", metadata: dict = None):
-        msg = {"from": from_agent, "to": to_agent,
-               "content": content, "type": msg_type,
-               "ts": time.time(), "metadata": metadata or {}}
-        inbox = MAILBOX_DIR / f"{to_agent}.jsonl"
-        with open(inbox, "a") as f:
-            f.write(json.dumps(msg) + "\n")
-        print(f"  \033[33m[bus] {from_agent} → {to_agent}: "
-              f"({msg_type}) {content[:50]}\033[0m")
-
-    def read_inbox(self, agent: str) -> list[dict]:
-        inbox = MAILBOX_DIR / f"{agent}.jsonl"
-        if not inbox.exists():
-            return []
-        msgs = [json.loads(line) for line in inbox.read_text().splitlines()
-                if line.strip()]
-        inbox.unlink()
-        return msgs
-
-
+# ── MessageBus (from s15 via mechanisms/messagebus.py; issue #349) ──
+# s15 defines this inline (first-appearance rule); s16+ reuse it.
+# s16 added the `metadata` param to send (carried forward here).
+from mechanisms.messagebus import MessageBus, init_messagebus
+init_messagebus(WORKDIR)
 BUS = MessageBus()
 active_teammates: dict[str, bool] = {}
+
 
 
 # ── Protocol State (from s16) ──
