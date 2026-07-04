@@ -126,7 +126,7 @@ cp .env.example .env
 **运行**：
 
 ```sh
-python s01_agent_loop/code.py
+python s01_agent_loop/agent_loop.py
 ```
 
 试试这些 prompt：
