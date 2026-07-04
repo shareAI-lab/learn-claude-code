@@ -1,10 +1,16 @@
 """
-common.py — shared foundation for every sNN lesson.
+common.py — shared foundation for every sNN lesson from s02 onward.
 
 Each lesson's code.py imports its boilerplate and base tools from here, so the
 lesson file only shows the NEW mechanism being taught (issue #349).
 
-What lives here (all of it was previously copy-pasted verbatim into every lesson):
+First-appearance rule: a concept is introduced INLINE in its origin lesson,
+then abstracted into a shared module for later lessons. So s01 inlines
+``init_env`` + ``run_repl`` (it introduces them); s02+ import them from here.
+This file's ``init_env`` / ``run_repl`` mirror s01 — keep them in sync.
+``make_base_tools`` mirrors the tool implementations s02 teaches inline.
+
+What lives here:
 
   - init_env():            readline + .env + Anthropic client + MODEL_ID + WORKDIR
   - make_base_tools(wd):   safe_path / run_bash / run_read / run_write / run_edit /

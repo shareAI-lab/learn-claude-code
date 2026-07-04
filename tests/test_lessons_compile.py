@@ -73,9 +73,37 @@ def test_common_py_is_importable() -> None:
             os.environ["ANTHROPIC_API_KEY"] = prev_key
 
 
-def test_all_lessons_import_common() -> None:
-    """Every lesson source must import from common (the point of issue #349)."""
+def test_all_lessons_import_shared_modules() -> None:
+    """Every lesson except the bootstrap origins must import shared code.
+
+    First-appearance rule (issue #349): the lesson that INTRODUCES a concept
+    inlines it; later lessons import the abstraction. s01 is the origin of
+    init_env/run_repl (inlined, self-contained — no common import). All other
+    lessons must import from common (boilerplate) and/or mechanisms (reused
+    mechanisms) rather than re-inlining everything.
+    """
     for path in LESSON_FILES:
+        if path.parent.name == "s01_agent_loop":
+            continue  # bootstrap origin: self-contained by design
         text = path.read_text(encoding="utf-8")
-        assert "from common import" in text, (
-            f"{path.relative_to(ROOT)} does not import from common")
+        assert ("from common import" in text
+                or "from mechanisms" in text), (
+            f"{path.relative_to(ROOT)} imports neither common nor mechanisms")
+
+
+def test_task_system_not_reduplicated() -> None:
+    """The Task System mechanism must be imported, not re-inlined (issue #349).
+
+    Only s12 (the origin lesson) may define ``class Task`` inline. Every other
+    lesson must import from mechanisms/tasks.py. s17-s20 override ``claim_task``
+    locally (they teach the owner-check enhancement), but the dataclass and the
+    other 7 functions come from the shared module.
+    """
+    origins = {"s12_task_system"}  # s12 introduces the Task System inline
+    for path in LESSON_FILES:
+        if path.parent.name in origins:
+            continue
+        text = path.read_text(encoding="utf-8")
+        assert "class Task:" not in text, (
+            f"{path.parent.name} re-inlines the Task System — "
+            "import from mechanisms/tasks.py instead (issue #349)")

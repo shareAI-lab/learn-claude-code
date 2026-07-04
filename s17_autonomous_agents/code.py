@@ -43,67 +43,16 @@ from common import init_env, make_base_tools, select_tools
 client, MODEL, WORKDIR = init_env()
 safe_path, run_bash, run_read, run_write, _, _ = make_base_tools(WORKDIR)
 
-# ── Task System (from s12) ──
-
-TASKS_DIR = WORKDIR / ".tasks"
-TASKS_DIR.mkdir(exist_ok=True)
-
-
-@dataclass
-class Task:
-    id: str
-    subject: str
-    description: str
-    status: str
-    owner: str | None
-    blockedBy: list[str]
-
-
-def _task_path(task_id: str) -> Path:
-    return TASKS_DIR / f"{task_id}.json"
-
-
-def create_task(subject: str, description: str = "",
-                blockedBy: list[str] | None = None) -> Task:
-    task = Task(
-        id=f"task_{int(time.time())}_{random.randint(0, 9999):04d}",
-        subject=subject, description=description,
-        status="pending", owner=None,
-        blockedBy=blockedBy or [],
-    )
-    save_task(task)
-    return task
-
-
-def save_task(task: Task):
-    _task_path(task.id).write_text(json.dumps(asdict(task), indent=2))
-
-
-def load_task(task_id: str) -> Task:
-    return Task(**json.loads(_task_path(task_id).read_text()))
-
-
-def list_tasks() -> list[Task]:
-    return [Task(**json.loads(p.read_text()))
-            for p in sorted(TASKS_DIR.glob("task_*.json"))]
-
-
-def get_task(task_id: str) -> str:
-    task = load_task(task_id)
-    return json.dumps(asdict(task), indent=2)
-
-
-def can_start(task_id: str) -> bool:
-    task = load_task(task_id)
-    for dep_id in task.blockedBy:
-        if not _task_path(dep_id).exists():
-            return False
-        if load_task(dep_id).status != "completed":
-            return False
-    return True
+# ── Task System (base imported from s12; claim_task overridden — s17 teaches the owner-check) ──
+from mechanisms.tasks import (
+    init_tasks, Task, create_task, save_task, load_task, list_tasks,
+    get_task, can_start, complete_task, task_path)
+init_tasks(WORKDIR)
 
 
 def claim_task(task_id: str, owner: str = "agent") -> str:
+    # s17 enhancement over s12's base (mechanisms/tasks.py): owner-check +
+    # missing-deps split. s12's base has neither; s17 introduces both here.
     task = load_task(task_id)
     if task.status != "pending":
         return f"Task {task_id} is {task.status}, cannot claim"
@@ -111,8 +60,8 @@ def claim_task(task_id: str, owner: str = "agent") -> str:
         return f"Task {task_id} already owned by {task.owner}"
     if not can_start(task_id):
         deps = [d for d in task.blockedBy
-                if _task_path(d).exists() and load_task(d).status != "completed"]
-        missing = [d for d in task.blockedBy if not _task_path(d).exists()]
+                if task_path(d).exists() and load_task(d).status != "completed"]
+        missing = [d for d in task.blockedBy if not task_path(d).exists()]
         parts = []
         if deps: parts.append(f"blocked by: {deps}")
         if missing: parts.append(f"missing deps: {missing}")
@@ -122,21 +71,6 @@ def claim_task(task_id: str, owner: str = "agent") -> str:
     save_task(task)
     print(f"  \033[36m[claim] {task.subject} → in_progress\033[0m")
     return f"Claimed {task.id} ({task.subject})"
-
-
-def complete_task(task_id: str) -> str:
-    task = load_task(task_id)
-    if task.status != "in_progress":
-        return f"Task {task_id} is {task.status}, cannot complete"
-    task.status = "completed"
-    save_task(task)
-    unblocked = [t.subject for t in list_tasks()
-                 if t.status == "pending" and t.blockedBy and can_start(t.id)]
-    print(f"  \033[32m[complete] {task.subject} ✓\033[0m")
-    msg = f"Completed {task.id} ({task.subject})"
-    if unblocked:
-        msg += f"\nUnblocked: {', '.join(unblocked)}"
-    return msg
 
 
 # ── Prompt Assembly (from s10) ──
@@ -255,12 +189,11 @@ IDLE_TIMEOUT = 60         # seconds
 def scan_unclaimed_tasks() -> list[dict]:
     """Find pending, unowned tasks with all dependencies completed."""
     unclaimed = []
-    for f in sorted(TASKS_DIR.glob("task_*.json")):
-        task = json.loads(f.read_text())
-        if (task.get("status") == "pending"
-                and not task.get("owner")
-                and can_start(task["id"])):
-            unclaimed.append(task)
+    for task in list_tasks():
+        if (task.status == "pending"
+                and not task.owner
+                and can_start(task.id)):
+            unclaimed.append(asdict(task))
     return unclaimed
 
 
