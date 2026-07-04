@@ -73,30 +73,10 @@ PROMPT_SECTIONS = {
 }
 
 
-def assemble_system_prompt(context: dict) -> str:
-    sections = [PROMPT_SECTIONS["identity"],
-                PROMPT_SECTIONS["tools"],
-                PROMPT_SECTIONS["workspace"]]
-    memories = context.get("memories", "")
-    if memories:
-        sections.append(f"Relevant memories:\n{memories}")
-    return "\n\n".join(sections)
-
-
-_last_context_key, _last_prompt = None, None
-
-
-def get_system_prompt(context: dict) -> str:
-    global _last_context_key, _last_prompt
-    key = json.dumps(context, sort_keys=True, ensure_ascii=False, default=str)
-    if key == _last_context_key and _last_prompt:
-        return _last_prompt
-    _last_context_key = key
-    _last_prompt = assemble_system_prompt(context)
-    return _last_prompt
-
-
-# Task tools
+# Prompt Assembly: s10 defines inline (first-appearance rule); s11+ reuse
+# via factory. PROMPT_SECTIONS stays local — the tools list is lesson-specific.
+from mechanisms.prompt_assembly import make_prompt_assembly
+assemble_system_prompt, get_system_prompt = make_prompt_assembly(PROMPT_SECTIONS, verbose=True)
 
 def run_create_task(subject: str, description: str = "",
                     blockedBy: list[str] | None = None) -> str:
