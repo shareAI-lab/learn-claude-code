@@ -118,28 +118,11 @@ def run_complete_task(task_id: str) -> str:
 
 # ── Background Tasks (from s13, synced) ──
 
-_bg_counter = 0
-background_tasks: dict[str, dict] = {}
-background_results: dict[str, str] = {}
-background_lock = threading.Lock()
 
-
-def is_slow_operation(tool_name: str, tool_input: dict) -> bool:
-    """Fallback heuristic: commands likely to take > 30s."""
-    if tool_name != "bash":
-        return False
-    cmd = tool_input.get("command", "").lower()
-    slow_keywords = ["install", "build", "test", "deploy", "compile",
-                     "docker build", "pip install", "npm install",
-                     "cargo build", "pytest", "make"]
-    return any(kw in cmd for kw in slow_keywords)
-
-
-def should_run_background(tool_name: str, tool_input: dict) -> bool:
-    """Model explicit request takes priority; fallback to heuristic."""
-    if tool_input.get("run_in_background"):
-        return True
-    return is_slow_operation(tool_name, tool_input)
+# Background Tasks: s13 defines inline (first-appearance rule); s14+ reuse
+# via factory. execute_tool stays local — the handler dict is lesson-specific.
+from mechanisms.background import (
+    is_slow_operation, should_run_background, make_background)
 
 
 def execute_tool(block) -> str:
@@ -157,51 +140,8 @@ def execute_tool(block) -> str:
     return f"Unknown tool: {block.name}"
 
 
-def start_background_task(block) -> str:
-    """Run tool in a daemon thread. Returns background task ID."""
-    global _bg_counter
-    _bg_counter += 1
-    bg_id = f"bg_{_bg_counter:04d}"
-    cmd = block.input.get("command", block.name)
+start_background_task, collect_background_results, has_pending_background = make_background(execute_tool)
 
-    def worker():
-        result = execute_tool(block)
-        with background_lock:
-            background_tasks[bg_id]["status"] = "completed"
-            background_results[bg_id] = result
-
-    with background_lock:
-        background_tasks[bg_id] = {
-            "tool_use_id": block.id,
-            "command": cmd,
-            "status": "running",
-        }
-    threading.Thread(target=worker, daemon=True).start()
-    print(f"  \033[33m[background] dispatched {bg_id}: {cmd[:40]}\033[0m")
-    return bg_id
-
-
-def collect_background_results() -> list[str]:
-    """Collect completed background results as task_notification messages."""
-    with background_lock:
-        ready_ids = [bid for bid, task in background_tasks.items()
-                     if task["status"] == "completed"]
-    notifications = []
-    for bg_id in ready_ids:
-        with background_lock:
-            task = background_tasks.pop(bg_id)
-            output = background_results.pop(bg_id, "")
-        summary = output[:200] if len(output) > 200 else output
-        notifications.append(
-            f"<task_notification>\n"
-            f"  <task_id>{bg_id}</task_id>\n"
-            f"  <status>completed</status>\n"
-            f"  <command>{task['command']}</command>\n"
-            f"  <summary>{summary}</summary>\n"
-            f"</task_notification>")
-        print(f"  \033[32m[background done] {bg_id}: "
-              f"{task['command'][:40]} ({len(output)} chars)\033[0m")
-    return notifications
 
 
 # ── Cron Scheduler (s14 new) ──
