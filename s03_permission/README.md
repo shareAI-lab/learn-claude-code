@@ -65,7 +65,7 @@ PERMISSION_RULES = [
     },
     {
         "tools": ["bash"],
-        "check": lambda args: any(kw in args.get("command", "") for kw in ["rm ", "> /etc/", "chmod 777"]),
+        "check": lambda args: any(kw in args.get("command", "") for kw in ["rm ", "> /etc/", "chmod 777", "del"]),
         "message": "Potentially destructive command",
     },
 ]
