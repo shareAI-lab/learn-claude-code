@@ -105,7 +105,7 @@ class MessageBus:
         if not inbox_path.exists():
             return []
         messages = []
-        for line in inbox_path.read_text().strip().splitlines():
+        for line in inbox_path.read_text(encoding="utf-8").strip().splitlines():
             if line:
                 messages.append(json.loads(line))
         inbox_path.write_text("")
@@ -128,7 +128,7 @@ def scan_unclaimed_tasks() -> list:
     TASKS_DIR.mkdir(exist_ok=True)
     unclaimed = []
     for f in sorted(TASKS_DIR.glob("task_*.json")):
-        task = json.loads(f.read_text())
+        task = json.loads(f.read_text(encoding="utf-8"))
         if (task.get("status") == "pending"
                 and not task.get("owner")
                 and not task.get("blockedBy")):
@@ -141,7 +141,7 @@ def claim_task(task_id: int, owner: str) -> str:
         path = TASKS_DIR / f"task_{task_id}.json"
         if not path.exists():
             return f"Error: Task {task_id} not found"
-        task = json.loads(path.read_text())
+        task = json.loads(path.read_text(encoding="utf-8"))
         if task.get("owner"):
             existing_owner = task.get("owner") or "someone else"
             return f"Error: Task {task_id} has already been claimed by {existing_owner}"
@@ -175,7 +175,7 @@ class TeammateManager:
 
     def _load_config(self) -> dict:
         if self.config_path.exists():
-            return json.loads(self.config_path.read_text())
+            return json.loads(self.config_path.read_text(encoding="utf-8"))
         return {"team_name": "default", "members": []}
 
     def _save_config(self):
@@ -395,7 +395,7 @@ def _run_bash(command: str) -> str:
     try:
         r = subprocess.run(
             command, shell=True, cwd=WORKDIR,
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
         )
         out = (r.stdout + r.stderr).strip()
         return out[:50000] if out else "(no output)"
@@ -405,7 +405,7 @@ def _run_bash(command: str) -> str:
 
 def _run_read(path: str, limit: int = None) -> str:
     try:
-        lines = _safe_path(path).read_text().splitlines()
+        lines = _safe_path(path).read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more)"]
         return "\n".join(lines)[:50000]
@@ -417,7 +417,7 @@ def _run_write(path: str, content: str) -> str:
     try:
         fp = _safe_path(path)
         fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
+        fp.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes"
     except Exception as e:
         return f"Error: {e}"
@@ -426,7 +426,7 @@ def _run_write(path: str, content: str) -> str:
 def _run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
         fp = _safe_path(path)
-        c = fp.read_text()
+        c = fp.read_text(encoding="utf-8")
         if old_text not in c:
             return f"Error: Text not found in {path}"
         fp.write_text(c.replace(old_text, new_text, 1))
@@ -571,7 +571,7 @@ if __name__ == "__main__":
         if query.strip() == "/tasks":
             TASKS_DIR.mkdir(exist_ok=True)
             for f in sorted(TASKS_DIR.glob("task_*.json")):
-                t = json.loads(f.read_text())
+                t = json.loads(f.read_text(encoding="utf-8"))
                 marker = {"pending": "[ ]", "in_progress": "[>]", "completed": "[x]"}.get(t["status"], "[?]")
                 owner = f" @{t['owner']}" if t.get("owner") else ""
                 print(f"  {marker} #{t['id']}: {t['subject']}{owner}")

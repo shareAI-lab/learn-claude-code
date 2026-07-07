@@ -70,7 +70,7 @@ def execute_tool(name: str, args: dict) -> str:
         try:
             r = subprocess.run(
                 args["command"], shell=True, cwd=WORKDIR,
-                capture_output=True, text=True, timeout=60
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60
             )
             return (r.stdout + r.stderr).strip() or "(empty)"
         except subprocess.TimeoutExpired:
@@ -78,7 +78,7 @@ def execute_tool(name: str, args: dict) -> str:
 
     if name == "read_file":
         try:
-            return (WORKDIR / args["path"]).read_text()[:50000]
+            return (WORKDIR / args["path"]).read_text(encoding="utf-8")[:50000]
         except Exception as e:
             return f"Error: {e}"
 

@@ -83,7 +83,7 @@ def run_bash(command: str) -> str:
         return "Error: Dangerous command blocked"
     try:
         r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
         out = (r.stdout + r.stderr).strip()
         return out[:50000] if out else "(no output)"
     except subprocess.TimeoutExpired:
@@ -91,7 +91,7 @@ def run_bash(command: str) -> str:
 
 def run_read(path: str, limit: int = None) -> str:
     try:
-        lines = safe_path(path).read_text().splitlines()
+        lines = safe_path(path).read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more)"]
         return "\n".join(lines)[:50000]
@@ -102,7 +102,7 @@ def run_write(path: str, content: str) -> str:
     try:
         fp = safe_path(path)
         fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
+        fp.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -110,7 +110,7 @@ def run_write(path: str, content: str) -> str:
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
         fp = safe_path(path)
-        c = fp.read_text()
+        c = fp.read_text(encoding="utf-8")
         if old_text not in c:
             return f"Error: Text not found in {path}"
         fp.write_text(c.replace(old_text, new_text, 1))
@@ -201,7 +201,7 @@ class SkillLoader:
         self.skills = {}
         if skills_dir.exists():
             for f in sorted(skills_dir.rglob("SKILL.md")):
-                text = f.read_text()
+                text = f.read_text(encoding="utf-8")
                 match = re.match(r"^---\n(.*?)\n---\n(.*)", text, re.DOTALL)
                 meta, body = {}, text
                 if match:
@@ -270,7 +270,7 @@ class TaskManager:
     def _load(self, tid: int) -> dict:
         p = TASKS_DIR / f"task_{tid}.json"
         if not p.exists(): raise ValueError(f"Task {tid} not found")
-        return json.loads(p.read_text())
+        return json.loads(p.read_text(encoding="utf-8"))
 
     def _save(self, task: dict):
         (TASKS_DIR / f"task_{task['id']}.json").write_text(json.dumps(task, indent=2))
@@ -291,7 +291,7 @@ class TaskManager:
             task["status"] = status
             if status == "completed":
                 for f in TASKS_DIR.glob("task_*.json"):
-                    t = json.loads(f.read_text())
+                    t = json.loads(f.read_text(encoding="utf-8"))
                     if tid in t.get("blockedBy", []):
                         t["blockedBy"].remove(tid)
                         self._save(t)
@@ -306,7 +306,7 @@ class TaskManager:
         return json.dumps(task, indent=2)
 
     def list_all(self) -> str:
-        tasks = [json.loads(f.read_text()) for f in sorted(TASKS_DIR.glob("task_*.json"))]
+        tasks = [json.loads(f.read_text(encoding="utf-8")) for f in sorted(TASKS_DIR.glob("task_*.json"))]
         if not tasks: return "No tasks."
         lines = []
         for t in tasks:
@@ -339,7 +339,7 @@ class BackgroundManager:
     def _exec(self, tid: str, command: str, timeout: int):
         try:
             r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                               capture_output=True, text=True, timeout=timeout)
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
             output = (r.stdout + r.stderr).strip()[:50000]
             self.tasks[tid].update({"status": "completed", "result": output or "(no output)"})
         except Exception as e:
@@ -377,7 +377,7 @@ class MessageBus:
     def read_inbox(self, name: str) -> list:
         path = INBOX_DIR / f"{name}.jsonl"
         if not path.exists(): return []
-        msgs = [json.loads(l) for l in path.read_text().strip().splitlines() if l]
+        msgs = [json.loads(l) for l in path.read_text(encoding="utf-8").strip().splitlines() if l]
         path.write_text("")
         return msgs
 
@@ -407,7 +407,7 @@ class TeammateManager:
 
     def _load(self) -> dict:
         if self.config_path.exists():
-            return json.loads(self.config_path.read_text())
+            return json.loads(self.config_path.read_text(encoding="utf-8"))
         return {"team_name": "default", "members": []}
 
     def _save(self):
@@ -509,7 +509,7 @@ class TeammateManager:
                     break
                 unclaimed = []
                 for f in sorted(TASKS_DIR.glob("task_*.json")):
-                    t = json.loads(f.read_text())
+                    t = json.loads(f.read_text(encoding="utf-8"))
                     if t.get("status") == "pending" and not t.get("owner") and not t.get("blockedBy"):
                         unclaimed.append(t)
                 if unclaimed:

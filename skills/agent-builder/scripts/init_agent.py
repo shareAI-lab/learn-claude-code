@@ -63,7 +63,7 @@ def run(prompt, history=[]):
             if b.type == "tool_use":
                 print(f"> {{b.input['command']}}")
                 try:
-                    out = subprocess.run(b.input["command"], shell=True, capture_output=True, text=True, timeout=60)
+                    out = subprocess.run(b.input["command"], shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
                     output = (out.stdout + out.stderr).strip() or "(empty)"
                 except Exception as e:
                     output = f"Error: {{e}}"
@@ -133,7 +133,7 @@ def execute(name: str, args: dict) -> str:
         if any(d in args["command"] for d in dangerous):
             return "Error: Dangerous command blocked"
         try:
-            r = subprocess.run(args["command"], shell=True, cwd=WORKDIR, capture_output=True, text=True, timeout=60)
+            r = subprocess.run(args["command"], shell=True, cwd=WORKDIR, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
             return (r.stdout + r.stderr).strip()[:50000] or "(empty)"
         except subprocess.TimeoutExpired:
             return "Error: Timeout (60s)"
@@ -142,7 +142,7 @@ def execute(name: str, args: dict) -> str:
 
     if name == "read_file":
         try:
-            return safe_path(args["path"]).read_text()[:50000]
+            return safe_path(args["path"]).read_text(encoding="utf-8")[:50000]
         except Exception as e:
             return f"Error: {{e}}"
 
@@ -158,7 +158,7 @@ def execute(name: str, args: dict) -> str:
     if name == "edit_file":
         try:
             p = safe_path(args["path"])
-            content = p.read_text()
+            content = p.read_text(encoding="utf-8")
             if args["old_text"] not in content:
                 return f"Error: Text not found in {{args['path']}}"
             p.write_text(content.replace(args["old_text"], args["new_text"], 1))
@@ -235,7 +235,7 @@ def create_agent(name: str, level: int, output_dir: Path):
 
     # Write .env.example
     env_file = agent_dir / ".env.example"
-    env_file.write_text(ENV_TEMPLATE)
+    env_file.write_text(ENV_TEMPLATE, encoding="utf-8")
     print(f"Created: {env_file}")
 
     # Write .gitignore
