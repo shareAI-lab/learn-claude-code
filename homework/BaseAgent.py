@@ -14,13 +14,14 @@ load_dotenv(override=True)
 if os.getenv("ANTHROPIC_BASE_URL"):
     os.environ.pop("ANTHROPIC_AUTH_TOKEN",None)
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKDIR = Path.cwd()
 SKILLS_DIR = WORKDIR / "skills"
 MEMORY_DIR = WORKDIR / ".memory"; MEMORY_DIR.mkdir(exist_ok=True)
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 TRANSCRIPTS_DIR = WORKDIR / ".transcripts"
 TOOL_RESULT_DIR = WORKDIR / ".task_outputs" / "tool_results"
-TODO_FILE = WORKDIR / ".todo.json"
+TODO_FILE = REPO_ROOT / ".todo.json"
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL=os.environ["MODEL_ID"]
 CURRENT_TODOS:list[dict] = []
@@ -370,6 +371,8 @@ def ask_resume_todos() -> str | None:
     ]
 
     if not unfinished:
+        if TODO_FILE.exists():
+            TODO_FILE.unlink()
         return None
 
     print("\n检测到上次未完成的任务：")
@@ -378,6 +381,8 @@ def ask_resume_todos() -> str | None:
 
     choice = input("是否需要继续上次未完成的任务？[y/N] ").strip().lower()
     if choice not in ("y", "yes"):
+        if TODO_FILE.exists():
+            TODO_FILE.unlink()
         return None
 
     CURRENT_TODOS = todos
