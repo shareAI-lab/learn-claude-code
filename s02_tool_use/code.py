@@ -13,7 +13,7 @@ s02: Tool Use — 在 s01 基础上新增 4 个工具 + 分发映射。
 循环本身（agent_loop）与 s01 完全一致。
 """
 
-import os, subprocess
+import os, subprocess, json, urllib.request
 from pathlib import Path
 
 try:
@@ -114,6 +114,41 @@ def run_glob(pattern: str) -> str:
         return f"Error: {e}"
 
 
+def run_generate_image(prompt: str, aspect_ratio: str = "1:1") -> str:
+    """Generate an image with MiniMax and return the image URL."""
+    api_key = os.getenv("MINIMAX_API_KEY")
+    if not api_key:
+        return "Error: set MINIMAX_API_KEY to use image generation"
+
+    payload = {
+        "model": "image-01",
+        "prompt": prompt,
+        "aspect_ratio": aspect_ratio,
+        "n": 1,
+        "response_format": "url",
+    }
+    req = urllib.request.Request(
+        "https://api.minimax.io/v1/image_generation",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        status = data.get("base_resp", {}).get("status_code")
+        if status not in (None, 0):
+            msg = data.get("base_resp", {}).get("status_msg", "unknown error")
+            return f"Error: MiniMax image generation failed ({status}): {msg}"
+        urls = data.get("data", {}).get("image_urls") or []
+        return urls[0] if urls else f"Error: no image URL returned: {data}"
+    except Exception as e:
+        return f"Error: {e}"
+
+
 # ═══════════════════════════════════════════════════════════
 #  NEW in s02: 工具定义（s01 只有一个 bash，现在扩展到 5 个）
 # ═══════════════════════════════════════════════════════════
@@ -129,6 +164,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
     {"name": "glob", "description": "Find files matching a glob pattern.",
      "input_schema": {"type": "object", "properties": {"pattern": {"type": "string"}}, "required": ["pattern"]}},
+    {"name": "generate_image", "description": "Generate an image from a text prompt using MiniMax.",
+     "input_schema": {"type": "object", "properties": {"prompt": {"type": "string"}, "aspect_ratio": {"type": "string", "enum": ["1:1", "16:9", "4:3", "3:2", "2:3", "3:4", "9:16", "21:9"]}}, "required": ["prompt"]}},
 ]
 
 # ═══════════════════════════════════════════════════════════
@@ -137,7 +174,7 @@ TOOLS = [
 
 TOOL_HANDLERS = {
     "bash": run_bash, "read_file": run_read, "write_file": run_write,
-    "edit_file": run_edit, "glob": run_glob,
+    "edit_file": run_edit, "glob": run_glob, "generate_image": run_generate_image,
 }
 
 
