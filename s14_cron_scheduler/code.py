@@ -97,12 +97,25 @@ def get_task(task_id: str) -> str:
     return json.dumps(asdict(task), indent=2)
 
 
+def _build_task_index() -> dict[str, str]:
+    """Build a {subject: id} lookup for resolving refs to task IDs."""
+    lookup = {}
+    for f in TASKS_DIR.glob("task_*.json"):
+        t = json.loads(f.read_text())
+        lookup[t["subject"]] = t["id"]
+    return lookup
+
+
 def can_start(task_id: str) -> bool:
     """Check if all blockedBy dependencies are completed.
     Missing dependencies are treated as blocked."""
     task = load_task(task_id)
-    for dep_id in task.blockedBy:
-        if not _task_path(dep_id).exists():
+    if not task.blockedBy:
+        return True
+    idx = _build_task_index()
+    for dep_ref in task.blockedBy:
+        dep_id = idx.get(dep_ref)
+        if dep_id is None:
             return False
         if load_task(dep_id).status != "completed":
             return False
@@ -114,8 +127,12 @@ def claim_task(task_id: str, owner: str = "agent") -> str:
     if task.status != "pending":
         return f"Task {task_id} is {task.status}, cannot claim"
     if not can_start(task_id):
-        deps = [d for d in task.blockedBy
-                if not _task_path(d).exists() or load_task(d).status != "completed"]
+        idx = _build_task_index()
+        deps = []
+        for d in task.blockedBy:
+            did = idx.get(d)
+            if did is None or load_task(did).status != "completed":
+                deps.append(d)
         return f"Blocked by: {deps}"
     task.owner = owner
     task.status = "in_progress"
