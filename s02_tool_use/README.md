@@ -30,7 +30,7 @@ s01 的循环完全保留（LLM 调用、stop_reason 判断、消息追加）。
 
 ---
 
-## 从 1 个工具到 5 个工具
+## 从 1 个工具到 6 个工具
 
 s01 只有一个 bash：
 
@@ -40,7 +40,7 @@ TOOLS = [{"name": "bash", ...}]
 def run_bash(command): ...
 ```
 
-s02 加到 5 个，每个工具都是独立定义：
+s02 加到 6 个，每个工具都是独立定义：
 
 ```python
 TOOLS = [
@@ -49,6 +49,7 @@ TOOLS = [
     {"name": "write_file", "description": "Write content to file.", ...},
     {"name": "edit_file",  "description": "Replace text in file once.", ...},
     {"name": "glob",       "description": "Find files by pattern.", ...},
+    {"name": "generate_image", "description": "Generate an image from a text prompt.", ...},
 ]
 ```
 
@@ -75,6 +76,9 @@ def run_edit(path, old_text, new_text):
 def run_glob(pattern):
     import glob as g
     return "\n".join(g.glob(pattern, root_dir=WORKDIR))
+
+def run_generate_image(prompt, aspect_ratio="1:1"):
+    ...
 ```
 
 ---
@@ -88,6 +92,7 @@ TOOL_HANDLERS = {
     "write_file": run_write,
     "edit_file":  run_edit,
     "glob":       run_glob,
+    "generate_image": run_generate_image,
 }
 
 # 循环里只改了一行——从硬编码 run_bash 变成查表：
@@ -125,7 +130,7 @@ for block in response.content:
 
 | 组件 | 之前 (s01) | 之后 (s02) |
 |------|-----------|-----------|
-| 工具数量 | 1 (bash) | 5 (+read, write, edit, glob) |
+| 工具数量 | 1 (bash) | 6 (+read, write, edit, glob, generate_image) |
 | 工具执行 | 硬编码 `run_bash()` | TOOL_HANDLERS 查表分发 |
 | 路径安全 | 无 | safe_path 校验（仅 file tools） |
 | 循环 | `while True` + `stop_reason` | 与 s01 完全一致 |
@@ -139,12 +144,20 @@ cd learn-claude-code
 python s02_tool_use/code.py
 ```
 
+可选的 `generate_image` 工具还需要在 `.env` 中配置以下值。中国大陆区域请将 host 改为 `https://api.minimaxi.com`。
+
+```sh
+MINIMAX_API_KEY=sk-xxx
+MINIMAX_API_HOST=https://api.minimax.io
+```
+
 试试这些 prompt：
 
 1. `Read the file README.md and tell me what this project is about`
 2. `Create a file called test.py that prints "hello", then read it back`
 3. `Find all Python files in this directory`
 4. `Read both README.md and requirements.txt, then create a summary file`
+5. `Generate a 16:9 image of a coding workspace at sunrise`
 
 观察重点：模型什么时候只调一个工具，什么时候一次调多个？多个工具调用的顺序和结果是否正确？
 
@@ -152,7 +165,7 @@ python s02_tool_use/code.py
 
 ## 接下来
 
-现在 Agent 有 5 个专用工具。file tools 受 `safe_path` 保护，但 bash 不受限制，`rm -rf /` 还是能跑。
+现在 Agent 有 6 个专用工具。file tools 受 `safe_path` 保护，但 bash 不受限制，`rm -rf /` 还是能跑。
 
 s03 Permission → 在工具执行之前加一道门：这个操作安全吗？需要用户批准吗？
 

@@ -30,7 +30,7 @@ Adding a tool to the Agent requires just two things:
 
 ---
 
-## From 1 Tool to 5 Tools
+## From 1 Tool to 6 Tools
 
 s01 had only bash:
 
@@ -40,7 +40,7 @@ TOOLS = [{"name": "bash", ...}]
 def run_bash(command): ...
 ```
 
-s02 expands to 5 tools, each independently defined:
+s02 expands to 6 tools, each independently defined:
 
 ```python
 TOOLS = [
@@ -49,6 +49,7 @@ TOOLS = [
     {"name": "write_file", "description": "Write content to file.", ...},
     {"name": "edit_file",  "description": "Replace text in file once.", ...},
     {"name": "glob",       "description": "Find files by pattern.", ...},
+    {"name": "generate_image", "description": "Generate an image from a text prompt.", ...},
 ]
 ```
 
@@ -75,6 +76,9 @@ def run_edit(path, old_text, new_text):
 def run_glob(pattern):
     import glob as g
     return "\n".join(g.glob(pattern, root_dir=WORKDIR))
+
+def run_generate_image(prompt, aspect_ratio="1:1"):
+    ...
 ```
 
 ---
@@ -88,6 +92,7 @@ TOOL_HANDLERS = {
     "write_file": run_write,
     "edit_file":  run_edit,
     "glob":       run_glob,
+    "generate_image": run_generate_image,
 }
 
 # Only one line changed in the loop — from hardcoded run_bash to dispatch lookup:
@@ -125,7 +130,7 @@ The teaching version executes them one by one in the original `response.content`
 
 | Component | Before (s01) | After (s02) |
 |-----------|-------------|-------------|
-| Tool count | 1 (bash) | 5 (+read, write, edit, glob) |
+| Tool count | 1 (bash) | 6 (+read, write, edit, glob, generate_image) |
 | Tool execution | Hardcoded `run_bash()` | TOOL_HANDLERS dispatch lookup |
 | Path safety | None | safe_path validation (file tools only) |
 | Loop | `while True` + `stop_reason` | Identical to s01 |
@@ -139,12 +144,20 @@ cd learn-claude-code
 python s02_tool_use/code.py
 ```
 
+The optional `generate_image` tool also needs these values in `.env`. Use `https://api.minimaxi.com` as the host for China mainland.
+
+```sh
+MINIMAX_API_KEY=sk-xxx
+MINIMAX_API_HOST=https://api.minimax.io
+```
+
 Try these prompts:
 
 1. `Read the file README.md and tell me what this project is about`
 2. `Create a file called test.py that prints "hello", then read it back`
 3. `Find all Python files in this directory`
 4. `Read both README.md and requirements.txt, then create a summary file`
+5. `Generate a 16:9 image of a coding workspace at sunrise`
 
 What to watch for: When does the model call just one tool, and when does it call multiple at once? Are multiple tool calls executed in the correct order?
 
@@ -152,7 +165,7 @@ What to watch for: When does the model call just one tool, and when does it call
 
 ## What's Next
 
-The Agent now has 5 specialized tools. File tools are protected by `safe_path`, but bash is unrestricted — `rm -rf /` still runs.
+The Agent now has 6 specialized tools. File tools are protected by `safe_path`, but bash is unrestricted — `rm -rf /` still runs.
 
 → s03 Permission: Add a gate before tool execution — is this operation safe? Does it need user approval?
 

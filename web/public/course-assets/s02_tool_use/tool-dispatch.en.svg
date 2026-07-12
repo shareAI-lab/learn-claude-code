@@ -90,9 +90,14 @@
   <text x="420" y="374" fill="#64748b" font-size="9" text-anchor="middle">→ run_edit()</text>
 
   <!-- glob handler -->
-  <rect x="290" y="392" width="120" height="34" rx="6" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.2"/>
-  <text x="350" y="408" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">glob</text>
-  <text x="350" y="420" fill="#64748b" font-size="9" text-anchor="middle">→ run_glob()</text>
+  <rect x="220" y="392" width="120" height="34" rx="6" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.2"/>
+  <text x="280" y="408" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">glob</text>
+  <text x="280" y="420" fill="#64748b" font-size="9" text-anchor="middle">→ run_glob()</text>
+
+  <!-- generate_image handler -->
+  <rect x="360" y="392" width="120" height="34" rx="6" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.2"/>
+  <text x="420" y="408" fill="#166534" font-size="11" font-weight="600" text-anchor="middle">generate_image</text>
+  <text x="420" y="420" fill="#64748b" font-size="9" text-anchor="middle">→ run_generate_image()</text>
 
   <!-- Arrow: Dispatch Mapping → Back to Messages -->
   <path d="M 195 368 L 50 368 L 50 108 L 58 108" fill="none" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow-orange)" stroke-dasharray="6,3"/>
@@ -101,8 +106,8 @@
   <!-- ===== Legend ===== -->
   <rect x="60" y="492" width="600" height="52" rx="6" fill="#f1f5f9"/>
   <rect x="80" y="508" width="12" height="12" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
-  <text x="100" y="518" fill="#334155" font-size="10">s01 Preserved (loop, LLM, decision — completely unchanged)</text>
+  <text x="100" y="518" fill="#334155" font-size="10">s01 Preserved (loop unchanged)</text>
   <rect x="380" y="508" width="12" height="12" rx="2" fill="#ecfdf5" stroke="#16a34a" stroke-width="1"/>
-  <text x="400" y="518" fill="#334155" font-size="10">s02 New (5 tools + dispatch mapping)</text>
+  <text x="400" y="518" fill="#334155" font-size="10">s02 New (6 tools + dispatch mapping)</text>
   <text x="80" y="536" fill="#64748b" font-size="10">Only 1 line changed in the loop: run_bash() → TOOL_HANDLERS[block.name]()</text>
 </svg>

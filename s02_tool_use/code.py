@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-s02: Tool Use — 在 s01 基础上新增 4 个工具 + 分发映射。
+s02: Tool Use — 在 s01 基础上新增 5 个工具 + 分发映射。
 
 运行: python s02_tool_use/code.py
 需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
 
 本文件 = s01 的全部代码 + 以下新增:
-  + run_read / run_write / run_edit / run_glob 四个工具实现
+  + run_read / run_write / run_edit / run_glob / run_generate_image 五个工具实现
   + TOOL_HANDLERS 分发映射（替代 s01 中硬编码的 run_bash 调用）
   + safe_path 路径安全校验
 
@@ -60,7 +60,7 @@ def run_bash(command: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
-#  NEW in s02: 4 个新工具
+#  NEW in s02: 5 个新工具
 # ═══════════════════════════════════════════════════════════
 
 def safe_path(p: str) -> Path:
@@ -119,6 +119,7 @@ def run_generate_image(prompt: str, aspect_ratio: str = "1:1") -> str:
     api_key = os.getenv("MINIMAX_API_KEY")
     if not api_key:
         return "Error: set MINIMAX_API_KEY to use image generation"
+    api_host = (os.getenv("MINIMAX_API_HOST") or "https://api.minimax.io").rstrip("/")
 
     payload = {
         "model": "image-01",
@@ -128,7 +129,7 @@ def run_generate_image(prompt: str, aspect_ratio: str = "1:1") -> str:
         "response_format": "url",
     }
     req = urllib.request.Request(
-        "https://api.minimax.io/v1/image_generation",
+        f"{api_host}/v1/image_generation",
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {api_key}",
@@ -150,7 +151,7 @@ def run_generate_image(prompt: str, aspect_ratio: str = "1:1") -> str:
 
 
 # ═══════════════════════════════════════════════════════════
-#  NEW in s02: 工具定义（s01 只有一个 bash，现在扩展到 5 个）
+#  NEW in s02: 工具定义（s01 只有一个 bash，现在扩展到 6 个）
 # ═══════════════════════════════════════════════════════════
 
 TOOLS = [
@@ -208,7 +209,7 @@ def agent_loop(messages: list):
 
 
 if __name__ == "__main__":
-    print("s02: Tool Use — 在 s01 基础上加了 4 个工具")
+    print("s02: Tool Use — 在 s01 基础上加了 5 个工具")
     print("输入问题，回车发送。输入 q 退出。\n")
 
     history = []

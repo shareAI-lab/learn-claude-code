@@ -30,7 +30,7 @@ Agent にツールを追加するには、たった二つ：
 
 ---
 
-## 1 つのツールから 5 つのツールへ
+## 1 つのツールから 6 つのツールへ
 
 s01 には bash だけだった：
 
@@ -40,7 +40,7 @@ TOOLS = [{"name": "bash", ...}]
 def run_bash(command): ...
 ```
 
-s02 では 5 つに増え、各ツールは独立して定義される：
+s02 では 6 つに増え、各ツールは独立して定義される：
 
 ```python
 TOOLS = [
@@ -49,6 +49,7 @@ TOOLS = [
     {"name": "write_file", "description": "Write content to file.", ...},
     {"name": "edit_file",  "description": "Replace text in file once.", ...},
     {"name": "glob",       "description": "Find files by pattern.", ...},
+    {"name": "generate_image", "description": "Generate an image from a text prompt.", ...},
 ]
 ```
 
@@ -75,6 +76,9 @@ def run_edit(path, old_text, new_text):
 def run_glob(pattern):
     import glob as g
     return "\n".join(g.glob(pattern, root_dir=WORKDIR))
+
+def run_generate_image(prompt, aspect_ratio="1:1"):
+    ...
 ```
 
 ---
@@ -88,6 +92,7 @@ TOOL_HANDLERS = {
     "write_file": run_write,
     "edit_file":  run_edit,
     "glob":       run_glob,
+    "generate_image": run_generate_image,
 }
 
 # ループ内で変更されたのは一行だけ — ハードコードの run_bash から検索ディスパッチへ：
@@ -125,7 +130,7 @@ for block in response.content:
 
 | コンポーネント | 変更前 (s01) | 変更後 (s02) |
 |--------------|-------------|-------------|
-| ツール数 | 1 (bash) | 5 (+read, write, edit, glob) |
+| ツール数 | 1 (bash) | 6 (+read, write, edit, glob, generate_image) |
 | ツール実行 | ハードコード `run_bash()` | TOOL_HANDLERS 検索ディスパッチ |
 | パス安全性 | なし | safe_path 検証（file tools のみ） |
 | ループ | `while True` + `stop_reason` | s01 と完全に同一 |
@@ -139,12 +144,20 @@ cd learn-claude-code
 python s02_tool_use/code.py
 ```
 
+オプションの `generate_image` ツールには、`.env` に以下の値も必要。中国本土では host を `https://api.minimaxi.com` に変更する。
+
+```sh
+MINIMAX_API_KEY=sk-xxx
+MINIMAX_API_HOST=https://api.minimax.io
+```
+
 以下のプロンプトを試してみよう：
 
 1. `Read the file README.md and tell me what this project is about`
 2. `Create a file called test.py that prints "hello", then read it back`
 3. `Find all Python files in this directory`
 4. `Read both README.md and requirements.txt, then create a summary file`
+5. `Generate a 16:9 image of a coding workspace at sunrise`
 
 観察のポイント：モデルがツールを一つだけ呼び出すときと、複数同時に呼び出すときの違い。複数のツール呼び出しは正しい順序で実行されているか？
 
@@ -152,7 +165,7 @@ python s02_tool_use/code.py
 
 ## 次へ
 
-Agent は 5 つの専用ツールを持つようになった。file tools は `safe_path` で保護されるが、bash は制限なし — `rm -rf /` はまだ実行できる。
+Agent は 6 つの専用ツールを持つようになった。file tools は `safe_path` で保護されるが、bash は制限なし — `rm -rf /` はまだ実行できる。
 
 → s03 Permission：ツール実行前にゲートを追加 — この操作は安全か？ ユーザーの承認が必要か？
 
