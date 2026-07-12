@@ -27,12 +27,16 @@ Usage:
     ANTHROPIC_API_KEY=... python s01_agent_loop/code.py
 """
 
+import json
+import logging
 import os
 import subprocess
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+log = logging.getLogger("s01")
+
 try:
     import readline
-    # macOS 的 libedit 在处理中文输入时有退格问题，这四行修复它
     readline.parse_and_bind('set bind-tty-special-chars off')
     readline.parse_and_bind('set input-meta on')
     readline.parse_and_bind('set output-meta on')
@@ -81,13 +85,36 @@ def run_bash(command: str) -> str:
         return f"Error: {e}"
 
 
+def _prompt_preview(messages: list) -> str:
+    last = messages[-1] if messages else None
+    if not last or last["role"] != "user":
+        return ""
+    content = last["content"]
+    if isinstance(content, str):
+        return f"user: {content[:500]}"
+    parts = []
+    for item in content:
+        if isinstance(item, dict) and item.get("type") == "tool_result":
+            parts.append(f"tool_result({item['tool_use_id'][:8]}...): {item['content'][:200]}")
+    return " | ".join(parts)
+
+
 # ── The core pattern: a while loop that calls tools until the model stops ──
 def agent_loop(messages: list):
     while True:
+        log.info(">>> system=%.120s | model=%s | last_msg=%s", SYSTEM, MODEL, _prompt_preview(messages))
+
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
             tools=TOOLS, max_tokens=8000,
         )
+
+        for block in response.content:
+            if block.type == "text":
+                log.info("<<< text: %.500s", block.text)
+            elif block.type == "tool_use":
+                log.info("<<< tool_call: %s(%s)", block.name, json.dumps(block.input)[:300])
+        log.info("<<< stop_reason=%s", response.stop_reason)
 
         # Append assistant turn
         messages.append({"role": "assistant", "content": response.content})
