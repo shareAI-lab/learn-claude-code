@@ -30,7 +30,7 @@ Agent にツールを追加するには、たった二つ：
 
 ---
 
-## 1 つのツールから 6 つのツールへ
+## From 1 Tool to 6 Tools
 
 s01 には bash だけだった：
 
@@ -40,7 +40,7 @@ TOOLS = [{"name": "bash", ...}]
 def run_bash(command): ...
 ```
 
-s02 では 6 つに増え、各ツールは独立して定義される：
+s02 expands to 6 tools, each independently defined:
 
 ```python
 TOOLS = [
@@ -130,7 +130,7 @@ for block in response.content:
 
 | コンポーネント | 変更前 (s01) | 変更後 (s02) |
 |--------------|-------------|-------------|
-| ツール数 | 1 (bash) | 6 (+read, write, edit, glob, generate_image) |
+| Tool count | 1 (bash) | 6 (+read, write, edit, glob, generate_image) |
 | ツール実行 | ハードコード `run_bash()` | TOOL_HANDLERS 検索ディスパッチ |
 | パス安全性 | なし | safe_path 検証（file tools のみ） |
 | ループ | `while True` + `stop_reason` | s01 と完全に同一 |
@@ -144,7 +144,7 @@ cd learn-claude-code
 python s02_tool_use/code.py
 ```
 
-オプションの `generate_image` ツールには、`.env` に以下の値も必要。中国本土では host を `https://api.minimaxi.com` に変更する。
+The optional `generate_image` tool also needs these values in `.env`. Use `https://api.minimaxi.com` as the host for China mainland.
 
 ```sh
 MINIMAX_API_KEY=sk-xxx
@@ -165,7 +165,7 @@ MINIMAX_API_HOST=https://api.minimax.io
 
 ## 次へ
 
-Agent は 6 つの専用ツールを持つようになった。file tools は `safe_path` で保護されるが、bash は制限なし — `rm -rf /` はまだ実行できる。
+The Agent now has 6 specialized tools. File tools are protected by `safe_path`, but bash remains unrestricted: `rm -rf /` still runs.
 
 → s03 Permission：ツール実行前にゲートを追加 — この操作は安全か？ ユーザーの承認が必要か？
 

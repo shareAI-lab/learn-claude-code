@@ -106,8 +106,8 @@
   <!-- ===== 凡例 ===== -->
   <rect x="60" y="492" width="600" height="52" rx="6" fill="#f1f5f9"/>
   <rect x="80" y="508" width="12" height="12" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
-  <text x="100" y="518" fill="#334155" font-size="10">s01 保持（ループ不変）</text>
+  <text x="100" y="518" fill="#334155" font-size="10">s01 Preserved (loop unchanged)</text>
   <rect x="380" y="508" width="12" height="12" rx="2" fill="#ecfdf5" stroke="#16a34a" stroke-width="1"/>
-  <text x="400" y="518" fill="#334155" font-size="10">s02 新規（6 つのツール + ディスパッチマッピング）</text>
+  <text x="400" y="518" fill="#334155" font-size="10">s02 New (6 tools + dispatch mapping)</text>
   <text x="80" y="536" fill="#64748b" font-size="10">ループ内で変更されたのは 1 行だけ：run_bash() → TOOL_HANDLERS[block.name]()</text>
 </svg>

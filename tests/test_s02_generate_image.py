@@ -70,6 +70,18 @@ class GenerateImageTests(unittest.TestCase):
     def setUpClass(cls):
         cls.module = load_course_module()
 
+    def test_tool_schema_matches_the_image_api_contract(self):
+        tool = next(tool for tool in self.module.TOOLS if tool["name"] == "generate_image")
+        schema = tool["input_schema"]
+
+        self.assertEqual(schema["required"], ["prompt"])
+        self.assertEqual(schema["properties"]["prompt"]["maxLength"], 1500)
+        self.assertEqual(schema["properties"]["aspect_ratio"]["default"], "1:1")
+        self.assertEqual(
+            schema["properties"]["aspect_ratio"]["enum"],
+            ["1:1", "16:9", "4:3", "3:2", "2:3", "3:4", "9:16", "21:9"],
+        )
+
     def test_uses_the_selected_regional_api_host(self):
         previous_key = os.environ.get("MINIMAX_API_KEY")
         previous_host = os.environ.get("MINIMAX_API_HOST")

@@ -30,7 +30,7 @@ s01 的循环完全保留（LLM 调用、stop_reason 判断、消息追加）。
 
 ---
 
-## 从 1 个工具到 6 个工具
+## From 1 Tool to 6 Tools
 
 s01 只有一个 bash：
 
@@ -40,7 +40,7 @@ TOOLS = [{"name": "bash", ...}]
 def run_bash(command): ...
 ```
 
-s02 加到 6 个，每个工具都是独立定义：
+s02 expands to 6 tools, each independently defined:
 
 ```python
 TOOLS = [
@@ -130,7 +130,7 @@ for block in response.content:
 
 | 组件 | 之前 (s01) | 之后 (s02) |
 |------|-----------|-----------|
-| 工具数量 | 1 (bash) | 6 (+read, write, edit, glob, generate_image) |
+| Tool count | 1 (bash) | 6 (+read, write, edit, glob, generate_image) |
 | 工具执行 | 硬编码 `run_bash()` | TOOL_HANDLERS 查表分发 |
 | 路径安全 | 无 | safe_path 校验（仅 file tools） |
 | 循环 | `while True` + `stop_reason` | 与 s01 完全一致 |
@@ -144,7 +144,7 @@ cd learn-claude-code
 python s02_tool_use/code.py
 ```
 
-可选的 `generate_image` 工具还需要在 `.env` 中配置以下值。中国大陆区域请将 host 改为 `https://api.minimaxi.com`。
+The optional `generate_image` tool also needs these values in `.env`. Use `https://api.minimaxi.com` as the host for China mainland.
 
 ```sh
 MINIMAX_API_KEY=sk-xxx
@@ -165,7 +165,7 @@ MINIMAX_API_HOST=https://api.minimax.io
 
 ## 接下来
 
-现在 Agent 有 6 个专用工具。file tools 受 `safe_path` 保护，但 bash 不受限制，`rm -rf /` 还是能跑。
+The Agent now has 6 specialized tools. File tools are protected by `safe_path`, but bash remains unrestricted: `rm -rf /` still runs.
 
 s03 Permission → 在工具执行之前加一道门：这个操作安全吗？需要用户批准吗？
 
