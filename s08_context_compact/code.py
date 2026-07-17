@@ -293,15 +293,21 @@ def _is_tool_result_message(msg):
 
 # L1: snipCompact — trim middle messages
 def snip_compact(messages, max_messages=50):
-    if len(messages) <= max_messages: return messages
-    keep_head, keep_tail = 3, max_messages - 3
+    # Need at least one head slot + one placeholder slot to compact meaningfully.
+    if max_messages < 2 or len(messages) <= max_messages:
+        return messages
+    # Reserve one slot for the placeholder so the result never exceeds max_messages.
+    keep_head = min(3, max_messages - 1)
+    keep_tail = max_messages - keep_head - 1
     head_end, tail_start = keep_head, len(messages) - keep_tail
+    # Keep the head boundary from splitting a tool_use / tool_result pair.
     if head_end > 0 and _message_has_tool_use(messages[head_end - 1]):
         while head_end < len(messages) and _is_tool_result_message(messages[head_end]):
             head_end += 1
-    if (tail_start > 0 and tail_start < len(messages)
-            and _is_tool_result_message(messages[tail_start])
-            and _message_has_tool_use(messages[tail_start - 1])):
+    # Keep the tail boundary from starting on an orphan tool_result; walk back over
+    # every consecutive tool_result so multi-result tool calls stay intact.
+    while (tail_start > 0 and tail_start < len(messages)
+            and _is_tool_result_message(messages[tail_start])):
         tail_start -= 1
     if head_end >= tail_start:
         return messages
