@@ -1,5 +1,7 @@
-import os,json,ast,subprocess,difflib,yaml,time,re,copy
+import os,json,ast,subprocess,difflib,yaml,time,re,copy,random,threading,uuid
 from pathlib import Path
+from dataclasses import dataclass,asdict
+from types import SimpleNamespace
 
 try:
     import readline
@@ -15,15 +17,16 @@ if os.getenv("ANTHROPIC_BASE_URL"):
     os.environ.pop("ANTHROPIC_AUTH_TOKEN",None)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-WORKDIR = Path.cwd()
+WORKDIR = REPO_ROOT
+PRIMARY_MODEL = os.environ["MODEL_ID"]
+MODEL = PRIMARY_MODEL
+FALLBACK_MODEL = os.getenv("FALLBACK_MODEL_ID")
 SKILLS_DIR = WORKDIR / "skills"
 MEMORY_DIR = WORKDIR / ".memory"; MEMORY_DIR.mkdir(exist_ok=True)
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 TRANSCRIPTS_DIR = WORKDIR / ".transcripts"
-TOOL_RESULT_DIR = WORKDIR / ".task_outputs" / "tool_results"
-TODO_FILE = REPO_ROOT / ".todo.json"
+LARGE_OUTPUT_DIR = WORKDIR / ".large_results"
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
-MODEL=os.environ["MODEL_ID"]
 CURRENT_TODOS:list[dict] = []
 
 def safe_path(p:str) -> Path:
@@ -31,6 +34,717 @@ def safe_path(p:str) -> Path:
     if not path.is_relative_to(WORKDIR):
         raise ValueError(f"Path escapes workspace: {p}")
     return path
+
+#==================== AGENT TEAMS ====================
+MAILBOX_DIR = WORKDIR / ".mailbox"; 
+MAILBOX_DIR.mkdir(exist_ok=True)
+AGENT_NAME_PATTERN = re.compile(
+    r"^[A-Za-z][A-Za-z0-9_-]{0,31}$"
+)
+
+mailbox_lock = threading.RLock()
+team_lock = threading.Lock()
+active_teammates: dict[str,dict] = {}
+
+class MessageBus:
+    def send(self,from_agent: str, to_agent:str, content:object,
+             msg_type:str = "message"):
+        validate_agent_name(from_agent)
+        validate_agent_name(to_agent)
+
+        if msg_type not in {"message", "result", "permission_request", "permission_response"}:
+            raise ValueError(f"Invalid message type: {msg_type}")
+
+        msg = {"from": from_agent, "to": to_agent, 
+               "content": content,  "type": msg_type, 
+               "ts": time.time()}
+        path = mailbox_path(to_agent)
+
+        with mailbox_lock:
+            with path.open("a", encoding='utf-8') as f:
+                f.write(
+                    json.dumps(msg, ensure_ascii = False) + "\n"
+                )
+                f.flush()
+        
+    def read_inbox(self, agent: str) -> list[dict]:
+        path = mailbox_path(agent)
+
+        with mailbox_lock:
+            if not path.exists():
+                return []
+            
+            lines = path.read_text(encoding='utf-8').splitlines()
+
+            path.write_text("",encoding='utf-8')
+
+        msgs = []
+        for line in lines:
+            if not line.strip():
+                continue
+
+            try:
+                msgs.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                print(f"[mailbox warning] ignored corrupt line: {e}")
+        return msgs
+
+BUS = MessageBus()
+
+def validate_agent_name(name: str, *, allow_lead: bool = True) -> str:
+    if not isinstance(name, str):
+        raise TypeError("Agent name must be a string")
+    
+    if not AGENT_NAME_PATTERN.fullmatch(name):
+        raise ValueError(f"Invalid agent name: {name!r}")
+    
+    if not allow_lead and name == "lead":
+        raise ValueError("'lead' is a reversed agent name")
+    
+    return name
+
+def mailbox_path(agent: str) -> Path:
+    validate_agent_name(agent)
+
+    path = (MAILBOX_DIR / f"{agent}.jsonl").resolve()
+    root = MAILBOX_DIR.resolve()
+
+    if not path.is_relative_to(root):
+        raise ValueError("Mailbox path escapes mailbox directory")
+    
+    return path
+
+TEAM_GUARDED_TOOLS = {"bash", "write_file"}
+PERMISSION_POLL_INTERVAL = 0.5
+PERMISSION_TIMEOUT = 300
+
+def wait_for_permission_response(agent: str, request_id: str, deferred_inbox: list[dict]) -> dict:
+    deadline = time.time() + PERMISSION_TIMEOUT
+
+    while time.time() < deadline:
+        matched = None
+
+        for msg in BUS.read_inbox(agent):
+            content = msg.get("content", {})
+
+            if (
+                msg.get("type") == "permission_response"
+                and msg.get("from") == "lead"
+                and isinstance(content, dict)
+                and content.get("request_id") == request_id
+            ):
+                matched = content
+            else:
+                deferred_inbox.append(msg)
+        
+        if matched:
+            return matched
+        
+        time.sleep(PERMISSION_POLL_INTERVAL)
+    return {
+        "request_id": request_id,
+        "approved": False,
+        "reason": "Permission request timed out"
+    }
+
+def run_teammate_guarded_tool(
+        agent: str,
+        block,
+        deferred_inbox: list[dict],
+) -> tuple[str, bool]:
+    request_id = uuid.uuid4().hex
+
+    BUS.send(
+        agent,
+        "lead",
+        {
+            "request_id": request_id,
+            "tool_use_id": block.id,
+            "tool_name": block.name,
+            "tool_input": block.input,
+        },
+        msg_type="permission_request"
+    )
+
+    response = wait_for_permission_response(agent, request_id, deferred_inbox)
+
+    if not response.get("approved"):
+        reason = response.get("reason", "Permission denied")
+        return f"Permission denied: {reason}", True
+    
+    raw_handler = {
+        "bash": run_bash,
+        "write_file": run_write,
+    }
+
+    output = raw_handler[block.name](**block.input)
+    trigger_hook("PostToolUse", block, output)
+    return str(output), False
+    
+
+def spawn_teammate_thread(name: str, role:str, prompt: str) -> str:
+    try:
+        validate_agent_name(name, allow_lead=False)
+    except (TypeError, ValueError) as e:
+        return f"Invalid teammate: {e}"
+    
+    if not role.strip():
+        return "Invalid teammate: role is required"
+    if not prompt.strip():
+        return "Invalid teammate: prompt is required"
+
+    with team_lock:
+        if name in active_teammates:
+            return f"Teammate {name} already exists"
+        
+        active_teammates[name] = {
+            "name": name,
+            "role": role,
+            "status": "running",
+        }
+    
+    system = (f"You are '{name}', role: {role}.\n"
+              f"Workspace: {WORKDIR}\n"
+              "Available tools: bash, read_file, write_file, send_message.\n"
+              "You must send your final result to lead using send_message.\n"
+              "Do not create subagents or additional teammates.\n"
+              "bash and write_file require permission from Lead. "
+              "When permission is approved, you will execute the tool yourself. "
+              "Do not claim that a protected operation succeeded until its "
+              "tool_result confirms success.")
+    
+    team_tools = [{"name": "bash", "description": "Run a shell command.",
+    "input_schema": {"type": "object", "properties": {"command": {"type": "string"}, "run_in_background": {"type": "boolean","description": "Run this command asynchronously"}}, "required": ["command"]}},
+    {"name": "read_file", "description": "Read file contents.",
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
+    {"name": "write_file", "description": "Write content to a file.",
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
+    {"name": "send_message", "description": "Send a message to another agent.", 
+     "input_schema": {"type": "object", "properties": {"to": {"type": "string"}, "content": {"type": "string"}}, "required": ["to", "content"]}}]
+    
+    def run():
+        messages = [{"role": "user", "content": prompt}]
+        summary = "Stopped after 10 teammate rounds."
+        deferred_inbox: list[dict] = []
+        state = RecoveryState()
+
+        sub_handlers = {
+            "read_file": run_read,
+            "send_message": lambda to, content: (BUS.send(name, to, content), "Sent")[1]
+        }
+        for _ in range(10):
+            inbox = deferred_inbox + BUS.read_inbox(name)
+            deferred_inbox.clear()
+            if inbox:
+                messages.append({"role": "user", 
+                                 "content": f"<inbox>{json.dumps(inbox)}</inbox>"})
+            try:
+                response = with_retry(
+                    lambda: client.messages.create(
+                    model = MODEL, system = system,messages = messages[-20:],
+                    tools = team_tools, max_tokens = DEFAULT_MAX_TOKENS
+                    ),
+                state
+                )
+            except Exception:
+                break
+            messages.append({"role": "assistant", "content": response.content})
+            if response.stop_reason != "tool_use":
+                break
+            results = []
+            for block in response.content:
+                if block.type != "tool_use":
+                    continue
+
+                if block.name in TEAM_GUARDED_TOOLS:
+                    output, is_error = run_teammate_guarded_tool(name, block, deferred_inbox)
+                else:
+                    handler = sub_handlers.get(block.name)
+
+                    if not handler:
+                        output = f"Unknown tool: {block.name}"
+                        is_error = True
+                    else:
+                        output = handler(**block.input)
+                        is_error = False
+                result = {
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": str(output),
+                }
+
+                if is_error:
+                    result["is_error"] = True
+
+                results.append(result)
+
+            messages.append({"role": "user", "content": results})
+            response_text = extract_text(response.content)
+            if response_text:
+                summary = response_text
+
+        summary = "Done."
+        for msg in reversed(messages):
+            if msg["role"] == "assistant" and isinstance(msg["content"], list):
+                for b in msg["content"]:
+                    if getattr(b, "type", None) == "text":
+                        summary = b.text
+                        break
+                else:
+                    continue
+                break
+        BUS.send(name, "lead", summary, "result")
+        with team_lock:
+            active_teammates.pop(name, None)
+        print(f"  \033[32m[teammate] {name} finished\033[0m")
+
+    active_teammates[name] = True
+    threading.Thread(target=run, daemon=True).start()
+    print(f"  \033[36m[teammate] {name} spawned as {role}\033[0m")
+    return f"Teammate '{name}' spawned as {role}"
+    
+def process_permission_request(msg: dict) -> None:
+    requester = msg.get("from")
+    request = msg.get("content", {})
+
+    if isinstance(request, dict):
+        request_id = request.get("request_id")
+        tool_name = request.get("tool_name")
+        tool_input = request.get("tool_input")
+    else:
+        request_id = None
+        tool_name = None
+        tool_input = None
+
+    valid = (
+        isinstance(request_id, str)
+        and tool_name in TEAM_GUARDED_TOOLS
+        and isinstance(tool_input, dict)
+    )
+
+    if not valid:
+        BUS.send(
+            "lead",
+            requester,
+            {
+                "request_id": request_id,
+                "approved": False,
+                "reason": "Invalid permission request",
+            },
+            msg_type="permission_response",
+        )
+        return
+
+    block = SimpleNamespace(
+        id=request.get("tool_use_id"),
+        name=tool_name,
+        input=tool_input,
+        agent=requester,
+    )
+
+    denied_reason = trigger_hook("PreToolUse", block)
+    approved = denied_reason is None
+
+    BUS.send(
+        "lead",
+        requester,
+        {
+            "request_id": request_id,
+            "approved": approved,
+            "reason": "" if approved else str(denied_reason),
+        },
+        msg_type="permission_response",
+    )
+
+def collect_lead_inbox() -> str:
+    ordinary_msgs = []
+
+    for msg in BUS.read_inbox("lead"):
+        if msg.get("type") == "permission_request":
+            process_permission_request(msg)
+        else:
+            ordinary_msgs.append(msg)
+    return ordinary_msgs
+
+def format_team_inbox(messages: list[dict]) -> str:
+    lines = ["[Team inbox]"]
+
+    for msg in messages:
+        content = msg.get("content", "")
+        if not isinstance(content, str):
+            content = json.dumps(content, ensure_ascii=False)
+
+        lines.append(
+            f"From {msg.get('from')}"
+            f"({msg.get('type')})"
+            f"{content}"
+        )
+    return "\n".join(lines)
+
+def has_active_teammates() -> bool:
+    with team_lock:
+        return bool(active_teammates)
+    
+def wait_for_team_activity(messages: list[dict]) -> bool:
+    deadline = time.time() + PERMISSION_TIMEOUT
+
+    while True:
+        team_messages = collect_lead_inbox()
+
+        if team_messages:
+            append_user_text_blocks(
+                messages,
+                [format_team_inbox(team_messages)],
+            )
+            return True
+
+        if not has_active_teammates():
+            return False
+
+        if time.time() >= deadline:
+            print(
+                "  \033[33m[team] wait timed out; "
+                "teammates remain active\033[0m"
+            )
+            return False
+
+        time.sleep(PERMISSION_POLL_INTERVAL)
+    
+def run_spawn_teammate(name: str, role:str, prompt: str) -> str:
+    return spawn_teammate_thread(name, role, prompt)
+
+def run_send_message(to: str, content: str) -> str:
+    BUS.send("lead", to, content)
+    return f"Sent to {to}"
+
+def run_check_inbox() -> str:
+    msgs = collect_lead_inbox()
+    if not msgs:
+        return "(inbox empty)"
+    return format_team_inbox(msgs)
+
+#==================== BACKGROUND TASKS ===============
+_bg_counter = 0
+background_tasks: dict[str,dict] = {}
+background_results: dict[str,str] = {}
+background_lock = threading.Lock()
+
+def is_slow_operation(tool_name: str, tool_input: dict) -> bool:
+    if tool_name != "bash":
+        return False
+    cmd = tool_input.get("command", "").lower()
+    slow_keywords = ["install", "build", "test", "deploy", "compile",
+                     "docker build", "pip install", "npm install",
+                     "cargo build", "pytest", "make"]
+    return any(kw in cmd for kw in slow_keywords)
+
+def should_run_background(tool_name: str, tool_input: dict) -> bool:
+    if tool_name != "bash":
+        return False
+    if tool_input.get("run_in_background"):
+        return True
+    return is_slow_operation(tool_name, tool_input)
+
+def execute_tool(block, handlers = None) -> str:
+    handlers = TOOL_HANDLERS if handlers is None else handlers
+    handler = handlers.get(block.name)
+    if handler:
+        return handler(**block.input)
+    return f"Unknown tool: {block.name}"
+
+def start_background_task(block) -> str:
+    global _bg_counter
+    with background_lock:
+        _bg_counter += 1
+        bg_id = f"bg_{_bg_counter:04d}"
+        background_tasks[bg_id] = {
+            "id": bg_id,
+            "tool_use_id": block.id,
+            "tool_name": block.name,
+            "command": block.input.get("command", ""),
+            "status": "running",
+            "error": None,
+        }
+
+    def worker():
+        status = "completed"
+        error = None
+        output = ""
+
+        try:
+            output = str(execute_tool(block))
+
+            trigger_hook("PostToolUse",block,output)
+
+            output = persist_large_output(block.id, output)
+        except Exception as e:
+            status = "failed"
+            error = f"{type(e).__name__}: {e}"
+            print(f"  \033[31m[background error] {bg_id}: {error}\033[0m")
+        finally:
+            with background_lock:
+                task = background_tasks.get(bg_id)
+                if task:
+                    task["status"] = status
+                    task["error"] = error
+                    background_results[bg_id] = output
+
+    threading.Thread(target=worker, daemon=True).start()
+    return bg_id
+
+def collect_background_results() -> list[str]:
+    with background_lock:
+        ready_ids = [bid for bid, task in background_tasks.items()
+                     if task["status"] == "completed" or task["status"] == "failed"]
+        
+    notifications = []
+    for bg_id in ready_ids:
+        with background_lock:
+            task = background_tasks.pop(bg_id)
+            output = background_results.pop(bg_id, "")
+        summary = output[:200] if len(output) > 200 else output
+        notifications.append(
+            f"<task_notification>\n"
+            f"  <task_id>{bg_id}</task_id>\n"
+            f"  <status>{task['status']}</status>\n"
+            f"  <command>{task['command']}</command>\n"
+            f"  <summary>{summary}</summary>\n"
+            f"</task_notification>"
+        )
+        print(f"  \033[32m[background done] {bg_id}: "
+            f"{task['command'][:40]} ({len(output)} chars)\033[0m")
+    return notifications
+
+
+#==================== TASK SYSTEM ====================
+TASK_DIR = WORKDIR / ".tasks"
+TASK_DIR.mkdir(exist_ok=True)
+
+@dataclass
+class Task:
+    id: str
+    subject:str
+    description:str
+    status: str
+    owner: str | None
+    blockedBy:list[str]
+
+def _task_path(task_id:str) -> Path:
+    return TASK_DIR / f"{task_id}.json"
+
+def create_task(subject:str, description: str = "",
+                blockedBy:list[str] | None = None) -> Task:
+    task = Task(
+        id = f"task_{int(time.time())}_{random.randint(0,9999):04d}",
+        subject = subject,
+        description = description,
+        status = "pending",
+        owner = None,
+        blockedBy = blockedBy or [],
+    )
+    save_task(task)
+    return task
+
+def save_task(task:Task):
+    _task_path(task.id).write_text(json.dumps(asdict(task), indent=2, ensure_ascii=False), encoding="utf-8")
+
+def load_task(task_id:str) -> Task:
+    return Task(**json.loads(_task_path(task_id).read_text()))
+
+def list_tasks() -> list[Task]:
+    return [Task(**json.loads(p.read_text())) for p in sorted(TASK_DIR.glob("*.json"))]
+
+def get_task(task_id:str) -> str:
+    task = load_task(task_id)
+    return json.dumps(asdict(task), indent=2)
+
+def can_start(task_id:str) -> bool:
+    task = load_task(task_id)
+    for dep_id in task.blockedBy:
+        if not _task_path(dep_id).exists():
+            return False
+        if load_task(dep_id).status != "completed":
+            return False
+    return True
+
+def claim_task(task_id:str, owner:str = "agent") -> str:
+    task = load_task(task_id)
+    if task.status != "pending":
+        return f"Task {task_id} is {task.status}, cannot claim"
+    if not can_start(task_id):
+        deps = [d for d in task.blockedBy
+                if not _task_path(d).exists() or load_task(d).status != "completed"]
+        return f"Blocked by: {deps}"
+    task.owner = owner
+    task.status = "in_progress"
+    save_task(task)
+    print(f"  \033[36m[claim] {task.subject} → in_progress (owner: {owner})\033[0m")
+    return f"Claimed {task.id} ({task.subject})"
+
+def complete_task(task_id:str) -> str:
+    task = load_task(task_id)
+    if task.status != "in_progress":
+        return f"Task {task_id} is {task.status}, cannot complete"
+    task.status = "completed"
+    save_task(task)
+    unblocked = [t.subject for t in list_tasks()
+                 if t.status == "pending" and t.blockedBy and can_start(t.id)]
+    print(f"  \033[32m[complete] {task.subject} ✓\033[0m")
+    msg = f"Completed {task.id} ({task.subject})"
+    if unblocked:
+        msg += f"\nUnblocked: {', '.join(unblocked)}"
+        print(f"  \033[33m[unblocked] {', '.join(unblocked)}\033[0m")
+    return msg
+
+#==================== ERROR RECOVERY ===================
+DEFAULT_MAX_TOKENS = 8000
+ESCALATED_MAX_TOKENS = 64000
+MAX_CONTINUATIONS = 3
+MAX_TRANSIENT_RETRIES = 10
+MAX_REACTIVE_COMPACTS = 1
+BASE_DELAY_MS = 500
+MAX_CONSECUTIVE_529 = 3
+
+CONTINUATION_PROMPT = (
+    "Output token limit hit. Resume directly — "
+    "no apology, no recap. Pick up mid-thought."
+)
+
+class RecoveryState:
+    def __init__(self):
+        self.has_escalated = False
+        self.continuation_count = 0
+        self.consecutive_529 = 0
+        self.reactive_compact_count = 0
+        self.current_model = PRIMARY_MODEL
+
+class PartialStreamError(Exception):
+    def __init__(self, partial_text: str, cause: Exception):
+        super().__init__(f"{type(cause).__name__}: {cause}")
+        self.partial_text = partial_text
+        self.cause = cause
+
+def get_status_code(exc):
+    status_code = getattr(exc, "status_code", None)
+    if status_code:
+        return status_code
+    
+    response = getattr(exc, "response", None)
+    return getattr(response, "status_code", None)
+
+def is_rate_limit_error(exc):
+    name = type(exc).__name__.lower()
+    message = str(exc).lower()
+
+    return (
+        get_status_code(exc) == 429
+        or "ratelimit" in message
+        or "rate limit" in message
+        or "429" in message
+    )
+
+def is_overloaded_error(exc):
+    name = type(exc).__name__.lower()
+    message = str(exc).lower()
+
+    return (
+        get_status_code(exc) == 529
+        or "overloaded" in name
+        or "overloaded" in message
+        or "529" in message
+    )
+
+def is_prompt_too_long_error(exc):
+    message = str(exc).lower()
+    return (
+        "prompt_is_too_long" in message
+        or "context_length_exceeded" in message
+        or "max_context_window" in message
+        or ("prompt" in message and "too long" in message)
+    )
+
+def extract_retry_after(exc):
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", None)
+
+    if not headers:
+        headers = getattr(exc, "headers", None)
+
+    if not headers:
+        return None
+    
+    value = headers.get("retry-after")
+
+    try:
+        delay = float(value)
+    except (TypeError, ValueError):
+        return None
+    
+    return delay if delay > 0 else None
+
+def retry_delay(attempt:int, retry_after=None):
+    if retry_after:
+        return retry_after
+    
+    base = min(BASE_DELAY_MS * (2 ** attempt), 32000) / 1000
+    jitter = random.uniform(0,base * 0.25)
+    return base + jitter
+
+def with_retry(fn, state:RecoveryState):
+    for attempt in range(MAX_TRANSIENT_RETRIES):
+        try:
+            response = fn()
+            state.consecutive_529 = 0
+            return response
+        except PartialStreamError:
+            raise
+        except Exception as e:
+            is_429 = is_rate_limit_error(e)
+            is_529 = is_overloaded_error(e)
+
+            if not is_429 and not is_529:
+                raise
+
+            if is_429:
+                state.consecutive_529 = 0
+
+            if is_529:
+                state.consecutive_529 += 1
+                if state.consecutive_529 >= MAX_CONSECUTIVE_529:
+                    if FALLBACK_MODEL and state.current_model != FALLBACK_MODEL:
+                        state.current_model = FALLBACK_MODEL
+                        state.consecutive_529 = 0
+                        print(f"  \033[31m[529 x{MAX_CONSECUTIVE_529}]"
+                                f" switching to {FALLBACK_MODEL}\033[0m")
+                    else:
+                        state.consecutive_529 = 0
+                        print(f"  \033[31m[529 x{MAX_CONSECUTIVE_529}]"
+                                    f" no FALLBACK_MODEL_ID configured, continuing retry\033[0m")
+
+            if attempt == MAX_TRANSIENT_RETRIES - 1:
+                raise
+
+            delay = retry_delay(attempt, extract_retry_after(e))
+            print(f"  \033[33m[529 overloaded] retry {attempt+1}/{MAX_TRANSIENT_RETRIES},"
+                      f" wait {delay:.1f}s\033[0m")
+            
+            time.sleep(delay)
+
+    raise RuntimeError("unreachable")
+    
+def append_unrecoverable_error(messages, exc):
+    name = type(exc).__name__
+    text = f"[Error] {type(exc).__name__}: {str(exc)[:300]}"
+
+    messages.append({
+        "role": "assistant",
+        "content": [{
+            "type": "text",
+            "text": text,
+        }],
+    })
+
+    print(f"  \033[31m[unrecoverable] {name}: {str(exc)[:100]}\033[0m")
 
 #==================== MEMORY SYSTEM ====================
 MEMORY_TYPES = ['user', 'feedback', 'project', 'reference']
@@ -336,61 +1050,6 @@ def build_memory_system() -> str:
 
 
 #==================== TODO SYSTEM ====================
-def save_todos():
-    TODO_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-    if all_todos_completed():
-        if TODO_FILE.exists():
-            TODO_FILE.unlink()
-        return
-
-    TODO_FILE.write_text(json.dumps(CURRENT_TODOS, ensure_ascii=False, indent=2))
-
-def read_saved_todos() -> list:
-      if not TODO_FILE.exists():
-          return []
-      try:
-          todos = json.loads(TODO_FILE.read_text())
-      except json.JSONDecodeError:
-          return []
-      return todos if isinstance(todos, list) else []
-
-def all_todos_completed() -> bool:
-    return bool(CURRENT_TODOS) and all(t.get('status') == 'completed' for t in CURRENT_TODOS)
-
-def ask_resume_todos() -> str | None:
-    global CURRENT_TODOS
-
-    todos = read_saved_todos()
-    if not todos:
-        return None
-
-    unfinished = [
-        t for t in todos
-        if t.get("status") != "completed"
-    ]
-
-    if not unfinished:
-        if TODO_FILE.exists():
-            TODO_FILE.unlink()
-        return None
-
-    print("\n检测到上次未完成的任务：")
-    for i, todo in enumerate(unfinished, 1):
-        print(f"  {i}. [{todo.get('status')}] {todo.get('content')}")
-
-    choice = input("是否需要继续上次未完成的任务？[y/N] ").strip().lower()
-    if choice not in ("y", "yes"):
-        if TODO_FILE.exists():
-            TODO_FILE.unlink()
-        return None
-
-    CURRENT_TODOS = todos
-    return (
-        "继续上次未完成的任务。请先读取当前 todo 状态，"
-        "然后从第一个 pending 或 in_progress 项开始继续执行。"
-    )
-
 def format_current_todos() -> str:
     if not CURRENT_TODOS:
         return ""
@@ -437,7 +1096,7 @@ def list_skills() -> str:
 
 
 #==================== TOOL SYSTEM ====================
-def run_bash(command:str) -> str:
+def run_bash(command:str, run_in_background: bool = False) -> str:
     try:
         r = subprocess.run(command, shell=True, cwd = WORKDIR,
                            capture_output=True, text=True, timeout = 120)
@@ -446,14 +1105,26 @@ def run_bash(command:str) -> str:
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
     
-def run_read(path:str,limit:int | None = None) -> str:
+def run_read(path:str,offset:int = 0,limit:int | None = None) -> str:
     try:
         lines = safe_path(path).read_text().splitlines()
-        if limit and limit < len(lines):
-            lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
-        return "\n".join(lines)
-    except Exception as e:
-        return f"Error: {e}"
+        
+        offset = max(0, offset)
+        if limit is None:
+            limit = 1000
+        else:
+            limit = max(1, min(limit, 1000))
+
+        end = min(offset + limit, len(lines))
+
+        result = lines[offset: end]
+        if end < len(lines):
+            result.append(f"... ({len(lines) - end} more lines);"
+                          f"continue with offset={end}"
+                          )
+        return "\n".join(result)
+    except Exception as exc:
+        return f"Error: {exc}"
     
 def run_write(path:str,content:str) -> str:
     try:
@@ -512,7 +1183,6 @@ def run_todo_write(todos:list) -> str:
     if error:
         return error
     CURRENT_TODOS = todos
-    save_todos()
     lines = ["\n\033[33m## Current Tasks\033[0m"]
     for t in CURRENT_TODOS:
         icon = {"pending": " ", "in_progress": "\033[36m▸\033[0m", "completed": "\033[32m✓\033[0m"}[t["status"]]
@@ -527,12 +1197,46 @@ def load_skill(name:str) -> str:
         return f"Skill not found: {name}"
     return skill["content"]
 
+def run_create_task(subject: str, description: str = "", blockedBy: list[str] | None = None) -> str:
+    task = create_task(subject, description,blockedBy)
+    deps = f" (blocked by: {", ".join(blockedBy)})" if blockedBy else ""
+    print(f"  \033[34m[create] {task.subject}{deps}\033[0m")
+    return f"Created {task.id}: {task.subject}{deps}"
+
+def run_list_tasks() -> str:
+    tasks = list_tasks()
+    if not tasks:
+        return "No tasks. Use create_task to add some."
+    lines = []
+    for t in tasks:
+        icon = {"pending": "○", "in_progress": "●",
+                "completed": "✓"}.get(t.status, "?")
+        deps = f" (blocked by: {', '.join(t.blockedBy)})"
+        owner = f"[{t.owner}]" if t.owner else ""
+        lines.append(f"  {icon} {t.id}: {t.subject} "
+                     f"[{t.status}]{owner}{deps}")
+    return "\n".join(lines)
+
+def run_get_task(task_id: str) -> str:
+    try:
+        return get_task(task_id)
+    except FileNotFoundError:
+        return f"Error: Task {task_id} not found"
+    
+def run_claim_task(task_id: str) -> str:
+    return claim_task(task_id, owner = "agent")
+
+def run_complete_task(task_id: str) -> str:
+    return complete_task(task_id)
 
 TOOLS = [
-    {"name": "bash", "description": "Run a shell command.",
-     "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
+    {"name": "bash", 
+     "description": "Run a shell command.",
+     "input_schema": {"type": "object", 
+                      "properties": {"command": {"type": "string"}, "run_in_background": {"type": "boolean","description": "Run this command asynchronously"}}, 
+                      "required": ["command"]}},
     {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["path"]}},
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "offset": {"type": "integer", "minimum": 0}, "limit": {"type": "integer", "minimum": 1, "maximum": 1000}}, "required": ["path"]}},
     {"name": "write_file", "description": "Write content to a file.",
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
     {"name": "edit_file", "description": "Replace exact text in a file once.",
@@ -543,6 +1247,43 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"todos": {"type": "array", "items": {"type": "object", "properties": {"content": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}, "required": ["content", "status"]}}}, "required": ["todos"]}},
     {"name": "load_skill", "description": "Load the content of a skill by name.",
      "input_schema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}},
+    {"name": "create_task", "description": "Create a new task with optinal blockedBy dependencies.",
+     "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}, "description": {"type": "string"}, "blockedBy": {"type": "array", "items": {"type": "string"}}}, "required": ["subject"]}},
+    {"name": "list_tasks", 
+     "description": "List all tasks with status, owner, and denpendencies.",
+     "input_schema": {"type": "object", "properties": {},
+                      "required": []}},
+    {"name": "get_task",
+     "description": "Get full details of a specific task by ID.",
+     "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}},
+                      "required": ["task_id"]}},
+    {"name": "claim_task",
+     "description": "Claim a pending task. Sets owner, changes status to in_progress.",
+     "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}},
+                      "required": ["task_id"]}},
+    {"name": "complete_task",
+     "description": "Complete an in-progress task. Reports unblocked downstream tasks.",
+     "input_schema": {"type": "object",
+                      "properties": {"task_id": {"type": "string"}},
+                      "required": ["task_id"]}},
+    {"name": "spawn_teammate",
+     "description": "Spawn a teammate agent in a background thread.",
+     "input_schema": {"type": "object",
+                      "properties": {
+                          "name": {"type": "string"},
+                          "role": {"type": "string"},
+                          "prompt": {"type": "string"}},
+                      "required": ["name", "role", "prompt"]}},
+    {"name": "send_message",
+     "description": "Send a message to a teammate via MessageBus.",
+     "input_schema": {"type": "object",
+                      "properties": {"to": {"type": "string"},
+                                     "content": {"type": "string"}},
+                      "required": ["to", "content"]}},
+    {"name": "check_inbox",
+     "description": "Check Lead's inbox for teammate messages.",
+     "input_schema": {"type": "object", "properties": {},
+                      "required": []}},
 ]
 
 TOOL_HANDLERS = {
@@ -553,6 +1294,14 @@ TOOL_HANDLERS = {
     "glob":run_glob,
     "todo_write":run_todo_write,
     "load_skill":load_skill,
+    "create_task":run_create_task,
+    "list_tasks":run_list_tasks,
+    "get_task":run_get_task,
+    "claim_task":run_claim_task,
+    "complete_task":run_complete_task,
+    "spawn_teammate":run_spawn_teammate,
+    "send_message":run_send_message,
+    "check_inbox":run_check_inbox,
 }
 
 #==================== SUBAGENT SYSTEM ====================
@@ -564,7 +1313,7 @@ SUB_SYSTEM = (
 
 SUB_TOOLS = [
     {"name": "bash", "description": "Run a shell command.",
-     "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
+     "input_schema": {"type": "object", "properties": {"command": {"type": "string"}, "run_in_background": {"type": "boolean", "description": "Run this command asynchronously"}}, "required": ["command"]}},
     {"name": "read_file", "description": "Read file contents.",
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
     {"name": "write_file", "description": "Write content to a file.",
@@ -592,11 +1341,22 @@ def spawn_subagent(description:str) -> str:
     print(f"\n\033[35m[Subagent spawned]\033[0m")
     messages = [{"role": "user", "content": description}]  # fresh context
 
+    state = RecoveryState()
+
     for _ in range(30):
-        response = client.messages.create(
-            model = MODEL, system=SUB_SYSTEM, messages = messages,
-            tools = SUB_TOOLS, max_tokens = 8000,
-        )
+        try:
+            response = with_retry(lambda: client.messages.create(
+                model = state.current_model,
+                system = SUB_SYSTEM,
+                messages = messages,
+                tools = SUB_TOOLS,
+                max_tokens = DEFAULT_MAX_TOKENS,
+            ), state)
+        except Exception as exc:
+            error = f"[Subagent error] {type(exc).__name__}: {str(exc)[:300]}"
+            print(f"  \033[31m{error}\033[0m")
+            return error
+        
         messages.append({"role":"assistant","content":response.content})
         if response.stop_reason != "tool_use":
             break
@@ -630,14 +1390,20 @@ def spawn_subagent(description:str) -> str:
 TOOLS.append({
     "name": "task",
     "description": "Launch a subagent to handle a complex subtask. Returns only the final conclusion.",
-    "input_schema": {"type": "object", "properties": {"description": {"type": "string"}}, "required": ["description"]},
+    "strict": True,
+    "input_schema": {"type": "object", 
+                     "properties": {
+                         "description": {"type": "string", 
+                                         "description": "Complete instructions sent verbatim to the subagent. This is the only accepted parameter."}}, 
+                     "required": ["description"], 
+                     "additionalProperties": False},
 })
 TOOL_HANDLERS["task"] = spawn_subagent
 
 #==================== COMPACTION PIPELINE ====================
-CONTEXT_LIMIT = 50000
+CONTEXT_LIMIT = 50_000
 KEEP_RECENT = 3
-PERSIST_THRESHOLD = 30000
+PERSIST_THRESHOLD = 20_000
 
 def estimate_size(messages:list) -> int: return len(str(messages))
 
@@ -737,13 +1503,13 @@ def micro_compact(messages):
 #L3: toolResultBudget
 def persist_large_output(tool_use_id, output):
     if len(output) <= PERSIST_THRESHOLD: return output
-    TOOL_RESULT_DIR.mkdir(parents=True, exist_ok=True)
-    path = TOOL_RESULT_DIR / f"{tool_use_id}.txt"
+    LARGE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    path = LARGE_OUTPUT_DIR / f"{tool_use_id}.txt"
     if not path.exists(): path.write_text(output)
     return f"<persisted-output>\nFull output: {path}\nPreview:\n{output[:2000]}\n</persisted-output>"
 
 
-def tool_result_budget(messages,max_bytes=200_000):
+def tool_result_budget(messages,max_bytes=20_000):
     last = messages[-1] if messages else None
     if not last or last.get("role") != "user" or not isinstance(last.get("content"),list): return messages
     blocks = [(i, b) for i, b in enumerate(last["content"]) if isinstance(b,dict) and b.get("type") == "tool_result"]
@@ -823,7 +1589,13 @@ def permission_hook(block):
             if kw in block.input.get("command",""):
                 print(f"\n\033[33m⚠  Potentially destructive command\033[0m")
                 print(f"   Tool: {block.name}({block.input})")
-                choice = input("   Allow? [y/N] ").strip().lower()
+
+                agent = getattr(block, "agent", None)
+                if agent:
+                    prompt = f"  Allow teammate '{agent}' to apply this change? [y/N] "
+                else:
+                    prompt = "  Allow this change? [y/N] "
+                choice = input(prompt).strip().lower()
                 if choice not in ("y","yes"):
                     return "Permission denied by user"
     return None
@@ -879,7 +1651,7 @@ def diff_preview_hook(block):
         )
     
     print("\n".join(diff) or "(no diff)")
-    choice = input("   Apply change? [y/N] ").strip().lower()
+    choice = input("  Apply change? [y/N] ").strip().lower()
     if choice not in ("y","yes"):
         return "File change rejected by user"
     
@@ -898,7 +1670,6 @@ PROMPT_SECTIONS = {
     "workspace": f"Working directory: {WORKDIR}",
     "tools": f"Available tools: {','.join([t['name'] for t in TOOLS])}.",
     "skills": "Skills available:" + list_skills(),
-    "memory": "Memory index:" + build_memory_system(),
 }
 
 def assemble_system_prompt(context:dict) -> str:
@@ -918,6 +1689,10 @@ def assemble_system_prompt(context:dict) -> str:
     todos = context.get("todos", "")
     if todos:
         sections.append(f"Current tasks:\n{todos}")
+
+    active_names = context.get("active_teammates", [])
+    if active_names:
+        sections.append(f"Active teammates:\n{', '.join(active_names)}")
 
     return "\n\n".join(sections)
 
@@ -953,12 +1728,16 @@ def update_context(context:dict,messages:list) -> dict:
 
     todos = format_current_todos()
 
+    with team_lock:
+        active_names = sorted(active_teammates)
+
     return {
         "enabled_tools": TOOL_HANDLERS.keys(),
         "workspace": str(WORKDIR),
         "memories": memories,
         "skills": skills,
         "todos": todos,
+        "active_teammates": active_names,
     }
 
 #==================== AGENT LOOP ====================
@@ -967,9 +1746,18 @@ MAX_REACTIVE_RETRIES = 1
 
 def agent_loop(messages:list, context:dict):
     global rounds_since_todo
-    reactive_retries = 0
+    state = RecoveryState()
+    max_tokens = DEFAULT_MAX_TOKENS
 
     while True:
+        pending_texts = collect_background_results()
+        team_messages = collect_lead_inbox()
+        if team_messages:
+            pending_texts.append(
+                format_team_inbox(team_messages)
+            )
+
+        append_user_text_blocks(messages,pending_texts)
 
         pre_compact_messages = copy.deepcopy(messages)
 
@@ -994,22 +1782,132 @@ def agent_loop(messages:list, context:dict):
         request_messages = build_request_messages_with_memories(messages)
 
         try:
-            response = create_message_streaming(system, request_messages)
-            reactive_retries = 0
+            def call_llm():
+                return create_message_streaming(
+                    system=system,
+                    request_messages=request_messages,
+                    model=state.current_model,
+                    max_tokens=max_tokens,
+                )
 
-        except Exception as e:
-            if ("prompt too long" in str(e).lower() or "too many tokens" in str(e).lower()) and reactive_retries < MAX_REACTIVE_RETRIES:
-                print("[reactive compact]")
-                messages[:] = reactive_compact(messages)
-                reactive_retries += 1
+            response = with_retry(call_llm, state)
+        except PartialStreamError as stream_exc:
+            state.has_escalated = True
+            max_tokens = ESCALATED_MAX_TOKENS
+            partial_text = stream_exc.partial_text
+
+            if state.continuation_count < MAX_CONTINUATIONS:
+                messages.append({
+                    "role": "assistant",
+                    "content": [{
+                        "type": "text",
+                        "text": partial_text,
+                    }],
+                })
+                state.continuation_count += 1
+                messages.append({
+                    "role": "user",
+                    "content": CONTINUATION_PROMPT,
+                })
+                print(
+                    f"  \033[33m[stream interrupted] continuation "
+                    f"{state.continuation_count}/{MAX_CONTINUATIONS} "
+                    f"with {ESCALATED_MAX_TOKENS} tokens\033[0m"
+                )
                 continue
-            raise
+
+            cause_text = (
+                f"{type(stream_exc.cause).__name__}: "
+                f"{str(stream_exc.cause)[:300]}"
+            )
+            marker = f"[Stream interrupted: {cause_text}]"
+            separator = "" if partial_text.endswith("\n") else "\n"
+            print(marker)
+            messages.append({
+                "role": "assistant",
+                "content": [{
+                    "type": "text",
+                    "text": f"{partial_text}{separator}{marker}",
+                }],
+            })
+            return update_context(context, messages)
+        except Exception as e:
+            if (
+                is_prompt_too_long_error(e)
+                and state.reactive_compact_count < MAX_REACTIVE_COMPACTS
+            ):
+                state.reactive_compact_count += 1
+                try:
+                     messages[:] = reactive_compact(messages)
+                except Exception as compact_exc:
+                    append_unrecoverable_error(messages, compact_exc)
+                    return update_context(context, messages)
+                
+                print("[recovery] reactive compact")
+                continue
+            
+            append_unrecoverable_error(messages, e)
+            return update_context(context, messages)
+        
+        if response.stop_reason == "max_tokens":
+            messages.append({
+                "role": "assistant",
+                "content": response.content,
+            })
+            truncated_tool_uses = [
+                block for block in response.content
+                if getattr(block, "type", None) == "tool_use"
+            ]
+            if truncated_tool_uses:
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": (
+                                "Tool call was not executed because the "
+                                "response hit the output token limit."
+                            ),
+                            "is_error": True,
+                        }
+                        for block in truncated_tool_uses
+                    ],
+                })
+            state.has_escalated = True
+            max_tokens = ESCALATED_MAX_TOKENS
+
+            if state.continuation_count < MAX_CONTINUATIONS:
+                state.continuation_count += 1
+                if truncated_tool_uses:
+                    messages[-1]["content"].append({
+                        "type": "text",
+                        "text": CONTINUATION_PROMPT,
+                    })
+                else:
+                    messages.append({
+                        "role": "user",
+                        "content": CONTINUATION_PROMPT,
+                    })
+
+                print(
+                    f"  \033[33m[max_tokens] continuation "
+                    f"{state.continuation_count}/{MAX_CONTINUATIONS} "
+                    f"with {ESCALATED_MAX_TOKENS} tokens\033[0m"
+                )
+                continue
+
+            print("  \033[31m[max_tokens] recovery limit reached\033[0m")
+            return update_context(context, messages)
 
         messages.append({"role":"assistant","content":response.content})
         if response.stop_reason != "tool_use":
             force = trigger_hook("Stop",messages)
             if force:
                 messages.append({"role":"user","content": force})
+                continue
+            
+            if wait_for_team_activity(messages):
                 continue
 
             extract_memories(pre_compact_messages)
@@ -1024,6 +1922,7 @@ def agent_loop(messages:list, context:dict):
         for block in response.content:
             if block.type != "tool_use":
                 continue
+            print(f"\033[36m> {block.name}\033[0m")
 
             blocked = trigger_hook("PreToolUse", block)
             if blocked:
@@ -1031,9 +1930,16 @@ def agent_loop(messages:list, context:dict):
                                 "content": str(blocked)})
                 continue
 
-            handler = TOOL_HANDLERS.get(block.name)
-            output = handler(**block.input) if handler else f"Unknown: {block.name}"
-
+            if should_run_background(block.name, block.input):
+                bg_id = start_background_task(block)
+                results.append({"type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": f"[Background task {bg_id} started] "
+                                           f"Command: {block.input.get('command', '')}. "
+                                           f"Result will be available when complete."})
+                continue
+                
+            output = execute_tool(block)
             trigger_hook("PostToolUse", block, output)
 
             if block.name == "todo_write":
@@ -1044,8 +1950,14 @@ def agent_loop(messages:list, context:dict):
                 "tool_use_id": block.id,
                 "content": output,
             })
-            
-        messages.append({"role":"user","content":results})
+
+        user_content = list(results)
+        bg_notifications = collect_background_results()
+        if bg_notifications:
+            user_content.extend([{"type": "text", "text": notif} for notif in bg_notifications])
+        print(f"  \033[32m[inject] {len(bg_notifications)} background "
+                  f"notification(s)\033[0m")
+        messages.append({"role":"user","content":user_content})
 
 def run_agent_turn(history:list, content:str, context:dict):
     history.append({"role":"user","content":content})
@@ -1053,28 +1965,62 @@ def run_agent_turn(history:list, content:str, context:dict):
     print()
     return context
 
-def create_message_streaming(system, request_messages):
-      with client.messages.stream(
-          model=MODEL,
-          system=system,
-          messages=request_messages,
-          tools=TOOLS,
-          max_tokens=8000,
-      ) as stream:
-          for text in stream.text_stream:
-              print(text, end="", flush=True)
+def create_message_streaming(system, request_messages, *, model, max_tokens):
+    chunks = []
+    try:
+        with client.messages.stream(
+            model=model,
+            system=system,
+            messages=request_messages,
+            tools=TOOLS,
+            max_tokens=max_tokens,
+        ) as stream:
+            for chunk in stream.text_stream:
+                if not chunk:
+                    continue
+                chunks.append(chunk)
+                print(chunk, end="", flush=True)
+            return stream.get_final_message()
+    except Exception as exc:
+        if chunks:
+            raise PartialStreamError("".join(chunks), exc) from exc
+        raise
+    finally:
+        if chunks and not chunks[-1].endswith("\n"):
+            print()
+      
+def print_response_text(response):
+    text = extract_text(response.content)
+    if text:
+        print(text)
 
-          print()
-          return stream.get_final_message()
+def append_user_text_blocks(messages: list, texts: list[str]):
+    if not texts:
+        return
+    
+    blocks = [
+        {"type": "text", "text": text} for text in texts
+    ]
+
+    if messages and messages[-1].get("role") == "user":
+        content = messages[-1].get("content")
+
+        if isinstance(content, list):
+            content.extend(blocks)
+        else:
+            messages[-1]["content"] = [
+                {"type": "text", "text": str(content)},
+                *blocks,
+            ]
+    else:
+        messages.append({"role": "user", "content": blocks})
+
 
 def main():
-    print("欢迎使用最小功能Agent，输入 'q'，'exit'或 '空格符' 退出。")
+    print("开拓者终于等到你了！欢迎使用Pamu帕！你可以输入 'q'，'exit'或 '空格符' 退出帕！。")
     
     history = []
     context = update_context({}, [])
-    resume_prompt = ask_resume_todos()
-    if resume_prompt:
-        context = run_agent_turn(history, resume_prompt, context)
 
     while True:
         try:
