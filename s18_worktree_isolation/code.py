@@ -213,21 +213,27 @@ def bind_task_to_worktree(task_id: str, worktree_name: str):
 
 
 def _count_worktree_changes(path: Path) -> tuple[int, int]:
-    """Count uncommitted files and commits in a worktree."""
+    """Count uncommitted files and commits not in the main worktree."""
     try:
         r1 = subprocess.run(["git", "status", "--porcelain"],
-                            cwd=path, capture_output=True, text=True, timeout=10)
+                            cwd=path, capture_output=True, text=True, timeout=10,
+                            check=True)
         files = len([l for l in r1.stdout.strip().splitlines() if l.strip()])
-        r2 = subprocess.run(["git", "log", "@{push}..HEAD", "--oneline"],
-                            cwd=path, capture_output=True, text=True, timeout=10)
-        commits = len([l for l in r2.stdout.strip().splitlines() if l.strip()])
+        main_head = subprocess.run(["git", "rev-parse", "HEAD"],
+                                   cwd=WORKDIR, capture_output=True, text=True,
+                                   timeout=10, check=True).stdout.strip()
+        r2 = subprocess.run(["git", "rev-list", "--count",
+                             f"{main_head}..HEAD"],
+                            cwd=path, capture_output=True, text=True, timeout=10,
+                            check=True)
+        commits = int(r2.stdout.strip())
         return files, commits
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         return -1, -1
 
 
 def remove_worktree(name: str, discard_changes: bool = False) -> str:
-    """Remove worktree. Refuses if uncommitted changes unless discard_changes."""
+    """Remove worktree. Refuses if files or unmerged commits would be lost."""
     err = validate_worktree_name(name)
     if err:
         return err
@@ -241,7 +247,7 @@ def remove_worktree(name: str, discard_changes: bool = False) -> str:
                     "Use discard_changes=true to force removal.")
         if files > 0 or commits > 0:
             return (f"Worktree '{name}' has {files} uncommitted file(s) "
-                    f"and {commits} unpushed commit(s). "
+                    f"and {commits} unmerged commit(s). "
                     "Use discard_changes=true to force removal, "
                     "or keep_worktree to preserve for review.")
     ok1, _ = run_git(["worktree", "remove", str(path), "--force"])
@@ -893,7 +899,7 @@ TOOLS = [
                                      "task_id": {"type": "string"}},
                       "required": ["name"]}},
     {"name": "remove_worktree",
-     "description": "Remove a worktree. Refuses if uncommitted changes unless discard_changes=true.",
+     "description": "Remove a worktree. Refuses if files or unmerged commits exist unless discard_changes=true.",
      "input_schema": {"type": "object",
                       "properties": {"name": {"type": "string"},
                                      "discard_changes": {"type": "boolean"}},

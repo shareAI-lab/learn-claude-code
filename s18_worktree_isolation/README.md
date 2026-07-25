@@ -89,11 +89,11 @@ def _run_bash(command):
 
 ```python
 def remove_worktree(name: str, discard_changes: bool = False) -> str:
-    # 安全检查：有改动时默认拒绝
+    # 安全检查：有未提交文件或未合并提交时默认拒绝
     if not discard_changes:
         files, commits = _count_worktree_changes(path)
         if files > 0 or commits > 0:
-            return "有未提交改动，使用 discard_changes=true 强制删除，或 keep_worktree 保留"
+            return "有未提交文件或未合并提交，使用 discard_changes=true 强制删除，或 keep_worktree 保留"
     ok, _ = run_git(["worktree", "remove", str(path), "--force"])
     if not ok:
         return "删除失败"
@@ -105,7 +105,7 @@ def keep_worktree(name: str) -> str:
     return f"Worktree '{name}' kept for review (branch: wt/{name})"
 ```
 
-Keep = 留着分支，等人工 review 后合并到主分支。Remove = 有改动时默认拒绝，需要 `discard_changes=true` 确认。不自动 complete task——任务完成由队友的 `complete_task` 显式触发。
+Keep = 留着分支，等人工 review 后合并到主分支。Remove = 有未提交文件或尚未进入主工作区 `HEAD` 的提交时默认拒绝，需要 `discard_changes=true` 确认。不自动 complete task——任务完成由队友的 `complete_task` 显式触发。
 
 ### 事件流：可审计
 
@@ -205,4 +205,4 @@ CC 没有 task-worktree 绑定。Worktree 状态通过 `PersistedWorktreeSession
 
 </details>
 
-<!-- translation-sync: zh@v1, en@v0, ja@v0 -->
+<!-- translation-sync: zh@v2, en@v0, ja@v0 -->

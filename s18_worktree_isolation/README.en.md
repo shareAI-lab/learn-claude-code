@@ -89,11 +89,11 @@ After task completion, two choices:
 
 ```python
 def remove_worktree(name: str, discard_changes: bool = False) -> str:
-    # Safety check: refuse by default if changes exist
+    # Safety check: refuse by default if files or unmerged commits exist
     if not discard_changes:
         files, commits = _count_worktree_changes(path)
         if files > 0 or commits > 0:
-            return "Has uncommitted changes. Use discard_changes=true to force, or keep_worktree"
+            return "Has uncommitted files or unmerged commits. Use discard_changes=true to force, or keep_worktree"
     ok, _ = run_git(["worktree", "remove", str(path), "--force"])
     if not ok:
         return "Remove failed"
@@ -105,7 +105,7 @@ def keep_worktree(name: str) -> str:
     return f"Worktree '{name}' kept for review (branch: wt/{name})"
 ```
 
-Keep = preserve branch for manual review and merge. Remove = refuse by default if uncommitted changes; requires `discard_changes=true` to confirm. Does NOT auto-complete task — task completion is triggered explicitly by the teammate's `complete_task`.
+Keep = preserve branch for manual review and merge. Remove = refuse by default if uncommitted files or commits not in the main worktree's `HEAD` exist; requires `discard_changes=true` to confirm. Does NOT auto-complete task — task completion is triggered explicitly by the teammate's `complete_task`.
 
 ### Event Log: Auditable
 
@@ -205,4 +205,4 @@ Teaching version uses the task's `worktree` field for binding, a teaching simpli
 
 </details>
 
-<!-- translation-sync: zh@v1, en@v1, ja@v0 -->
+<!-- translation-sync: zh@v2, en@v2, ja@v0 -->

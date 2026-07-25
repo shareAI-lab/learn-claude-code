@@ -89,11 +89,11 @@ def _run_bash(command):
 
 ```python
 def remove_worktree(name: str, discard_changes: bool = False) -> str:
-    # 安全チェック：変更がある場合デフォルトで拒否
+    # 安全チェック：未コミットファイルまたは未マージコミットがある場合デフォルトで拒否
     if not discard_changes:
         files, commits = _count_worktree_changes(path)
         if files > 0 or commits > 0:
-            return "未コミットの変更あり。discard_changes=true で強制削除、または keep_worktree で保持"
+            return "未コミットファイルまたは未マージコミットあり。discard_changes=true で強制削除、または keep_worktree で保持"
     ok, _ = run_git(["worktree", "remove", str(path), "--force"])
     if not ok:
         return "削除失敗"
@@ -105,7 +105,7 @@ def keep_worktree(name: str) -> str:
     return f"Worktree '{name}' kept for review (branch: wt/{name})"
 ```
 
-Keep = ブランチを保持し、手動 review 後にマージ。Remove = 未コミット変更がある場合デフォルトで拒否、`discard_changes=true` で確認が必要。タスクの自動 complete はしない——タスク完了はチームメイトの `complete_task` で明示的にトリガー。
+Keep = ブランチを保持し、手動 review 後にマージ。Remove = 未コミットファイルまたはメイン worktree の `HEAD` に含まれないコミットがある場合デフォルトで拒否し、`discard_changes=true` で確認が必要。タスクの自動 complete はしない——タスク完了はチームメイトの `complete_task` で明示的にトリガー。
 
 ### イベントログ：監査可能
 
@@ -205,4 +205,4 @@ CC にはタスク-worktree 紐付けがない。Worktree 状態は `PersistedWo
 
 </details>
 
-<!-- translation-sync: zh@v1, en@v1, ja@v1 -->
+<!-- translation-sync: zh@v2, en@v2, ja@v2 -->
