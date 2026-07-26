@@ -169,10 +169,10 @@ This repository currently contains two tutorial tracks:
 
 - **Current track: root-level `s01-s20`**
   The root-level `s01_*` ... `s20_*` folders are the new canonical version. Each chapter contains a full narrative README, translations, runnable `code.py`, and diagrams where needed.
-- **Legacy transition track: `docs/`, `agents/`, and the current `web/` app**
-  These still preserve the older 12-lesson version. They are kept temporarily for existing readers, old links, and the web platform while the new 20-lesson track settles.
+- **Legacy transition track: `docs/` and `agents/`**
+  These still preserve the older 12-lesson version. They are kept temporarily for existing readers and old links while the new 20-lesson track settles. The current `web/` app builds from the root-level `s01-s20` track.
 
-If you are starting now, read the root-level `s01_agent_loop/` through `s20_comprehensive/` chapters. If you are following an older link or using the current web app, you are likely reading the legacy 12-lesson track. The legacy and current chapter numbers do not always match, so avoid mixing chapter numbers across tracks.
+If you are starting now, read the root-level `s01_agent_loop/` through `s20_comprehensive/` chapters or use the current web app. If you are following an older link into `docs/` or running a lesson from `agents/`, you are using the legacy 12-lesson track. The legacy and current chapter numbers do not always match, so avoid mixing chapter numbers across tracks.
 
 ### Legacy-to-Current Mapping
 
@@ -374,7 +374,7 @@ python agents/s_full.py
 
 ### Web Platform
 
-The current web app still renders the legacy `docs/` s01-s12 track. Use the root-level folders for the new s01-s20 track.
+The current web app extracts and renders the root-level `s01-s20` track.
 
 ```sh
 cd web && npm install && npm run dev   # http://localhost:3000
@@ -399,7 +399,7 @@ learn-claude-code/
   agents/                  # legacy 12 runnable copies + s_full.py
   skills/                  # skill files used by s07
   docs/                    # legacy 12-lesson docs, kept during transition
-  web/                     # currently renders the legacy docs/ track
+  web/                     # renders the current root-level s01-s20 track
   tests/
 ```
 
