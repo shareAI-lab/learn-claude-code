@@ -91,7 +91,6 @@ Expected: exit code `1`，证明检查能捕获缺失交付物。
 4. teammate 当前把 plan 消息方向判断成 request，而实际需要消费 response。
 5. `consume_lead_inbox()` 和 `collect_lead_inbox()` 会竞争读取并清空 Lead mailbox。
 6. `request_shutdown`、`request_plan`、`review_plan` 尚未完整进入 schemas/handlers。
-7. 当前文件存在重复的 `agent_loop` 声明。
 
 为基线提供验证命令：
 
@@ -548,7 +547,6 @@ Expected: exit code `1` 或少于四个结果。
 
 逐项说明证据和删除条件：
 
-- 重复的第一个 `agent_loop` 声明：只有 `global rounds_since_todo`，随后立即被同名函数覆盖。
 - `build_memory_system()`：当前无调用方，实际 system prompt 由 `assemble_system_prompt()` 构建。
 - `print_response_text()`：当前 main/streaming 路径无调用方。
 - `MAX_REACTIVE_RETRIES`：当前无读取方，真实限制使用 `MAX_REACTIVE_COMPACTS`。

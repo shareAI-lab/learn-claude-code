@@ -62,7 +62,6 @@ s17-s19 尚未整合。用户希望自己完成编码，因此本次交付物是
 - teammate inbox 分支检查了错误的 plan 消息方向。
 - `consume_lead_inbox()` 与 `collect_lead_inbox()` 会竞争消费同一邮箱。
 - 协议工具还没有完整加入 tool schemas 和 handlers。
-- 文件中存在重复的 `agent_loop` 声明。
 
 这些项目属于开始增量功能前的兼容性基线，不提供直接修复代码。
 
@@ -188,9 +187,9 @@ MCP 工具和内置工具必须经过同一 PreToolUse/PostToolUse 分发管线�
 - 同一事件被两个 consumer 竞争消费。
 - 新动态工具池建立后仍保留一套不会更新的静态分发源。
 
-当前应重点核查重复 `agent_loop`、两个 Lead inbox consumer、
-`build_memory_system()`、`print_response_text()`、`MAX_REACTIVE_RETRIES`，
-以及 memory index 与 relevant memories 的重复注入。
+当前应重点核查两个 Lead inbox consumer、`build_memory_system()`、
+`print_response_text()`、`MAX_REACTIVE_RETRIES`，
+以及 memory index 与 relevant memories 的职责边界和重复正文风险。
 
 ### B. 超出 s20 教学基线但可保留
 

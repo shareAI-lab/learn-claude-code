@@ -81,13 +81,12 @@
    mailbox，会造成 permission 或 protocol 消息被另一个入口提前吞掉。
 6. `request_shutdown`、`request_plan`、`review_plan` 和 teammate
    `submit_plan` 尚未全部进入 schemas 与 handlers。
-7. 文件中存在重复的 `agent_loop` 声明；第一个同名声明没有独立功能。
 
 先记录基线：
 
 ```bash
-.venv/bin/python -m py_compile homework/BaseAgent.py
-.venv/bin/python -m pytest -p no:cacheprovider \
+uv run python -m py_compile homework/BaseAgent.py
+uv run pytest -p no:cacheprovider \
   tests/test_homework_baseagent_agent_teams.py -q
 ```
 
@@ -276,9 +275,9 @@ RED 阶段应看到“函数/状态不存在”或期望行为不符，而不是
 阶段回归命令：
 
 ```bash
-.venv/bin/python -m pytest -p no:cacheprovider \
+uv run pytest -p no:cacheprovider \
   tests/test_homework_baseagent_cron.py -q
-.venv/bin/python -m pytest -p no:cacheprovider \
+uv run pytest -p no:cacheprovider \
   tests/test_homework_baseagent_*.py -q
 ```
 
@@ -488,11 +487,11 @@ test_rejected_plan_requires_resubmission
 阶段回归命令：
 
 ```bash
-.venv/bin/python -m pytest -p no:cacheprovider \
+uv run pytest -p no:cacheprovider \
   tests/test_homework_baseagent_team_protocols.py -q
-.venv/bin/python -m pytest -p no:cacheprovider \
+uv run pytest -p no:cacheprovider \
   tests/test_homework_baseagent_agent_teams.py -q
-.venv/bin/python -m pytest -p no:cacheprovider \
+uv run pytest -p no:cacheprovider \
   tests/test_homework_baseagent_*.py -q
 ```
 
@@ -684,7 +683,7 @@ fake event/clock 立即推进。
 
 ```bash
 for i in 1 2 3; do
-  .venv/bin/python -m pytest -p no:cacheprovider \
+  uv run pytest -p no:cacheprovider \
     tests/test_homework_baseagent_autonomous_agents.py::\
 test_two_simultaneous_claims_have_exactly_one_winner -q
 done
@@ -693,7 +692,7 @@ done
 然后执行：
 
 ```bash
-.venv/bin/python -m pytest -p no:cacheprovider \
+uv run pytest -p no:cacheprovider \
   tests/test_homework_baseagent_task_system.py \
   tests/test_homework_baseagent_agent_teams.py \
   tests/test_homework_baseagent_autonomous_agents.py -q
@@ -900,7 +899,7 @@ Git 测试优先 stub `subprocess.run` 并断言 argv/cwd。只增加一个受�
 阶段回归命令：
 
 ```bash
-.venv/bin/python -m pytest -p no:cacheprovider \
+uv run pytest -p no:cacheprovider \
   tests/test_homework_baseagent_worktrees.py \
   tests/test_homework_baseagent_task_system.py \
   tests/test_homework_baseagent_agent_teams.py -q
@@ -1113,9 +1112,9 @@ MCP 工具默认只给 Lead。teammate 继续使用显式子集工具，除非�
 测试 mock `MCPClient.call_tool`，不启动 server 或访问网络。阶段命令：
 
 ```bash
-.venv/bin/python -m pytest -p no:cacheprovider \
+uv run pytest -p no:cacheprovider \
   tests/test_homework_baseagent_mcp.py -q
-.venv/bin/python -m pytest -p no:cacheprovider \
+uv run pytest -p no:cacheprovider \
   tests/test_homework_baseagent_error_recovery.py \
   tests/test_homework_baseagent_background_tasks.py \
   tests/test_homework_baseagent_mcp.py -q
@@ -1259,26 +1258,7 @@ s14/s16-s19 时可能已经为某个符号增加了真实调用方。
 
 以下是当前可由静态引用证明的真冗余，或完成前文整合后应消失的旧入口。
 
-#### 1. 重复的第一个 `agent_loop` 声明
-
-当前文件连续出现两个同名定义。第一个只有：
-
-```text
-global rounds_since_todo
-```
-
-随后立即被第二个 `agent_loop` 覆盖，没有可观察功能。保留最终完整定义，
-删除前一个声明。
-
-验证：
-
-```bash
-rg -n '^def agent_loop' homework/BaseAgent.py
-```
-
-完成后应只有一个结果。
-
-#### 2. 未使用的 `build_memory_system()`
+#### 1. 未使用的 `build_memory_system()`
 
 当前 system prompt 实际由 `assemble_system_prompt()` /
 `get_system_prompt()` 构建，`build_memory_system()` 没有调用方。它重复表达
@@ -1291,18 +1271,18 @@ rg -n '\bbuild_memory_system\b' homework/BaseAgent.py
 若仍只有定义一处，删除它；不要删除被 `assemble_system_prompt()` 使用的
 memory section。
 
-#### 3. 未使用的 `print_response_text()`
+#### 2. 未使用的 `print_response_text()`
 
 BaseAgent 已在 `create_message_streaming()` 中实时输出文本，main path 没有调用
 `print_response_text()`。若引用仍只有定义，删除该 helper。
 
-#### 4. 未使用的 `MAX_REACTIVE_RETRIES`
+#### 3. 未使用的 `MAX_REACTIVE_RETRIES`
 
 当前 reactive compact 的真实限制是 `MAX_REACTIVE_COMPACTS` 和
 `RecoveryState.reactive_compact_count`。`MAX_REACTIVE_RETRIES` 只有定义、
 没有读取方，应删除以免维护两套上限。
 
-#### 5. s16 草稿的错误兼容名
+#### 4. s16 草稿的错误兼容名
 
 完成 s16 后，不要同时保留：
 
@@ -1314,7 +1294,7 @@ match_resposne
 和正确的 `request_id` / `match_response`。这些不是需要兼容的公开 API；
 双写字段或 alias 会让测试和 registry 继续分叉。
 
-#### 6. s19 后仍被请求路径读取的旧静态工具快照
+#### 5. s19 后仍被请求路径读取的旧静态工具快照
 
 动态 MCP 需要一套 canonical `BUILTIN_TOOLS/BUILTIN_HANDLERS`，再由
 `assemble_tool_pool()` 生成当轮 snapshot。如果保留另一套独立、可变的
@@ -1512,7 +1492,6 @@ background invocation 不是业务 task，subagent 也不是 teammate。
 
 | 项目 | 与 s20 的差异 | 判断 | 建议 |
 | --- | --- | --- | --- |
-| 重复的首个 `agent_loop` | s20 只有一个主循环定义 | 真冗余 | 删除空壳定义 |
 | `build_memory_system()` | s20 直接用统一 prompt builder | 真冗余 | 无调用方时删除 |
 | `print_response_text()` | streaming 已负责输出 | 真冗余 | 无调用方时删除 |
 | `MAX_REACTIVE_RETRIES` | 实际使用另一上限 | 真冗余 | 删除未读取常量 |
@@ -1539,7 +1518,7 @@ background invocation 不是业务 task，subagent 也不是 teammate。
 最后用以下命令重新核查“建议删除”项，而不是仅凭本文操作：
 
 ```bash
-rg -n '^def agent_loop|build_memory_system|print_response_text|MAX_REACTIVE_RETRIES' \
+rg -n 'build_memory_system|print_response_text|MAX_REACTIVE_RETRIES' \
   homework/BaseAgent.py
 rg -n 'BUS\\.read_inbox\\(\"lead\"\\)|def (consume|collect)_lead_inbox' \
   homework/BaseAgent.py
