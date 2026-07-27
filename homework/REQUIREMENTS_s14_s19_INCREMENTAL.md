@@ -1237,4 +1237,315 @@ MCP 工具默认只给 Lead。teammate 继续使用显式子集工具，除非�
 
 ## 与 s20 的功能冗余对比
 
-本章区分真正冗余、重复职责、可选增强和不可删除的必要措施。
+本章假设你已经按前文完成 s14/s16-s19，再把目标 BaseAgent 与
+`s20_comprehensive/code.py` 对比。
+
+先明确判断标准：s20 是“把课程机制合回一个循环”的可读教学实现，不是
+BaseAgent 的精简规范。BaseAgent 比 s20 多一个函数，不等于该函数冗余。
+
+这里使用四种结论：
+
+```text
+建议删除  没有调用方、同名覆盖、旧入口已经被新入口完全取代
+建议合并  两套代码承担同一职责，保留一个 canonical 入口
+可选保留  超出 s20 教学基线，有收益但也增加成本
+必须保留  安全、并发、协议正确性或 s20 本身也依赖的核心机制
+```
+
+删除或合并前先重新运行 `rg`。本章审计的是当前 BaseAgent 结构；你在实现
+s14/s16-s19 时可能已经为某个符号增加了真实调用方。
+
+### 建议删除
+
+以下是当前可由静态引用证明的真冗余，或完成前文整合后应消失的旧入口。
+
+#### 1. 重复的第一个 `agent_loop` 声明
+
+当前文件连续出现两个同名定义。第一个只有：
+
+```text
+global rounds_since_todo
+```
+
+随后立即被第二个 `agent_loop` 覆盖，没有可观察功能。保留最终完整定义，
+删除前一个声明。
+
+验证：
+
+```bash
+rg -n '^def agent_loop' homework/BaseAgent.py
+```
+
+完成后应只有一个结果。
+
+#### 2. 未使用的 `build_memory_system()`
+
+当前 system prompt 实际由 `assemble_system_prompt()` /
+`get_system_prompt()` 构建，`build_memory_system()` 没有调用方。它重复表达
+workspace、memory index 和 memory 使用规则，容易与真实 prompt 漂移。
+
+```bash
+rg -n '\bbuild_memory_system\b' homework/BaseAgent.py
+```
+
+若仍只有定义一处，删除它；不要删除被 `assemble_system_prompt()` 使用的
+memory section。
+
+#### 3. 未使用的 `print_response_text()`
+
+BaseAgent 已在 `create_message_streaming()` 中实时输出文本，main path 没有调用
+`print_response_text()`。若引用仍只有定义，删除该 helper。
+
+#### 4. 未使用的 `MAX_REACTIVE_RETRIES`
+
+当前 reactive compact 的真实限制是 `MAX_REACTIVE_COMPACTS` 和
+`RecoveryState.reactive_compact_count`。`MAX_REACTIVE_RETRIES` 只有定义、
+没有读取方，应删除以免维护两套上限。
+
+#### 5. s16 草稿的错误兼容名
+
+完成 s16 后，不要同时保留：
+
+```text
+ProtocolState.requested_id
+match_resposne
+```
+
+和正确的 `request_id` / `match_response`。这些不是需要兼容的公开 API；
+双写字段或 alias 会让测试和 registry 继续分叉。
+
+#### 6. s19 后仍被请求路径读取的旧静态工具快照
+
+动态 MCP 需要一套 canonical `BUILTIN_TOOLS/BUILTIN_HANDLERS`，再由
+`assemble_tool_pool()` 生成当轮 snapshot。如果保留另一套独立、可变的
+`TOOLS/TOOL_HANDLERS`，且 streaming/execute path 仍可能读取它，就形成两个
+真相来源。
+
+删除的是“第二套 registry 或旧读取路径”，不是 builtin tool definitions。
+subagent 和 teammate 的固定子集工具有不同权限边界，不属于这一冗余。
+
+### 建议合并
+
+这些职责本身需要保留，但当前或增量整合后不应存在两个竞争入口。
+
+#### 1. `consume_lead_inbox()` 与 `collect_lead_inbox()`
+
+两者都会调用 `BUS.read_inbox("lead")`，而读取动作会清空 mailbox。s16 后应合并
+为单一 router：
+
+```text
+读取一次
+  → permission request
+  → protocol request/response
+  → ordinary/result
+```
+
+`run_check_inbox()`、agent loop 和自动事件交付都调用它，不能直接再次读文件。
+
+#### 2. teammate WORK 与 IDLE 的消息分发
+
+shutdown、plan response、permission response 和普通消息如果在 WORK/IDLE
+分别维护两套 `if` 链，新增协议时很容易只改一边。合并为共享
+`handle_inbox_message()`，WORK/IDLE 只决定“何时读取”和“收到结果后转到哪个
+状态”。
+
+#### 3. `wait_for_team_activity()` 与统一自动事件交付
+
+当前 Stop path 的 `wait_for_team_activity()` 最长阻塞 300 秒。完成 s17 后，
+teammate 可能只是正常 IDLE；完成 s14 后，主 Agent 还需要交付 cron/background
+事件。若在持有或占用主 turn 时同步等待 active teammate，会阻塞其他自动工作。
+
+把“teammate result 到达后唤醒 Agent”并入统一 event/locked turn 入口。
+保留 permission waiter，因为它是某次 guarded tool 的同步协议；移除或缩短
+“只因为 teammate 仍 active 就阻塞主 Agent Stop”的等待。
+
+#### 4. 用户、cron、background 和 teammate 的主 history 写入入口
+
+它们都是“产生一条 user-side event，然后运行一个主 Agent turn”。合并为一个
+`run_agent_turn_locked(events)` 或等价入口，统一：
+
+- 获取 `agent_lock`；
+- 再次消费 queue snapshot；
+- 写 history；
+- 更新 context；
+- 调 Agent Loop；
+- 释放锁。
+
+各 producer 保持独立，但不能各自复制 history/context/LLM 逻辑。
+
+#### 5. builtin tool schema/handler 与动态 MCP tool pool
+
+保留一套 canonical builtin registry；system prompt catalog、streaming request、
+同步执行和 background dispatch 都消费同一个当轮 pool。不要分别拼工具名字、
+传 schema、再从另一张表找 handler。
+
+#### 6. memory catalog 与 relevant memory 正文的职责
+
+BaseAgent 当前有两种 memory 信息：
+
+- system prompt 中的 `MEMORY.md` 目录；
+- `build_request_messages_with_memories()` 选择并注入的相关 memory 正文。
+
+“目录 + 按需正文”本身合理，并非应该二选一。需要合并的是重复 prompt 构建和
+重复正文：删掉未使用的 `build_memory_system()`，确保 system 只放目录/摘要，
+同一完整 memory body 每轮最多注入一次。
+
+### 可选保留
+
+以下功能超出 s20 的最低教学实现，但不是死代码。是否保留取决于你希望
+BaseAgent 是“容易读的课程答案”还是“更接近可长期使用的 harness”。
+
+#### 1. 流式输出与 partial-stream continuation
+
+- 收益：用户立即看到响应；中途断流后能保留已输出文本并继续。
+- 成本：`PartialStreamError`、partial content 写回和配对恢复让控制流复杂。
+- 建议：交互 CLI 保留；只做最小教学 harness 时可改成 s20 的非流式请求。
+
+#### 2. LLM 驱动的 memory 选择、抽取与 consolidation
+
+- 收益：比 s20 只读取 `MEMORY.md` 更能按语境加载和维护长期记忆。
+- 成本：一次普通 Agent turn 可能额外调用模型；选择/抽取失败被静默吞掉；
+  consolidation 还会重写多个文件。
+- 建议：需要个性化长期运行时保留，但把选择结果缓存到“当前用户 turn”，
+  不要在每个 tool round 重复选择。课程作业可只保留 index + 明确按需加载。
+
+#### 3. 更细的 transient error 分类与更高恢复上限
+
+- 收益：`get_status_code()`、`extract_retry_after()`、429/529 区分和 fallback
+  model 对真实代理更稳。
+- 成本：BaseAgent 的 `MAX_TRANSIENT_RETRIES=10`、`ESCALATED_MAX_TOKENS=64000`
+  明显高于 s20 教学值，可能产生长等待和高费用。
+- 建议：保留分类，按实际模型限制下调默认上限；让环境变量覆盖，而不是硬编码
+  假设所有 endpoint 支持 64k output。
+
+#### 4. system prompt 稳定键缓存
+
+- 收益：context 未变时省去重复拼接和日志。
+- 成本：MCP、tools、skills 或 teammate 状态漏进 cache key 时会向模型展示
+  过期能力；s20 为简单正确选择每轮重建。
+- 建议：只有在 cache key 包含完整稳定 fingerprint 且有失效测试时保留。
+
+#### 5. LLM memory extraction 前的整份 `deepcopy(messages)`
+
+- 收益：压缩后仍可从较完整对话提取 memory。
+- 成本：长 history 每个 tool round 都复制，内存和 CPU 成本较高，而且只有
+  Stop 时真正使用。
+- 建议：改成每个用户 turn 保存一次 extraction snapshot，或只在准备 Stop
+  extraction 时复制；不必完全删除 memory extraction。
+
+#### 6. 详细 terminal hooks 与观测日志
+
+- 收益：教学和调试时能看见 cache hit、hook、compact、background 状态。
+- 成本：与 streaming 输出交错，生产 CLI 可显得嘈杂。
+- 建议：保留 hook 事件，把输出放到 verbose/debug 开关；不是安全逻辑的日志
+  可以默认关闭。
+
+#### 7. transcript 与大型 tool result 落盘
+
+s20 也有 transcript/tool-results 目录，因此能力本身并不比 s20 冗余。
+BaseAgent 若同时保留 `.large_results` 和另一套 `.task_outputs/tool-results`
+来保存相同内容，则统一目录、命名和引用格式。只有一套且被 compaction 使用时
+应保留。
+
+#### 关于 `.todo.json`
+
+工作区有 session todo 恢复相关测试/设计，但当前所审计的 BaseAgent 文件中
+`CURRENT_TODOS` 仍是进程内状态，没有实际 `.todo.json` 读写调用。因此不能把
+“todo 磁盘恢复”列成当前冗余。若你之后实现它，它属于可选增强：s20 的 todo
+默认只在会话内存中保存。
+
+### 必须保留
+
+下面即使比 s20 教学代码更严格，也不是应删除的冗余。
+
+#### 路径和名称安全
+
+- `safe_path` 的 workspace/worktree containment。
+- `validate_agent_name` 和 `mailbox_path`。
+- worktree name、resolved path、task ID 校验。
+- MCP name normalization 和 collision rejection。
+
+这些值最终进入文件路径、branch 或工具名，不能因 s20 写得更短而移除。
+
+#### 权限与防丢失
+
+- destructive bash/MCP permission。
+- write/edit diff preview。
+- teammate guarded mutation → Lead permission handoff。
+- worktree dirty/commit 检查和默认拒绝 discard。
+
+特别是 `discard_changes=true` 不等于已经获得用户确认，它仍需经过 permission
+hook。
+
+#### 协议和消息正确性
+
+- 每个 `tool_use` 对应 `tool_result`，包括拒绝和截断。
+- permission/protocol 的 request ID、type matching、duplicate protection。
+- permission waiter 的 deferred inbox。
+- 主 Agent、subagent、teammate 各自明确的工具边界。
+
+#### 并发和持久化
+
+- task claim 的原子读改写锁。
+- mailbox、protocol、cron queue、background、MCP registry 锁。
+- `agent_lock` 保证主 history 单写入者。
+- durable JSON 临时文件 + replace、坏记录恢复。
+- daemon/stop event/timeout 和 runtime 显式启动。
+
+#### s20 同样保留的核心
+
+以下不是“BaseAgent 比 s20 多”的功能：
+
+- todo 与 task graph 两层规划。
+- 同步 subagent 与长期 teammate 两种 delegation。
+- skills 按需加载。
+- context compaction 与大结果落盘。
+- memory index。
+- 429/529、max_tokens、prompt-too-long recovery。
+- background tasks、cron、worktree 和 MCP。
+- UserPromptSubmit/PreToolUse/PostToolUse/Stop hooks。
+
+不要因为它们之间概念相近就合并，例如 todo 不是 durable task graph，
+background invocation 不是业务 task，subagent 也不是 teammate。
+
+### 决策摘要
+
+| 项目 | 与 s20 的差异 | 判断 | 建议 |
+| --- | --- | --- | --- |
+| 重复的首个 `agent_loop` | s20 只有一个主循环定义 | 真冗余 | 删除空壳定义 |
+| `build_memory_system()` | s20 直接用统一 prompt builder | 真冗余 | 无调用方时删除 |
+| `print_response_text()` | streaming 已负责输出 | 真冗余 | 无调用方时删除 |
+| `MAX_REACTIVE_RETRIES` | 实际使用另一上限 | 真冗余 | 删除未读取常量 |
+| typo 协议接口 | s20 使用统一 `request_id/match_response` | 真冗余 | 不保留兼容别名 |
+| 两个 Lead inbox consumer | s20 只有统一消费入口 | 重复职责 | 合并成 router |
+| WORK/IDLE 两套协议分支 | s20 共享相同消息语义 | 重复职责 | 合并 handler |
+| Stop 后同步等 active teammate | s20 不用长等待占住 turn | 重复职责 | 并入事件唤醒 |
+| 多个主 history 写入口 | s20 用 `agent_lock` 串行 | 重复职责 | 合并 locked turn |
+| 静态与动态 tool registry | s20 每轮 assemble pool | 重复职责 | 一套 builtin + snapshot |
+| memory catalog + relevant body | s20 主要注入 catalog | 可选增强 | 保留分层，正文勿重复 |
+| streaming/partial continuation | s20 使用非流式 create | 可选增强 | 交互 CLI 保留 |
+| LLM memory 维护 | s20 只读简化 index | 可选增强 | 长期使用保留并缓存 |
+| 10 次 transient retry/64k output | s20 上限较低 | 可选增强 | 保留分类、调低默认 |
+| prompt cache | s20 每轮重建 | 可选增强 | fingerprint 完整才保留 |
+| 每轮 deepcopy history | s20 没有该路径 | 可选增强 | 改为每用户 turn 一次 |
+| 详细终端日志 | s20 有较少日志 | 可选增强 | 加 verbose 开关 |
+| 路径/名称校验 | s20 也有部分校验 | 必要措施 | 必须保留并补齐 |
+| teammate permission handoff | BaseAgent 比 s20 更严格 | 必要措施 | 必须保留 |
+| tool 配对修复 | BaseAgent recovery 更细 | 必要措施 | 必须保留 |
+| task/mailbox/cron/history 锁 | s20 为教学省略部分锁 | 必要措施 | 必须保留 |
+| durable 原子写/损坏恢复 | s20 代码较简化 | 必要措施 | 必须保留 |
+| worktree 默认拒绝丢弃 | s20/课程实现较简化 | 必要措施 | 必须保留 |
+
+最后用以下命令重新核查“建议删除”项，而不是仅凭本文操作：
+
+```bash
+rg -n '^def agent_loop|build_memory_system|print_response_text|MAX_REACTIVE_RETRIES' \
+  homework/BaseAgent.py
+rg -n 'BUS\\.read_inbox\\(\"lead\"\\)|def (consume|collect)_lead_inbox' \
+  homework/BaseAgent.py
+rg -n '\\b(TOOLS|TOOL_HANDLERS|BUILTIN_TOOLS|BUILTIN_HANDLERS)\\b' \
+  homework/BaseAgent.py
+```
+
+期望你能为每个删除项回答：“调用方是谁？”如果答案不再是“没有”，应重新评估，
+不能机械按表删除。
