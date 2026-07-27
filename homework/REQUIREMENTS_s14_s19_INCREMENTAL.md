@@ -532,11 +532,407 @@ plan_approval_request
 
 ## s17：Autonomous Agents
 
-本章让 teammate 在 IDLE 阶段自动发现并原子认领可执行任务。
+本章让 teammate 在 IDLE 阶段自动发现并原子认领可执行任务。Lead 仍负责创建
+任务和依赖关系，但不必逐个把 task ID 发给队友。
+
+### 目标
+
+把 teammate 生命周期从“一次工作后退出”升级为：
+
+```text
+WORK
+  → 没有 tool_use
+  → IDLE
+      ├─ 收到 inbox       → WORK
+      ├─ 找到可认领 task  → 原子 claim → WORK
+      ├─ shutdown_request → SHUTDOWN
+      └─ timeout          → SHUTDOWN
+```
+
+自动认领必须满足三个条件：
+
+- task 是 `pending`；
+- task 没有 owner；
+- `blockedBy` 中的每个 task 都存在且已 `completed`。
+
+多个 teammate 同时看到同一 task 时，最终只能有一个 owner。
+
+### 与现有 BaseAgent 的连接点
+
+复用：
+
+- s12 的 `Task`、`list_tasks()`、`can_start()`、`claim_task()`、
+  `complete_task()`。
+- s15 的 `spawn_teammate_thread()`、MessageBus 和 active teammate registry。
+- s16 的 WORK/IDLE inbox router 与 shutdown protocol。
+- teammate 已有的 recovery、permission handoff 和 summary。
+
+需要调整：
+
+- 为 task 文件的读改写增加 `task_lock`；不要只给 `save_task()` 单独上锁。
+- 增加 `scan_unclaimed_tasks()` 和 `idle_poll()`。
+- teammate tools 增加 `list_tasks`、`claim_task`、`complete_task`。
+- teammate `claim_task` handler 必须把 owner 固定为当前 teammate name，
+  不能接受模型自行提供 owner。
+- `spawn_teammate_thread()` 采用有限 WORK inner loop 和 WORK/IDLE outer loop。
+- active registry 应能区分 running、idle、stopped，至少保证 stop 后原子移除。
+
+主 Agent 的 `run_claim_task()` 仍可使用 owner=`"agent"`；teammate handler 和
+Lead handler 不要共用一个会把 owner 写错的无参 wrapper。
+
+### 必须实现
+
+- `task_lock = threading.RLock()` 或等价锁。
+- `scan_unclaimed_tasks() -> list[dict]`。
+- `IDLE_POLL_INTERVAL` 与 `IDLE_TIMEOUT`，允许测试 monkeypatch。
+- `idle_poll(agent_name, messages, name, role, stop_event=None)`，返回明确的
+  `work`、`shutdown` 或 `timeout`。
+- teammate task schemas：
+
+  - `list_tasks` 无参数；
+  - `claim_task(task_id)`；
+  - `complete_task(task_id)`。
+
+- teammate handlers：
+
+  - list 输出 status、owner、blockedBy；
+  - claim 在闭包内绑定当前 teammate；
+  - complete 只能完成 in_progress task，并保留既有状态机约束。
+
+- claim 的原子临界区：
+
+```text
+acquire task_lock
+  → load task
+  → 检查 status
+  → 检查 owner
+  → 检查 dependencies
+  → 修改 owner/status
+  → 原子保存
+release task_lock
+```
+
+如果 task 文件写入已经使用临时文件 replace，保留它；锁解决同进程竞争，
+原子 replace 解决半写文件，两者职责不同。
+
+### 实现提示
+
+`scan_unclaimed_tasks()` 只负责生成候选 snapshot，不负责宣告认领成功。扫描与
+claim 之间状态可能变化，因此 `idle_poll()` 必须检查 claim 的真实返回。
+
+不要只写：
+
+```text
+if "Claimed" in result:
+```
+
+更稳妥的教学接口是让 `claim_task()` 返回带 `ok/status/task_id/owner` 的结果，
+或者失败后重新读取 task 确认 owner。若暂时保留字符串 API，至少让成功前缀
+固定，并为容易误判的错误字符串写回归测试。
+
+IDLE 优先级固定为：
+
+1. 检查 stop event。
+2. 读取并路由 inbox；shutdown 优先于普通消息。
+3. 扫描 task board。
+4. 等待下一次 poll。
+
+不要先 claim task 再处理已经到达的 shutdown。
+
+若第一个候选 claim 失败，说明另一个 teammate 可能抢先成功。可以继续尝试
+snapshot 中的后续候选，也可以下一轮重新扫描；不能把失败候选注入为已认领。
+
+身份应主要放在 teammate system prompt，因为 compaction 通常不删除 system。
+如果你现有 teammate 压缩逻辑会重建 prompt 或只保留 messages，再在每次进入
+WORK 时检查并补一条稳定 `<identity>`。不要以 `len(messages) <= 3` 作为唯一
+压缩判断，普通短会话也会满足这个条件；优先使用显式 compact 标记。
+
+IDLE 不应忙等。生产代码可以 `stop_event.wait(IDLE_POLL_INTERVAL)`，测试则让
+fake event/clock 立即推进。
+
+### 不要照搬的简化
+
+- 不要照搬 s17 在锁外 `load → check owner → save` 的 claim；它仍有竞态。
+- 不要把 `scan_unclaimed_tasks()` 返回候选等同于成功认领。
+- 不要在 IDLE 先扫任务再读 inbox。
+- 不要真实 sleep 60 秒测试 timeout。
+- 不要为了加入 outer loop 而删除 teammate 的 error recovery、permission
+  waiter、deferred inbox 或 tool-result 配对。
+- 不要允许 teammate 调 `claim_task(task_id, owner="任意名字")`。
+- 不要因为 `blockedBy` 非空就永远跳过；所有依赖完成后它应成为候选。
+
+### TDD 顺序
+
+建议在 `tests/test_homework_baseagent_autonomous_agents.py` 依次添加：
+
+1. `test_scan_returns_only_pending_unowned_unblocked_tasks`：
+   同时准备 owned、completed、missing dependency 和 completed dependency。
+2. `test_idle_checks_inbox_before_task_board`：
+   inbox 有普通消息且 board 有 task，应先返回 work 而不 claim。
+3. `test_idle_shutdown_has_priority_over_ordinary_work`。
+4. `test_successful_auto_claim_injects_exact_task_and_returns_work`。
+5. `test_failed_claim_is_not_reported_as_work_on_that_task`。
+6. `test_two_simultaneous_claims_have_exactly_one_winner`：
+   barrier 同时放行两个线程，断言一个成功、文件只有一个 owner。
+7. `test_completing_dependency_makes_downstream_task_scannable`。
+8. `test_teammate_claim_handler_forces_current_agent_as_owner`。
+9. `test_idle_timeout_uses_fake_clock_or_event`。
+10. `test_work_idle_work_cycle_preserves_deferred_protocol_messages`。
+11. `test_identity_is_preserved_after_explicit_compaction`。
+
+并发测试连续运行至少三次，避免偶然通过：
+
+```bash
+for i in 1 2 3; do
+  .venv/bin/python -m pytest -p no:cacheprovider \
+    tests/test_homework_baseagent_autonomous_agents.py::\
+test_two_simultaneous_claims_have_exactly_one_winner -q
+done
+```
+
+然后执行：
+
+```bash
+.venv/bin/python -m pytest -p no:cacheprovider \
+  tests/test_homework_baseagent_task_system.py \
+  tests/test_homework_baseagent_agent_teams.py \
+  tests/test_homework_baseagent_autonomous_agents.py -q
+```
+
+### 手动验证 prompt
+
+```text
+创建三个任务：A 无依赖，B 依赖 A，C 无依赖。启动 alice 和 bob，让他们自行认领；确认 B 只在 A 完成后出现，并在两位队友空闲后请求关闭。
+```
+
+观察：
+
+- alice/bob 是否认领不同任务。
+- `.tasks/*.json` 是否始终只有一个 owner。
+- A 完成前 B 是否不可见，完成后是否可认领。
+- teammate 完成当前任务后是否进入 IDLE 并继续发现工作。
+- shutdown 是否能打断 IDLE。
+
+### 完成标准
+
+- [ ] 扫描条件严格覆盖 status、owner 和全部依赖。
+- [ ] inbox 优先于 task board。
+- [ ] claim 的读、校验、修改、保存处于同一 task lock。
+- [ ] 并发认领测试只有一个 winner，且可重复通过。
+- [ ] teammate 获得 list/claim/complete 工具但不能伪造 owner。
+- [ ] WORK/IDLE 循环有轮数和 timeout 边界。
+- [ ] WORK/IDLE 都继续路由 permission 和 protocol 消息。
+- [ ] 身份在 compaction 后仍可靠存在。
+- [ ] task system 和 agent teams 回归测试通过。
 
 ## s18：Worktree Isolation
 
-本章把 task、teammate cwd 与 Git worktree 生命周期连接起来。
+本章把 task、teammate cwd 与 Git worktree 生命周期连接起来，让并行队友不会
+在同一个目录中覆盖彼此的文件。worktree 隔离的是工作目录，不替代任务认领、
+权限确认或最终人工 review。
+
+### 目标
+
+实现：
+
+- Task 可选绑定一个 Git worktree。
+- Lead 能创建、保留或安全删除 worktree。
+- teammate 认领带 worktree 的 task 后，自己的文件工具在该目录执行。
+- 不同 teammate 的 cwd 相互独立，不调用全局 `os.chdir()`。
+- 有未提交改动或新增提交时，删除默认失败。
+- Git 操作成功后写 append-only 生命周期事件。
+
+教学流程：
+
+```text
+create task
+  → create_worktree(name, task_id)
+  → task 仍为 pending
+  → teammate 原子 claim
+  → teammate 私有 wt_ctx 指向 worktree
+  → 在隔离 cwd 工作
+  → complete_task
+  → keep_worktree 等待 review，或明确 discard 后 remove
+```
+
+### 与现有 BaseAgent 的连接点
+
+需要修改但不能破坏的接口：
+
+- `Task` 增加 `worktree: str | None = None`。
+- `load_task()` 兼容没有 `worktree` 字段的旧 JSON。
+- `safe_path(p, cwd=None)` 以 `cwd or WORKDIR` 为安全根。
+- `run_bash/read/write/edit/glob` 接受可选 cwd。
+- `run_teammate_guarded_tool()` 执行获批工具时必须把当前 teammate cwd 传给
+  raw handler，不能批准后退回主 WORKDIR。
+- teammate 工具继续经过 `PreToolUse`，执行后继续触发 `PostToolUse`；
+  cwd 隔离不能成为绕过 hooks 的另一条 handler 路径。
+- diff preview hook 也必须使用 block 的有效 cwd，否则预览与实际修改不同文件。
+- teammate thread 内保存私有 `wt_ctx`；不得用进程全局 cwd。
+- s17 自动 claim 成功后读取 task.worktree 并更新 `wt_ctx`。
+- s19 动态 MCP 只扩展 Lead 工具池，不应意外把 worktree 管理工具交给 teammate。
+
+Lead 新工具：
+
+- `create_worktree(name, task_id="")`。
+- `keep_worktree(name)`。
+- `remove_worktree(name, discard_changes=False)`。
+
+### 必须实现
+
+状态与验证：
+
+- `WORKTREES_DIR = WORKDIR / ".worktrees"`。
+- 严格 name pattern，例如 `[A-Za-z0-9._-]{1,64}`，并单独拒绝 `.`、`..`。
+- worktree 路径 resolve 后必须仍位于 `WORKTREES_DIR`。
+- `run_git(args, cwd=WORKDIR) -> (ok, output)`，使用 argv list，不拼 shell。
+- `log_event(type, name, task_id="", **metadata)`。
+
+生命周期：
+
+- `create_worktree(name, task_id="")`。
+- `bind_task_to_worktree(task_id, name)`。
+- `_inspect_worktree_changes(path)`，区分 dirty files、相对创建基线的 commits、
+  检查失败。
+- `keep_worktree(name)`。
+- `remove_worktree(name, discard_changes=False)`。
+
+tool schemas/handlers：
+
+- `create_worktree` required=`name`，`task_id` 可选。
+- `keep_worktree` required=`name`。
+- `remove_worktree` required=`name`，`discard_changes` 默认 false。
+
+建议在创建 worktree 时记录创建基线 SHA。删除检查使用：
+
+```text
+git status --porcelain
+git rev-list --count <creation_base_sha>..HEAD
+```
+
+不要依赖 `@{push}`：新建教学分支通常没有 upstream，命令失败后若只读空 stdout，
+会把已有 commit 误判为零。
+
+### 实现提示
+
+`safe_path` 的边界应随调用者 cwd 变化：
+
+```text
+base = resolve(cwd or WORKDIR)
+path = resolve(base / user_path)
+要求 path 位于 base 内
+```
+
+这意味着 teammate 在 worktree 内不能用 `../../` 回到主仓库。Lead 的普通文件
+工具仍以 WORKDIR 为根。
+
+为了让 hooks 看见真实 cwd，可选择：
+
+- 给 tool block 增加经过验证的 `cwd`/agent context 属性；或
+- 让 teammate guarded dispatcher 把 cwd 作为内部参数传给 permission 和
+  diff helper，但不让模型直接控制这个参数。
+
+不能把内部 cwd 暴露成模型可随意填写的 tool input。
+
+创建顺序：
+
+1. 校验 name 和目标路径。
+2. 若 task_id 存在，先确认 task 存在且尚未绑定其他 worktree。
+3. 执行 `git worktree add <path> -b wt/<name> HEAD`。
+4. Git 成功后绑定 task。
+5. 绑定或事件写入失败时，返回清晰的部分失败状态；进阶实现可安全回滚新
+   worktree，但不能假装全部成功。
+6. 成功后写 create event。
+
+绑定只修改 `task.worktree`，保持 status=`pending`、owner=None。真正推进状态
+仍由 s17 claim 完成。
+
+teammate：
+
+- claim 成功后读取最新 task；有 worktree 则验证目录后设置私有 `wt_ctx`。
+- claim 无 worktree task 时把 `wt_ctx` 设为 None。
+- complete 后清空 `wt_ctx`，避免下一个 task 错用旧目录。
+- bash/read/write/edit/glob 的 wrapper 每次读取当前 `wt_ctx`。
+
+删除时 fail closed：
+
+- status 或 commit 检查失败 → 默认拒绝。
+- dirty files > 0 或 commits > 0 → 默认拒绝并建议 `keep_worktree`。
+- 只有 `discard_changes=true` 且通过 destructive permission 才运行强制删除。
+- worktree remove 成功后再删除专用 branch；分支删除失败要报告部分成功。
+- 只为真实成功步骤记录 remove event。
+
+### 不要照搬的简化
+
+- 不要调用全局 `os.chdir()`；所有线程会一起切目录。
+- 不要让模型提供内部 cwd。
+- 不要只给 bash 加 cwd，却让 read/write/edit/glob 继续操作主 WORKDIR。
+- 不要批准 teammate write 后调用不带 cwd 的 `run_write()`。
+- 不要用 `@{push}` 的空输出推断“没有提交”。
+- 不要默认 `git worktree remove --force`。
+- 不要让 create/bind 自动 claim 或 complete task。
+- 不要在 Git 命令失败时仍写成功 event。
+- 不要把主 worktree 或 WORKDIR 作为可删除目标。
+
+### TDD 顺序
+
+建议在 `tests/test_homework_baseagent_worktrees.py` 依次添加：
+
+1. `test_validate_worktree_name_rejects_empty_dot_dotdot_slash_and_overlong`。
+2. `test_resolved_worktree_path_cannot_escape_root`。
+3. `test_old_task_json_loads_with_worktree_none`。
+4. `test_create_uses_argv_git_and_binds_only_after_success`。
+5. `test_failed_git_create_does_not_bind_or_log_success`。
+6. `test_bind_preserves_pending_status_and_owner`。
+7. `test_teammate_claim_sets_private_cwd_and_complete_clears_it`。
+8. `test_two_teammates_with_same_relative_filename_write_different_roots`。
+9. `test_all_teammate_file_tools_reject_escape_from_worktree`。
+10. `test_diff_preview_and_actual_write_use_same_cwd`。
+11. `test_remove_refuses_dirty_or_committed_worktree_by_default`。
+12. `test_inspection_failure_refuses_removal`。
+13. `test_explicit_discard_still_requires_permission`。
+14. `test_events_are_written_only_after_successful_lifecycle_steps`。
+15. `test_main_worktree_cannot_be_removed_by_name_trick`。
+
+Git 测试优先 stub `subprocess.run` 并断言 argv/cwd。只增加一个受控临时 Git
+仓库的 smoke test，不操作课程根仓库。
+
+阶段回归命令：
+
+```bash
+.venv/bin/python -m pytest -p no:cacheprovider \
+  tests/test_homework_baseagent_worktrees.py \
+  tests/test_homework_baseagent_task_system.py \
+  tests/test_homework_baseagent_agent_teams.py -q
+```
+
+### 手动验证 prompt
+
+```text
+创建 backend 和 frontend 两个任务，为它们分别建立并绑定 worktree，然后启动 alice 和 bob 自行认领。让两人各自创建同名 status.txt，最后比较两个 worktree 的文件内容和当前分支。
+```
+
+然后：
+
+```text
+尝试删除仍有改动的 backend worktree，但不要丢弃修改；确认系统拒绝删除并建议 keep_worktree。
+```
+
+观察 task JSON 在绑定后仍为 pending；认领后 owner/status 改变；两个
+`status.txt` 位于不同根目录；默认删除不会丢工作。
+
+### 完成标准
+
+- [ ] 旧 Task JSON 向后兼容。
+- [ ] name、resolve path 和主 worktree 都有保护。
+- [ ] create 成功后才 bind/log，bind 不改变 task 状态。
+- [ ] 每个 teammate 有独立 wt_ctx，不使用全局 chdir。
+- [ ] bash/read/write/edit/glob 和 diff hook 使用同一有效 cwd。
+- [ ] permission handoff 获批后仍在正确 worktree 执行。
+- [ ] dirty、committed 或无法检查的 worktree 默认拒绝删除。
+- [ ] `discard_changes=true` 仍需要 destructive permission。
+- [ ] event log 只记录真实成功步骤。
+- [ ] task、team、permission 回归测试通过。
 
 ## s19：MCP Tools
 
