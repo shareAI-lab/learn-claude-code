@@ -936,11 +936,304 @@ Git 测试优先 stub `subprocess.run` 并断言 argv/cwd。只增加一个受�
 
 ## s19：MCP Tools
 
-本章把 mock MCP server 发现的工具增量加入主 Agent 动态工具池。
+本章把 mock MCP server 发现的工具增量加入主 Agent 动态工具池。重点是
+late-bound tool discovery 和统一分发，不要求实现真实 stdio/HTTP transport。
+
+### 目标
+
+实现教学版 MCP：
+
+```text
+connect_mcp("docs")
+  → server factory 创建 MCPClient
+  → discover tools
+  → registry 保存连接
+  → 下一轮 assemble_tool_pool()
+  → 出现 mcp__docs__search
+  → 正常 PreToolUse / handler / PostToolUse
+```
+
+必须保证：
+
+- 多个 server 的同名工具不会冲突。
+- server/tool 名称经过确定性规范化。
+- 连接后无需重启 Agent，下一轮立即看到新 schema 和 prompt 状态。
+- 动态 handler 调用正确的 client 和原始 tool name，不受 Python late binding
+  影响。
+- MCP 工具失败也返回与原 `tool_use_id` 配对的 error result。
+- destructive MCP 工具经过既有权限确认。
+
+### 与现有 BaseAgent 的连接点
+
+当前 BaseAgent 有固定 `TOOLS` 和 `TOOL_HANDLERS`，并且：
+
+- `create_message_streaming()` 直接读取全局 `TOOLS`；
+- `execute_tool()` 默认读取全局 `TOOL_HANDLERS`；
+- `start_background_task()` 延迟执行时也会重新走默认 handler；
+- `PROMPT_SECTIONS["tools"]` 在 import/组装时可能固化旧工具名。
+
+s19 后需要建立唯一 builtin registry：
+
+```text
+BUILTIN_TOOLS
+BUILTIN_HANDLERS
+```
+
+它们包含 s01-s18 的所有内置工具。每轮 LLM 请求前调用：
+
+```text
+tools, handlers = assemble_tool_pool()
+```
+
+同一轮必须把这两个 snapshot 分别传给：
+
+- `create_message_streaming(..., tools=tools)`；
+- `execute_tool(block, handlers)`；
+- `start_background_task(block, handlers)`；
+- system prompt 的工具 catalog/fingerprint。
+
+不要让请求发送使用动态 schemas，而执行阶段又回到旧全局 handlers。
+
+### 必须实现
+
+教学 client：
+
+- `MCPClient(name)`。
+- `register(tool_defs, handlers)` 或 `discover_tools()`。
+- `call_tool(original_tool_name, args)`。
+- 明确捕获 unknown tool、参数错误和 handler 异常。
+
+连接与命名：
+
+- `mcp_clients: dict[str, MCPClient]`，并用锁保护连接/读取。
+- `normalize_mcp_name(name)`。
+- mock server factories，例如 docs/read-only 和 deploy/destructive。
+- `connect_mcp(name)`。
+- `mcp__<safe_server>__<safe_tool>`。
+
+工具池：
+
+- `BUILTIN_TOOLS` 与 `BUILTIN_HANDLERS`。
+- `assemble_tool_pool() -> tuple[list[dict], dict[str, callable]]`。
+- MCP tool 的 `inputSchema` 转成 Anthropic `input_schema`。
+- 独立的 MCP metadata registry 或 descriptor，保存 read-only/destructive
+  annotation，供 permission hook 使用。
+- `run_connect_mcp(name)` 和 `connect_mcp` builtin schema/handler。
+
+动态 prompt：
+
+- `update_context()` 返回稳定排序的 connected server 和 MCP tool fingerprint。
+- `assemble_system_prompt()` 展示已连接 server 与 prefixed tool catalog。
+- 可以每轮重建 prompt；若保留 `get_system_prompt()` 缓存，cache key 必须包含
+  MCP fingerprint，连接后不能命中旧 prompt。
+
+### 实现提示
+
+名称规范化规则：
+
+```text
+保留 A-Z a-z 0-9 _ -
+其余每个字符替换为 _
+```
+
+需要测试规范化碰撞，例如原名 `a.b` 与 `a/b` 都变成 `a_b`。处理策略应明确：
+
+1. builtin 名称优先，MCP 不得覆盖。
+2. 两个 MCP prefixed 名相同则拒绝后加入者，并在 `connect_mcp` 或 pool assembly
+   返回可读错误。
+3. registry 不因部分碰撞留下“显示已连接但工具池半更新”的模糊状态；可以在
+   注册连接前预检完整名称集合。
+
+组装 tool pool 时从副本开始，不修改 canonical builtin list/dict：
+
+```text
+tools = copy/list(BUILTIN_TOOLS)
+handlers = copy/dict(BUILTIN_HANDLERS)
+```
+
+循环中创建动态 handler 时要冻结当前值。可用 default arguments、
+`functools.partial` 或一个返回闭包的 helper。测试至少连接两个 server、每个
+两个工具，避免所有 lambda 最终指向循环最后一项。
+
+schema 只传 Anthropic 接受的字段。MCP annotation 可保存在内部 descriptor，
+permission hook 通过 prefixed name 查询：
+
+```text
+readOnlyHint=true 且 destructiveHint=false → 仍过 hook，但通常无需确认
+destructiveHint=true                       → 必须确认
+annotation 缺失或矛盾                     → 不自动视为安全
+```
+
+不要仅把 `(destructive)` 写进 description 然后声称权限已实现。
+
+背景工具需要稳定 handler snapshot。启动 background task 时：
+
+- 保存当轮已经解析的 callable；或
+- 保存当轮 handlers snapshot。
+
+不要等 worker 真正运行时再从可能变化的全局 pool 找同名工具。
+
+MCP 工具默认只给 Lead。teammate 继续使用显式子集工具，除非你另外设计
+“继承 MCP 配置”的能力、权限和 cwd 行为并写完整测试。
+
+### 不要照搬的简化
+
+- 不要照搬 s19 的简化 `agent_loop()`，它省略 BaseAgent 的 streaming、
+  recovery、memory、compaction、background、cron 和 hooks。
+- 不要只在 `connect_mcp` 工具调用后特殊重建一次 pool；每个请求从 registry
+  建 snapshot 更容易保持一致。
+- 不要让 `create_message_streaming()` 继续静态读取旧 `TOOLS`。
+- 不要让 `execute_tool()` 或 background worker 回退到旧 `TOOL_HANDLERS`。
+- 不要在循环 lambda 中捕获可变的 `mcp_client/tool_def` 引用。
+- 不要静默覆盖规范化冲突。
+- 不要把 description 文案当权限 annotation。
+- 不要把真实 MCP transport、OAuth、channel notification 和多层配置优先级
+  混入本阶段核心实现。
+
+### TDD 顺序
+
+建议在 `tests/test_homework_baseagent_mcp.py` 依次添加：
+
+1. `test_normalize_mcp_name_replaces_disallowed_characters`。
+2. `test_connect_discovers_tools_and_rejects_unknown_or_duplicate_server`。
+3. `test_two_servers_with_same_raw_tool_get_distinct_prefixed_names`。
+4. `test_normalized_name_collision_is_reported_not_overwritten`。
+5. `test_dynamic_handlers_bind_correct_client_and_original_tool`：
+   至少四个 handler 分别返回不同标记。
+6. `test_pool_assembly_does_not_mutate_builtin_registries`。
+7. `test_connect_makes_schema_visible_on_next_streaming_request`。
+8. `test_streaming_and_execution_use_same_pool_snapshot`。
+9. `test_prompt_cache_key_changes_with_mcp_fingerprint`。
+10. `test_read_only_and_destructive_annotations_take_different_permission_paths`。
+11. `test_missing_annotation_is_not_implicitly_trusted`。
+12. `test_mcp_exception_returns_paired_error_tool_result`。
+13. `test_background_mcp_task_keeps_dispatch_time_handler`。
+14. `test_teammate_does_not_receive_mcp_tools_by_default`。
+
+测试 mock `MCPClient.call_tool`，不启动 server 或访问网络。阶段命令：
+
+```bash
+.venv/bin/python -m pytest -p no:cacheprovider \
+  tests/test_homework_baseagent_mcp.py -q
+.venv/bin/python -m pytest -p no:cacheprovider \
+  tests/test_homework_baseagent_error_recovery.py \
+  tests/test_homework_baseagent_background_tasks.py \
+  tests/test_homework_baseagent_mcp.py -q
+```
+
+最后运行所有 homework 回归测试。
+
+### 手动验证 prompt
+
+```text
+连接 docs MCP server，列出新发现的完整工具名，然后调用搜索工具查询 context compaction。
+```
+
+预期出现类似 `mcp__docs__search`，并能看到 log hook。
+
+然后：
+
+```text
+连接 deploy MCP server 并尝试触发部署；在没有明确确认前不要执行破坏性工具。
+```
+
+预期 destructive MCP tool 触发与危险内置工具一致的确认流程；拒绝后返回
+配对 error tool_result，而不是调用 server。
+
+### 完成标准
+
+- [ ] builtin registry 只有一套 canonical 来源。
+- [ ] 每轮动态 pool 的 schemas 与 handlers 成对生成。
+- [ ] streaming、同步执行和 background 使用同一轮 snapshot。
+- [ ] 名称规范化、namespace 和碰撞策略有测试。
+- [ ] 所有动态 handler 都绑定正确 client/tool。
+- [ ] connect 后下一轮 prompt 和 schema 立即更新。
+- [ ] prompt cache 不会隐藏新 MCP 工具。
+- [ ] destructive/unknown annotation 按安全默认值处理。
+- [ ] MCP 异常保持 tool-use/tool-result 配对。
+- [ ] teammate 默认不继承 MCP 工具。
+- [ ] recovery、background、hooks 回归测试通过。
 
 ## 跨阶段集成验证
 
-本章组合验证 cron、protocol、autonomy、worktree 和 MCP 的交互边界。
+本章组合验证 cron、protocol、autonomy、worktree 和 MCP 的交互边界。它是
+人工 smoke flow，不应替代各章节可控、可重复的自动化测试。
+
+### 场景准备
+
+在临时演示仓库中启动 BaseAgent，确认：
+
+- 没有上一次遗留的 active teammates。
+- `.tasks`、`.mailbox`、`.scheduled_tasks.json` 使用演示数据。
+- `docs` mock MCP 可用。
+- 当前分支没有需要保留的未提交工作。
+
+### 操作 prompt
+
+第一步，建立任务图和隔离目录：
+
+```text
+创建三个任务：A“实现数据层”、B“实现 API”并依赖 A、C“编写文档”且无依赖。为 A 和 C 分别创建并绑定 worktree data 和 docs。
+```
+
+第二步，启动自治队友并使用计划协议：
+
+```text
+启动 alice 负责后端、bob 负责文档，让他们自行认领。要求 alice 在修改前提交计划；第一次拒绝她的计划并要求补充测试，第二次计划完整时批准。
+```
+
+第三步，观察隔离和 task graph：
+
+- alice/bob 应认领不同的可执行 task。
+- B 在 A 完成前不能被扫描，A 完成后才能被认领。
+- A/C 的文件操作应发生在不同 worktree。
+- permission、plan approval 和普通 inbox 消息都应正常流转。
+
+第四步，结束 teammate：
+
+```text
+等待 alice 和 bob 完成当前任务并进入空闲，然后分别请求优雅关闭，列出每个 shutdown request 的最终状态。
+```
+
+第五步，验证 cron 自动交付：
+
+```text
+注册一个下一分钟触发的一次性任务：“列出已完成 task 和保留的 worktree，给出简短总结”。注册后不要再输入，等待它自动执行。
+```
+
+第六步，验证 MCP 动态工具：
+
+```text
+连接 docs MCP，告诉我新工具的完整前缀名，然后用只读搜索工具查询 worktree isolation。
+```
+
+### 可观察结果
+
+按时间顺序检查：
+
+1. task bind 后仍为 pending/owner=None。
+2. 两个 teammate 原子 claim，不会同时拥有一个 task。
+3. plan request/reject/re-submit/approve 的 request ID 不混淆。
+4. 获批的 teammate mutation 仍经过 permission 和 diff preview。
+5. 每个 teammate 的 cwd 与绑定 worktree 一致。
+6. complete A 后 B 进入可认领集合。
+7. IDLE shutdown 收到 response，pending state 只迁移一次。
+8. cron scheduler 只产生 queue event，主 history 由 locked turn 更新。
+9. one-shot job 触发后从 registry 和 durable 文件移除。
+10. MCP connect 后下一轮才出现 prefixed tool，调用经过 hook。
+
+### 自动化测试边界
+
+不要把上述整条链路写成依赖真实线程时序的单个测试。自动化应拆成：
+
+- cron fake clock + event；
+- protocol/message router 单元测试；
+- task claim barrier 并发测试；
+- subprocess Git stub + 一个临时仓库 smoke test；
+- MCP in-process mock；
+- 一个统一 turn lock 集成测试。
+
+任何失败都应能定位到单一机制，而不是只得到“等待超时”。
 
 ## 与 s20 的功能冗余对比
 
