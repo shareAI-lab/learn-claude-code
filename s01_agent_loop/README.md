@@ -53,7 +53,7 @@ response = client.messages.create(
 )
 ```
 
-**第 3 步**：追加模型回答，检查它是否调了工具。没调 → 结束。
+**第 3 步**：追加模型回答，检查模型是否请求调用工具。没请求 → 结束。
 
 ```python
 messages.append({"role": "assistant", "content": response.content})

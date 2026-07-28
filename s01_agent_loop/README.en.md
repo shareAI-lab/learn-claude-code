@@ -53,7 +53,7 @@ response = client.messages.create(
 )
 ```
 
-**Step 3**: Append the model's response and check whether it called a tool. No tool call → done.
+**Step 3**: Append the model's response and check whether it requested a tool call. No request → done.
 
 ```python
 messages.append({"role": "assistant", "content": response.content})

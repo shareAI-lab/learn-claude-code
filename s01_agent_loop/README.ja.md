@@ -53,7 +53,7 @@ response = client.messages.create(
 )
 ```
 
-**ステップ 3**：モデルの応答を追加し、ツールを呼び出したか確認する。呼び出しなし → 終了。
+**ステップ 3**：モデルの応答を追加し、ツール呼び出しを要求したか確認する。要求なし → 終了。
 
 ```python
 messages.append({"role": "assistant", "content": response.content})
