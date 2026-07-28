@@ -28,7 +28,7 @@ s02 のループは完全に維持される。唯一の変更は、ツール実�
 | ゲート | 役割 | 一致時 |
 |--------|------|--------|
 | 1. 拒否リスト | 常に禁止される操作（`rm -rf /`、`sudo`） | 即座に拒否、実行しない |
-| 2. ルールマッチング | コンテキスト依存の操作（作業ディレクトリ外への書き込み、`rm` ファイル） | ゲート 3 へ |
+| 2. ルールマッチング | コンテキスト依存の操作（作業ディレクトリ外への読み書き、`rm` ファイル） | ゲート 3 へ |
 | 3. ユーザー承認 | ゲート 2 が一致した場合、ユーザー確認を待機 | ユーザーが許可または拒否を決定 |
 
 3 つのゲートのどれにも一致しない → 直接実行。日常の操作の大部分はこの経路を通る。
@@ -59,9 +59,9 @@ def check_deny_list(command: str) -> str | None:
 ```python
 PERMISSION_RULES = [
     {
-        "tools": ["write_file", "edit_file"],
+        "tools": ["read_file", "write_file", "edit_file"],
         "check": lambda args: not (WORKDIR / args.get("path", "")).resolve().is_relative_to(WORKDIR),
-        "message": "Writing outside workspace",
+        "message": "Access outside workspace",
     },
     {
         "tools": ["bash"],

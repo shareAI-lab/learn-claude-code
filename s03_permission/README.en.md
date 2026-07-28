@@ -28,7 +28,7 @@ The three gates correspond to three decisions:
 | Gate | Purpose | On Match |
 |------|---------|----------|
 | 1. Deny List | Permanently forbidden operations (`rm -rf /`, `sudo`) | Denied immediately, not executed |
-| 2. Rule Matching | Context-dependent operations (writing outside workspace, `rm` files) | Passed to Gate 3 |
+| 2. Rule Matching | Context-dependent operations (reading/writing outside workspace, `rm` files) | Passed to Gate 3 |
 | 3. User Approval | After Gate 2 matches, pauses for user confirmation | User decides allow or deny |
 
 None of the three gates match → execute directly. Most routine operations take this path.
@@ -59,9 +59,9 @@ def check_deny_list(command: str) -> str | None:
 ```python
 PERMISSION_RULES = [
     {
-        "tools": ["write_file", "edit_file"],
+        "tools": ["read_file", "write_file", "edit_file"],
         "check": lambda args: not (WORKDIR / args.get("path", "")).resolve().is_relative_to(WORKDIR),
-        "message": "Writing outside workspace",
+        "message": "Access outside workspace",
     },
     {
         "tools": ["bash"],

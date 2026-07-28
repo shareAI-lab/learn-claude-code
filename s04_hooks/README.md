@@ -108,7 +108,7 @@ def permission_hook(block):
         for pattern in DENY_LIST:
             if pattern in block.input.get("command", ""):
                 return "Permission denied by deny list"
-    if block.name in ("write_file", "edit_file"):
+    if block.name in ("read_file", "write_file", "edit_file"):
         path = block.input.get("path", "")
         if not (WORKDIR / path).resolve().is_relative_to(WORKDIR):
             choice = input("   Allow? [y/N] ").strip().lower()

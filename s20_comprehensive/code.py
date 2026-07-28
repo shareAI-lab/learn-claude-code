@@ -376,16 +376,6 @@ def assemble_system_prompt(context: dict) -> str:
 
 # ── Basic Tools ──
 
-def safe_path(p: str, cwd: Path = None) -> Path:
-    """Convert a string path to a resolved Path relative to base.
-    
-    NOTE: Path escape checking is now handled by permission_hook,
-    which asks the user for approval. safe_path only does str→Path conversion.
-    """
-    base = cwd or WORKDIR
-    return (base / p).resolve()
-
-
 def run_bash(command: str, cwd: Path = None,
              run_in_background: bool = False) -> str:
     # run_in_background is consumed by the dispatcher; direct execution ignores it.

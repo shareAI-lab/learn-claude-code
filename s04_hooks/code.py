@@ -75,16 +75,8 @@ SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. Act, d
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s02-s03 (unchanged): Tool Implementations
+#  FROM s02-s03 : Tool Implementations
 # ═══════════════════════════════════════════════════════════
-
-def safe_path(p: str) -> Path:
-    """Convert a string path to a resolved Path relative to WORKDIR.
-    
-    NOTE: Path escape checking is now handled by permission_hook,
-    which asks the user for approval. safe_path only does str→Path conversion.
-    """
-    return (WORKDIR / p).resolve()
 
 def run_bash(command: str) -> str:
     try:
