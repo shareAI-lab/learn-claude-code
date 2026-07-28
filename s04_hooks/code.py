@@ -79,10 +79,12 @@ SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. Act, d
 # ═══════════════════════════════════════════════════════════
 
 def safe_path(p: str) -> Path:
-    path = (WORKDIR / p).resolve()
-    if not path.is_relative_to(WORKDIR):
-        raise ValueError(f"Path escapes workspace: {p}")
-    return path
+    """Convert a string path to a resolved Path relative to WORKDIR.
+    
+    NOTE: Path escape checking is now handled by permission_hook,
+    which asks the user for approval. safe_path only does str→Path conversion.
+    """
+    return (WORKDIR / p).resolve()
 
 def run_bash(command: str) -> str:
     try:
@@ -95,7 +97,8 @@ def run_bash(command: str) -> str:
 
 def run_read(path: str, limit: int | None = None) -> str:
     try:
-        lines = safe_path(path).read_text().splitlines()
+        file_path = (WORKDIR / path).resolve()
+        lines = file_path.read_text().splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
         return "\n".join(lines)
@@ -104,7 +107,7 @@ def run_read(path: str, limit: int | None = None) -> str:
 
 def run_write(path: str, content: str) -> str:
     try:
-        file_path = safe_path(path)
+        file_path = (WORKDIR / path).resolve()
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(content)
         return f"Wrote {len(content)} bytes to {path}"
@@ -113,7 +116,7 @@ def run_write(path: str, content: str) -> str:
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
-        file_path = safe_path(path)
+        file_path = (WORKDIR / path).resolve()
         text = file_path.read_text()
         if old_text not in text:
             return f"Error: text not found in {path}"
@@ -187,10 +190,10 @@ def permission_hook(block):
                 choice = input("   Allow? [y/N] ").strip().lower()
                 if choice not in ("y", "yes"):
                     return "Permission denied by user"
-    if block.name in ("write_file", "edit_file"):
+    if block.name in ("read_file", "write_file", "edit_file"):
         path = block.input.get("path", "")
         if not (WORKDIR / path).resolve().is_relative_to(WORKDIR):
-            print(f"\n\033[33m⚠  Writing outside workspace\033[0m")
+            print(f"\n\033[33m⚠  Access outside workspace\033[0m")
             print(f"   Tool: {block.name}({block.input})")
             choice = input("   Allow? [y/N] ").strip().lower()
             if choice not in ("y", "yes"):
