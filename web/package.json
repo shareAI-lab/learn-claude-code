@@ -14,7 +14,7 @@
     "diff": "^8.0.3",
     "framer-motion": "^12.34.0",
     "lucide-react": "^0.564.0",
-    "next": "16.1.6",
+    "next": "^16.2.11",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "rehype-highlight": "^7.0.2",
