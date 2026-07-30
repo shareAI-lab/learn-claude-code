@@ -224,11 +224,18 @@ RuntimeContext
 ├── background
 ├── tasks
 ├── teams
-└── mcp
+├── mcp
+├── skills
+├── memory
+├── worktrees
+├── compaction
+└── prompt_cache
 ```
 
 每个 feature 在自己的模块中定义状态类型，例如 `SchedulerState`、
-`BackgroundState`、`TaskStore`、`TeamState` 和 `MCPState`。
+`BackgroundState`、`TaskStore`、`TeamState`、`MCPState`、`SkillCatalog`、
+`MemoryStore` 和 `WorktreeState`。`RuntimeContext` 仅持有这些对象的引用；
+新增字段不意味着把对应业务方法放进 context。
 
 普通 feature 函数只接收自己需要的 state：
 
