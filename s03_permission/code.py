@@ -142,8 +142,9 @@ TOOL_HANDLERS = {
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if=", "> /dev/sda"]
 
 def check_deny_list(command: str) -> str | None:
+    normalized = " ".join(command.lower().split())
     for pattern in DENY_LIST:
-        if pattern in command:
+        if pattern.lower() in normalized:
             return f"Blocked: '{pattern}' is on the deny list"
     return None
 
