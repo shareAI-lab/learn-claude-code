@@ -1,7 +1,9 @@
-import os,json,ast,subprocess,difflib,yaml,time,re,copy,random,threading,uuid
+import os,json,ast,subprocess,difflib,yaml,time,re,copy,random,threading,uuid,hashlib
 from pathlib import Path
-from dataclasses import dataclass,asdict
+from dataclasses import dataclass,asdict,field
 from types import SimpleNamespace
+from datetime import datetime
+from xml.sax.saxutils import escape
 
 try:
     import readline
@@ -25,15 +27,237 @@ SKILLS_DIR = WORKDIR / "skills"
 MEMORY_DIR = WORKDIR / ".memory"; MEMORY_DIR.mkdir(exist_ok=True)
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 TRANSCRIPTS_DIR = WORKDIR / ".transcripts"
-LARGE_OUTPUT_DIR = WORKDIR / ".large_results"
+
+TOOL_RESULT_DIR = WORKDIR / ".task_outputs" / "tool-results"
+TOOL_RESULTS_DIR = TOOL_RESULT_DIR
+LARGE_OUTPUT_DIR = TOOL_RESULT_DIR
+
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 CURRENT_TODOS:list[dict] = []
 
-def safe_path(p:str) -> Path:
-    path = (WORKDIR / p).resolve()
-    if not path.is_relative_to(WORKDIR):
-        raise ValueError(f"Path escapes workspace: {p}")
-    return path
+def resolve_tool_cwd(
+        cwd: str | Path | None= None
+):
+    workspace_root = WORKDIR.resolve()
+    base = Path(cwd).resolve() if cwd else workspace_root
+
+    if not base.is_relative_to(workspace_root):
+        raise ValueError(
+            f"Tool cwd escapes workspace: {cwd}"
+        )
+
+    if not base.is_dir():
+        raise ValueError(f"Tool cwd does not exist: {base}")
+
+    return base
+
+def safe_path(path:str, cwd:str | Path | None = None) -> Path:
+    base = resolve_tool_cwd(cwd)
+    resolved = (base / path).resolve()
+
+    if not resolved.is_relative_to(base):
+        raise ValueError(f"Path escapes working directory: {path}")
+
+    return resolved
+
+#==================== CRON SCHEDULER ====================
+DURABLE_PATH = WORKDIR / ".scheduled_tasks.json"
+
+@dataclass
+class CronJob:
+    id: str
+    cron: str
+    prompt: str
+    recurring: bool
+    durable: bool
+
+scheduled_jobs: dict[str, CronJob] = {}
+cron_queue: list[CronJob] = []
+cron_lock = threading.Lock()
+agent_lock = threading.Lock()
+_last_fired: dict[str, str] = {}
+
+def _cron_field_matches(field: str, value: int) -> bool:
+    if field == "*":
+        return True
+    if field.startswith("*/"):
+        step = int(field[2:])
+        return step > 0 and value % step == 0
+    if "," in field:
+        return any(
+            _cron_field_matches(f.strip(),value)
+            for f in field.split(",")
+        )
+    if "-" in field:
+        lo, hi = field.split("-",1)
+        return int(lo) <= value <= int(hi)
+    return value == int(field)
+
+def cron_matches(cron_expr: str, dt: datetime) -> bool:
+    fields = cron_expr.strip().split()
+    if len(fields) != 5:
+        return False
+    minute, hour, dom, month, dow = fields
+    dow_val = (dt.weekday() + 1) % 7
+
+    m = _cron_field_matches(minute, dt.minute)
+    h = _cron_field_matches(hour, dt.hour)
+    dom_ok = _cron_field_matches(dom, dt.day)
+    month_ok = _cron_field_matches(month, dt.month)
+    dow_ok = _cron_field_matches(dow, dow_val)
+
+    if not (m and h and month_ok):
+        return False
+    dom_unconstrained = dom == "*"
+    dow_unconstrained = dow == "*"
+    if dom_unconstrained and dow_unconstrained:
+        return True
+    if dom_unconstrained:
+        return dow_ok
+    if dow_unconstrained:
+        return dom_ok
+
+    return dom_ok or dow_ok
+
+def _validate_cron_field(field: str, lo: int, hi: int) -> str | None:
+    if field == "*":
+        return None
+    if field.startswith("*/"):
+        step_str = field[2:]
+        if not step_str.isdigit():
+            return f"Invalid step: {field}"
+        step = int(step_str)
+        if step <= 0:
+            return f"Step must be > 0: {field}"
+        return None
+    if "," in field:
+        for part in field.split(","):
+            err = _validate_cron_field(part.strip(), lo, hi)
+            if err: return err
+        return None
+    if "-" in field:
+        parts = field.split("-", 1)
+        if not parts[0].isdigit() or not parts[1].isdigit():
+            return f"Invalid range: {field}"
+        a, b = int(parts[0]), int(parts[1])
+        if a < lo or a > hi or b < lo or b > hi:
+            return f"Range {field} out of bounds [{lo}-{hi}]"
+        if a > b:
+            return f"Range start > end: {field}"
+        return None
+    if not field.isdigit():
+        return f"Invalid field: {field}"
+    val = int(field)
+    if val < lo or val > hi:
+        return f"Value {val} out of bounds [{lo}-{hi}]"
+    return None
+
+def validate_cron(cron_expr: str) -> str | None:
+    fields = cron_expr.strip().split()
+    if len(fields) != 5:
+        return f"Expected 5 fields, got {len(fields)}"
+    bounds = [(0, 59), (0, 23), (1, 31), (1, 12), (0, 6)]
+    names = ["minute", "hour", "day-of-month", "month", "day-of-week"]
+    for i, (field, (lo, hi), name) in enumerate(zip(fields, bounds, names)):
+        err = _validate_cron_field(field, lo, hi)
+        if err:
+            return f"{name}: {err}"
+    return None
+
+def save_durable_jobs():
+    with cron_lock:
+        durable = [asdict(j) for j in scheduled_jobs.values() if j.durable]
+        temp_path = DURABLE_PATH.with_suffix(".tmp")
+        temp_path.write_text(
+            json.dumps(durable, indent = 2, ensure_ascii = False),
+            encoding = 'utf-8'
+        )
+    temp_path.replace(DURABLE_PATH)
+
+def load_durable_jobs():
+    if not DURABLE_PATH.exists():
+        return
+    try:
+        jobs = json.loads(DURABLE_PATH.read_text())
+        for j in jobs:
+            job = CronJob(**j)
+            err = validate_cron(job.cron)
+            if err:
+                print(f"  \033[31m[cron] skipping invalid job {job.id}: {err}\033[0m")
+                continue
+            scheduled_jobs[job.id] = job
+        valid = [j for j in jobs if j["id"] in scheduled_jobs]
+        if valid:
+            print(f"  \033[35m[cron] loaded {len(valid)} durable job(s)\033[0m")
+    except Exception:
+        pass
+
+def schedule_job(cron: str, prompt: str, recurring: bool = True,
+                 durable: bool = True) -> CronJob | str:
+    err = validate_cron(cron)
+    if err:
+        return err
+    job = CronJob(
+        id = f"cron_{random.randint(0,999999):06d}",
+        cron = cron,
+        prompt = prompt,
+        recurring= recurring,
+        durable = durable,
+    )
+    with cron_lock:
+        scheduled_jobs[job.id] = job
+    if durable:
+        save_durable_jobs()
+    print(f"  \033[35m[cron register] {job.id} '{cron}' → {prompt[:40]}\033[0m")
+    return job
+
+def cancel_job(job_id: str) -> str:
+    with cron_lock:
+        job = scheduled_jobs.pop(job_id, None)
+    if not job:
+        return f"Job {job_id} not found"
+    if job.durable:
+        save_durable_jobs()
+    print(f"  \033[31m[cron cancel] {job_id}\033[0m")
+    return f"Cancelled {job_id}"
+
+def cron_scheduler_loop(stop_event = None):
+    stop_event = stop_event or threading.Event()
+
+    while not stop_event.wait(1):
+        now = datetime.now()
+        minute_marker = now.strftime("%Y-%m-%d %H:%M")
+        durable_changed = False
+
+        with cron_lock:
+            for job in list(scheduled_jobs.values()):
+                try:
+                    if cron_matches(job.cron, now):
+                        if _last_fired.get(job.id) != minute_marker:
+                            cron_queue.append(job)
+                            _last_fired[job.id] = minute_marker
+                            print(f"  \033[35m[cron fire] {job.id} → "
+                                  f"{job.prompt[:40]}\033[0m")
+                        if not job.recurring:
+                            scheduled_jobs.pop(job.id, None)
+                            _last_fired.pop(job.id, None)
+                            durable_changed = durable_changed or job.durable
+
+                except Exception as e:
+                    print(f"  \033[31m[cron error] {job.id}: {e}\033[0m")
+
+        if durable_changed:
+            save_durable_jobs()
+
+def consume_cron_queue() -> list[CronJob]:
+    with cron_lock:
+        fired = list(cron_queue)
+        cron_queue.clear()
+    return fired
+
+def has_cron_queue() -> bool:
+    with cron_lock:
+        return bool(cron_queue)
 
 #==================== AGENT TEAMS ====================
 MAILBOX_DIR = WORKDIR / ".mailbox"; 
@@ -42,22 +266,33 @@ AGENT_NAME_PATTERN = re.compile(
     r"^[A-Za-z][A-Za-z0-9_-]{0,31}$"
 )
 
+ALLOWED_MESSAGE_TYPES = {
+    "message",
+    "result",
+    "permission_request",
+    "permission_response",
+    "shutdown_request",
+    "shutdown_response",
+    "plan_approval_request",
+    "plan_approval_response",
+}
+
 mailbox_lock = threading.RLock()
 team_lock = threading.Lock()
 active_teammates: dict[str,dict] = {}
 
 class MessageBus:
     def send(self,from_agent: str, to_agent:str, content:object,
-             msg_type:str = "message"):
+             msg_type:str = "message", metadata: dict = None):
         validate_agent_name(from_agent)
         validate_agent_name(to_agent)
 
-        if msg_type not in {"message", "result", "permission_request", "permission_response"}:
+        if msg_type not in ALLOWED_MESSAGE_TYPES:
             raise ValueError(f"Invalid message type: {msg_type}")
 
         msg = {"from": from_agent, "to": to_agent, 
                "content": content,  "type": msg_type, 
-               "ts": time.time()}
+               "ts": time.time(), "metadata": metadata or {}}
         path = mailbox_path(to_agent)
 
         with mailbox_lock:
@@ -90,6 +325,115 @@ class MessageBus:
         return msgs
 
 BUS = MessageBus()
+
+@dataclass
+class ProtocolState:
+    request_id: str
+    type: str
+    sender: str
+    target: str
+    status: str
+    payload: str
+    created_at: float = field(default_factory=time.time)
+
+pending_requests: dict[str, ProtocolState] = {}
+protocol_lock = threading.RLock()
+
+EXCEPTED_RESPONSE_TYPES = {
+    "shutdown": "shutdown_response",
+    "plan_approval": "plan_approval_response",
+}
+
+def new_request_id() -> str:
+    return f"req_{uuid.uuid4().hex}"
+
+def match_response(response_type: str, request_id: str, approve: bool) -> bool:
+    with protocol_lock:
+        state = pending_requests.get(request_id)
+        if not state:
+            print(f"  \033[31m[protocol] unknown request_id: {request_id}\033[0m")
+            return False
+        
+        excepted_type = EXCEPTED_RESPONSE_TYPES.get(state.type)
+        if response_type != excepted_type:
+            print(f"  \033[31m[protocol] type mismatch: "
+                  f"(expected {excepted_type}), got {response_type}\033[0m")
+            return False
+        
+        if state.status != "pending":
+            print(f"  \033[33m[protocol] {request_id} already {state.status}, "
+                f"ignoring duplicate\033[0m")
+            return False
+        state.status = "approved" if approve else "rejected"
+
+    icon = "✓" if approve else "✗"
+    color = "32" if approve else "31"
+    print(f"  \033[{color}m[protocol] {state.type} {icon} "
+          f"({request_id}: {state.status})\033[0m")
+    return True
+
+#================== AUTONOMOUS AGENT ==========================
+IDLE_POLL_INTERVAL = 5
+IDLE_TIMEOUT = 60
+
+def scan_unclaimed_tasks() -> list[dict]:
+    return [
+        asdict(task)
+        for task in list_tasks()
+        if (
+            task.status == "pending"
+            and not task.owner
+            and can_start(task.id)
+        )
+    ]
+
+def idle_poll(agent_name: str, messages: list,
+              name: str, role: str, worktree_context: dict | None = None) -> str:
+    for _ in range(IDLE_TIMEOUT // IDLE_POLL_INTERVAL):
+        time.sleep(IDLE_POLL_INTERVAL)
+
+        inbox = BUS.read_inbox(agent_name)
+        if inbox:
+            for msg in inbox:
+                if msg.get("type") == "shutdown_request":
+                    req_id = msg.get("metadata", {}).get("request_id", "")
+                    BUS.send(name, "lead", "Shutting down gracefully.",
+                             "shutdown_response",
+                             {"request_id": req_id, "approve": True})
+                    print(f"  \033[35m[protocol] {name} approved shutdown "
+                                              f"in idle ({req_id})\033[0m")
+                    return "shutdown"
+
+            messages.append({
+                "role": "user",
+                "content": "<inbox>" + json.dumps(inbox) + "</inbox>"
+            })
+            print(f"  \033[36m[idle] {name} found inbox messages\033[0m")
+            return "work"
+
+        unclaimed = scan_unclaimed_tasks()
+        if unclaimed:
+            task = unclaimed[0]
+            result = claim_task(task["id"], agent_name)
+            if "Claimed" in result:
+                worktree_name = task.get("worktree")
+
+                if worktree_context is not None:
+                    worktree_context["path"] = (str(WORKTREES_DIR / worktree_name) if worktree_name else None)
+
+                messages.append({
+                    "role": "user",
+                    "content": f"<auto-claimed>Task {task['id']}: "
+                               f"{task['subject']}</auto-claimed>"
+                })
+                print(f"  \033[32m[idle] {name} auto-claimed: "
+                      f"{task['subject']}\033[0m")
+                return "work"
+            print(f"  \033[33m[idle] {name} claim failed: "
+                  f"{result}\033[0m")
+
+    print(f"  \033[31m[idle] {name} timeout ({IDLE_TIMEOUT}s)\033[0m")
+    return "timeout"
 
 def validate_agent_name(name: str, *, allow_lead: bool = True) -> str:
     if not isinstance(name, str):
@@ -151,6 +495,8 @@ def run_teammate_guarded_tool(
         agent: str,
         block,
         deferred_inbox: list[dict],
+        handler,
+        cwd: Path | None
 ) -> tuple[str, bool]:
     request_id = uuid.uuid4().hex
 
@@ -162,6 +508,7 @@ def run_teammate_guarded_tool(
             "tool_use_id": block.id,
             "tool_name": block.name,
             "tool_input": block.input,
+            "cwd": str(cwd) if cwd else None
         },
         msg_type="permission_request"
     )
@@ -171,13 +518,8 @@ def run_teammate_guarded_tool(
     if not response.get("approved"):
         reason = response.get("reason", "Permission denied")
         return f"Permission denied: {reason}", True
-    
-    raw_handler = {
-        "bash": run_bash,
-        "write_file": run_write,
-    }
 
-    output = raw_handler[block.name](**block.input)
+    output = handler(**block.input)
     trigger_hook("PostToolUse", block, output)
     return str(output), False
     
@@ -203,109 +545,328 @@ def spawn_teammate_thread(name: str, role:str, prompt: str) -> str:
             "status": "running",
         }
     
-    system = (f"You are '{name}', role: {role}.\n"
-              f"Workspace: {WORKDIR}\n"
-              "Available tools: bash, read_file, write_file, send_message.\n"
-              "You must send your final result to lead using send_message.\n"
-              "Do not create subagents or additional teammates.\n"
-              "bash and write_file require permission from Lead. "
-              "When permission is approved, you will execute the tool yourself. "
-              "Do not claim that a protected operation succeeded until its "
-              "tool_result confirms success.")
-    
     team_tools = [{"name": "bash", "description": "Run a shell command.",
-    "input_schema": {"type": "object", "properties": {"command": {"type": "string"}, "run_in_background": {"type": "boolean","description": "Run this command asynchronously"}}, "required": ["command"]}},
+    "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
     {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "offset": {"type": "integer", "minimum": 0}, "limit": {"type": "integer", "minimum": 1, "maximum": 1000}}, "required": ["path"]}},
     {"name": "write_file", "description": "Write content to a file.",
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
     {"name": "send_message", "description": "Send a message to another agent.", 
-     "input_schema": {"type": "object", "properties": {"to": {"type": "string"}, "content": {"type": "string"}}, "required": ["to", "content"]}}]
-    
+     "input_schema": {"type": "object", "properties": {"to": {"type": "string"}, "content": {"type": "string"}}, "required": ["to", "content"]}},
+    {"name": "submit_plan",
+                  "description": "Submit a plan for Lead approval.",
+                  "input_schema": {"type": "object",
+                                   "properties": {"plan": {"type": "string"}},
+                                   "required": ["plan"]}},
+    {"name": "list_tasks",
+                 "description": "List all tasks on the board.",
+                 "input_schema": {"type": "object", "properties": {},
+                                  "required": []}},
+    {"name": "claim_task",
+        "description": "Claim a pending task.",
+        "input_schema": {"type": "object",
+                        "properties": {"task_id": {"type": "string"}},
+                        "required": ["task_id"]}},
+    {"name": "complete_task",
+        "description": "Mark an in-progress task as completed.",
+        "input_schema": {"type": "object",
+                        "properties": {"task_id": {"type": "string"}},
+                        "required": ["task_id"]}},
+    ]
+
+    team_tool_name = ", ".join(t["name"] for t in team_tools)
+        
+    system = (f"You are '{name}', role: {role}.\n"
+                f"Workspace: {WORKDIR}\n"
+                f"Available tools: {team_tool_name}\n"
+                "You must send your final result to lead using send_message.\n"
+                "Do not create subagents or additional teammates.\n"
+                "bash and write_file require permission from Lead. "
+                "When permission is approved, you will execute the tool yourself. "
+                "Do not claim that a protected operation succeeded until its "
+                "tool_result confirms success.")
+
+    protocol_ctx = {"waiting_plan": None}
+
+    def handle_inbox_message(name: str, msg: dict, messages: list) -> bool:
+        msg_type = msg.get("type", "message")
+        meta = msg.get("metadata", {})
+        req_id = meta.get("request_id", "")
+
+        if msg_type == "shutdown_request":
+            BUS.send(name, "lead", "Shutting down gracefully.",
+                     "shutdown_response",
+                     {"request_id":req_id, "approve": True})
+            print(f"  \033[35m[protocol] {name} approved shutdown "
+                              f"({req_id})\033[0m")
+            return True
+
+        if msg_type == "plan_approval_response":
+            if req_id != protocol_ctx["waiting_plan"]:
+                return False
+
+            protocol_ctx["waiting_plan"] = None
+            approve = meta.get("approve", False)
+            if approve:
+                messages.append({"role": "user",
+                                 "content": f"[Plan approved] Proceed with the task."})
+            else:
+                messages.append({"role": "user",
+                                 "content": f"[Plan rejected] Feedback: {msg['content']}"})
+
+        return False
+            
     def run():
         messages = [{"role": "user", "content": prompt}]
         summary = "Stopped after 10 teammate rounds."
         deferred_inbox: list[dict] = []
         state = RecoveryState()
+        wt_ctx = {"path": None}
+        
+        def _wt_cwd() -> Path | None:
+            p = wt_ctx["path"]
+            return Path(p) if p else None
+
+        def _run_bash(command: str) -> str:
+            return run_bash(command, cwd=_wt_cwd())
+
+        def _run_read(path: str, offset: int = 0, limit: int | None = None) -> str:
+            return run_read(path, offset=offset, limit=limit, cwd=_wt_cwd())
+
+        def _run_write(path: str, content: str) -> str:
+            return run_write(path, content, cwd=_wt_cwd())
+
+        def _run_list_tasks():
+            tasks = list_tasks()
+            if not tasks:
+                return "No tasks."
+            return "\n".join(
+                f"  {t.id}: {t.subject} [{t.status}]"
+                + (f" (wt:{t.worktree})" if t.worktree else "")
+                for t in tasks)
+
+        def _run_claim_task(task_id: str):
+            result = claim_task(task_id, owner=name)
+            if "Claimed" in result:
+                # Set worktree cwd if task has one
+                task = load_task(task_id)
+                if task.worktree:
+                    wt_ctx["path"] = str(WORKTREES_DIR / task.worktree)
+                else:
+                    wt_ctx["path"] = None
+            return result
+
+        def _run_complete_task(task_id: str):
+            result = complete_task(task_id)
+
+            if result.startswith("Completed"):
+                wt_ctx["path"] = None
+
+            return result
 
         sub_handlers = {
-            "read_file": run_read,
-            "send_message": lambda to, content: (BUS.send(name, to, content), "Sent")[1]
+            "bash": _run_bash,
+            "read_file": _run_read,
+            "write_file": _run_write,
+            "send_message": lambda to, content: (BUS.send(name, to, content), "Sent")[1],
+            "submit_plan": lambda plan: _teammate_submit_plan(name, plan),
+            "list_tasks": _run_list_tasks,
+            "claim_task": _run_claim_task,
+            "complete_task": _run_complete_task,
         }
-        for _ in range(10):
-            inbox = deferred_inbox + BUS.read_inbox(name)
-            deferred_inbox.clear()
-            if inbox:
-                messages.append({"role": "user", 
-                                 "content": f"<inbox>{json.dumps(inbox)}</inbox>"})
-            try:
-                response = with_retry(
-                    lambda: client.messages.create(
-                    model = MODEL, system = system,messages = messages[-20:],
-                    tools = team_tools, max_tokens = DEFAULT_MAX_TOKENS
-                    ),
-                state
-                )
-            except Exception:
-                break
-            messages.append({"role": "assistant", "content": response.content})
-            if response.stop_reason != "tool_use":
-                break
-            results = []
-            for block in response.content:
-                if block.type != "tool_use":
-                    continue
 
-                if block.name in TEAM_GUARDED_TOOLS:
-                    output, is_error = run_teammate_guarded_tool(name, block, deferred_inbox)
-                else:
-                    handler = sub_handlers.get(block.name)
+        lifecycle_done = False
+        try:
+            while not lifecycle_done:
+                if len(messages) <= 3:
+                    messages.insert(0,{
+                        "role": "user",
+                        "content": f"<identity>You are '{name}', role: {role}. "
+                                f"Continue your work.</identity>"
+                    })
 
-                    if not handler:
-                        output = f"Unknown tool: {block.name}"
-                        is_error = True
-                    else:
-                        output = handler(**block.input)
-                        is_error = False
-                result = {
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": str(output),
-                }
+                should_shutdown = False
+                work_completed = False
 
-                if is_error:
-                    result["is_error"] = True
-
-                results.append(result)
-
-            messages.append({"role": "user", "content": results})
-            response_text = extract_text(response.content)
-            if response_text:
-                summary = response_text
-
-        summary = "Done."
-        for msg in reversed(messages):
-            if msg["role"] == "assistant" and isinstance(msg["content"], list):
-                for b in msg["content"]:
-                    if getattr(b, "type", None) == "text":
-                        summary = b.text
+                for _ in range(10):
+                    inbox = deferred_inbox + BUS.read_inbox(name)
+                    deferred_inbox.clear()
+                    for msg in inbox:
+                        if handle_inbox_message(name, msg, messages):
+                            should_shutdown = True
+                            break
+                    if should_shutdown:
+                        lifecycle_done = True
                         break
-                else:
-                    continue
-                break
-        BUS.send(name, "lead", summary, "result")
-        with team_lock:
-            active_teammates.pop(name, None)
-        print(f"  \033[32m[teammate] {name} finished\033[0m")
 
-    active_teammates[name] = True
+                    if work_completed:
+                        idle_result = idle_poll(name, messages, name, role, wt_ctx)
+                        if idle_result == "work":
+                            continue
+                        if idle_result in ("timeout","shutdown"):
+                            lifecycle_done = True
+                            break
+
+                    if inbox and not should_shutdown:
+                        non_protocol = [m for m in inbox
+                                        if m.get("type") == "message"]
+                        if non_protocol:
+                            messages.append({
+                                "role": "user",
+                                "content": f"<inbox>{json.dumps(non_protocol)}</inbox>"
+                            })
+
+                    if protocol_ctx["waiting_plan"]:
+                        time.sleep(IDLE_POLL_INTERVAL)
+                        continue
+                        
+                    try:
+                        response = with_retry(
+                            lambda: client.messages.create(
+                            model = state.current_model, system = system,messages = messages[-20:],
+                            tools = team_tools, max_tokens = DEFAULT_MAX_TOKENS
+                            ),
+                        state
+                        )
+                    except Exception as e:
+                        summary = (
+                            f"Teammate error: "
+                            f"{type(e).__name__}: {e}"
+                        )
+                        lifecycle_done = True
+                        break
+
+                    messages.append({"role": "assistant", "content": response.content})
+                    if not has_tool_use(response.content):
+                        summary = extract_text(response.content) or summary
+                        work_completed = True
+                        break
+                        
+                    results = []
+                    for block in response.content:
+                        if block.type != "tool_use":
+                            continue
+
+                        handler = sub_handlers.get(block.name)
+
+                        if not handler:
+                            output = f"Unknown tool: {block.name}"
+                            is_error = True
+                        elif block.name == "submit_plan":
+                            output = handler(**block.input)
+                            match = re.search(r"\((req_[^)]+)\)", str(output))
+
+                            if match:
+                                protocol_ctx["waiting_plan"] = match.group(1)
+                                is_error = False
+                            else:
+                                output = f"Invalid plan submission response: {output}"
+                                is_error = True
+                        elif block.name in TEAM_GUARDED_TOOLS:
+                            output, is_error = run_teammate_guarded_tool(
+                                name, block, deferred_inbox, handler, _wt_cwd()
+                            )
+                        else:
+                            output = handler(**block.input)
+                            is_error = False
+
+                        result = {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": str(output),
+                        }
+
+                        if is_error:
+                            result["is_error"] = True
+
+                        results.append(result)
+
+                        if protocol_ctx["waiting_plan"]:
+                            break
+
+                    messages.append({"role": "user", "content": results})
+                    if protocol_ctx["waiting_plan"]:
+                        break
+
+                    response_text = extract_text(response.content)
+                    if response_text:
+                        summary = response_text
+
+                if lifecycle_done:
+                        break
+                if protocol_ctx["waiting_plan"]:
+                    continue
+                if not work_completed:
+                        summary = "Stopped after 10 teammate tool rounds."
+                        break
+
+                with team_lock:
+                    teammate = active_teammates.get(name)
+                    if teammate:
+                        teammate["status"] = "idle"
+
+                idle_result = idle_poll(
+                    name,
+                    messages,
+                    name,
+                    role,
+                    wt_ctx,
+                )
+
+                if idle_result == "work":
+                    with team_lock:
+                        teammate = active_teammates.get(name)
+                        if teammate:
+                            teammate["status"] = "running"
+                    continue
+
+                if idle_result in ("timeout", "shutdown"):
+                    lifecycle_done = True
+        except Exception as e:
+            summary = f"Teammate error: {type(e).__name__}: {e}"
+
+        finally:
+            try:
+                BUS.send(name, "lead", summary, "result")
+            except Exception as e:
+                print(f"  \033[31m[teammate result error]"
+                    f"{name}: {e}\033[0m")
+            
+            with team_lock:
+                active_teammates.pop(name, None)
+            print(f"  \033[32m[teammate] {name} finished\033[0m")
+
     threading.Thread(target=run, daemon=True).start()
     print(f"  \033[36m[teammate] {name} spawned as {role}\033[0m")
     return f"Teammate '{name}' spawned as {role}"
+
+def _teammate_submit_plan(from_name: str, plan: str) -> str:
+    req_id = new_request_id()
+    with protocol_lock:
+        pending_requests[req_id] = ProtocolState(
+            request_id=req_id, type = "plan_approval",
+            sender = from_name, target = "lead",
+            status = "pending", payload = plan
+        )
+    BUS.send(
+        from_name, "lead", plan,
+        "plan_approval_request",
+        {"request_id": req_id}
+    )
+    return f"Plan submitted ({req_id}). Waiting for approval..."
     
 def process_permission_request(msg: dict) -> None:
     requester = msg.get("from")
     request = msg.get("content", {})
+
+    cwd_valid = True
+    tool_cwd = None
+
+    if cwd_valid:
+        try:
+            tool_cwd = resolve_tool_cwd(request.get("cwd"))
+        except (TypeError, ValueError) as e:
+            cwd_valid = False
 
     if isinstance(request, dict):
         request_id = request.get("request_id")
@@ -320,6 +881,7 @@ def process_permission_request(msg: dict) -> None:
         isinstance(request_id, str)
         and tool_name in TEAM_GUARDED_TOOLS
         and isinstance(tool_input, dict)
+        and cwd_valid
     )
 
     if not valid:
@@ -340,6 +902,7 @@ def process_permission_request(msg: dict) -> None:
         name=tool_name,
         input=tool_input,
         agent=requester,
+        cwd = tool_cwd,
     )
 
     denied_reason = trigger_hook("PreToolUse", block)
@@ -360,10 +923,23 @@ def collect_lead_inbox() -> str:
     ordinary_msgs = []
 
     for msg in BUS.read_inbox("lead"):
-        if msg.get("type") == "permission_request":
+        msg_type = msg.get("type", "")
+
+        if msg_type == "permission_request":
             process_permission_request(msg)
-        else:
-            ordinary_msgs.append(msg)
+            continue
+
+        if msg_type in {"shutdown_response", "plan_approval_response"}:
+            metadata = msg.get("metadata", {})
+            request_id = metadata.get("request_id", "")
+
+            if request_id:
+                match_response(msg_type, request_id, bool(metadata.get("approve", False)))
+            else:
+                print(f"  [protocol] {msg_type} missing request_id")
+
+        ordinary_msgs.append(msg)
+
     return ordinary_msgs
 
 def format_team_inbox(messages: list[dict]) -> str:
@@ -423,6 +999,40 @@ def run_check_inbox() -> str:
         return "(inbox empty)"
     return format_team_inbox(msgs)
 
+def run_request_shutdown(teammate: str) -> str:
+    req_id = new_request_id()
+    with protocol_lock:
+        pending_requests[req_id] = ProtocolState(
+            request_id=req_id, type = "shutdown",
+            sender = "lead", target = teammate,
+            status = "pending", payload = ""
+        )
+    BUS.send(
+        "lead", teammate, "Please shut down gracefully.",
+        "shutdown_request",
+        {"request_id": req_id}
+    )
+    print(f"  \033[35m[protocol] shutdown_request → {teammate} "
+              f"({req_id})\033[0m")
+    return f"Shutdown request sent to {teammate} (req: {req_id})"
+
+def run_request_plan(teammate: str, task: str) -> str:
+    BUS.send("lead", teammate, f"Please submit a plan for: {task}", "message")
+    return f"Asked {teammate} to submit a plan"
+
+def run_review_plan(request_id: str, approve: bool, feedback: str = "") -> str:
+    with protocol_lock:
+        state = pending_requests.get(request_id)
+        if not state:
+            return f"Request {request_id} not found"
+        state.status = "approved" if approve else "rejected"
+    BUS.send("lead", state.sender, feedback or ("Approved" if approve else "Rejected"),
+                "plan_approval_response",
+                {"request_id": request_id, "approve": approve})
+    icon = "✓" if approve else "✗"
+    print(f"  \033[32m[protocol] plan {icon} ({request_id})\033[0m")
+    return f"Plan {'approved' if approve else 'rejected'} ({request_id})"
+
 #==================== BACKGROUND TASKS ===============
 _bg_counter = 0
 background_tasks: dict[str,dict] = {}
@@ -446,14 +1056,16 @@ def should_run_background(tool_name: str, tool_input: dict) -> bool:
     return is_slow_operation(tool_name, tool_input)
 
 def execute_tool(block, handlers = None) -> str:
-    handlers = TOOL_HANDLERS if handlers is None else handlers
-    handler = handlers.get(block.name)
+    selected_handlers = (handlers if handlers is not None else BUILTIN_HANDLERS)
+    handler = selected_handlers.get(block.name)
     if handler:
         return handler(**block.input)
     return f"Unknown tool: {block.name}"
 
-def start_background_task(block) -> str:
+def start_background_task(block,handlers: dict) -> str:
     global _bg_counter
+    handler_snapshot = dict(handlers)
+
     with background_lock:
         _bg_counter += 1
         bg_id = f"bg_{_bg_counter:04d}"
@@ -472,7 +1084,7 @@ def start_background_task(block) -> str:
         output = ""
 
         try:
-            output = str(execute_tool(block))
+            output = str(execute_tool(block, handler_snapshot))
 
             trigger_hook("PostToolUse",block,output)
 
@@ -502,13 +1114,18 @@ def collect_background_results() -> list[str]:
         with background_lock:
             task = background_tasks.pop(bg_id)
             output = background_results.pop(bg_id, "")
-        summary = output[:200] if len(output) > 200 else output
+        summary_source = task.get("error") or output
+        summary = (
+            summary_source[:200]
+            if len(summary_source) > 200
+            else summary_source
+        )
         notifications.append(
             f"<task_notification>\n"
-            f"  <task_id>{bg_id}</task_id>\n"
-            f"  <status>{task['status']}</status>\n"
-            f"  <command>{task['command']}</command>\n"
-            f"  <summary>{summary}</summary>\n"
+            f"  <task_id>{escape(str(bg_id))}</task_id>\n"
+            f"  <status>{escape(str(task['status']))}</status>\n"
+            f"  <command>{escape(str(task['command']))}</command>\n"
+            f"  <summary>{escape(str(summary))}</summary>\n"
             f"</task_notification>"
         )
         print(f"  \033[32m[background done] {bg_id}: "
@@ -520,6 +1137,9 @@ def collect_background_results() -> list[str]:
 TASK_DIR = WORKDIR / ".tasks"
 TASK_DIR.mkdir(exist_ok=True)
 
+TASK_LOCK = threading.Lock()
+TASK_ID_PATTERN = re.compile(r"^task_[A-Za-z0-9_-]+$")
+
 @dataclass
 class Task:
     id: str
@@ -528,35 +1148,75 @@ class Task:
     status: str
     owner: str | None
     blockedBy:list[str]
+    worktree: str | None = None
 
 def _task_path(task_id:str) -> Path:
-    return TASK_DIR / f"{task_id}.json"
+    if not isinstance(task_id, str) or not TASK_ID_PATTERN.fullmatch(task_id):
+        raise ValueError(f"Invalid task id: {task_id!r}")
+    task_root = TASK_DIR.resolve()
+    path = (task_root / f"{task_id}.json").resolve()
+
+    if not path.is_relative_to(task_root):
+        raise ValueError(f"Task path escapes task directory: {task_id!r}")
+    return path
+
+def _save_task_unlocked(task: Task) -> None:
+    path = _task_path(task.id)
+    temp_path = path.with_name(
+        f".{path.name}.{uuid.uuid4().hex}.tmp"
+    )
+
+    try:
+        temp_path.write_text(
+            json.dumps(asdict(task), indent=2, ensure_ascii=False,),
+            encoding="utf-8"
+        )
+        temp_path.replace(path)
+    finally:
+        temp_path.unlink(missing_ok=True)
 
 def create_task(subject:str, description: str = "",
                 blockedBy:list[str] | None = None) -> Task:
-    task = Task(
-        id = f"task_{int(time.time())}_{random.randint(0,9999):04d}",
-        subject = subject,
-        description = description,
-        status = "pending",
-        owner = None,
-        blockedBy = blockedBy or [],
-    )
-    save_task(task)
-    return task
+    with TASK_LOCK:
+        while True:
+            task_id = f"task_{uuid.uuid4().hex}"
+            if not _task_path(task_id).exists():
+                break
+
+        task = Task(
+            id = task_id,
+            subject = subject,
+            description = description,
+            status = "pending",
+            owner = None,
+            blockedBy = blockedBy or [],
+        )
+        _save_task_unlocked(task)
+        return task
 
 def save_task(task:Task):
-    _task_path(task.id).write_text(json.dumps(asdict(task), indent=2, ensure_ascii=False), encoding="utf-8")
+    with TASK_LOCK:
+        _save_task_unlocked(task)
 
 def load_task(task_id:str) -> Task:
-    return Task(**json.loads(_task_path(task_id).read_text()))
+    data = json.loads(_task_path(task_id).read_text(encoding="utf-8"))
+    return Task(**data)
 
 def list_tasks() -> list[Task]:
-    return [Task(**json.loads(p.read_text())) for p in sorted(TASK_DIR.glob("*.json"))]
+    tasks = []
+
+    for path in sorted(TASK_DIR.glob("task_*.json")):
+        try:
+            data = json.loads(path.read_text(encoding='utf-8'))
+            tasks.append(Task(**data))
+        except (OSError, ValueError, TypeError) as e:
+            print(f"[task warning] ignored {path.name}: {e}")
+
+    return tasks
 
 def get_task(task_id:str) -> str:
     task = load_task(task_id)
-    return json.dumps(asdict(task), indent=2)
+    return json.dumps(asdict(task), indent=2, ensure_ascii=False)
 
 def can_start(task_id:str) -> bool:
     task = load_task(task_id)
@@ -568,25 +1228,29 @@ def can_start(task_id:str) -> bool:
     return True
 
 def claim_task(task_id:str, owner:str = "agent") -> str:
-    task = load_task(task_id)
-    if task.status != "pending":
-        return f"Task {task_id} is {task.status}, cannot claim"
-    if not can_start(task_id):
-        deps = [d for d in task.blockedBy
-                if not _task_path(d).exists() or load_task(d).status != "completed"]
-        return f"Blocked by: {deps}"
-    task.owner = owner
-    task.status = "in_progress"
-    save_task(task)
+    with TASK_LOCK:
+        task = load_task(task_id)
+        if task.status != "pending":
+            return f"Task {task_id} is {task.status}, cannot claim"
+        if task.owner:
+            return f"Task {task_id} already owned by {task.owner}"
+        if not can_start(task_id):
+            deps = [d for d in task.blockedBy
+                    if not _task_path(d).exists() or load_task(d).status != "completed"]
+            return f"Blocked by: {deps}"
+        task.owner = owner
+        task.status = "in_progress"
+        _save_task_unlocked(task)
     print(f"  \033[36m[claim] {task.subject} → in_progress (owner: {owner})\033[0m")
     return f"Claimed {task.id} ({task.subject})"
 
 def complete_task(task_id:str) -> str:
-    task = load_task(task_id)
-    if task.status != "in_progress":
-        return f"Task {task_id} is {task.status}, cannot complete"
-    task.status = "completed"
-    save_task(task)
+    with TASK_LOCK:
+        task = load_task(task_id)
+        if task.status != "in_progress":
+            return f"Task {task_id} is {task.status}, cannot complete"
+        task.status = "completed"
+        _save_task_unlocked(task)
     unblocked = [t.subject for t in list_tasks()
                  if t.status == "pending" and t.blockedBy and can_start(t.id)]
     print(f"  \033[32m[complete] {task.subject} ✓\033[0m")
@@ -595,6 +1259,289 @@ def complete_task(task_id:str) -> str:
         msg += f"\nUnblocked: {', '.join(unblocked)}"
         print(f"  \033[33m[unblocked] {', '.join(unblocked)}\033[0m")
     return msg
+
+#==================== MCP PLUGIN =========================
+class MCPClient:
+    """Discovers and calls tools on an MCP server (mock for teaching)."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.tools: list[dict] = []
+        self._handlers: dict[str, callable] = {}
+
+    def register(self, tool_defs: list[dict],
+                 handlers: dict[str, callable]):
+        self.tools = tool_defs
+        self._handlers = handlers
+
+    def call_tool(self, tool_name: str, args: dict) -> str:
+        handler = self._handlers.get(tool_name)
+        if not handler:
+            return f"MCP error: unknown tool '{tool_name}'"
+        try:
+            return handler(**args)
+        except Exception as e:
+            return f"MCP error: {e}"
+
+
+mcp_clients: dict[str, MCPClient] = {}
+mcp_lock = threading.RLock()
+MCP_TOOL_METADATA: dict[str, dict] = {}
+
+_DISALLOWED_CHARS = re.compile(r'[^a-zA-Z0-9_-]')
+
+
+def normalize_mcp_name(name: str) -> str:
+    """Replace non [a-zA-Z0-9_-] with underscore."""
+    return _DISALLOWED_CHARS.sub('_', name)
+
+
+def _mock_server_docs():
+    client = MCPClient("docs")
+    client.register(
+        tool_defs=[
+            {"name": "search", "description": "Search documentation. (readOnly)",
+             "inputSchema": {"type": "object",
+                             "properties": {"query": {"type": "string"}},
+                             "required": ["query"]},
+             "annotations": {
+                             "readOnly": True,
+                             "destructive": False,
+                            }
+            },
+            {"name": "get_version", "description": "Get API version. (readOnly)",
+             "inputSchema": {"type": "object", "properties": {},
+                             "required": []}},
+        ],
+        handlers={
+            "search": lambda query: f"[docs] Found 3 results for '{query}'",
+            "get_version": lambda: "[docs] API v2.1.0",
+        })
+    return client
+
+
+def _mock_server_deploy():
+    client = MCPClient("deploy")
+    client.register(
+        tool_defs=[
+            {"name": "trigger",
+             "description": "Trigger a deployment. (destructive — requires approval in real CC)",
+             "inputSchema": {"type": "object",
+                             "properties": {"service": {"type": "string"}},
+                             "required": ["service"]},
+             "annotations": {
+                             "readOnly": False,
+                             "destructive": True,
+                         }
+            },
+            {"name": "status", "description": "Check deployment status. (readOnly)",
+             "inputSchema": {"type": "object",
+                             "properties": {"service": {"type": "string"}},
+                             "required": ["service"]},
+             "annotations": {
+                             "readOnly": True,
+                             "destructive": False,
+                         }
+            },
+        ],
+        handlers={
+            "trigger": lambda service: f"[deploy] Triggered: {service}",
+            "status": lambda service: f"[deploy] {service}: running (v1.4.2)",
+        })
+    return client
+
+
+MOCK_SERVERS = {
+    "docs": _mock_server_docs,
+    "deploy": _mock_server_deploy,
+}
+
+
+def connect_mcp(name: str) -> str:
+    factory = MOCK_SERVERS.get(name)
+    if not factory:
+        available = ", ".join(MOCK_SERVERS.keys())
+        return f"Unknown server '{name}'. Available: {available}"
+    
+    with mcp_lock:
+        if name in mcp_clients:
+            return f"MCP server '{name}' already connected"
+    
+        mcp_client = factory()
+        mcp_clients[name] = mcp_client
+
+        try:
+            assemble_tool_pool()
+        except ValueError as e:
+            mcp_clients.pop(name, None)
+            return f"Error connecting to MCP server '{name}': {e}"
+        
+    tool_names = [t["name"] for t in mcp_client.tools]
+    print(f"  \033[31m[mcp] connected: {name} → {tool_names}\033[0m")
+    return (f"Connected to MCP server '{name}'. "
+            f"Discovered {len(mcp_client.tools)} tools: {', '.join(tool_names)}")
+
+
+def assemble_tool_pool() -> tuple[list[dict], dict]:
+    """Assemble builtin tools + all MCP tools into one pool."""
+    with mcp_lock:
+        tools = list(BUILTIN_TOOLS)
+        handlers = dict(BUILTIN_HANDLERS)
+        metadata: dict[str, dict] = {}
+
+        for server_name, mcp_client in sorted(mcp_clients.items()):
+            safe_server = normalize_mcp_name(server_name)
+
+            for tool_def in sorted(mcp_client.tools, key = lambda item: item["name"]):
+                original_tool_name = tool_def["name"]
+                safe_tool = normalize_mcp_name(original_tool_name)
+                prefixed = f"mcp__{safe_server}__{safe_tool}"
+
+                if prefixed in handlers:
+                    raise ValueError(f"MCP tool name collision: {prefixed}")
+
+                schema = tool_def.get("inputSchema") or {
+                    "type": "object",
+                    "properties": {},
+                }
+
+                tools.append({
+                    "name": prefixed,
+                    "description": tool_def.get("description", ""),
+                    "input_schema": schema,
+                })
+
+                handlers[prefixed] = (
+                    lambda *,
+                    client = mcp_client,
+                    tool_name = original_tool_name,
+                    **kwargs: client.call_tool(tool_name, kwargs)
+                )
+
+                annotations = tool_def.get("annotations", {})
+                metadata[prefixed] = {
+                    "server": server_name,
+                    "original_name": original_tool_name,
+                    "readOnly": bool(annotations.get("readOnly", False)),
+                    "destructive": bool(annotations.get("destructive", annotations.get("destructiveHint", False,))),
+                }
+
+        MCP_TOOL_METADATA.clear()
+        MCP_TOOL_METADATA.update(metadata)
+
+        return tools, handlers
+
+#==================== WORKTREE SYSTEM ====================
+WORKTREES_DIR = WORKDIR / ".worktrees"
+WORKTREES_DIR.mkdir(exist_ok=True)
+
+VALID_WT_NAME = re.compile(r'^[A-Za-z0-9._-]{1,64}$')
+
+def validate_worktree_name(name: str) -> str:
+    if not name:
+        return "Worktree name cannot be empty"
+    if name == "." or name == "..":
+        return f"'{name}' is not a valid worktree name"
+    if not VALID_WT_NAME.fullmatch(name):
+        return (f"Invalid worktree name: '{name}': "
+                "only letters, digits, dots, underscores, dashes (1-64 chars)")
+    return None
+
+def run_git(args: list[str]) -> tuple[bool, str]:
+    try:
+        r = subprocess.run(["git"] + args, cwd = WORKDIR,
+                           capture_output = True, text = True, timeout = 30)
+        out = (r.stdout + r.stderr).strip()
+        out = out[:5000] if out else "(no output)"
+        return r.returncode == 0, out
+    except subprocess.TimeoutExpired:
+        return False, "Error: git timedout"
+
+def log_event(event_type: str, worktree_name: str, task_id: str = ""):
+    event = {
+        "type": event_type, "worktree": worktree_name,
+        "task_id": task_id, "ts": time.time()
+    }
+    events_file = WORKTREES_DIR / "events.jsonl"
+    with open(events_file, "a") as f:
+        f.write(json.dumps(event) + "\n")
+
+def create_worktree(name: str, task_id: str = "") -> str:
+    """Create a git worktree with a dedicated branch. Optionally bind to a task."""
+    err = validate_worktree_name(name)
+    if err:
+        return f"Error: {err}"
+    path = WORKTREES_DIR / name
+    if path.exists():
+        return f"Worktree '{name}' already exists at {path}"
+    ok, result = run_git(["worktree", "add", str(path), "-b", f"wt/{name}", "HEAD"])
+    if not ok:
+        return f"Git error: {result}"
+    if task_id:
+        bind_task_to_worktree(task_id, name)
+    log_event("create", name, task_id)
+    print(f"  \033[33m[worktree] created: {name} at {path}\033[0m")
+    return f"Worktree '{name}' created at {path}"
+
+
+def bind_task_to_worktree(task_id: str, worktree_name: str):
+    """Write worktree field to task. Keep status as pending for auto-claim."""
+    with TASK_LOCK:
+        task = load_task(task_id)
+        task.worktree = worktree_name
+        _save_task_unlocked(task)
+    print(f"  \033[33m[bind] {task.subject} → worktree:{worktree_name}\033[0m")
+
+
+def _count_worktree_changes(path: Path) -> tuple[int, int]:
+    """Count uncommitted files and commits in a worktree."""
+    try:
+        r1 = subprocess.run(["git", "status", "--porcelain"],
+                            cwd=path, capture_output=True, text=True, timeout=10)
+        files = len([l for l in r1.stdout.strip().splitlines() if l.strip()])
+        r2 = subprocess.run(["git", "log", "@{push}..HEAD", "--oneline"],
+                            cwd=path, capture_output=True, text=True, timeout=10)
+        commits = len([l for l in r2.stdout.strip().splitlines() if l.strip()])
+        return files, commits
+    except Exception:
+        return -1, -1
+
+
+def remove_worktree(name: str, discard_changes: bool = False) -> str:
+    """Remove worktree. Refuses if uncommitted changes unless discard_changes."""
+    err = validate_worktree_name(name)
+    if err:
+        return err
+    path = WORKTREES_DIR / name
+    if not path.exists():
+        return f"Worktree '{name}' not found"
+    if not discard_changes:
+        files, commits = _count_worktree_changes(path)
+        if files < 0:
+            return (f"Cannot verify worktree '{name}' status. "
+                    "Use discard_changes=true to force removal.")
+        if files > 0 or commits > 0:
+            return (f"Worktree '{name}' has {files} uncommitted file(s) "
+                    f"and {commits} unpushed commit(s). "
+                    "Use discard_changes=true to force removal, "
+                    "or keep_worktree to preserve for review.")
+    ok1, _ = run_git(["worktree", "remove", str(path), "--force"])
+    if not ok1:
+        return f"Failed to remove worktree directory for '{name}'"
+    run_git(["branch", "-D", f"wt/{name}"])
+    log_event("remove", name)
+    print(f"  \033[33m[worktree] removed: {name}\033[0m")
+    return f"Worktree '{name}' removed"
+
+
+def keep_worktree(name: str) -> str:
+    """Keep worktree for manual review. Branch preserved."""
+    err = validate_worktree_name(name)
+    if err:
+        return err
+    log_event("keep", name)
+    print(f"  \033[36m[worktree] kept: {name}\033[0m")
+    return f"Worktree '{name}' kept for review (branch: wt/{name})"
 
 #==================== ERROR RECOVERY ===================
 DEFAULT_MAX_TOKENS = 8000
@@ -1038,17 +1985,6 @@ def build_request_messages_with_memories(messages:list):
     }
     return request_messages
 
-def build_memory_system() -> str:
-    index = read_memory_index()
-    memories_section = f"\n\nMemories available:\n{index}" if index else ""
-    return (
-        f"You are a coding agent at {WORKDIR}."
-        f"{memories_section}\n"
-        "Relevant memories are injected below. Respect user preferences from memory.\n"
-        "When the user says 'remember' or expresses a clear preference, extract it as a memory."
-    )
-
-
 #==================== TODO SYSTEM ====================
 def format_current_todos() -> str:
     if not CURRENT_TODOS:
@@ -1096,18 +2032,21 @@ def list_skills() -> str:
 
 
 #==================== TOOL SYSTEM ====================
-def run_bash(command:str, run_in_background: bool = False) -> str:
+def run_bash(command:str, run_in_background: bool = False, cwd: str | Path | None = None) -> str:
     try:
-        r = subprocess.run(command, shell=True, cwd = WORKDIR,
+        base = resolve_tool_cwd(cwd)
+        r = subprocess.run(command, shell=True, cwd = base,
                            capture_output=True, text=True, timeout = 120)
         out = (r.stdout + r.stderr).strip()
         return out[:50000] if out else "(no output)"
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
+    except Exception as e:
+        return f"Error: {e}"
     
-def run_read(path:str,offset:int = 0,limit:int | None = None) -> str:
+def run_read(path:str, offset:int = 0, limit:int | None = None, cwd: str | Path | None = None) -> str:
     try:
-        lines = safe_path(path).read_text().splitlines()
+        lines = safe_path(path, cwd=cwd).read_text().splitlines()
         
         offset = max(0, offset)
         if limit is None:
@@ -1126,18 +2065,18 @@ def run_read(path:str,offset:int = 0,limit:int | None = None) -> str:
     except Exception as exc:
         return f"Error: {exc}"
     
-def run_write(path:str,content:str) -> str:
+def run_write(path:str,content:str, cwd: str | Path | None = None) -> str:
     try:
-        file_path = safe_path(path)
+        file_path = safe_path(path, cwd=cwd)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(content)
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as e:
         return f"Error: {e}"
     
-def run_edit(path:str,old_text:str,new_text:str) -> str:
+def run_edit(path:str,old_text:str,new_text:str, cwd: str | Path | None = None) -> str:
     try:
-        file_path = safe_path(path)
+        file_path = safe_path(path, cwd=cwd)
         text = file_path.read_text()
         if old_text not in text:
             return f"Error: text not found in {path}"
@@ -1146,12 +2085,14 @@ def run_edit(path:str,old_text:str,new_text:str) -> str:
     except Exception as e:
         return f"Error: {e}"
     
-def run_glob(pattern:str) -> str:
+def run_glob(pattern:str, cwd: str | Path | None = None) -> str:
     import glob as g
     try:
+        base = resolve_tool_cwd(cwd)
         results = []
-        for match in g.glob(pattern,root_dir=WORKDIR):
-            if (WORKDIR / match).resolve().is_relative_to(WORKDIR):
+        for match in g.glob(pattern,root_dir=base):
+            path = (base / match).resolve()
+            if path.is_relative_to(base):
                 results.append(match)
         return "\n".join(results) if results else "(no matches)"
     except Exception as e:
@@ -1224,12 +2165,53 @@ def run_get_task(task_id: str) -> str:
         return f"Error: Task {task_id} not found"
     
 def run_claim_task(task_id: str) -> str:
-    return claim_task(task_id, owner = "agent")
+    try:
+        return claim_task(task_id, owner = "agent")
+    except (OSError, ValueError, TypeError) as e:
+        return f"Error: cannot claim task {task_id}: {e}"
 
 def run_complete_task(task_id: str) -> str:
-    return complete_task(task_id)
+    try:
+        return complete_task(task_id)
+    except (OSError, ValueError, TypeError) as e:
+        return f"Error: cannot complete task {task_id}: {e}"
 
-TOOLS = [
+def run_schedule_cron(cron: str, prompt: str,
+                      recurring: bool = True, durable: bool = True) -> str:
+    result = schedule_job(cron, prompt, recurring, durable)
+    if isinstance(result, str):
+        return f"Error: {result}"
+    return f"Scheduled {result.id}: '{cron}' → '{prompt}'"
+
+def run_list_crons() -> str:
+    with cron_lock:
+        jobs = list(scheduled_jobs.values())
+    if not jobs:
+        return "No cron jobs. Use schedule_cron to add one."
+    lines = []
+    for j in jobs:
+        tag = "recurring" if j.recurring else "one-shot"
+        dur = "durable" if j.durable else "session"
+        lines.append(f"  {j.id}: '{j.cron}' → {j.prompt[:40]} "
+                             f"[{tag}, {dur}]")
+    return "\n".join(lines)
+
+def run_cancel_cron(job_id: str) -> str:
+    return cancel_job(job_id)
+
+def run_create_worktree(name: str, task_id: str = "") -> str:
+    return create_worktree(name, task_id)
+
+def run_remove_worktree(name: str, discard_changes: bool = False) -> str:
+    return remove_worktree(name, discard_changes)
+
+def run_keep_worktree(name: str) -> str:
+    return keep_worktree(name)
+
+def run_connect_mcp(name: str) -> str:
+    return connect_mcp(name)
+
+BUILTIN_TOOLS = [
     {"name": "bash", 
      "description": "Run a shell command.",
      "input_schema": {"type": "object", 
@@ -1247,6 +2229,11 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"todos": {"type": "array", "items": {"type": "object", "properties": {"content": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}, "required": ["content", "status"]}}}, "required": ["todos"]}},
     {"name": "load_skill", "description": "Load the content of a skill by name.",
      "input_schema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}},
+    {"name": "compact",
+     "description": "Summarize earlier conversation and continue with compacted context.",
+     "input_schema": {"type": "object",
+                      "properties": {"focus": {"type": "string"}},
+                      "required": []}},
     {"name": "create_task", "description": "Create a new task with optinal blockedBy dependencies.",
      "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}, "description": {"type": "string"}, "blockedBy": {"type": "array", "items": {"type": "string"}}}, "required": ["subject"]}},
     {"name": "list_tasks", 
@@ -1284,9 +2271,72 @@ TOOLS = [
      "description": "Check Lead's inbox for teammate messages.",
      "input_schema": {"type": "object", "properties": {},
                       "required": []}},
+    {"name": "schedule_cron",
+         "description": "Schedule a cron job. cron is 5-field: min hour dom month dow.",
+         "input_schema": {"type": "object",
+                          "properties": {
+                              "cron": {"type": "string",
+                                       "description": "5-field cron expression"},
+                              "prompt": {"type": "string",
+                                         "description": "Message to inject when fired"},
+                              "recurring": {"type": "boolean",
+                                            "description": "True=recurring, False=one-shot"},
+                              "durable": {"type": "boolean",
+                                          "description": "True=persist to disk"}},
+                          "required": ["cron", "prompt"]}},
+        {"name": "list_crons",
+         "description": "List all registered cron jobs.",
+         "input_schema": {"type": "object", "properties": {},
+                          "required": []}},
+        {"name": "cancel_cron",
+         "description": "Cancel a cron job by ID.",
+         "input_schema": {"type": "object",
+                          "properties": {"job_id": {"type": "string"}},
+                          "required": ["job_id"]}},
+        {"name": "request_shutdown",
+             "description": "Request a teammate to shut down gracefully.",
+             "input_schema": {"type": "object",
+                              "properties": {"teammate": {"type": "string"}},
+                              "required": ["teammate"]}},
+        {"name": "request_plan",
+            "description": "Ask a teammate to submit a plan for review.",
+            "input_schema": {"type": "object",
+                            "properties": {"teammate": {"type": "string"},
+                                            "task": {"type": "string"}},
+                            "required": ["teammate", "task"]}},
+        {"name": "review_plan",
+            "description": "Approve or reject a submitted plan by request_id.",
+            "input_schema": {"type": "object",
+                            "properties": {
+                                "request_id": {"type": "string"},
+                                "approve": {"type": "boolean"},
+                                "feedback": {"type": "string"}},
+                            "required": ["request_id", "approve"]}},
+        {"name": "create_worktree",
+             "description": "Create an isolated git worktree with its own branch.",
+             "input_schema": {"type": "object",
+                              "properties": {"name": {"type": "string"},
+                                             "task_id": {"type": "string"}},
+                              "required": ["name"]}},
+        {"name": "remove_worktree",
+            "description": "Remove a worktree. Refuses if uncommitted changes unless discard_changes=true.",
+            "input_schema": {"type": "object",
+                            "properties": {"name": {"type": "string"},
+                                            "discard_changes": {"type": "boolean"}},
+                            "required": ["name"]}},
+        {"name": "keep_worktree",
+            "description": "Keep a worktree for manual review.",
+            "input_schema": {"type": "object",
+                            "properties": {"name": {"type": "string"}},
+                            "required": ["name"]}},
+        {"name": "connect_mcp",
+             "description": "Connect to an MCP server (docs, deploy) and discover tools.",
+             "input_schema": {"type": "object",
+                              "properties": {"name": {"type": "string"}},
+                              "required": ["name"]}},
 ]
 
-TOOL_HANDLERS = {
+BUILTIN_HANDLERS = {
     "bash":run_bash,
     "read_file":run_read,
     "write_file":run_write,
@@ -1302,6 +2352,16 @@ TOOL_HANDLERS = {
     "spawn_teammate":run_spawn_teammate,
     "send_message":run_send_message,
     "check_inbox":run_check_inbox,
+    "schedule_cron":run_schedule_cron,
+    "list_crons":run_list_crons,
+    "cancel_cron":run_cancel_cron,
+    "request_shutdown": run_request_shutdown,
+    "request_plan": run_request_plan,
+    "review_plan": run_review_plan,
+    "create_worktree": run_create_worktree,
+    "remove_worktree": run_remove_worktree,
+    "keep_worktree": run_keep_worktree,
+    "connect_mcp": run_connect_mcp,
 }
 
 #==================== SUBAGENT SYSTEM ====================
@@ -1313,9 +2373,9 @@ SUB_SYSTEM = (
 
 SUB_TOOLS = [
     {"name": "bash", "description": "Run a shell command.",
-     "input_schema": {"type": "object", "properties": {"command": {"type": "string"}, "run_in_background": {"type": "boolean", "description": "Run this command asynchronously"}}, "required": ["command"]}},
+    "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
     {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "offset": {"type": "integer", "minimum": 0}, "limit": {"type": "integer", "minimum": 1, "maximum": 1000}}, "required": ["path"]}},
     {"name": "write_file", "description": "Write content to a file.",
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
     {"name": "edit_file", "description": "Replace exact text in a file once.",
@@ -1336,6 +2396,13 @@ def extract_text(content) -> str:
     if not isinstance(content,list):
         return str(content)
     return "\n".join(getattr(b,"text","") for b in content if getattr(b,"type",None) == "text")
+
+def has_tool_use(content) -> bool:
+    return any(
+        (block.get("type")
+        if isinstance(block, dict) else getattr(block, "type", None)) == "tool_use"
+        for block in content
+    )
 
 def spawn_subagent(description:str) -> str:
     print(f"\n\033[35m[Subagent spawned]\033[0m")
@@ -1358,7 +2425,7 @@ def spawn_subagent(description:str) -> str:
             return error
         
         messages.append({"role":"assistant","content":response.content})
-        if response.stop_reason != "tool_use":
+        if not has_tool_use(response.content):
             break
         results = []
         for block in response.content:
@@ -1387,7 +2454,7 @@ def spawn_subagent(description:str) -> str:
     print(f"\033[35m[Subagent done]\033[0m")
     return result
 
-TOOLS.append({
+BUILTIN_TOOLS.append({
     "name": "task",
     "description": "Launch a subagent to handle a complex subtask. Returns only the final conclusion.",
     "strict": True,
@@ -1398,7 +2465,7 @@ TOOLS.append({
                      "required": ["description"], 
                      "additionalProperties": False},
 })
-TOOL_HANDLERS["task"] = spawn_subagent
+BUILTIN_HANDLERS["task"] = spawn_subagent
 
 #==================== COMPACTION PIPELINE ====================
 CONTEXT_LIMIT = 50_000
@@ -1503,9 +2570,9 @@ def micro_compact(messages):
 #L3: toolResultBudget
 def persist_large_output(tool_use_id, output):
     if len(output) <= PERSIST_THRESHOLD: return output
-    LARGE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    path = LARGE_OUTPUT_DIR / f"{tool_use_id}.txt"
-    if not path.exists(): path.write_text(output)
+    TOOL_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    path = TOOL_RESULTS_DIR / f"{tool_use_id}.txt"
+    if not path.exists(): path.write_text(output, encoding="utf-8")
     return f"<persisted-output>\nFull output: {path}\nPreview:\n{output[:2000]}\n</persisted-output>"
 
 
@@ -1598,6 +2665,26 @@ def permission_hook(block):
                 choice = input(prompt).strip().lower()
                 if choice not in ("y","yes"):
                     return "Permission denied by user"
+
+    if block.name.startswith("mcp__"):
+        with mcp_lock:
+            metadata = dict(
+                MCP_TOOL_METADATA.get(block.name, {})
+            )
+
+        if not metadata:
+            return ("Permission denied: unknown MCP tool metadata")
+
+        if metadata.get("destructive"):
+            print(f"\n\033[33m⚠  Potentially destructive MCP tool\033[0m")
+            print(f"  Server: {metadata['server']}\n"
+                  f"  Tool: {metadata['original_name']}\n"
+                  f"  Input: {block.input}")
+
+            choice = input("  Allow this MCP action? [y/N] ").strip().lower()
+            if choice not in ("y","yes"):
+                return "Permission denied by user"
+        
     return None
 
 def log_hook(block):
@@ -1627,7 +2714,7 @@ def diff_preview_hook(block):
     
     path = block.input.get("path","")
     try:
-        file_path = safe_path(path)
+        file_path = safe_path(path, getattr(block, "cwd", None))
     except Exception as e:
         return(f"[HOOK] Error: {e}")
 
@@ -1668,15 +2755,27 @@ register_hook("Stop", summary_hook)
 PROMPT_SECTIONS = {
     "identity": "You are a coding agent. Act, don't explain.",
     "workspace": f"Working directory: {WORKDIR}",
-    "tools": f"Available tools: {','.join([t['name'] for t in TOOLS])}.",
-    "skills": "Skills available:" + list_skills(),
+    "tools": f"Available tools: ",
 }
 
 def assemble_system_prompt(context:dict) -> str:
     sections = []
     sections.append(PROMPT_SECTIONS["identity"])
-    sections.append(PROMPT_SECTIONS["tools"])
+    sections.append(PROMPT_SECTIONS["tools"] + ', '.join(context.get('enabled_tools', [])))
     sections.append(PROMPT_SECTIONS["workspace"])
+    current_time = context.get("current_time")
+    if not current_time:
+        current_time = datetime.now().isoformat(timespec="seconds")
+    sections.append(f"Current time: {current_time}")
+
+    sections.append(
+        "Coordination rules:\n"
+        "- todo_write manages the temporary plan for the current session.\n"
+        "- create_task manages the durable shared task graph.\n"
+        "- task runs a synchronous one-shot subagent and waits for its result.\n"
+        "- spawn_teammate starts an asynchronous persistent teammate.\n"
+        "- A teammate that submits a plan must wait for Lead approval."
+    )
 
     memories = context.get("memories","")
     if memories:
@@ -1684,15 +2783,23 @@ def assemble_system_prompt(context:dict) -> str:
 
     skills = context.get("skills")
     if skills:
-        sections.append(PROMPT_SECTIONS["skills"])
+        sections.append(
+            "Skills catalog:\n"
+            f"{skills}\n"
+            "Use load_skill(name) when a skill is relevant."
+        )
 
     todos = context.get("todos", "")
     if todos:
-        sections.append(f"Current tasks:\n{todos}")
+        sections.append(f"Current session todos:\n{todos}")
 
     active_names = context.get("active_teammates", [])
     if active_names:
         sections.append(f"Active teammates:\n{', '.join(active_names)}")
+
+    connect_mcp = context.get("connect_mcp", [])
+    if connect_mcp:
+        sections.append(f"Connected MCP servers:\n{', '.join(connect_mcp)}")
 
     return "\n\n".join(sections)
 
@@ -1716,15 +2823,22 @@ def get_system_prompt(context:dict) -> str:
     print(f"  \033[32m[assembled] sections: {', '.join(loaded)}\033[0m")
     return _last_prompt
 
-def update_context(context:dict,messages:list) -> dict:
+def update_context(context:dict,messages:list, tools: list[dict] | None = None) -> dict:
     memories = ""
     if MEMORY_INDEX.exists():
         content = MEMORY_INDEX.read_text().strip()
         if content:
             memories = content
-    skills = ""
-    if SKILL_REGISTRY:
-        skills = str(','.join([s['name'] for s in SKILL_REGISTRY.values()]))
+    skills = list_skills() if SKILL_REGISTRY else ""
+
+    if tools is None:
+        tools, _ = assemble_tool_pool()
+    tool_names = sorted(tool["name"] for tool in tools)
+    serialized_tools = json.dumps(tools, ensure_ascii=False, sort_keys=True)
+    tool_fingerprint = hashlib.sha256(serialized_tools.encode("utf-8")).hexdigest()
+
+    with mcp_lock:
+        connected_mcp = sorted(mcp_clients)
 
     todos = format_current_todos()
 
@@ -1732,17 +2846,19 @@ def update_context(context:dict,messages:list) -> dict:
         active_names = sorted(active_teammates)
 
     return {
-        "enabled_tools": TOOL_HANDLERS.keys(),
+        "enabled_tools": tool_names,
         "workspace": str(WORKDIR),
         "memories": memories,
         "skills": skills,
         "todos": todos,
         "active_teammates": active_names,
+        "connect_mcp": connected_mcp,
+        "tool_fingerprint": tool_fingerprint,
+        "current_time": datetime.now().isoformat(timespec="seconds"),
     }
 
 #==================== AGENT LOOP ====================
 rounds_since_todo = 0
-MAX_REACTIVE_RETRIES = 1
 
 def agent_loop(messages:list, context:dict):
     global rounds_since_todo
@@ -1750,7 +2866,12 @@ def agent_loop(messages:list, context:dict):
     max_tokens = DEFAULT_MAX_TOKENS
 
     while True:
-        pending_texts = collect_background_results()
+        fired_jobs = consume_cron_queue()
+        pending_texts = [
+            f"[Scheduled: {job.id}] {job.prompt}"
+            for job in fired_jobs
+        ]
+        pending_texts.extend(collect_background_results())
         team_messages = collect_lead_inbox()
         if team_messages:
             pending_texts.append(
@@ -1775,8 +2896,9 @@ def agent_loop(messages:list, context:dict):
                  "content":"<reminder> Update your todos.</reminder>"}
             )
             rounds_since_todo = 0
-        
-        context = update_context(context, messages)
+
+        tools, handlers = assemble_tool_pool()
+        context = update_context(context, messages, tools= tools)
         system = get_system_prompt(context)
 
         request_messages = build_request_messages_with_memories(messages)
@@ -1788,6 +2910,7 @@ def agent_loop(messages:list, context:dict):
                     request_messages=request_messages,
                     model=state.current_model,
                     max_tokens=max_tokens,
+                    tools=tools,
                 )
 
             response = with_retry(call_llm, state)
@@ -1901,7 +3024,7 @@ def agent_loop(messages:list, context:dict):
             return update_context(context, messages)
 
         messages.append({"role":"assistant","content":response.content})
-        if response.stop_reason != "tool_use":
+        if not has_tool_use(response.content):
             force = trigger_hook("Stop",messages)
             if force:
                 messages.append({"role":"user","content": force})
@@ -1918,11 +3041,23 @@ def agent_loop(messages:list, context:dict):
         
         rounds_since_todo += 1
         results = []
+        compacted_now = False
 
         for block in response.content:
             if block.type != "tool_use":
                 continue
             print(f"\033[36m> {block.name}\033[0m")
+
+            if block.name == "compact":
+                messages[:] = compact_history(messages)
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "[Compacted. Continue with summarized context.]"
+                    ),
+                })
+                compacted_now = True
+                break
 
             blocked = trigger_hook("PreToolUse", block)
             if blocked:
@@ -1931,7 +3066,7 @@ def agent_loop(messages:list, context:dict):
                 continue
 
             if should_run_background(block.name, block.input):
-                bg_id = start_background_task(block)
+                bg_id = start_background_task(block, handlers)
                 results.append({"type": "tool_result",
                                 "tool_use_id": block.id,
                                 "content": f"[Background task {bg_id} started] "
@@ -1939,7 +3074,7 @@ def agent_loop(messages:list, context:dict):
                                            f"Result will be available when complete."})
                 continue
                 
-            output = execute_tool(block)
+            output = execute_tool(block, handlers)
             trigger_hook("PostToolUse", block, output)
 
             if block.name == "todo_write":
@@ -1951,6 +3086,9 @@ def agent_loop(messages:list, context:dict):
                 "content": output,
             })
 
+        if compacted_now:
+            continue
+
         user_content = list(results)
         bg_notifications = collect_background_results()
         if bg_notifications:
@@ -1959,20 +3097,28 @@ def agent_loop(messages:list, context:dict):
                   f"notification(s)\033[0m")
         messages.append({"role":"user","content":user_content})
 
-def run_agent_turn(history:list, content:str, context:dict):
-    history.append({"role":"user","content":content})
-    context = agent_loop(history, context)
-    print()
-    return context
+session_history: list = []
+session_context: dict = {}
 
-def create_message_streaming(system, request_messages, *, model, max_tokens):
+def run_agent_turn_locked(user_query: str | None = None):
+    global session_context
+
+    if user_query:
+        session_history.append({"role": "user", "content": user_query})
+
+    session_context = agent_loop(session_history, session_context)
+    session_context = update_context(session_context, session_history)
+    print()
+
+
+def create_message_streaming(system, request_messages, *, model, max_tokens, tools):
     chunks = []
     try:
         with client.messages.stream(
             model=model,
             system=system,
             messages=request_messages,
-            tools=TOOLS,
+            tools=tools,
             max_tokens=max_tokens,
         ) as stream:
             for chunk in stream.text_stream:
@@ -1988,11 +3134,6 @@ def create_message_streaming(system, request_messages, *, model, max_tokens):
     finally:
         if chunks and not chunks[-1].endswith("\n"):
             print()
-      
-def print_response_text(response):
-    text = extract_text(response.content)
-    if text:
-        print(text)
 
 def append_user_text_blocks(messages: list, texts: list[str]):
     if not texts:
@@ -2015,22 +3156,77 @@ def append_user_text_blocks(messages: list, texts: list[str]):
     else:
         messages.append({"role": "user", "content": blocks})
 
+_runtime_start_lock = threading.Lock()
+_runtime_started = False
+_runtime_threads: list[threading.Thread] = []
+
+def queue_processor_loop(stop_event = None):
+    stop_event = stop_event or threading.Event()
+    while not stop_event.wait(0.2):
+        if not has_cron_queue():
+            continue
+
+        if not agent_lock.acquire(blocking=False):
+            continue
+
+        try:
+            if not has_cron_queue():
+                continue
+
+            print(
+                  "\n  \033[35m[queue processor] "
+                  "delivering scheduled work\033[0m"
+              )
+            run_agent_turn_locked()
+        finally:
+            agent_lock.release()
+
+def start_runtime_threads(stop_event=None):
+    global _runtime_started
+
+    stop_event = stop_event or threading.Event()
+    with _runtime_start_lock:
+        if _runtime_started:
+            return list(_runtime_threads)
+
+        scheduler = threading.Thread(target=cron_scheduler_loop, args=(stop_event,), daemon=True, name = "cron-scheduler",)
+        processor = threading.Thread(target=queue_processor_loop, args=(stop_event,), daemon=True, name = "cron-queue-processor",)
+
+        _runtime_threads.extend([scheduler, processor])
+        _runtime_started = True
+
+        scheduler.start()
+        processor.start()
+    return list(_runtime_threads)
 
 def main():
+    global session_context
+
     print("开拓者终于等到你了！欢迎使用Pamu帕！你可以输入 'q'，'exit'或 '空格符' 退出帕！。")
     
-    history = []
-    context = update_context({}, [])
+    session_history.clear()
+    context = update_context({}, session_history)
 
-    while True:
-        try:
-            query = input("\033[36m>> \033[0m")
-        except (EOFError, KeyboardInterrupt):
-            break
-        if query.strip().lower() in ("q", "exit", ""):
-            break
-        trigger_hook("UserPromptSubmit", query)
-        context = run_agent_turn(history, query, context)
+    load_durable_jobs()
+    stop_event = threading.Event()
+    runtime_threads = start_runtime_threads(stop_event)
+
+    try:
+        while True:
+                try:
+                    query = input("\033[36m>> \033[0m")
+                except (EOFError, KeyboardInterrupt):
+                    break
+                if query.strip().lower() in ("q", "exit", ""):
+                    break
+                trigger_hook("UserPromptSubmit", query)
+        
+                with agent_lock:
+                    run_agent_turn_locked(query)
+    finally:
+        stop_event.set()
+        for thread in runtime_threads:
+            thread.join(timeout=1.0)
 
 if __name__ == "__main__":
     main()
