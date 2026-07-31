@@ -135,19 +135,20 @@ def test_task_model_has_required_fields(baseagent):
         "status",
         "owner",
         "blockedBy",
+        "worktree",
     ]
 
 
 def test_required_task_tools_are_registered(baseagent):
     schemas = {
         tool["name"]: tool
-        for tool in baseagent["TOOLS"]
+        for tool in baseagent["BUILTIN_TOOLS"]
     }
 
     for name, required in REQUIRED_TASK_TOOLS.items():
         assert name in schemas
-        assert name in baseagent["TOOL_HANDLERS"]
-        assert callable(baseagent["TOOL_HANDLERS"][name])
+        assert name in baseagent["BUILTIN_HANDLERS"]
+        assert callable(baseagent["BUILTIN_HANDLERS"][name])
         assert schemas[name]["input_schema"]["type"] == "object"
         assert set(
             schemas[name]["input_schema"].get("required", [])

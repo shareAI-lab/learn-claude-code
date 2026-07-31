@@ -177,13 +177,13 @@ def test_main_does_not_run_an_automatic_resume_turn(
 def test_todo_tool_contract_remains_registered(baseagent):
     schemas = {
         tool["name"]: tool
-        for tool in baseagent["TOOLS"]
+        for tool in baseagent["BUILTIN_TOOLS"]
     }
 
     assert "todo_write" in schemas
     assert schemas["todo_write"]["input_schema"]["required"] == [
         "todos"
     ]
-    assert baseagent["TOOL_HANDLERS"]["todo_write"] is (
+    assert baseagent["BUILTIN_HANDLERS"]["todo_write"] is (
         baseagent["run_todo_write"]
     )

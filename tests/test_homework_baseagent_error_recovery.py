@@ -87,6 +87,9 @@ def disable_real_waiting(baseagent, monkeypatch):
 
 def isolate_agent_loop(baseagent, monkeypatch):
     """Replace unrelated s01-s10 systems with deterministic no-ops."""
+    def fake_update_context(context, messages, tools=None):
+        return context
+
     monkeypatch.setitem(
         baseagent,
         "tool_result_budget",
@@ -110,7 +113,7 @@ def isolate_agent_loop(baseagent, monkeypatch):
     monkeypatch.setitem(
         baseagent,
         "update_context",
-        lambda context, messages: context,
+        fake_update_context,
     )
     monkeypatch.setitem(
         baseagent,
@@ -462,7 +465,7 @@ def test_max_tokens_tool_uses_get_error_results_before_continuation(
         lambda **kwargs: next(responses),
     )
     monkeypatch.setitem(
-        baseagent["TOOL_HANDLERS"],
+        baseagent["BUILTIN_HANDLERS"],
         "bash",
         record_execution,
     )
@@ -530,7 +533,7 @@ def test_max_tokens_tool_uses_are_paired_when_continuations_are_exhausted(
 
     monkeypatch.setitem(baseagent, "create_message_streaming", fake_streaming)
     monkeypatch.setitem(
-        baseagent["TOOL_HANDLERS"],
+        baseagent["BUILTIN_HANDLERS"],
         "bash",
         record_execution,
     )
@@ -805,7 +808,7 @@ def test_streamed_tool_use_keeps_adjacent_tool_result(
         lambda **kwargs: next(responses),
     )
     monkeypatch.setitem(
-        baseagent["TOOL_HANDLERS"],
+        baseagent["BUILTIN_HANDLERS"],
         "bash",
         lambda command: "/workspace",
     )
@@ -863,6 +866,7 @@ def test_streaming_prints_chunks_before_returning_final_message(
         request_messages=[{"role": "user", "content": "test"}],
         model="fallback-model",
         max_tokens=64_000,
+        tools=baseagent["BUILTIN_TOOLS"],
     )
 
     assert result is final_response
@@ -901,6 +905,7 @@ def test_streaming_wraps_error_after_visible_text(baseagent, capsys):
             request_messages=[{"role": "user", "content": "test"}],
             model="primary-model",
             max_tokens=8_000,
+            tools=baseagent["BUILTIN_TOOLS"],
         )
 
     assert raised.value.partial_text == "visible-part"
@@ -926,6 +931,7 @@ def test_streaming_reraises_original_error_before_first_chunk(baseagent):
             request_messages=[{"role": "user", "content": "test"}],
             model="primary-model",
             max_tokens=8_000,
+            tools=baseagent["BUILTIN_TOOLS"],
         )
 
     assert raised.value is cause

@@ -48,11 +48,9 @@ def baseagent(monkeypatch, tmp_path):
     monkeypatch.setitem(globals_, "background_results", {})
     monkeypatch.setitem(globals_, "background_lock", threading.Lock())
     monkeypatch.setitem(globals_, "_bg_counter", 0)
-    monkeypatch.setitem(
-        globals_,
-        "TOOL_RESULT_DIR",
-        tmp_path / "tool-results",
-    )
+    tool_result_dir = tmp_path / "tool-results"
+    monkeypatch.setitem(globals_, "TOOL_RESULT_DIR", tool_result_dir)
+    monkeypatch.setitem(globals_, "TOOL_RESULTS_DIR", tool_result_dir)
 
     mailbox_dir = tmp_path / ".mailboxes"
     mailbox_dir.mkdir()
@@ -99,11 +97,14 @@ def wait_for_background(baseagent, bg_id, timeout=1.0):
 
 
 def isolate_agent_loop(baseagent, monkeypatch):
+    def fake_update_context(context, messages, tools=None):
+        return context
+
     monkeypatch.setitem(baseagent, "tool_result_budget", lambda messages: messages)
     monkeypatch.setitem(baseagent, "snip_compact", lambda messages: messages)
     monkeypatch.setitem(baseagent, "micro_compact", lambda messages: messages)
     monkeypatch.setitem(baseagent, "estimate_size", lambda messages: 0)
-    monkeypatch.setitem(baseagent, "update_context", lambda context, messages: context)
+    monkeypatch.setitem(baseagent, "update_context", fake_update_context)
     monkeypatch.setitem(baseagent, "get_system_prompt", lambda context: "system")
     monkeypatch.setitem(
         baseagent,
@@ -122,7 +123,7 @@ def serialized(value):
 
 def test_background_schema_and_dispatch_decisions(baseagent):
     bash_schema = next(
-        tool for tool in baseagent["TOOLS"]
+        tool for tool in baseagent["BUILTIN_TOOLS"]
         if tool["name"] == "bash"
     )["input_schema"]
     run_in_background = bash_schema["properties"]["run_in_background"]
@@ -187,7 +188,7 @@ def test_background_worker_success_is_immediate_and_consumed_once(
     entered = threading.Event()
     release = threading.Event()
 
-    def fake_execute(_block):
+    def fake_execute(_block, _handlers=None):
         entered.set()
         assert release.wait(1.0)
         return "worker output"
@@ -197,6 +198,7 @@ def test_background_worker_success_is_immediate_and_consumed_once(
 
     bg_id = baseagent["start_background_task"](
         tool_block("tool-success", "pytest"),
+        baseagent["BUILTIN_HANDLERS"],
     )
 
     assert bg_id.startswith("bg_")
@@ -219,12 +221,13 @@ def test_background_worker_failure_becomes_failed_notification(
     baseagent,
     monkeypatch,
 ):
-    def fail(_block):
+    def fail(_block, _handlers=None):
         raise RuntimeError("worker boom")
 
     monkeypatch.setitem(baseagent, "execute_tool", fail)
     bg_id = baseagent["start_background_task"](
         tool_block("tool-failure", "pytest"),
+        baseagent["BUILTIN_HANDLERS"],
     )
 
     task = wait_for_background(baseagent, bg_id)
@@ -245,13 +248,14 @@ def test_multiple_background_workers_complete_without_registry_corruption(
     monkeypatch.setitem(
         baseagent,
         "execute_tool",
-        lambda block: f"finished:{block.input['command']}",
+        lambda block, _handlers=None: f"finished:{block.input['command']}",
     )
     monkeypatch.setitem(baseagent, "trigger_hook", lambda *args: None)
 
     bg_ids = [
         baseagent["start_background_task"](
             tool_block(f"tool-{index}", f"pytest case-{index}"),
+            baseagent["BUILTIN_HANDLERS"],
         )
         for index in range(8)
     ]
@@ -273,11 +277,16 @@ def test_large_background_output_is_persisted_and_bounded(
 ):
     full_output = "x" * 256
     monkeypatch.setitem(baseagent, "PERSIST_THRESHOLD", 32)
-    monkeypatch.setitem(baseagent, "execute_tool", lambda _block: full_output)
+    monkeypatch.setitem(
+        baseagent,
+        "execute_tool",
+        lambda _block, _handlers=None: full_output,
+    )
     monkeypatch.setitem(baseagent, "trigger_hook", lambda *args: None)
 
     bg_id = baseagent["start_background_task"](
         tool_block("tool-large", "pytest large"),
+        baseagent["BUILTIN_HANDLERS"],
     )
     wait_for_background(baseagent, bg_id)
     notifications = baseagent["collect_background_results"]()
@@ -303,7 +312,11 @@ def test_background_thread_is_daemon_and_does_not_run_pretool_hook(
         return thread
 
     monkeypatch.setattr(baseagent["threading"], "Thread", recording_thread)
-    monkeypatch.setitem(baseagent, "execute_tool", lambda _block: "ok")
+    monkeypatch.setitem(
+        baseagent,
+        "execute_tool",
+        lambda _block, _handlers=None: "ok",
+    )
     monkeypatch.setitem(
         baseagent,
         "trigger_hook",
@@ -312,6 +325,7 @@ def test_background_thread_is_daemon_and_does_not_run_pretool_hook(
 
     bg_id = baseagent["start_background_task"](
         tool_block("tool-daemon", "pytest daemon"),
+        baseagent["BUILTIN_HANDLERS"],
     )
     wait_for_background(baseagent, bg_id)
 
@@ -338,7 +352,7 @@ def test_denied_background_tool_never_dispatches(baseagent, monkeypatch):
     monkeypatch.setitem(
         baseagent,
         "start_background_task",
-        lambda _block: pytest.fail("denied call was dispatched"),
+        lambda _block, _handlers: pytest.fail("denied call was dispatched"),
     )
     monkeypatch.setitem(
         baseagent,
@@ -375,12 +389,12 @@ def test_ordinary_bash_executes_synchronously_without_background_record(
     monkeypatch.setitem(
         baseagent,
         "start_background_task",
-        lambda _block: pytest.fail("ordinary bash was dispatched"),
+        lambda _block, _handlers: pytest.fail("ordinary bash was dispatched"),
     )
     monkeypatch.setitem(
         baseagent,
         "execute_tool",
-        lambda seen: executed.append(seen.id) or "sync output",
+        lambda seen, _handlers=None: executed.append(seen.id) or "sync output",
     )
     monkeypatch.setitem(
         baseagent,
@@ -411,7 +425,7 @@ def test_background_tool_has_one_result_and_completion_is_text(
         response(),
     ])
 
-    def immediate_background(_block):
+    def immediate_background(_block, _handlers):
         with baseagent["background_lock"]:
             baseagent["background_tasks"]["bg_0001"] = {
                 "id": "bg_0001",
@@ -503,8 +517,9 @@ def test_new_user_turn_collects_completed_background_results(
         return response()
 
     monkeypatch.setitem(baseagent, "create_message_streaming", fake_create)
-    history = []
-    baseagent["run_agent_turn"](history, "new question", {})
+    baseagent["session_history"].clear()
+    baseagent["session_context"].clear()
+    baseagent["run_agent_turn_locked"]("new question")
 
     assert "<task_notification>" in serialized(captured_requests[0])
     assert "turn output" in serialized(captured_requests[0])

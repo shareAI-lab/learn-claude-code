@@ -124,10 +124,13 @@ def test_explicit_compact_replaces_history_and_starts_next_round(
         "estimate_size",
         lambda messages: 0,
     )
+    def fake_update_context(context, messages, tools=None):
+        return context
+
     monkeypatch.setitem(
         baseagent,
         "update_context",
-        lambda context, messages, tools=None: context,
+        fake_update_context,
     )
     monkeypatch.setitem(
         baseagent,

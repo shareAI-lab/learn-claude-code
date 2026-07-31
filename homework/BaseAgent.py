@@ -260,7 +260,7 @@ def has_cron_queue() -> bool:
         return bool(cron_queue)
 
 #==================== AGENT TEAMS ====================
-MAILBOX_DIR = WORKDIR / ".mailbox"; 
+MAILBOX_DIR = WORKDIR / ".mailboxes"
 MAILBOX_DIR.mkdir(exist_ok=True)
 AGENT_NAME_PATTERN = re.compile(
     r"^[A-Za-z][A-Za-z0-9_-]{0,31}$"
@@ -2161,8 +2161,8 @@ def run_list_tasks() -> str:
 def run_get_task(task_id: str) -> str:
     try:
         return get_task(task_id)
-    except FileNotFoundError:
-        return f"Error: Task {task_id} not found"
+    except (OSError, ValueError, TypeError) as exc:
+        return f"Error: cannot read task {task_id}: {exc}"
     
 def run_claim_task(task_id: str) -> str:
     try:

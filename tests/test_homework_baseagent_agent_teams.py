@@ -51,6 +51,10 @@ def baseagent(monkeypatch, tmp_path):
     monkeypatch.setitem(globals_, "MAILBOX_DIR", mailbox_dir)
     monkeypatch.setitem(globals_, "BUS", globals_["MessageBus"]())
     monkeypatch.setitem(globals_, "active_teammates", {})
+    monkeypatch.setitem(globals_, "IDLE_POLL_INTERVAL", 1)
+    monkeypatch.setitem(globals_, "IDLE_TIMEOUT", 0)
+    monkeypatch.setitem(globals_, "PERMISSION_POLL_INTERVAL", 0)
+    monkeypatch.setitem(globals_, "PERMISSION_TIMEOUT", 0)
 
     return globals_
 
@@ -111,11 +115,14 @@ def require_captured_thread(created):
 
 
 def isolate_agent_loop(baseagent, monkeypatch):
+    def fake_update_context(context, messages, tools=None):
+        return context
+
     monkeypatch.setitem(baseagent, "tool_result_budget", lambda messages: messages)
     monkeypatch.setitem(baseagent, "snip_compact", lambda messages: messages)
     monkeypatch.setitem(baseagent, "micro_compact", lambda messages: messages)
     monkeypatch.setitem(baseagent, "estimate_size", lambda messages: 0)
-    monkeypatch.setitem(baseagent, "update_context", lambda context, messages: context)
+    monkeypatch.setitem(baseagent, "update_context", fake_update_context)
     monkeypatch.setitem(baseagent, "get_system_prompt", lambda context: "system")
     monkeypatch.setitem(
         baseagent,
@@ -143,10 +150,10 @@ def test_required_team_api_and_tools_are_registered(baseagent):
     missing = sorted(required_names.difference(baseagent))
     assert missing == []
 
-    schemas = {tool["name"]: tool for tool in baseagent["TOOLS"]}
+    schemas = {tool["name"]: tool for tool in baseagent["BUILTIN_TOOLS"]}
     for tool_name in ("spawn_teammate", "send_message", "check_inbox"):
         assert tool_name in schemas
-        assert tool_name in baseagent["TOOL_HANDLERS"]
+        assert tool_name in baseagent["BUILTIN_HANDLERS"]
 
 
 def test_mailbox_directory_uses_required_plural_name(baseagent):
@@ -226,11 +233,11 @@ def test_reserved_duplicate_and_empty_teammates_are_rejected(
 
 
 def test_synchronous_task_and_teammate_tools_coexist(baseagent):
-    tool_names = {tool["name"] for tool in baseagent["TOOLS"]}
+    tool_names = {tool["name"] for tool in baseagent["BUILTIN_TOOLS"]}
     assert "task" in tool_names
     assert "spawn_teammate" in tool_names
-    assert callable(baseagent["TOOL_HANDLERS"]["task"])
-    assert callable(baseagent["TOOL_HANDLERS"]["spawn_teammate"])
+    assert callable(baseagent["BUILTIN_HANDLERS"]["task"])
+    assert callable(baseagent["BUILTIN_HANDLERS"]["spawn_teammate"])
 
 
 def test_mailbox_send_read_consumes_each_message_once(baseagent):
@@ -362,7 +369,14 @@ def test_teammate_history_is_independent_and_tools_are_nonrecursive(
     assert lead_history == [{"role": "user", "content": "lead-only-marker"}]
     assert captured_calls
     assert captured_calls[0]["messages"] == [
-        {"role": "user", "content": "Inspect tests"}
+        {
+            "role": "user",
+            "content": (
+                "<identity>You are 'researcher', role: "
+                "Repository investigator. Continue your work.</identity>"
+            ),
+        },
+        {"role": "user", "content": "Inspect tests"},
     ]
     assert "lead-only-marker" not in str(captured_calls[0]["messages"])
 
@@ -372,7 +386,7 @@ def test_teammate_history_is_independent_and_tools_are_nonrecursive(
     assert str(baseagent["WORKDIR"]).lower() in teammate_system
     assert "send_message" in teammate_system
     assert "lead" in teammate_system
-    assert "spawn" in teammate_system and (
+    assert "subagent" in teammate_system and (
         "do not" in teammate_system or "must not" in teammate_system
     )
 
@@ -555,7 +569,11 @@ def test_teammate_round_limit_sends_result_and_cleans_registry(
 
     baseagent["client"].messages.create = fake_create
     monkeypatch.setitem(baseagent, "with_retry", lambda fn, state: fn())
-    monkeypatch.setitem(baseagent, "run_read", lambda path: "read")
+    monkeypatch.setitem(
+        baseagent,
+        "run_read",
+        lambda path, offset=0, limit=None, cwd=None: "read",
+    )
 
     baseagent["spawn_teammate_thread"](
         "bounded",
