@@ -48,12 +48,15 @@ load_dotenv(override=True)
 if os.getenv("ANTHROPIC_BASE_URL"):
     os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
 
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+client = Anthropic(
+    base_url=os.getenv("ANTHROPIC_BASE_URL")
+)
 MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = f"You are a coding agent at {os.getcwd()}. Use bash to solve tasks. Act, don't explain."
 
 # ── Tool definition: just bash ────────────────────────────
+# 定义一个tools工具
 TOOLS = [{
     "name": "bash",
     "description": "Run a shell command.",
@@ -85,8 +88,11 @@ def run_bash(command: str) -> str:
 def agent_loop(messages: list):
     while True:
         response = client.messages.create(
-            model=MODEL, system=SYSTEM, messages=messages,
-            tools=TOOLS, max_tokens=8000,
+            model=MODEL,
+            system=SYSTEM,
+            messages=messages,
+            tools=TOOLS,
+            max_tokens=8000,
         )
 
         # Append assistant turn
