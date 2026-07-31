@@ -5,9 +5,14 @@ from pathlib import Path
 
 import pytest
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+
+from homework.agent_app.core import recovery
+
 
 BASE_AGENT = (
-    Path(__file__).resolve().parents[1]
+    REPO_ROOT
     / "homework"
     / "BaseAgent.py"
 )
@@ -167,31 +172,27 @@ def assistant_texts(messages):
     return texts
 
 
-def test_retry_delay_grows_exponentially_and_caps_at_32_seconds(
-    baseagent,
-    monkeypatch,
-):
+def test_retry_delay_grows_exponentially_and_caps_at_32_seconds(monkeypatch):
     monkeypatch.setattr(
-        baseagent["random"],
+        recovery.random,
         "uniform",
         lambda _start, _end: 0,
     )
 
-    assert baseagent["retry_delay"](0) == 0.5
-    assert baseagent["retry_delay"](1) == 1.0
-    assert baseagent["retry_delay"](2) == 2.0
-    assert baseagent["retry_delay"](20) == 32.0
+    assert recovery.retry_delay(0, base_delay_ms=500) == 0.5
+    assert recovery.retry_delay(1, base_delay_ms=500) == 1.0
+    assert recovery.retry_delay(2, base_delay_ms=500) == 2.0
+    assert recovery.retry_delay(20, base_delay_ms=500) == 32.0
 
 
-def test_retry_delay_prefers_retry_after(baseagent):
-    assert baseagent["retry_delay"](10, retry_after=7) == 7
+def test_retry_delay_prefers_retry_after():
+    assert recovery.retry_delay(10, retry_after=7) == 7
 
 
 def test_429_retries_twice_then_returns_success(
-    baseagent,
     monkeypatch,
 ):
-    disable_real_waiting(baseagent, monkeypatch)
+    monkeypatch.setattr(recovery.time, "sleep", lambda _delay: None)
     attempts = 0
 
     def call():
@@ -201,26 +202,26 @@ def test_429_retries_twice_then_returns_success(
             raise FakeAPIError(429, "rate limit")
         return fake_response()
 
-    result = baseagent["with_retry"](
+    result = recovery.with_retry(
         call,
-        baseagent["RecoveryState"](),
+        recovery.RecoveryState("primary-model", "fallback-model"),
     )
 
     assert result.stop_reason == "end_turn"
     assert attempts == 3
 
 
-def test_429_uses_retry_after_header(baseagent, monkeypatch):
+def test_429_uses_retry_after_header(monkeypatch):
     sleeps = []
     attempts = 0
 
     monkeypatch.setattr(
-        baseagent["time"],
+        recovery.time,
         "sleep",
         sleeps.append,
     )
     monkeypatch.setattr(
-        baseagent["random"],
+        recovery.random,
         "uniform",
         lambda _start, _end: 0,
     )
@@ -236,20 +237,18 @@ def test_429_uses_retry_after_header(baseagent, monkeypatch):
             )
         return fake_response()
 
-    baseagent["with_retry"](
+    recovery.with_retry(
         call,
-        baseagent["RecoveryState"](),
+        recovery.RecoveryState("primary-model", "fallback-model"),
     )
 
     assert sleeps == [6.0]
 
 
 def test_transient_retry_count_is_bounded(
-    baseagent,
     monkeypatch,
 ):
-    disable_real_waiting(baseagent, monkeypatch)
-    monkeypatch.setitem(baseagent, "MAX_TRANSIENT_RETRIES", 3)
+    monkeypatch.setattr(recovery.time, "sleep", lambda _delay: None)
     attempts = 0
 
     def call():
@@ -258,20 +257,20 @@ def test_transient_retry_count_is_bounded(
         raise FakeAPIError(429, "rate limit")
 
     with pytest.raises(FakeAPIError):
-        baseagent["with_retry"](
+        recovery.with_retry(
             call,
-            baseagent["RecoveryState"](),
+            recovery.RecoveryState("primary-model", "fallback-model"),
+            max_transient_retries=3,
         )
 
     assert attempts == 3
 
 
 def test_529_switches_model_before_the_next_real_request(
-    baseagent,
     monkeypatch,
 ):
-    disable_real_waiting(baseagent, monkeypatch)
-    state = baseagent["RecoveryState"]()
+    monkeypatch.setattr(recovery.time, "sleep", lambda _delay: None)
+    state = recovery.RecoveryState("primary-model", "fallback-model")
     requested_models = []
 
     def call():
@@ -280,7 +279,7 @@ def test_529_switches_model_before_the_next_real_request(
             raise FakeAPIError(529, "overloaded")
         return fake_response()
 
-    result = baseagent["with_retry"](call, state)
+    result = recovery.with_retry(call, state)
 
     assert result.stop_reason == "end_turn"
     assert requested_models == [
@@ -293,10 +292,9 @@ def test_529_switches_model_before_the_next_real_request(
 
 
 def test_non_transient_error_is_not_retried(
-    baseagent,
     monkeypatch,
 ):
-    disable_real_waiting(baseagent, monkeypatch)
+    monkeypatch.setattr(recovery.time, "sleep", lambda _delay: None)
     attempts = 0
 
     def call():
@@ -305,9 +303,9 @@ def test_non_transient_error_is_not_retried(
         raise ValueError("invalid request")
 
     with pytest.raises(ValueError):
-        baseagent["with_retry"](
+        recovery.with_retry(
             call,
-            baseagent["RecoveryState"](),
+            recovery.RecoveryState("primary-model", "fallback-model"),
         )
 
     assert attempts == 1
@@ -323,18 +321,15 @@ def test_non_transient_error_is_not_retried(
     ],
 )
 def test_prompt_too_long_recognizes_specific_markers(
-    baseagent,
     message,
 ):
-    assert baseagent["is_prompt_too_long_error"](
+    assert recovery.is_prompt_too_long_error(
         ValueError(message)
     )
 
 
-def test_prompt_too_long_does_not_match_unrelated_token_error(
-    baseagent,
-):
-    assert not baseagent["is_prompt_too_long_error"](
+def test_prompt_too_long_does_not_match_unrelated_token_error():
+    assert not recovery.is_prompt_too_long_error(
         ValueError("invalid billing token")
     )
 
@@ -937,9 +932,9 @@ def test_streaming_reraises_original_error_before_first_chunk(baseagent):
     assert raised.value is cause
 
 
-def test_with_retry_never_replays_partial_stream_error(baseagent):
+def test_with_retry_never_replays_partial_stream_error():
     attempts = 0
-    error = baseagent["PartialStreamError"](
+    error = recovery.PartialStreamError(
         "already visible",
         FakeAPIError(529, "stream overloaded"),
     )
@@ -949,8 +944,11 @@ def test_with_retry_never_replays_partial_stream_error(baseagent):
         attempts += 1
         raise error
 
-    with pytest.raises(baseagent["PartialStreamError"]) as raised:
-        baseagent["with_retry"](call, baseagent["RecoveryState"]())
+    with pytest.raises(recovery.PartialStreamError) as raised:
+        recovery.with_retry(
+            call,
+            recovery.RecoveryState("primary-model", "fallback-model"),
+        )
 
     assert raised.value is error
     assert attempts == 1
@@ -967,8 +965,8 @@ def test_subagent_routes_llm_request_through_with_retry(
         requested_models.append(kwargs["model"])
         return fake_response("end_turn", "subagent done")
 
-    def spy_with_retry(call, state):
-        retry_calls.append(state)
+    def spy_with_retry(call, state, **kwargs):
+        retry_calls.append((state, kwargs))
         return call()
 
     baseagent["client"].messages.create = fake_create
@@ -982,4 +980,9 @@ def test_subagent_routes_llm_request_through_with_retry(
 
     assert result == "subagent done"
     assert len(retry_calls) == 1
+    assert retry_calls[0][1] == {
+        "max_transient_retries": baseagent["MAX_TRANSIENT_RETRIES"],
+        "max_consecutive_529": baseagent["MAX_CONSECUTIVE_529"],
+        "base_delay_ms": baseagent["BASE_DELAY_MS"],
+    }
     assert requested_models == ["primary-model"]
