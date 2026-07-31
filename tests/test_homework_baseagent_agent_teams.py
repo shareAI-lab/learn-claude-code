@@ -160,6 +160,36 @@ def test_mailbox_directory_uses_required_plural_name(baseagent):
     assert baseagent["_ACCEPTANCE_ORIGINAL_MAILBOX_DIR"].name == ".mailboxes"
 
 
+def test_loading_baseagent_does_not_initialize_mailbox_storage(monkeypatch):
+    fake_anthropic = types.ModuleType("anthropic")
+    fake_dotenv = types.ModuleType("dotenv")
+
+    class FakeAnthropic:
+        def __init__(self, *args, **kwargs):
+            self.messages = types.SimpleNamespace(create=None, stream=None)
+
+    fake_anthropic.Anthropic = FakeAnthropic
+    fake_dotenv.load_dotenv = lambda override=True: None
+    monkeypatch.setitem(sys.modules, "anthropic", fake_anthropic)
+    monkeypatch.setitem(sys.modules, "dotenv", fake_dotenv)
+    monkeypatch.setenv("MODEL_ID", "test-model")
+    monkeypatch.delenv("FALLBACK_MODEL_ID", raising=False)
+
+    mailbox_dir = (BASE_AGENT.parents[1] / ".mailboxes").resolve()
+    mkdir_calls = []
+    original_mkdir = Path.mkdir
+
+    def track_mkdir(path, *args, **kwargs):
+        if path.resolve() == mailbox_dir:
+            mkdir_calls.append(path)
+        return original_mkdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", track_mkdir)
+    runpy.run_path(str(BASE_AGENT), run_name="not_main")
+
+    assert mkdir_calls == []
+
+
 @pytest.mark.parametrize(
     "valid_name",
     ["a", "Researcher_1", "worker-name", "x" * 32],

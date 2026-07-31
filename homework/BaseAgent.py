@@ -261,7 +261,6 @@ def has_cron_queue() -> bool:
 
 #==================== AGENT TEAMS ====================
 MAILBOX_DIR = WORKDIR / ".mailboxes"
-MAILBOX_DIR.mkdir(exist_ok=True)
 AGENT_NAME_PATTERN = re.compile(
     r"^[A-Za-z][A-Za-z0-9_-]{0,31}$"
 )
@@ -296,6 +295,7 @@ class MessageBus:
         path = mailbox_path(to_agent)
 
         with mailbox_lock:
+            MAILBOX_DIR.mkdir(exist_ok=True)
             with path.open("a", encoding='utf-8') as f:
                 f.write(
                     json.dumps(msg, ensure_ascii = False) + "\n"
