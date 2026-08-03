@@ -486,10 +486,13 @@ def agent_loop(messages: list):
 
             # s08: compact tool triggers compact_history, not a no-op string
             if block.name == "compact":
-                messages[:] = compact_history(messages)
+                # Append tool_result BEFORE compact_history so the tool_use/tool_result
+                # pair remains intact; compact_history would otherwise drop the assistant
+                # message containing block.id, causing a 400 BadRequestError.
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": "[Compacted. Conversation history has been summarized.]"})
                 messages.append({"role": "user", "content": results})
+                messages[:] = compact_history(messages)
                 break  # end current turn, start fresh with compacted context
 
             blocked = trigger_hooks("PreToolUse", block)
