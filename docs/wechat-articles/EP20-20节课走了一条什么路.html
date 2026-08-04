@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EP20-20节课走了一条什么路</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-size: 15.5px;
+  color: #242832;
+  line-height: 1.85;
+  background: #fff;
+}
+img { max-width: 100% !important; height: auto !important; }
+pre {
+  background-color: #0f1729 !important;
+  background: #0f1729 !important;
+  color: #e1e7ff;
+  padding: 20px 22px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.9;
+  font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'SF Mono', monospace;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  margin: 22px 0;
+  border: 1px solid #1e2a4a;
+  overflow: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 22px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e8ecf7;
+}
+th {
+  background: #0b1530;
+  color: #fff;
+  padding: 12px 14px;
+  text-align: left;
+  font-weight: 600;
+}
+td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #eef2ff;
+  color: #242832;
+}
+</style>
+</head>
+<body>
+<section style="font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; font-size: 15.5px; color: #242832; line-height: 1.8; letter-spacing: 0; word-spacing: 0; padding: 20px 22px; background: #ffffff;">
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">看到 s20 的 <code style="background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;">code.py</code> 已经长到 2068 行时，我先愣了几秒。</p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">这还是 s01 那个三十来行的 Agent 吗？</p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">可真正把终章读完后，最有意思的不是"功能终于凑齐了"，而是：<span style="background: transparent; color: #1e3a8a; padding: 0 1px; font-weight: 700;">最中间那条路其实一直没变。</span></p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">模型给出工具调用，程序执行工具，再把结果还给模型。s01 是它，s20 还是它。</p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><span style="background: linear-gradient(180deg, transparent 55%, #fff18a 55%); color: #242832; padding: 1px 6px; font-weight: 600;">代码从 30 行长到 2068 行，变复杂的不是这个循环，而是围在循环外面的整套程序。</span></p>
+<hr style="border: none; height: 1px; background: linear-gradient(to right, transparent, #c7d2fe, transparent); margin: 38px 0;"/>
+<p style="text-align: center; color: #c7d2fe; letter-spacing: 14px; font-size: 11px; margin: 36px 0; user-select: none;">● ● ●</p>
+<h2 style="font-size: 18px; font-weight: 700; color: #0b1530; margin: 40px 0 18px; padding: 10px 16px 10px 14px; border-left: 4px solid #2e5bff; background: linear-gradient(90deg, #eef2ff 0%, #ffffff 70%); border-radius: 0 6px 6px 0; line-height: 1.5; letter-spacing: 0;">先看全景：20 节课走了一条什么路</h2>
+<pre style="background: #0f1729; color: #e1e7ff; padding: 16px 18px; border-radius: 10px; font-size: 12.5px; line-height: 1.65; font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'SF Mono', monospace; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 24px 0; border: 1px solid #1e2a4a; -webkit-overflow-scrolling: touch; -moz-tab-size: 2; tab-size: 2; font-variant-ligatures: none; -webkit-font-smoothing: antialiased;">s01-s04 ── 地基 ──────────────────────────────
+          &quot;模型怎么知道该做什么？&quot;
+          → 核心循环 + 工具 + 权限
+
+s05-s07 ── 可扩展 ────────────────────────────
+          &quot;每加一个能力就改一堆代码？&quot;
+          → 技能按需加载 + Hook 插件
+
+s08-s11 ── 健壮性 ────────────────────────────
+          &quot;上下文超了？API 报错？&quot;
+          → 主动压缩 + 记忆持久化 + 多级恢复
+
+s12-s14 ── 异步 ──────────────────────────────
+          &quot;慢命令堵住？没人发就不动？&quot;
+          → 任务依赖 + 后台线程 + cron 定时
+
+s15-s18 ── 团队 ──────────────────────────────
+          &quot;多个 Agent 怎么协作？&quot;
+          → 文件邮箱 + 协议配对 + 自动认领 + worktree
+
+s19     ── 外部接入 ──────────────────────────
+          &quot;每接一个服务就手写一套？&quot;
+          → MCP 协议：连接即发现
+
+s20     ── 总装 ──────────────────────────────
+          &quot;全部拼回一个能跑的系统&quot;
+</pre>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><span style="background: linear-gradient(180deg, transparent 55%, #fff18a 55%); color: #242832; padding: 1px 6px; font-weight: 600;">做 Agent 产品时不需要一次做完所有机制。先跑通核心循环，再逐层加。</span></p>
+<p style="text-align:center;margin:16px 0;"><img src="http://mmbiz.qpic.cn/mmbiz_png/SOgtoJC9d5S2aNAY2DSmun7P1XFHgfNgIrqAwDHicdC26HZLziaGhKOiatgldMIugtpzvnXmGsjibCDQicibUnQknpOCMfbs1hVRHxFHWoqhAFjGQ/0?wx_fmt=png" alt="机制很多循环一个" style="max-width: 100%; height: auto; border-radius: 8px; margin: 24px auto; display: block; box-shadow: 0 6px 20px rgba(11,21,48,0.08); border: 1px solid #eef2ff;"/></p>
+<p style="font-size: 12.5px; color: #8a93a8; text-align: center; margin-top: 10px; letter-spacing: 0; font-style: italic;">机制很多循环一个</p>
+<hr style="border: none; height: 1px; background: linear-gradient(to right, transparent, #c7d2fe, transparent); margin: 38px 0;"/>
+<p style="text-align: center; color: #c7d2fe; letter-spacing: 14px; font-size: 11px; margin: 36px 0; user-select: none;">● ● ●</p>
+<h2 style="font-size: 18px; font-weight: 700; color: #0b1530; margin: 40px 0 18px; padding: 10px 16px 10px 14px; border-left: 4px solid #2e5bff; background: linear-gradient(90deg, #eef2ff 0%, #ffffff 70%); border-radius: 0 6px 6px 0; line-height: 1.5; letter-spacing: 0;">2068 行都加在哪了</h2>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">核心循环没变，但每个箭头旁边多了"工作人员"：</p>
+<pre style="background: #0f1729; color: #e1e7ff; padding: 16px 18px; border-radius: 10px; font-size: 12.5px; line-height: 1.65; font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'SF Mono', monospace; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 24px 0; border: 1px solid #1e2a4a; -webkit-overflow-scrolling: touch; -moz-tab-size: 2; tab-size: 2; font-variant-ligatures: none; -webkit-font-smoothing: antialiased;">用户消息
+  ↓
+┌─ ① 调模型前 ──────────────────────┐
+│  压缩上下文 → 读记忆 → 组装工具池   │
+└────────────────────────────────────┘
+  ↓
+┌─ ② 模型调用 ──────────────────────┐
+│  重试 / 切 model / 截断续写         │
+└────────────────────────────────────┘
+  ↓
+┌─ ③ 工具执行 ──────────────────────┐
+│  Hook → 权限 → 后台判断 → handler  │
+└────────────────────────────────────┘
+  ↓
+┌─ ④ 两轮之间 ──────────────────────┐
+│  cron 到点？后台完成？队友消息？    │
+│  → 全部变成新消息注入              │
+└────────────────────────────────────┘
+  ↓
+回到循环顶部
+</pre>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">四段话就是整个 s20。下面每段只讲最关键的。</p>
+<hr style="border: none; height: 1px; background: linear-gradient(to right, transparent, #c7d2fe, transparent); margin: 38px 0;"/>
+<p style="text-align: center; color: #c7d2fe; letter-spacing: 14px; font-size: 11px; margin: 36px 0; user-select: none;">● ● ●</p>
+<h2 style="font-size: 18px; font-weight: 700; color: #0b1530; margin: 40px 0 18px; padding: 10px 16px 10px 14px; border-left: 4px solid #2e5bff; background: linear-gradient(90deg, #eef2ff 0%, #ffffff 70%); border-radius: 0 6px 6px 0; line-height: 1.5; letter-spacing: 0;">① 调模型前：先收拾行李</h2>
+<pre style="background: #0f1729; color: #e1e7ff; padding: 16px 18px; border-radius: 10px; font-size: 12.5px; line-height: 1.65; font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'SF Mono', monospace; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 24px 0; border: 1px solid #1e2a4a; -webkit-overflow-scrolling: touch; -moz-tab-size: 2; tab-size: 2; font-variant-ligatures: none; -webkit-font-smoothing: antialiased;"><span style="color: #959077"># 每轮调模型前，先整理上下文</span>
+<span style="color: #F8F8F2">prepare_context(messages)</span>       <span style="color: #959077"># 压缩：太长的只留头尾</span>
+<span style="color: #F8F8F2">context</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">update_context(</span><span style="color: #FF4689">...</span><span style="color: #F8F8F2">)</span>   <span style="color: #959077"># 读记忆 + MCP状态 + 队友列表</span>
+<span style="color: #F8F8F2">tools,</span> <span style="color: #F8F8F2">handlers</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">assemble_tool_pool()</span>  <span style="color: #959077"># 重组工具池（含新MCP工具）</span>
+<span style="color: #F8F8F2">response</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">call_llm(</span><span style="color: #FF4689">...</span><span style="color: #F8F8F2">)</span>        <span style="color: #959077"># 最后才真正调模型</span>
+</pre>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><span style="background: transparent; color: #1e3a8a; padding: 0 1px; font-weight: 700;">顺序不能乱</span>：先压缩（控制体积）→ 读记忆（补充背景）→ 组工具池（让新 MCP 工具可见）→ 调模型。</p>
+<p style="text-align:center;margin:16px 0;"><img src="http://mmbiz.qpic.cn/sz_mmbiz_png/SOgtoJC9d5QUrRZ0RNAFRoibTBvkhbDHgaRUxlibm1cZeRHvicUD7fWomvm2RbrABibVKzwibL4Sibu0nreI5zO4EUwSGJmH4Dnv4j05YibKAO21Yk/0?wx_fmt=png" alt="调用前先收拾上下文" style="max-width: 100%; height: auto; border-radius: 8px; margin: 24px auto; display: block; box-shadow: 0 6px 20px rgba(11,21,48,0.08); border: 1px solid #eef2ff;"/></p>
+<p style="font-size: 12.5px; color: #8a93a8; text-align: center; margin-top: 10px; letter-spacing: 0; font-style: italic;">调用前先收拾上下文</p>
+<hr style="border: none; height: 1px; background: linear-gradient(to right, transparent, #c7d2fe, transparent); margin: 38px 0;"/>
+<p style="text-align: center; color: #c7d2fe; letter-spacing: 14px; font-size: 11px; margin: 36px 0; user-select: none;">● ● ●</p>
+<h2 style="font-size: 18px; font-weight: 700; color: #0b1530; margin: 40px 0 18px; padding: 10px 16px 10px 14px; border-left: 4px solid #2e5bff; background: linear-gradient(90deg, #eef2ff 0%, #ffffff 70%); border-radius: 0 6px 6px 0; line-height: 1.5; letter-spacing: 0;">② 模型调用：不是按按钮，是走迷宫</h2>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">s01 的调用一行就够。s20 包了 <code style="background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;">with_retry()</code>：</p>
+<pre style="background: #0f1729; color: #e1e7ff; padding: 16px 18px; border-radius: 10px; font-size: 12.5px; line-height: 1.65; font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'SF Mono', monospace; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 24px 0; border: 1px solid #1e2a4a; -webkit-overflow-scrolling: touch; -moz-tab-size: 2; tab-size: 2; font-variant-ligatures: none; -webkit-font-smoothing: antialiased;">遇到 429（限流）     → 指数退避，等一会再试
+遇到 529（过载）     → 切到 fallback model
+遇到 prompt too long → 压缩历史后重新进入
+遇到 max_tokens      → 提高上限，继续生成
+</pre>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><span style="background: transparent; color: #1e3a8a; padding: 0 1px; font-weight: 700;">模型调用在生产里更像一次可能改道的行程，不是按下按钮就必达。</span></p>
+<hr style="border: none; height: 1px; background: linear-gradient(to right, transparent, #c7d2fe, transparent); margin: 38px 0;"/>
+<p style="text-align: center; color: #c7d2fe; letter-spacing: 14px; font-size: 11px; margin: 36px 0; user-select: none;">● ● ●</p>
+<h2 style="font-size: 18px; font-weight: 700; color: #0b1530; margin: 40px 0 18px; padding: 10px 16px 10px 14px; border-left: 4px solid #2e5bff; background: linear-gradient(90deg, #eef2ff 0%, #ffffff 70%); border-radius: 0 6px 6px 0; line-height: 1.5; letter-spacing: 0;">③ 工具执行：四道门，过不了就拦下</h2>
+<pre style="background: #0f1729; color: #e1e7ff; padding: 16px 18px; border-radius: 10px; font-size: 12.5px; line-height: 1.65; font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'SF Mono', monospace; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 24px 0; border: 1px solid #1e2a4a; -webkit-overflow-scrolling: touch; -moz-tab-size: 2; tab-size: 2; font-variant-ligatures: none; -webkit-font-smoothing: antialiased;">模型说&quot;执行 bash sudo shutdown now&quot;
+  ↓
+┌─ 第一道门：PreToolUse Hook ──┐
+│  插件可以观察或拦截            │
+└───────────────────────────────┘
+  ↓ 通过
+┌─ 第二道门：权限检查 ─────────┐
+│  sudo 在 deny list → 拒绝！   │
+│  直接返回 &quot;Permission denied&quot; │
+└───────────────────────────────┘
+  ↓ 没到这一步
+┌─ 第三道门：后台判断 ─────────┐
+│  install/build/test → 转后台  │
+└───────────────────────────────┘
+  ↓
+┌─ 第四道门：真正执行 handler ─┐
+│  + PostToolUse Hook 收尾      │
+└───────────────────────────────┘
+</pre>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><span style="background: transparent; color: #1e3a8a; padding: 0 1px; font-weight: 700;">prompt 写"别运行危险命令"是劝告，permission hook 是代码里的门锁。</span></p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">MCP 工具也走同一个出口——内置工具和外部工具最终都变成"拿到名字和参数，执行 handler，得到 tool_result"。</p>
+<p style="text-align:center;margin:16px 0;"><img src="http://mmbiz.qpic.cn/mmbiz_png/SOgtoJC9d5QGn1ia1yhbdaW3R6iauSE4QcU9A0m7P8Vjb12ywWNVFCguxiamy5Eq85tqFNx0DQibjPia8lPKTiavdRrVzyoibSeoOTLEKIqUkxYaRw/0?wx_fmt=png" alt="工具不能直接执行" style="max-width: 100%; height: auto; border-radius: 8px; margin: 24px auto; display: block; box-shadow: 0 6px 20px rgba(11,21,48,0.08); border: 1px solid #eef2ff;"/></p>
+<p style="font-size: 12.5px; color: #8a93a8; text-align: center; margin-top: 10px; letter-spacing: 0; font-style: italic;">工具不能直接执行</p>
+<hr style="border: none; height: 1px; background: linear-gradient(to right, transparent, #c7d2fe, transparent); margin: 38px 0;"/>
+<p style="text-align: center; color: #c7d2fe; letter-spacing: 14px; font-size: 11px; margin: 36px 0; user-select: none;">● ● ●</p>
+<h2 style="font-size: 18px; font-weight: 700; color: #0b1530; margin: 40px 0 18px; padding: 10px 16px 10px 14px; border-left: 4px solid #2e5bff; background: linear-gradient(90deg, #eef2ff 0%, #ffffff 70%); border-radius: 0 6px 6px 0; line-height: 1.5; letter-spacing: 0;">④ 两轮之间：所有异步事件殊途同归</h2>
+<pre style="background: #0f1729; color: #e1e7ff; padding: 16px 18px; border-radius: 10px; font-size: 12.5px; line-height: 1.65; font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'SF Mono', monospace; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 24px 0; border: 1px solid #1e2a4a; -webkit-overflow-scrolling: touch; -moz-tab-size: 2; tab-size: 2; font-variant-ligatures: none; -webkit-font-smoothing: antialiased;">时间到了 ───────→ [Scheduled] 消息
+后台任务完成 ───→ task_notification 消息
+队友发来消息 ───→ [Inbox] 消息
+MCP 服务端通知 ─→ notification 消息
+                        ↓
+                    全部注入 messages
+                        ↓
+                   下一轮模型就能看到
+</pre>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><span style="background: transparent; color: #1e3a8a; padding: 0 1px; font-weight: 700;">异步机制最终都回答同一个问题：这件新发生的事，怎样进入下一轮？</span></p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">这就是"机制很多，循环一个"的真正含义：不是物理上只有一个 while，而是所有支线最终都回到 Lead 的消息反馈链。</p>
+<hr style="border: none; height: 1px; background: linear-gradient(to right, transparent, #c7d2fe, transparent); margin: 38px 0;"/>
+<p style="text-align: center; color: #c7d2fe; letter-spacing: 14px; font-size: 11px; margin: 36px 0; user-select: none;">● ● ●</p>
+<h2 style="font-size: 18px; font-weight: 700; color: #0b1530; margin: 40px 0 18px; padding: 10px 16px 10px 14px; border-left: 4px solid #2e5bff; background: linear-gradient(90deg, #eef2ff 0%, #ffffff 70%); border-radius: 0 6px 6px 0; line-height: 1.5; letter-spacing: 0;">真实 Claude Code CLI 还有哪些新东西</h2>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">教学版是骨架。真实 CLI 在这之上还加了这些能力：</p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><strong style="color: #0b1530; font-weight: 800; background: linear-gradient(180deg, transparent 62%, #fff18a 62%, #fff18a 95%, transparent 95%); padding: 1px 6px;">Skills（技能命令）</strong></p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><code style="background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;">s05</code> 自动扫描目录；真实 CLI 加了 <code style="background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;">skill load</code> 手动加载。实现思路：技能 = Markdown + 可选脚本，加载时注入 system prompt。还多了依赖声明和版本管理。</p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><strong style="color: #0b1530; font-weight: 800; background: linear-gradient(180deg, transparent 62%, #fff18a 62%, #fff18a 95%, transparent 95%); padding: 1px 6px;">Slash Commands（斜杠命令）</strong></p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><code style="background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;">/help</code>、<code style="background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;">/compact</code>、<code style="background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;">/model</code>。实现思路：用户消息以 <code style="background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;">/</code> 开头时，<span style="background: transparent; color: #1e3a8a; padding: 0 1px; font-weight: 700;">程序在进入 messages 之前就拦截了，模型根本看不到</span>。</p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><strong style="color: #0b1530; font-weight: 800; background: linear-gradient(180deg, transparent 62%, #fff18a 62%, #fff18a 95%, transparent 95%); padding: 1px 6px;">Plan Mode（计划模式）</strong></p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">模型先出计划，确认后才执行。实现思路：临时把工具替换成只读子集，批准后恢复完整工具池。</p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><strong style="color: #0b1530; font-weight: 800; background: linear-gradient(180deg, transparent 62%, #fff18a 62%, #fff18a 95%, transparent 95%); padding: 1px 6px;">Checkpoint / Undo（检查点回滚）</strong></p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">每次工具执行前存快照。实现思路：git stash 或文件 diff 记录状态，<code style="background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;">/undo</code> 时逆序恢复。</p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><strong style="color: #0b1530; font-weight: 800; background: linear-gradient(180deg, transparent 62%, #fff18a 62%, #fff18a 95%, transparent 95%); padding: 1px 6px;">Streaming + Interruption（流式 + 中断）</strong></p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">ESC 打断。实现思路：维护"是否在工具调用中"状态，中断时决定完成还是回滚。</p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><span style="background: transparent; color: #1e3a8a; padding: 0 1px; font-weight: 700;">这些功能的核心思路和前 19 节一脉相承：外部事件变消息、代码层拦截、状态可恢复。</span></p>
+<hr style="border: none; height: 1px; background: linear-gradient(to right, transparent, #c7d2fe, transparent); margin: 38px 0;"/>
+<p style="text-align: center; color: #c7d2fe; letter-spacing: 14px; font-size: 11px; margin: 36px 0; user-select: none;">● ● ●</p>
+<h2 style="font-size: 18px; font-weight: 700; color: #0b1530; margin: 40px 0 18px; padding: 10px 16px 10px 14px; border-left: 4px solid #2e5bff; background: linear-gradient(90deg, #eef2ff 0%, #ffffff 70%); border-radius: 0 6px 6px 0; line-height: 1.5; letter-spacing: 0;">Demo：一次跑完三条路</h2>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">跑一个确定性探针，不经过 LLM，直接调源码函数：</p>
+<pre style="background: #0f1729; color: #e1e7ff; padding: 16px 18px; border-radius: 10px; font-size: 12.5px; line-height: 1.65; font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'SF Mono', monospace; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 24px 0; border: 1px solid #1e2a4a; -webkit-overflow-scrolling: touch; -moz-tab-size: 2; tab-size: 2; font-variant-ligatures: none; -webkit-font-smoothing: antialiased;">s20 &gt;&gt; Connect docs, run a safe read, try denied command
+prepare_context: 1 -&gt; 1
+  [mcp] connected: docs → [&#39;search&#39;, &#39;get_version&#39;]
+tool pool: 29 (includes mcp__docs__search)
+&gt; read_file
+prehook blocked: None          ← Hook 没拦
+tool_result: comprehensive demo ← 正常读到文件
+&gt; bash sudo shutdown now
+tool_result: Permission denied  ← 权限拦住了，根本没执行
+&gt; mcp__docs__search
+[docs] Found 3 results          ← MCP 工具和内置工具走同一条路
+message feedback: assistant tool_use → user tool_result → next LLM turn
+</pre>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><span style="background: transparent; color: #1e3a8a; padding: 0 1px; font-weight: 700;">一次运行验证了三条分支：动态工具发现、Hook 放行、权限拦截。</span></p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">最后一行最重要：29 个工具、五种异步入口、多条恢复分支，最后仍回到 <code style="background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;">tool_use → tool_result → 下一轮</code> 这条配对。</p>
+<p style="text-align:center;margin:16px 0;"><img src="http://mmbiz.qpic.cn/sz_mmbiz_png/SOgtoJC9d5R0L4x8gf3WsZsXFWwkoF9hu47zwWfg6x3n7wvILJZNxw70NiauiaP0iaicRv9BXdicSgxdU1WYcTrfNQdSlBx6KAOYBibX6FiajWicQnQ/0?wx_fmt=png" alt="慢任务和外部事件最终回到消息流" style="max-width: 100%; height: auto; border-radius: 8px; margin: 24px auto; display: block; box-shadow: 0 6px 20px rgba(11,21,48,0.08); border: 1px solid #eef2ff;"/></p>
+<p style="font-size: 12.5px; color: #8a93a8; text-align: center; margin-top: 10px; letter-spacing: 0; font-style: italic;">慢任务和外部事件最终回到消息流</p>
+<hr style="border: none; height: 1px; background: linear-gradient(to right, transparent, #c7d2fe, transparent); margin: 38px 0;"/>
+<p style="text-align: center; color: #c7d2fe; letter-spacing: 14px; font-size: 11px; margin: 36px 0; user-select: none;">● ● ●</p>
+<h2 style="font-size: 18px; font-weight: 700; color: #0b1530; margin: 40px 0 18px; padding: 10px 16px 10px 14px; border-left: 4px solid #2e5bff; background: linear-gradient(90deg, #eef2ff 0%, #ffffff 70%); border-radius: 0 6px 6px 0; line-height: 1.5; letter-spacing: 0;">教学版 vs 真实 Claude Code</h2>
+<table style="width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 14px; border-radius: 8px; overflow: hidden; border: 1px solid #e8ecf7; table-layout: fixed; word-break: break-word;"><tr><th style="background: #0b1530; color: #ffffff; padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12.5px; letter-spacing: 0; word-break: break-word; line-height: 1.5;">环节</th><th style="background: #0b1530; color: #ffffff; padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12.5px; letter-spacing: 0; word-break: break-word; line-height: 1.5;">教学版</th><th style="background: #0b1530; color: #ffffff; padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12.5px; letter-spacing: 0; word-break: break-word; line-height: 1.5;">真实 CC 补了什么</th></tr><tr><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">核心循环</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;"><code style="background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;">agent_loop()</code></td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">同样的反馈协议 + 缓存优化</td></tr><tr><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">上下文</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">budget + compact</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">token 预算 + 压缩 + 缓存命中</td></tr><tr><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">模型恢复</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">重试 + 切 model</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">+ 错误分类 + UI 状态协同</td></tr><tr><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">工具池</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">27 内置 + mock MCP</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">真实 transport + OAuth + 重连</td></tr><tr><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">后台任务</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">daemon thread</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">+ 输出落盘 + 停滞检测</td></tr><tr><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">团队</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">文件邮箱 + 线程</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">+ 任务锁 + 完整生命周期</td></tr><tr><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">MCP</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">Python mock</td><td style="padding: 10px 8px; border-bottom: 1px solid #eef2ff; color: #242832; font-size: 13px; word-break: break-word; line-height: 1.55;">真实 JSON-RPC + Channel 通知</td></tr></table>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><span style="background: transparent; color: #1e3a8a; padding: 0 1px; font-weight: 700;">教学版讲的是"发现→命名→调用"骨架，真实系统补的全是并发安全和生命周期。</span></p>
+<p style="text-align:center;margin:16px 0;"><img src="http://mmbiz.qpic.cn/sz_mmbiz_png/SOgtoJC9d5TUXsGm6drIj4ca1KqoctaLt4zo0hzPhjvkJwg4pMg8fBiccepLXg0S1gY9HSNrrU5EyDpVLwJNsUABC4ntibyCnob5E3IAsceSiaQ/0?wx_fmt=png" alt="复杂的是循环外面的工程" style="max-width: 100%; height: auto; border-radius: 8px; margin: 24px auto; display: block; box-shadow: 0 6px 20px rgba(11,21,48,0.08); border: 1px solid #eef2ff;"/></p>
+<p style="font-size: 12.5px; color: #8a93a8; text-align: center; margin-top: 10px; letter-spacing: 0; font-style: italic;">复杂的是循环外面的工程</p>
+<hr style="border: none; height: 1px; background: linear-gradient(to right, transparent, #c7d2fe, transparent); margin: 38px 0;"/>
+<p style="text-align: center; color: #c7d2fe; letter-spacing: 14px; font-size: 11px; margin: 36px 0; user-select: none;">● ● ●</p>
+<h2 style="font-size: 18px; font-weight: 700; color: #0b1530; margin: 40px 0 18px; padding: 10px 16px 10px 14px; border-left: 4px solid #2e5bff; background: linear-gradient(90deg, #eef2ff 0%, #ffffff 70%); border-radius: 0 6px 6px 0; line-height: 1.5; letter-spacing: 0;">收尾</h2>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">最开始看 s01，我把 Agent 想成"模型 + while True"。</p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">读完 s20 发现这没错，但太像把电脑概括成"CPU + 循环"。真正决定它能不能长期工作的是周围这些：</p>
+<pre style="background: #0f1729; color: #e1e7ff; padding: 16px 18px; border-radius: 10px; font-size: 12.5px; line-height: 1.65; font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'SF Mono', monospace; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 24px 0; border: 1px solid #1e2a4a; -webkit-overflow-scrolling: touch; -moz-tab-size: 2; tab-size: 2; font-variant-ligatures: none; -webkit-font-smoothing: antialiased;">┌─────────────────────────────────────┐
+│           Agent Harness             │
+│                                     │
+│  上下文管理 → 记住多少、忘掉什么     │
+│  工具权限   → 能做什么、不能做什么   │
+│  任务团队   → 怎么拆分、认领、交接   │
+│  异步入口   → 没人盯时能不能继续     │
+│  恢复机制   → 出错了会不会死掉       │
+│  MCP插件    → 能不能不改代码就扩展   │
+│                                     │
+│         ┌───────────┐               │
+│         │   模型    │ ← 大脑        │
+│         │  (不变的核心) │            │
+│         └───────────┘               │
+└─────────────────────────────────────┘
+</pre>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;"><span style="background: linear-gradient(180deg, transparent 55%, #fff18a 55%); color: #242832; padding: 1px 6px; font-weight: 600;">模型负责判断，程序负责让这个判断安全、连续、可恢复地发生。</span></p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">30 行没有被 2068 行推翻。那 30 行只是地基，后面的每一节都在回答现实世界向地基提出的新问题。</p>
+<p style="margin: 16px 0; text-indent: 0; text-align: justify; color: #242832; line-height: 1.85;">源码地址：https://github.com/shareAI-lab/learn-claude-code</p>
+</section>
+</body>
+</html>
