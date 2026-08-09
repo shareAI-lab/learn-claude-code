@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-s10: System Prompt — Runtime prompt assembly with caching.
+s10: System Prompt — 运行时 prompt 组装与缓存。
 
-Run:  python s10_system_prompt/code.py
-Need: pip install anthropic python-dotenv + .env with ANTHROPIC_API_KEY
+格言：Prompt 在运行时组装，而不是硬编码 —— 按 section 拼接，按需加载
 
-Changes from s09:
-  - PROMPT_SECTIONS: topic-keyed dict of prompt fragments
-  - assemble_system_prompt(context): select + join sections by real state
-  - get_system_prompt(context): deterministic cache via json.dumps
-  - agent_loop uses get_system_prompt(context) instead of hardcoded SYSTEM
+运行:  python s10_system_prompt/code.py
+需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
 
-Memory section loads when .memory/MEMORY.md exists (real state, not keywords).
+相对 s09 的变化：
+  - PROMPT_SECTIONS: 以 topic 为 key 的 prompt 片段 dict
+  - assemble_system_prompt(context): 按真实状态选择并拼接 section
+  - get_system_prompt(context): 通过 json.dumps 做确定性缓存
+  - agent_loop 使用 get_system_prompt(context)，不再使用硬编码 SYSTEM
+
+当 .memory/MEMORY.md 存在且有内容时加载 memory section（真实状态，不是关键词）。
 """
 
 import os, subprocess, json
@@ -45,19 +47,19 @@ PROMPT_SECTIONS = {
 
 
 def assemble_system_prompt(context: dict) -> str:
-    """Select and join prompt sections based on current context."""
+    """基于当前 context 选择并拼接 prompt sections。"""
     sections = []
 
-    # Always loaded — identity
+    # 始终加载 —— identity
     sections.append(PROMPT_SECTIONS["identity"])
 
-    # Dynamic — tools and workspace from context
+    # 动态 —— 来自 context 的 tools 和 workspace
     tools = ", ".join(context.get("enabled_tools", []))
     if tools:
         sections.append(f"Available tools: {tools}.")
     sections.append(f"Working directory: {context.get("workspace", WORKDIR)}")
 
-    # Conditional — memory loaded when MEMORY.md exists and has content
+    # 条件加载 —— MEMORY.md 存在且有内容时加载 memory
     memories = context.get("memories", "")
     if memories:
         sections.append(f"Relevant memories:\n{memories}")
@@ -70,13 +72,23 @@ _last_prompt = None
 
 
 def get_system_prompt(context: dict) -> str:
-    """Cache wrapper — reassemble only when context changes.
+    """
 
-    Uses json.dumps for deterministic serialization, not Python's hash()
-    which has process randomization and fails on nested dicts/lists.
-    This cache only avoids redundant string assembly within a process.
-    Real Claude Code additionally protects API-level prompt cache via
-    stable section ordering and SYSTEM_PROMPT_DYNAMIC_BOUNDARY.
+
+
+
+缓存 wrapper —— 只有 context 变化时才重新组装。
+
+    使用 json.dumps 做确定性 serialization，而不是 Python 的 hash()，
+    后者有 process randomization，并且会在 nested dicts/lists 上失败。
+    这个 cache 只避免同一进程内重复 string assembly。
+    真实 Claude Code 还会通过
+    稳定 section ordering 和 SYSTEM_PROMPT_DYNAMIC_BOUNDARY 保护 API-level prompt cache。
+    
+    
+    
+    
+    
     """
     global _last_context_key, _last_prompt
     key = json.dumps(context, sort_keys=True, ensure_ascii=False, default=str)
@@ -155,7 +167,7 @@ TOOL_HANDLERS = {"bash": run_bash, "read_file": run_read, "write_file": run_writ
 # ── Context ──
 
 def update_context(context: dict, messages: list) -> dict:
-    """Derive context from real state: which tools exist, whether memory files exist."""
+    """从真实状态推导 context：有哪些 tools、memory files 是否存在。"""
     memories = ""
     if MEMORY_INDEX.exists():
         content = MEMORY_INDEX.read_text().strip()
@@ -171,7 +183,7 @@ def update_context(context: dict, messages: list) -> dict:
 # ── Agent Loop ──
 
 def agent_loop(messages: list, context: dict):
-    """Main loop — uses assembled system prompt instead of hardcoded SYSTEM."""
+    """主 loop —— 使用组装后的 system prompt，而不是硬编码 SYSTEM。"""
     system = get_system_prompt(context)
     while True:
         response = client.messages.create(
@@ -193,7 +205,7 @@ def agent_loop(messages: list, context: dict):
                             "tool_use_id": block.id, "content": output})
         messages.append({"role": "user", "content": results})
 
-        # Re-evaluate context and prompt after each tool round
+        # 每轮 tool 后重新评估 context 和 prompt
         context = update_context(context, messages)
         system = get_system_prompt(context)
 

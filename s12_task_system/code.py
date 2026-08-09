@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 """
-s12: Task System — file-persisted task graph with blockedBy dependencies.
+s12: Task System — 文件持久化的 task graph，带 blockedBy dependencies。
 
-Run:  python s12_task_system/code.py
-Need: pip install anthropic python-dotenv + .env with ANTHROPIC_API_KEY
+格言：大目标拆成小 task，排序，并持久化到磁盘 —— 文件支持的 task graph 为多 agent 协作打基础
 
-Changes from s11:
-  - Task dataclass (id, subject, description, status, owner, blockedBy)
-  - TASKS_DIR = .tasks/ for persistent JSON storage
+运行:  python s12_task_system/code.py
+需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
+
+相对 s11 的变化：
+  - Task dataclass（id, subject, description, status, owner, blockedBy）
+  - TASKS_DIR = .tasks/，用于持久化 JSON 存储
   - create_task / save_task / load_task / list_tasks / get_task
-  - can_start: checks blockedBy all completed (missing deps = blocked)
-  - claim_task: set owner + pending -> in_progress
-  - complete_task: set completed + report unblocked downstream
-  - 5 new tools: create_task, list_tasks, get_task, claim_task, complete_task
+  - can_start: 检查 blockedBy 是否全部 completed（缺失 deps = blocked）
+  - claim_task: 设置 owner + pending -> in_progress
+  - complete_task: 设置 completed + report unblocked downstream
+  - 5 个新 tools: create_task, list_tasks, get_task, claim_task, complete_task
 
-Note: Teaching code keeps a basic agent loop to stay focused on the task
-system. S11's full error recovery (RecoveryState, backoff, escalation,
-reactive compact, fallback model) is omitted — in real CC, tasks.ts and
-withRetry are independent layers that compose naturally.
+注意：教学代码保留 basic agent loop，以便聚焦 task
+system。S11 的完整 error recovery（RecoveryState, backoff, escalation,
+reactive compact, fallback model）被省略——在真实 CC 中，tasks.ts 和
+withRetry 是独立 layer，可以自然组合。
 """
 
 import os, subprocess, json, time, random
@@ -91,14 +93,24 @@ def list_tasks() -> list[Task]:
 
 
 def get_task(task_id: str) -> str:
-    """Return full task details as JSON."""
+    """以 JSON 返回完整 task details。"""
     task = load_task(task_id)
     return json.dumps(asdict(task), indent=2)
 
 
 def can_start(task_id: str) -> bool:
-    """Check if all blockedBy dependencies are completed.
-    Missing dependencies are treated as blocked."""
+    """
+
+
+
+
+检查所有 blockedBy dependencies 是否 completed。
+    缺失 dependencies 视为 blocked。
+    
+    
+    
+    
+    """
     task = load_task(task_id)
     for dep_id in task.blockedBy:
         if not _task_path(dep_id).exists():
@@ -139,7 +151,7 @@ def complete_task(task_id: str) -> str:
     return msg
 
 
-# ── Prompt Assembly (from s10, synced) ──
+# ── Prompt 组装（来自 s10，已同步） ──
 
 PROMPT_SECTIONS = {
     "identity": "You are a coding agent. Act, don't explain.",
@@ -308,7 +320,7 @@ TOOL_HANDLERS = {
 # ── Context ──
 
 def update_context(context: dict, messages: list) -> dict:
-    """Derive context from real state."""
+    """从真实状态推导 context。"""
     memories = ""
     if MEMORY_INDEX.exists():
         content = MEMORY_INDEX.read_text().strip()
@@ -321,7 +333,7 @@ def update_context(context: dict, messages: list) -> dict:
     }
 
 
-# ── Agent Loop (simplified, focused on task system) ──
+# ── Agent Loop（简化版，聚焦 task system） ──
 
 def agent_loop(messages: list, context: dict):
     system = get_system_prompt(context)

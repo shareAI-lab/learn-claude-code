@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """
-s17: Autonomous Agents — idle poll + auto-claim + WORK/IDLE lifecycle.
+s17: Autonomous Agents — idle poll + auto-claim + WORK/IDLE lifecycle。
 
-Run:  python s17_autonomous_agents/code.py
-Need: pip install anthropic python-dotenv + .env with ANTHROPIC_API_KEY
+格言：队友自己看板、自己认领工作 —— 不靠 leader 逐个分派；自组织
 
-Changes from s16:
-  - scan_unclaimed_tasks: find pending, unowned tasks with deps completed
-  - idle_poll: 60s polling loop (inbox + task board), dispatches shutdown in IDLE
+运行:  python s17_autonomous_agents/code.py
+需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
+
+相对 s16 的变化：
+  - scan_unclaimed_tasks: 找到 pending、unowned、deps completed 的 tasks
+  - idle_poll: 60s polling loop（inbox + task board），在 IDLE 中 dispatch shutdown
   - claim_task: owner check + return value verification
   - Teammate lifecycle: WORK → IDLE → SHUTDOWN
-  - Teammate tools: + list_tasks, claim_task, complete_task (5→8)
-  - consume_lead_inbox: unified inbox consumer for protocol + context injection
-  - Identity re-injection after context compression
+  - Teammate tools: + list_tasks, claim_task, complete_task（5→8）
+  - consume_lead_inbox: protocol + context injection 的统一 inbox consumer
+  - context compression 后重新注入 identity
 
 ASCII lifecycle:
   WORK: inbox → LLM → tools → (tool_use? loop) → (done? → IDLE)
@@ -41,7 +43,7 @@ WORKDIR = Path.cwd()
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
-# ── Task System (from s12) ──
+# ── Task System（来自 s12） ──
 
 TASKS_DIR = WORKDIR / ".tasks"
 TASKS_DIR.mkdir(exist_ok=True)
@@ -137,7 +139,7 @@ def complete_task(task_id: str) -> str:
     return msg
 
 
-# ── Prompt Assembly (from s10) ──
+# ── Prompt 组装（来自 s10） ──
 
 PROMPT_SECTIONS = {
     "identity": "You are a coding agent. Act, don't explain.",
@@ -171,7 +173,7 @@ def get_system_prompt(context: dict) -> str:
     return _last_prompt
 
 
-# ── Tools (from s15) ──
+# ── Tools（来自 s15） ──
 
 def safe_path(p: str) -> Path:
     path = (WORKDIR / p).resolve()
@@ -210,7 +212,7 @@ def run_write(path: str, content: str) -> str:
         return f"Error: {e}"
 
 
-# ── MessageBus (from s15) ──
+# ── MessageBus（来自 s15） ──
 
 MAILBOX_DIR = WORKDIR / ".mailboxes"
 MAILBOX_DIR.mkdir(exist_ok=True)
@@ -242,7 +244,7 @@ BUS = MessageBus()
 active_teammates: dict[str, bool] = {}
 
 
-# ── Protocol State (from s16) ──
+# ── Protocol State（来自 s16） ──
 
 @dataclass
 class ProtocolState:
@@ -263,7 +265,7 @@ def new_request_id() -> str:
 
 
 def match_response(response_type: str, request_id: str, approve: bool):
-    """Correlate a response to the original request via request_id."""
+    """通过 request_id 把 response 关联到原始 request。"""
     state = pending_requests.get(request_id)
     if not state:
         print(f"  \033[31m[protocol] unknown request_id: {request_id}\033[0m")
@@ -283,14 +285,14 @@ def match_response(response_type: str, request_id: str, approve: bool):
           f"({request_id}: {state.status})\033[0m")
 
 
-# ── Autonomous Agent (s17 new) ──
+# ── Autonomous Agent（s17 新增） ──
 
 IDLE_POLL_INTERVAL = 5   # seconds
 IDLE_TIMEOUT = 60         # seconds
 
 
 def scan_unclaimed_tasks() -> list[dict]:
-    """Find pending, unowned tasks with all dependencies completed."""
+    """查找 pending、unowned 且所有 dependencies completed 的 tasks。"""
     unclaimed = []
     for f in sorted(TASKS_DIR.glob("task_*.json")):
         task = json.loads(f.read_text())
@@ -302,14 +304,14 @@ def scan_unclaimed_tasks() -> list[dict]:
 
 
 def idle_poll(name: str, messages: list, role: str) -> str:
-    """Poll for 60s. Return 'work', 'shutdown', or 'timeout'."""
+    """poll 60s。返回 'work'、'shutdown' 或 'timeout'。"""
     for _ in range(IDLE_TIMEOUT // IDLE_POLL_INTERVAL):
         time.sleep(IDLE_POLL_INTERVAL)
 
-        # Check inbox — dispatch protocol messages first
+        # 检查 inbox —— 优先 dispatch protocol messages
         inbox = BUS.read_inbox(name)
         if inbox:
-            # Check for shutdown_request
+            # 检查 shutdown_request
             for msg in inbox:
                 if msg.get("type") == "shutdown_request":
                     req_id = msg.get("metadata", {}).get("request_id", "")
@@ -320,13 +322,13 @@ def idle_poll(name: str, messages: list, role: str) -> str:
                           f"in idle ({req_id})\033[0m")
                     return "shutdown"
 
-            # Non-protocol inbox: inject and resume work
+            # 非 protocol inbox：注入并恢复 work
             messages.append({"role": "user",
                 "content": "<inbox>" + json.dumps(inbox) + "</inbox>"})
             print(f"  \033[36m[idle] {name} found inbox messages\033[0m")
             return "work"
 
-        # Scan task board
+        # 扫描 task board
         unclaimed = scan_unclaimed_tasks()
         if unclaimed:
             task = unclaimed[0]
@@ -345,7 +347,7 @@ def idle_poll(name: str, messages: list, role: str) -> str:
     return "timeout"
 
 
-# ── Teammate Thread (from s15 + s16 + s17) ──
+# ── Teammate Thread（来自 s15 + s16 + s17） ──
 
 def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
     if name in active_teammates:
@@ -357,7 +359,7 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
               f"Check inbox for protocol messages.")
 
     def handle_inbox_message(name: str, msg: dict, messages: list):
-        """Dispatch incoming protocol messages by type."""
+        """按 type dispatch incoming protocol messages。"""
         msg_type = msg.get("type", "message")
         meta = msg.get("metadata", {})
         req_id = meta.get("request_id", "")
@@ -407,7 +409,7 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
              "input_schema": {"type": "object",
                               "properties": {"plan": {"type": "string"}},
                               "required": ["plan"]}},
-            # s17 new: teammates can list, claim, and complete tasks
+            # s17 新增：teammates 可以 list、claim、complete tasks
             {"name": "list_tasks",
              "description": "List all tasks on the board.",
              "input_schema": {"type": "object", "properties": {},
@@ -448,15 +450,15 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
             "complete_task": _run_complete_task,
         }
 
-        # Outer loop: WORK → IDLE cycle
+        # 外层 loop：WORK → IDLE cycle
         while True:
-            # Identity re-injection (s17)
+            # Identity 重新注入（s17）
             if len(messages) <= 3:
                 messages.insert(0, {"role": "user",
                     "content": f"<identity>You are '{name}', role: {role}. "
                                f"Continue your work.</identity>"})
 
-            # WORK phase
+            # WORK 阶段
             should_shutdown = False
             for _ in range(10):
                 inbox = BUS.read_inbox(name)
@@ -496,14 +498,14 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
             if should_shutdown:
                 break
 
-            # IDLE phase (s17 new)
+            # IDLE 阶段（s17 新增）
             idle_result = idle_poll(name, messages, role)
             if idle_result == "shutdown":
                 break
             if idle_result == "timeout":
                 break
 
-        # Summary
+        # 摘要
         summary = "Done."
         for msg in reversed(messages):
             if msg["role"] == "assistant" and isinstance(msg["content"], list):
@@ -525,7 +527,7 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
 
 
 def _teammate_submit_plan(from_name: str, plan: str) -> str:
-    """Teammate submits a plan to Lead for approval."""
+    """Teammate 向 Lead 提交 plan 以供 approval。"""
     req_id = new_request_id()
     pending_requests[req_id] = ProtocolState(
         request_id=req_id, type="plan_approval",
@@ -577,7 +579,7 @@ def run_review_plan(request_id: str, approve: bool,
     return f"Plan {'approved' if approve else 'rejected'} ({request_id})"
 
 
-# ── Basic tool handlers ──
+# ── 基础 tool handlers ──
 
 def run_create_task(subject: str, description: str = "",
                     blockedBy: list[str] | None = None) -> str:
@@ -618,7 +620,7 @@ def run_send_message(to: str, content: str) -> str:
 
 
 def consume_lead_inbox(route_protocol=True) -> list[dict]:
-    """Read Lead inbox: route protocol responses, return all messages."""
+    """读取 Lead inbox：路由 protocol responses，返回所有 messages。"""
     msgs = BUS.read_inbox("lead")
     if route_protocol:
         for msg in msgs:
@@ -643,7 +645,7 @@ def run_check_inbox() -> str:
     return "\n".join(lines)
 
 
-# ── Tool Definitions ──
+# ── Tool 定义 ──
 
 TOOLS = [
     {"name": "bash", "description": "Run a shell command.",
@@ -802,7 +804,7 @@ if __name__ == "__main__":
             elif isinstance(block, dict) and block.get("type") == "text":
                 print(block.get("text", ""))
 
-        # Consume lead inbox: route protocol + inject into history
+        # 消费 lead inbox：路由 protocol + 注入 history
         inbox = consume_lead_inbox(route_protocol=True)
         if inbox:
             inbox_text = "\n".join(

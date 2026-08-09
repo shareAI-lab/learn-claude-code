@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-s05: TodoWrite — add a planning tool on top of s04 hooks.
+s05: TodoWrite — 在 s04 hooks 之上增加 planning tool。
+
+格言：没有计划的 agent 会漂移 —— 开始前先列步骤；完成率会翻倍
 
   +---------+      +-------+      +------------------+
   |  User   | ---> |  LLM  | ---> | TOOL_HANDLERS    |
@@ -12,20 +14,20 @@ s05: TodoWrite — add a planning tool on top of s04 hooks.
                                       todo_write ← NEW
                                    +------------------+
                                         |
-                         in-memory current_todos
+                         内存中的 current_todos
                                         |
                         if rounds_since_todo >= 3:
                           inject <reminder>
 
-Changes from s04:
-  + todo_write tool + run_todo_write() implementation
-  + Nag reminder (inject reminder after 3 rounds without todo update)
-  + SYSTEM prompt includes "plan before execute" guidance
-  + rounds_since_todo counter in agent_loop
-  Loop unchanged: new tool auto-dispatches via TOOL_HANDLERS.
+相对 s04 的变化：
+  + todo_write tool + run_todo_write() 实现
+  + Nag reminder（3 轮没有 todo 更新后注入 reminder）
+  + SYSTEM prompt 包含“先计划再执行”的指导
+  + agent_loop 中的 rounds_since_todo 计数器
+  Loop 不变：新 tool 通过 TOOL_HANDLERS 自动分发。
 
-Run: python s05_todo_write/code.py
-Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
+运行: python s05_todo_write/code.py
+需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
 """
 
 import ast, json, os, subprocess
@@ -49,7 +51,7 @@ client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 CURRENT_TODOS: list[dict] = []
 
-# s05 change: SYSTEM prompt adds planning guidance
+# s05 变化：SYSTEM prompt 增加 planning 指导
 SYSTEM = (
     f"You are a coding agent at {WORKDIR}. "
     "Before starting any multi-step task, use todo_write to plan your steps. "
@@ -58,7 +60,7 @@ SYSTEM = (
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s02-s04 (unchanged): Tool Implementations
+# 来自 s02-s04（未改动）：Tool 实现
 # ═══════════════════════════════════════════════════════════
 
 def safe_path(p: str) -> Path:
@@ -118,7 +120,7 @@ def run_glob(pattern: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
-#  NEW in s05: todo_write tool — plan only, no execution
+# s05 新增：todo_write tool —— 只规划，不执行
 # ═══════════════════════════════════════════════════════════
 
 def _normalize_todos(todos):
@@ -165,7 +167,7 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
     {"name": "glob", "description": "Find files matching a glob pattern.",
      "input_schema": {"type": "object", "properties": {"pattern": {"type": "string"}}, "required": ["pattern"]}},
-    # s05: new tool
+    # s05：新 tool
     {"name": "todo_write", "description": "Create and manage a task list for your current coding session.",
      "input_schema": {"type": "object", "properties": {"todos": {"type": "array", "items": {"type": "object", "properties": {"content": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}, "required": ["content", "status"]}}}, "required": ["todos"]}},
 ]
@@ -177,7 +179,7 @@ TOOL_HANDLERS = {
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s04 (unchanged): Hook System
+# 来自 s04（未改动）：Hook System
 # ═══════════════════════════════════════════════════════════
 
 HOOKS = {"UserPromptSubmit": [], "PreToolUse": [], "PostToolUse": [], "Stop": []}
@@ -192,11 +194,11 @@ def trigger_hooks(event: str, *args):
             return result
     return None
 
-# s04 hooks preserved
+# 保留 s04 hooks
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
 
 def permission_hook(block):
-    """PreToolUse: deny list check."""
+    """PreToolUse：拒绝列表检查。"""
     if block.name == "bash":
         for p in DENY_LIST:
             if p in block.input.get("command", ""):
@@ -205,17 +207,17 @@ def permission_hook(block):
     return None
 
 def log_hook(block):
-    """PreToolUse: log tool calls."""
+    """PreToolUse：记录 tool calls。"""
     print(f"\033[90m[HOOK] {block.name}\033[0m")
     return None
 
 def context_inject_hook(query: str):
-    """UserPromptSubmit: log working directory."""
+    """UserPromptSubmit：记录 working directory。"""
     print(f"\033[90m[HOOK] UserPromptSubmit: working in {WORKDIR}\033[0m")
     return None
 
 def summary_hook(messages: list):
-    """Stop: print tool call count."""
+    """Stop：打印 tool call count。"""
     tool_count = sum(1 for m in messages
                      for b in (m.get("content") if isinstance(m.get("content"), list) else [])
                      if isinstance(b, dict) and b.get("type") == "tool_result")
@@ -229,13 +231,13 @@ register_hook("Stop", summary_hook)
 
 
 # ═══════════════════════════════════════════════════════════
-#  agent_loop — same as s04 + nag reminder counter
+# agent_loop —— 与 s04 相同 + nag reminder 计数器
 # ═══════════════════════════════════════════════════════════
 
 def agent_loop(messages: list):
     rounds_since_todo = 0
     while True:
-        # s05: nag reminder — inject if model hasn't updated todos for 3 rounds
+        # s05：nag reminder —— model 连续 3 轮未更新 todos 时注入
         if rounds_since_todo >= 3 and messages:
             messages.append({"role": "user",
                              "content": "<reminder>Update your todos.</reminder>"})
@@ -271,7 +273,7 @@ def agent_loop(messages: list):
 
             trigger_hooks("PostToolUse", block, output)
 
-            # s05: reset nag counter when todo_write is called
+            # s05：调用 todo_write 时重置 nag 计数器
             if block.name == "todo_write":
                 rounds_since_todo = 0
 

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-s01_agent_loop.py - The Agent Loop
+s01_agent_loop.py - Agent Loop
 
-The entire secret of an AI coding agent in one pattern:
+格言：一个 loop 和 Bash 就够了 —— 一个 tool + 一个 loop = 一个 agent
+
+AI 编码 agent 的全部秘密都在这个模式里：
 
     while stop_reason == "tool_use":
         response = LLM(messages, tools)
@@ -18,11 +20,11 @@ The entire secret of an AI coding agent in one pattern:
                           +---------------+
                           (loop continues)
 
-This is the core loop: feed tool results back to the model
-until the model decides to stop. Production agents layer
-policy, hooks, and lifecycle controls on top.
+这是核心 loop：把 tool result 喂回 model，
+直到 model 决定停止。生产级 agent 会在其上叠加
+policy、hooks 和 lifecycle controls。
 
-Usage:
+用法：
     pip install anthropic python-dotenv
     ANTHROPIC_API_KEY=... python s01_agent_loop/code.py
 """
@@ -53,7 +55,7 @@ MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = f"You are a coding agent at {os.getcwd()}. Use bash to solve tasks. Act, don't explain."
 
-# ── Tool definition: just bash ────────────────────────────
+# ── Tool 定义：仅 bash ────────────────────────────
 TOOLS = [{
     "name": "bash",
     "description": "Run a shell command.",
@@ -65,7 +67,7 @@ TOOLS = [{
 }]
 
 
-# ── Tool execution ────────────────────────────────────────
+# ── Tool 执行 ────────────────────────────────────────
 def run_bash(command: str) -> str:
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
     if any(d in command for d in dangerous):
@@ -81,7 +83,7 @@ def run_bash(command: str) -> str:
         return f"Error: {e}"
 
 
-# ── The core pattern: a while loop that calls tools until the model stops ──
+# ── 核心模式：while loop 持续调用 tools，直到 model 停止 ──
 def agent_loop(messages: list):
     while True:
         response = client.messages.create(
@@ -89,14 +91,14 @@ def agent_loop(messages: list):
             tools=TOOLS, max_tokens=8000,
         )
 
-        # Append assistant turn
+        # 追加 assistant 轮次
         messages.append({"role": "assistant", "content": response.content})
 
-        # If the model didn't call a tool, we're done
+        # 如果 model 没有调用 tool，就结束
         if response.stop_reason != "tool_use":
             return
 
-        # Execute each tool call, collect results
+        # 执行每个 tool call，并收集 results
         results = []
         for block in response.content:
             if block.type == "tool_use":
@@ -109,11 +111,11 @@ def agent_loop(messages: list):
                     "content": output,
                 })
 
-        # Feed tool results back, loop continues
+        # 把 tool results 喂回去，loop 继续
         messages.append({"role": "user", "content": results})
 
 
-# ── Entry point ──────────────────────────────────────────
+# ── 入口点 ──────────────────────────────────────────
 if __name__ == "__main__":
     print("s01: Agent Loop")
     print("输入问题，回车发送。输入 q 退出。\n")
@@ -128,7 +130,7 @@ if __name__ == "__main__":
             break
         history.append({"role": "user", "content": query})
         agent_loop(history)
-        # Print the model's final text response
+        # 打印 model 最终文本响应
         response_content = history[-1]["content"]
         if isinstance(response_content, list):
             for block in response_content:

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-s06: Subagent — spawn sub-agents with fresh messages[] for context isolation.
+s06: Subagent — 用 fresh messages[] 启动 sub-agent，实现 context 隔离。
+
+格言：大任务拆小，每个子任务拿干净 context —— subagent 做旁路工作，只带回结果
 
   Parent Agent                           Subagent
   +------------------+                  +------------------+
@@ -12,20 +14,20 @@ s06: Subagent — spawn sub-agents with fresh messages[] for context isolation.
   | result = "..."   | <--------------- | return last text |
   +------------------+                  +------------------+
         ^                                      |
-        |       intermediate results DISCARDED  |
+        |       中间结果会被丢弃                |
         +--------------------------------------+
 
-  Subagent tools: bash, read, write, edit, glob (NO task — no recursion)
+  Subagent tools: bash, read, write, edit, glob（没有 task — 不递归）
 
-Changes from s05:
-  + task tool + spawn_subagent() with fresh messages[]
-  + Safety limit: max 30 turns per subagent
+相对 s05 的变化：
+  + task tool + 使用 fresh messages[] 的 spawn_subagent()
+  + 安全限制：每个 subagent 最多 30 轮
   + extract_text() helper
-  Subagent cannot spawn sub-subagents (no task tool in sub_tools).
-  Main loop unchanged: task auto-dispatches via TOOL_HANDLERS.
+  Subagent 不能再启动 sub-subagent（sub_tools 里没有 task tool）。
+  主 loop 不变：task 通过 TOOL_HANDLERS 自动分发。
 
-Run: python s06_subagent/code.py
-Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
+运行: python s06_subagent/code.py
+需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
 """
 
 import ast, json, os, subprocess
@@ -54,7 +56,7 @@ SYSTEM = (
     "For complex sub-problems, use the task tool to spawn a subagent."
 )
 
-# s06: subagent gets its own system prompt — no task, no recursion
+# s06：subagent 拥有自己的 system prompt —— 没有 task，不递归
 SUB_SYSTEM = (
     f"You are a coding agent at {WORKDIR}. "
     "Complete the task you were given, then return a concise summary. "
@@ -63,7 +65,7 @@ SUB_SYSTEM = (
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s02-s05 (unchanged): Tool Implementations
+# 来自 s02-s05（未改动）：Tool 实现
 # ═══════════════════════════════════════════════════════════
 
 def safe_path(p: str) -> Path:
@@ -176,7 +178,7 @@ TOOL_HANDLERS = {
 
 
 # ═══════════════════════════════════════════════════════════
-#  NEW in s06: Subagent — fresh messages[], summary only
+# s06 新增：Subagent —— fresh messages[]，只返回摘要
 # ═══════════════════════════════════════════════════════════
 
 SUB_TOOLS = [
@@ -191,7 +193,7 @@ SUB_TOOLS = [
     {"name": "glob", "description": "Find files matching a glob pattern.",
      "input_schema": {"type": "object", "properties": {"pattern": {"type": "string"}}, "required": ["pattern"]}},
 ]
-# NO "task" tool — prevent recursive spawning
+# 没有 "task" tool —— 防止递归启动
 
 SUB_HANDLERS = {
     "bash": run_bash, "read_file": run_read, "write_file": run_write,
@@ -199,13 +201,13 @@ SUB_HANDLERS = {
 }
 
 def extract_text(content) -> str:
-    """Extract text from message content blocks."""
+    """从 message content blocks 中提取文本。"""
     if not isinstance(content, list):
         return str(content)
     return "\n".join(getattr(b, "text", "") for b in content if getattr(b, "type", None) == "text")
 
 def spawn_subagent(description: str) -> str:
-    """Spawn a subagent with fresh messages[], return summary only."""
+    """用 fresh messages[] 启动 subagent，只返回摘要。"""
     print(f"\n\033[35m[Subagent spawned]\033[0m")
     messages = [{"role": "user", "content": description}]  # fresh context
 
@@ -220,7 +222,7 @@ def spawn_subagent(description: str) -> str:
         results = []
         for block in response.content:
             if block.type == "tool_use":
-                # Issue 1: subagent also runs hooks (permissions apply)
+                # Issue 1：subagent 也运行 hooks（permission 同样适用）
                 blocked = trigger_hooks("PreToolUse", block)
                 if blocked:
                     results.append({"type": "tool_result", "tool_use_id": block.id,
@@ -234,10 +236,10 @@ def spawn_subagent(description: str) -> str:
                                 "content": output})
         messages.append({"role": "user", "content": results})
 
-    # Issue 5: fallback if safety limit hit during tool_use
+    # Issue 5：tool_use 期间触发安全限制时 fallback
     result = extract_text(messages[-1]["content"])
     if not result:
-        # last message is tool_result, look backwards for assistant text
+        # 最后一条 message 是 tool_result，向前查找 assistant text
         for msg in reversed(messages):
             if msg["role"] == "assistant":
                 result = extract_text(msg["content"])
@@ -248,7 +250,7 @@ def spawn_subagent(description: str) -> str:
     print(f"\033[35m[Subagent done]\033[0m")
     return result  # only summary, entire message history discarded
 
-# Add task tool to parent's tools
+# 把 task tool 加到 parent tools
 TOOLS.append({
     "name": "task",
     "description": "Launch a subagent to handle a complex subtask. Returns only the final conclusion.",
@@ -258,7 +260,7 @@ TOOL_HANDLERS["task"] = spawn_subagent
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s04 (unchanged): Hook System
+# 来自 s04（未改动）：Hook System
 # ═══════════════════════════════════════════════════════════
 
 HOOKS = {"UserPromptSubmit": [], "PreToolUse": [], "PostToolUse": [], "Stop": []}
@@ -276,7 +278,7 @@ def trigger_hooks(event: str, *args):
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
 
 def permission_hook(block):
-    """PreToolUse: deny list check."""
+    """PreToolUse：拒绝列表检查。"""
     if block.name == "bash":
         for p in DENY_LIST:
             if p in block.input.get("command", ""):
@@ -285,17 +287,17 @@ def permission_hook(block):
     return None
 
 def log_hook(block):
-    """PreToolUse: log tool calls."""
+    """PreToolUse：记录 tool calls。"""
     print(f"\033[90m[HOOK] {block.name}\033[0m")
     return None
 
 def context_inject_hook(query: str):
-    """UserPromptSubmit: log working directory."""
+    """UserPromptSubmit：记录 working directory。"""
     print(f"\033[90m[HOOK] UserPromptSubmit: working in {WORKDIR}\033[0m")
     return None
 
 def summary_hook(messages: list):
-    """Stop: print tool call count."""
+    """Stop：打印 tool call count。"""
     tool_count = sum(1 for m in messages
                      for b in (m.get("content") if isinstance(m.get("content"), list) else [])
                      if isinstance(b, dict) and b.get("type") == "tool_result")
@@ -309,13 +311,13 @@ register_hook("Stop", summary_hook)
 
 
 # ═══════════════════════════════════════════════════════════
-#  agent_loop — same as s05 + nag reminder, task auto-dispatches
+# agent_loop —— 与 s05 相同 + nag reminder，task 自动分发
 # ═══════════════════════════════════════════════════════════
 
 def agent_loop(messages: list):
     rounds_since_todo = 0
     while True:
-        # s05: nag reminder
+        # s05：nag reminder
         if rounds_since_todo >= 3 and messages:
             messages.append({"role": "user",
                              "content": "<reminder>Update your todos.</reminder>"})

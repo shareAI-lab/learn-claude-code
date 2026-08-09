@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
 """
-s13: Background Tasks — thread-based async execution + notification injection.
+s13: Background Tasks — 基于 thread 的异步执行 + notification 注入。
 
-Run:  python s13_background_tasks/code.py
-Need: pip install anthropic python-dotenv + .env with ANTHROPIC_API_KEY
+格言：慢操作进后台，agent 继续思考 —— 后台线程执行命令，完成后注入通知
 
-Changes from s12:
-  - threading.Thread for background execution
-  - background_tasks dict for lifecycle tracking (bg_id, command, status)
-  - background_results dict + threading.Lock for thread-safe storage
-  - should_run_background: model explicit request via run_in_background param
-  - is_slow_operation: fallback heuristic when model doesn't specify
-  - start_background_task: dispatch to daemon thread, return bg task id
-  - collect_background_results: gather completed, return as notifications
-  - agent_loop: slow ops → background + placeholder, inject notifications
-  - Notifications use <task_notification> format, not reused tool_use_id
+运行:  python s13_background_tasks/code.py
+需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
 
-Note: Teaching code keeps a basic agent loop to stay focused on background
-tasks. S11's full error recovery (RecoveryState, backoff, escalation,
-reactive compact, fallback model) is omitted.
+相对 s12 的变化：
+  - threading.Thread 用于后台执行
+  - background_tasks dict 跟踪 lifecycle（bg_id, command, status）
+  - background_results dict + threading.Lock 做线程安全存储
+  - should_run_background: model 通过 run_in_background 参数显式请求
+  - is_slow_operation: model 未指定时使用 fallback heuristic
+  - start_background_task: 分发到 daemon thread，返回 bg task id
+  - collect_background_results: 收集已完成结果，作为 notifications 返回
+  - agent_loop: 慢操作 → background + placeholder，注入 notifications
+  - Notifications 使用 <task_notification> 格式，不复用 tool_use_id
+
+注意：教学代码保留 basic agent loop，以便聚焦 background
+tasks。S11 的完整 error recovery（RecoveryState, backoff, escalation,
+reactive compact, fallback model）被省略。
 """
 
 import os, subprocess, json, time, random, threading
@@ -44,7 +46,7 @@ MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
-# ── Task System (from s12, synced) ──
+# ── Task System（来自 s12，已同步） ──
 
 TASKS_DIR = WORKDIR / ".tasks"
 TASKS_DIR.mkdir(exist_ok=True)
@@ -90,14 +92,24 @@ def list_tasks() -> list[Task]:
 
 
 def get_task(task_id: str) -> str:
-    """Return full task details as JSON."""
+    """以 JSON 返回完整 task details。"""
     task = load_task(task_id)
     return json.dumps(asdict(task), indent=2)
 
 
 def can_start(task_id: str) -> bool:
-    """Check if all blockedBy dependencies are completed.
-    Missing dependencies are treated as blocked."""
+    """
+
+
+
+
+检查所有 blockedBy dependencies 是否 completed。
+    缺失 dependencies 视为 blocked。
+    
+    
+    
+    
+    """
     task = load_task(task_id)
     for dep_id in task.blockedBy:
         if not _task_path(dep_id).exists():
@@ -138,7 +150,7 @@ def complete_task(task_id: str) -> str:
     return msg
 
 
-# ── Prompt Assembly (from s10, synced) ──
+# ── Prompt 组装（来自 s10，已同步） ──
 
 PROMPT_SECTIONS = {
     "identity": "You are a coding agent. Act, don't explain.",
@@ -182,7 +194,7 @@ def safe_path(p: str) -> Path:
 
 
 def run_bash(command: str, run_in_background: bool = False) -> str:
-    # run_in_background is handled by agent_loop dispatch, not here
+    # run_in_background 由 agent_loop dispatch 处理，不在这里处理
     try:
         r = subprocess.run(command, shell=True, cwd=WORKDIR,
                            capture_output=True, text=True, timeout=120)
@@ -307,7 +319,7 @@ TOOL_HANDLERS = {
 }
 
 
-# ── Background Tasks (s13 new) ──
+# ── Background Tasks（s13 新增） ──
 
 _bg_counter = 0
 background_tasks: dict[str, dict] = {}   # bg_id → {tool_use_id, command, status}
@@ -316,7 +328,7 @@ background_lock = threading.Lock()
 
 
 def is_slow_operation(tool_name: str, tool_input: dict) -> bool:
-    """Fallback heuristic: commands likely to take > 30s."""
+    """Fallback 启发式：可能耗时 > 30s 的 commands。"""
     if tool_name != "bash":
         return False
     cmd = tool_input.get("command", "").lower()
@@ -327,14 +339,14 @@ def is_slow_operation(tool_name: str, tool_input: dict) -> bool:
 
 
 def should_run_background(tool_name: str, tool_input: dict) -> bool:
-    """Model explicit request takes priority; fallback to heuristic."""
+    """model 的显式请求优先；否则 fallback 到 heuristic。"""
     if tool_input.get("run_in_background"):
         return True
     return is_slow_operation(tool_name, tool_input)
 
 
 def execute_tool(block) -> str:
-    """Execute a tool call block, return output."""
+    """执行一个 tool call block，返回 output。"""
     handler = TOOL_HANDLERS.get(block.name)
     if handler:
         return handler(**block.input)
@@ -342,7 +354,7 @@ def execute_tool(block) -> str:
 
 
 def start_background_task(block) -> str:
-    """Run tool in a daemon thread. Returns background task ID."""
+    """在 daemon thread 中运行 tool。返回 background task ID。"""
     global _bg_counter
     _bg_counter += 1
     bg_id = f"bg_{_bg_counter:04d}"
@@ -367,7 +379,7 @@ def start_background_task(block) -> str:
 
 
 def collect_background_results() -> list[str]:
-    """Collect completed background results as task_notification messages."""
+    """收集已完成 background results，作为 task_notification messages。"""
     with background_lock:
         ready_ids = [bid for bid, task in background_tasks.items()
                      if task["status"] == "completed"]
@@ -392,7 +404,7 @@ def collect_background_results() -> list[str]:
 # ── Context ──
 
 def update_context(context: dict, messages: list) -> dict:
-    """Derive context from real state."""
+    """从真实状态推导 context。"""
     memories = ""
     if MEMORY_INDEX.exists():
         content = MEMORY_INDEX.read_text().strip()
@@ -405,7 +417,7 @@ def update_context(context: dict, messages: list) -> dict:
     }
 
 
-# ── Agent Loop (simplified, focused on background tasks) ──
+# ── Agent Loop（简化版，聚焦 background tasks） ──
 
 def agent_loop(messages: list, context: dict):
     system = get_system_prompt(context)
@@ -444,7 +456,7 @@ def agent_loop(messages: list, context: dict):
                                 "tool_use_id": block.id,
                                 "content": output})
 
-        # Inject tool results + background notifications in one user message
+        # 在一条 user message 中注入 tool results + background notifications
         user_content = list(results)
         bg_notifications = collect_background_results()
         if bg_notifications:

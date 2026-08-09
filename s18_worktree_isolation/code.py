@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """
-s18: Worktree Isolation — git worktree + task-directory binding + event log.
+s18: Worktree Isolation — git worktree + task-directory binding + event log。
 
-Run:  python s18_worktree_isolation/code.py
-Need: pip install anthropic python-dotenv + .env with ANTHROPIC_API_KEY
+格言：各自在自己的目录工作，互不干扰 —— task 拥有目标，worktree 拥有目录，用 ID 绑定
 
-Changes from s17:
-  - Task dataclass gains worktree field (str | None)
-  - validate_worktree_name: reject path traversal and illegal chars
-  - create_worktree: validate name, git worktree add, optional task binding
-  - bind_task_to_worktree: write worktree field only, keep task pending
-  - remove_worktree: safety check before force, no auto-complete
-  - run_git returns (ok, output), events only on success
-  - Teammate tools: + complete_task, run in worktree cwd when bound
-  - scan_unclaimed_tasks: uses can_start() for dependency checking
-  - idle_poll: checks claim result, dispatches shutdown in IDLE
-  - consume_lead_inbox: unified inbox consumer
-  - 3 new Lead tools: create_worktree, remove_worktree, keep_worktree
+运行:  python s18_worktree_isolation/code.py
+需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
+
+相对 s17 的变化：
+  - Task dataclass 增加 worktree field（str | None）
+  - validate_worktree_name: 拒绝 path traversal 和非法字符
+  - create_worktree: 校验 name，git worktree add，可选绑定 task
+  - bind_task_to_worktree: 只写入 worktree field，保持 task pending
+  - remove_worktree: force 前做安全检查，不自动 complete
+  - run_git 返回 (ok, output)，只在 success 时记录 events
+  - Teammate tools: + complete_task，绑定后在 worktree cwd 中运行
+  - scan_unclaimed_tasks: 使用 can_start() 检查 dependency
+  - idle_poll: 检查 claim result，在 IDLE 中 dispatch shutdown
+  - consume_lead_inbox: 统一 inbox consumer
+  - 3 个新 Lead tools: create_worktree, remove_worktree, keep_worktree
 
 ASCII topology:
   Main repo (/)
@@ -48,7 +50,7 @@ WORKDIR = Path.cwd()
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
-# ── Task System (from s12 + s18 worktree field) ──
+# ── Task System（来自 s12 + s18 worktree field） ──
 
 TASKS_DIR = WORKDIR / ".tasks"
 TASKS_DIR.mkdir(exist_ok=True)
@@ -145,7 +147,7 @@ def complete_task(task_id: str) -> str:
     return msg
 
 
-# ── Worktree System (s18 new) ──
+# ── Worktree System（s18 新增） ──
 
 WORKTREES_DIR = WORKDIR / ".worktrees"
 WORKTREES_DIR.mkdir(exist_ok=True)
@@ -154,7 +156,7 @@ VALID_WT_NAME = re.compile(r'^[A-Za-z0-9._-]{1,64}$')
 
 
 def validate_worktree_name(name: str) -> str | None:
-    """Return error message if invalid, None if valid."""
+    """无效时返回 error message，有效时返回 None。"""
     if not name:
         return "Worktree name cannot be empty"
     if name == "." or name == "..":
@@ -166,7 +168,7 @@ def validate_worktree_name(name: str) -> str | None:
 
 
 def run_git(args: list[str]) -> tuple[bool, str]:
-    """Run git command. Return (ok, output)."""
+    """运行 git command。返回 (ok, output)。"""
     try:
         r = subprocess.run(["git"] + args, cwd=WORKDIR,
                            capture_output=True, text=True, timeout=30)
@@ -178,7 +180,7 @@ def run_git(args: list[str]) -> tuple[bool, str]:
 
 
 def log_event(event_type: str, worktree_name: str, task_id: str = ""):
-    """Append a lifecycle event to events.jsonl."""
+    """向 events.jsonl 追加 lifecycle event。"""
     event = {"type": event_type, "worktree": worktree_name,
              "task_id": task_id, "ts": time.time()}
     events_file = WORKTREES_DIR / "events.jsonl"
@@ -187,7 +189,7 @@ def log_event(event_type: str, worktree_name: str, task_id: str = ""):
 
 
 def create_worktree(name: str, task_id: str = "") -> str:
-    """Create a git worktree with a dedicated branch. Optionally bind to a task."""
+    """用专属 branch 创建 git worktree。可选绑定到 task。"""
     err = validate_worktree_name(name)
     if err:
         return f"Error: {err}"
@@ -205,7 +207,7 @@ def create_worktree(name: str, task_id: str = "") -> str:
 
 
 def bind_task_to_worktree(task_id: str, worktree_name: str):
-    """Write worktree field to task. Keep status as pending for auto-claim."""
+    """把 worktree field 写入 task。保持 status 为 pending 以便 auto-claim。"""
     task = load_task(task_id)
     task.worktree = worktree_name
     save_task(task)
@@ -213,7 +215,7 @@ def bind_task_to_worktree(task_id: str, worktree_name: str):
 
 
 def _count_worktree_changes(path: Path) -> tuple[int, int]:
-    """Count uncommitted files and commits in a worktree."""
+    """统计 worktree 中未提交文件和 commits。"""
     try:
         r1 = subprocess.run(["git", "status", "--porcelain"],
                             cwd=path, capture_output=True, text=True, timeout=10)
@@ -227,7 +229,7 @@ def _count_worktree_changes(path: Path) -> tuple[int, int]:
 
 
 def remove_worktree(name: str, discard_changes: bool = False) -> str:
-    """Remove worktree. Refuses if uncommitted changes unless discard_changes."""
+    """移除 worktree。除非 discard_changes，否则有未提交 changes 时拒绝。"""
     err = validate_worktree_name(name)
     if err:
         return err
@@ -254,7 +256,7 @@ def remove_worktree(name: str, discard_changes: bool = False) -> str:
 
 
 def keep_worktree(name: str) -> str:
-    """Keep worktree for manual review. Branch preserved."""
+    """保留 worktree 供人工 review。branch 保留。"""
     err = validate_worktree_name(name)
     if err:
         return err
@@ -263,7 +265,7 @@ def keep_worktree(name: str) -> str:
     return f"Worktree '{name}' kept for review (branch: wt/{name})"
 
 
-# ── Prompt Assembly (from s10) ──
+# ── Prompt 组装（来自 s10） ──
 
 PROMPT_SECTIONS = {
     "identity": "You are a coding agent. Act, don't explain.",
@@ -298,7 +300,7 @@ def get_system_prompt(context: dict) -> str:
     return _last_prompt
 
 
-# ── Basic Tools ──
+# ── 基础 Tools ──
 
 def safe_path(p: str, cwd: Path = None) -> Path:
     base = cwd or WORKDIR
@@ -338,7 +340,7 @@ def run_write(path: str, content: str, cwd: Path = None) -> str:
         return f"Error: {e}"
 
 
-# ── MessageBus (from s15) ──
+# ── MessageBus（来自 s15） ──
 
 MAILBOX_DIR = WORKDIR / ".mailboxes"
 MAILBOX_DIR.mkdir(exist_ok=True)
@@ -369,7 +371,7 @@ class MessageBus:
 BUS = MessageBus()
 active_teammates: dict[str, bool] = {}
 
-# ── Protocol State (from s16) ──
+# ── Protocol State（来自 s16） ──
 
 @dataclass
 class ProtocolState:
@@ -421,14 +423,14 @@ def consume_lead_inbox(route_protocol=True) -> list[dict]:
     return msgs
 
 
-# ── Autonomous Agent (from s17, + worktree cwd) ──
+# ── Autonomous Agent（来自 s17，+ worktree cwd） ──
 
 IDLE_POLL_INTERVAL = 5
 IDLE_TIMEOUT = 60
 
 
 def scan_unclaimed_tasks() -> list[dict]:
-    """Find pending, unowned tasks with all dependencies completed."""
+    """查找 pending、unowned 且所有 dependencies completed 的 tasks。"""
     unclaimed = []
     for f in sorted(TASKS_DIR.glob("task_*.json")):
         task = json.loads(f.read_text())
@@ -441,7 +443,7 @@ def scan_unclaimed_tasks() -> list[dict]:
 
 def idle_poll(agent_name: str, messages: list,
               name: str, role: str) -> tuple[str, str | None]:
-    """Poll for 60s. Return (result, auto_claimed_task_id)."""
+    """poll 60s。返回 (result, auto_claimed_task_id)。"""
     for _ in range(IDLE_TIMEOUT // IDLE_POLL_INTERVAL):
         time.sleep(IDLE_POLL_INTERVAL)
 
@@ -484,7 +486,7 @@ def idle_poll(agent_name: str, messages: list,
     return "timeout", None
 
 
-# ── Teammate Thread (from s15 + s16 + s17 + s18) ──
+# ── Teammate Thread（来自 s15 + s16 + s17 + s18） ──
 
 def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
     if name in active_teammates:
@@ -519,7 +521,7 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
         return False
 
     def run():
-        # Track current worktree for this teammate's cwd
+        # 跟踪当前 teammate cwd 对应的 worktree
         wt_ctx = {"path": None}
 
         def _wt_cwd() -> Path | None:
@@ -547,7 +549,7 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
         def _run_claim_task(task_id: str):
             result = claim_task(task_id, owner=name)
             if "Claimed" in result:
-                # Set worktree cwd if task has one
+                # 如果 task 有 worktree，则设置 worktree cwd
                 task = load_task(task_id)
                 if task.worktree:
                     wt_ctx["path"] = str(WORKTREES_DIR / task.worktree)
@@ -613,14 +615,14 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
             "complete_task": _run_complete_task,
         }
 
-        # Outer loop: WORK → IDLE cycle
+        # 外层 loop：WORK → IDLE cycle
         while True:
             if len(messages) <= 3:
                 messages.insert(0, {"role": "user",
                     "content": f"<identity>You are '{name}', role: {role}. "
                                f"Continue your work.</identity>"})
 
-            # WORK phase
+            # WORK 阶段
             should_shutdown = False
             for _ in range(10):
                 inbox = BUS.read_inbox(name)
@@ -660,7 +662,7 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
             if should_shutdown:
                 break
 
-            # IDLE phase
+            # IDLE 阶段
             idle_result, claimed_task_id = idle_poll(name, messages, name, role)
             if idle_result == "shutdown":
                 break
@@ -673,7 +675,7 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
                 else:
                     wt_ctx["path"] = None
 
-        # Summary
+        # 摘要
         summary = "Done."
         for msg in reversed(messages):
             if msg["role"] == "assistant" and isinstance(msg["content"], list):
@@ -745,7 +747,7 @@ def run_review_plan(request_id: str, approve: bool,
     return f"Plan {'approved' if approve else 'rejected'} ({request_id})"
 
 
-# ── Lead Worktree Tools (s18 new) ──
+# ── Lead Worktree Tools（s18 新增） ──
 
 def run_create_worktree(name: str, task_id: str = "") -> str:
     return create_worktree(name, task_id)
@@ -759,7 +761,7 @@ def run_keep_worktree(name: str) -> str:
     return keep_worktree(name)
 
 
-# ── Basic tool handlers ──
+# ── 基础 tool handlers ──
 
 def run_create_task(subject: str, description: str = "",
                     blockedBy: list[str] | None = None) -> str:
@@ -813,7 +815,7 @@ def run_check_inbox() -> str:
     return "\n".join(lines)
 
 
-# ── Tool Definitions ──
+# ── Tool 定义 ──
 
 TOOLS = [
     {"name": "bash", "description": "Run a shell command.",
@@ -891,7 +893,7 @@ TOOLS = [
                           "approve": {"type": "boolean"},
                           "feedback": {"type": "string"}},
                       "required": ["request_id", "approve"]}},
-    # s18 new: worktree tools
+    # s18 新增：worktree tools
     {"name": "create_worktree",
      "description": "Create an isolated git worktree with its own branch.",
      "input_schema": {"type": "object",
@@ -993,7 +995,7 @@ if __name__ == "__main__":
             elif isinstance(block, dict) and block.get("type") == "text":
                 print(block.get("text", ""))
 
-        # Consume lead inbox: route protocol + inject into history
+        # 消费 lead inbox：路由 protocol + 注入 history
         inbox = consume_lead_inbox(route_protocol=True)
         if inbox:
             inbox_text = "\n".join(

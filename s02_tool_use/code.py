@@ -2,6 +2,8 @@
 """
 s02: Tool Use — 在 s01 基础上新增 4 个工具 + 分发映射。
 
+格言：新增一个 tool，就是新增一个 handler —— loop 保持不动；新 tool 注册进 dispatch map
+
 运行: python s02_tool_use/code.py
 需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
 
@@ -40,7 +42,7 @@ SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. Act, d
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s01 (unchanged)
+# 来自 s01（未改动）
 # ═══════════════════════════════════════════════════════════
 
 def run_bash(command: str) -> str:

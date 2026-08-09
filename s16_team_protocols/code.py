@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """
-s16: Team Protocols — request-response protocol + request_id + dispatch + state machine.
+s16: Team Protocols — request-response protocol + request_id + dispatch + state machine。
 
-Run:  python s16_team_protocols/code.py
-Need: pip install anthropic python-dotenv + .env with ANTHROPIC_API_KEY
+格言：队友需要共享通信规则 —— 用固定 request-reply 格式协作
 
-Changes from s15:
-  - ProtocolState dataclass (request_id, type, sender, status, created_at)
-  - pending_requests dict: tracks in-flight protocol requests
-  - dispatch_message: routes incoming messages by type to handlers
-  - request_shutdown: Lead sends shutdown protocol request
-  - request_plan: Lead asks teammate to submit plan
-  - handle_shutdown_request / handle_plan_response: teammate receives & responds
-  - match_response: Lead correlates response to request via request_id (with type validation)
-  - Teammate idle loop: waits for inbox messages instead of exiting after 10 rounds
-  - Unified consume_lead_inbox: protocol routing + injection into history
-  - 3 new Lead tools: request_shutdown, request_plan, review_plan
-  - 1 new teammate tool: submit_plan
+运行:  python s16_team_protocols/code.py
+需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
+
+相对 s15 的变化：
+  - ProtocolState dataclass（request_id, type, sender, status, created_at）
+  - pending_requests dict: 跟踪进行中的 protocol requests
+  - dispatch_message: 按 type 把 incoming messages 路由到 handlers
+  - request_shutdown: Lead 发送 shutdown protocol request
+  - request_plan: Lead 要求 teammate 提交 plan
+  - handle_shutdown_request / handle_plan_response: teammate 接收并响应
+  - match_response: Lead 通过 request_id 关联 response 和 request（带 type validation）
+  - Teammate idle loop: 等待 inbox messages，而不是 10 轮后退出
+  - Unified consume_lead_inbox: protocol routing + 注入 history
+  - 3 个新 Lead tools: request_shutdown, request_plan, review_plan
+  - 1 个新 teammate tool: submit_plan
 
 ASCII flow:
   Lead: BUS.send("shutdown_request", {request_id}) ──────→ teammate inbox
@@ -48,7 +50,7 @@ MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
-# ── Task System (from s12, synced) ──
+# ── Task System（来自 s12，已同步） ──
 
 TASKS_DIR = WORKDIR / ".tasks"
 TASKS_DIR.mkdir(exist_ok=True)
@@ -94,14 +96,22 @@ def list_tasks() -> list[Task]:
 
 
 def get_task(task_id: str) -> str:
-    """Return full task details as JSON."""
+    """以 JSON 返回完整 task details。"""
     task = load_task(task_id)
     return json.dumps(asdict(task), indent=2)
 
 
 def can_start(task_id: str) -> bool:
-    """Check if all blockedBy dependencies are completed.
-    Missing dependencies are treated as blocked."""
+    """
+
+
+
+检查所有 blockedBy dependencies 是否 completed。
+    缺失 dependencies 视为 blocked。
+    
+    
+    
+    """
     task = load_task(task_id)
     for dep_id in task.blockedBy:
         if not _task_path(dep_id).exists():
@@ -142,7 +152,7 @@ def complete_task(task_id: str) -> str:
     return msg
 
 
-# ── Prompt Assembly (from s10, synced) ──
+# ── Prompt 组装（来自 s10，已同步） ──
 
 PROMPT_SECTIONS = {
     "identity": "You are a coding agent. Act, don't explain.",
@@ -188,7 +198,7 @@ def safe_path(p: str) -> Path:
 
 
 def run_bash(command: str, run_in_background: bool = False) -> str:
-    # run_in_background is handled by agent_loop dispatch, not here
+    # run_in_background 由 agent_loop dispatch 处理，不在这里处理
     try:
         r = subprocess.run(command, shell=True, cwd=WORKDIR,
                            capture_output=True, text=True, timeout=120)
@@ -267,7 +277,7 @@ background_lock = threading.Lock()
 
 
 def is_slow_operation(tool_name: str, tool_input: dict) -> bool:
-    """Fallback heuristic: commands likely to take > 30s."""
+    """Fallback 启发式：可能耗时 > 30s 的 commands。"""
     if tool_name != "bash":
         return False
     cmd = tool_input.get("command", "").lower()
@@ -278,14 +288,14 @@ def is_slow_operation(tool_name: str, tool_input: dict) -> bool:
 
 
 def should_run_background(tool_name: str, tool_input: dict) -> bool:
-    """Model explicit request takes priority; fallback to heuristic."""
+    """model 的显式请求优先；否则 fallback 到 heuristic。"""
     if tool_input.get("run_in_background"):
         return True
     return is_slow_operation(tool_name, tool_input)
 
 
 def start_background_task(block) -> str:
-    """Run tool in a daemon thread. Returns background task ID."""
+    """在 daemon thread 中运行 tool。返回 background task ID。"""
     global _bg_counter
     _bg_counter += 1
     bg_id = f"bg_{_bg_counter:04d}"
@@ -309,7 +319,7 @@ def start_background_task(block) -> str:
 
 
 def collect_background_results() -> list[str]:
-    """Collect completed background results as task_notification messages."""
+    """收集已完成 background results，作为 task_notification messages。"""
     with background_lock:
         ready_ids = [bid for bid, task in background_tasks.items()
                      if task["status"] == "completed"]
@@ -331,16 +341,24 @@ def collect_background_results() -> list[str]:
     return notifications
 
 
-# ── MessageBus (from s15) ──
+# ── MessageBus（来自 s15） ──
 
 MAILBOX_DIR = WORKDIR / ".mailboxes"
 MAILBOX_DIR.mkdir(exist_ok=True)
 
 
 class MessageBus:
-    """File-based message bus. Each agent has a .jsonl inbox.
-    Read is destructive: read_text + unlink (consumes messages).
-    Teaching version: no file locking; real CC uses proper-lockfile."""
+    """
+
+
+
+基于文件的 message bus。每个 agent 有一个 .jsonl inbox。
+    读取是破坏性的：read_text + unlink（消费 messages）。
+    教学版本：没有 file locking；真实 CC 使用 proper-lockfile。
+    
+    
+    
+    """
 
     def send(self, from_agent: str, to_agent: str, content: str,
              msg_type: str = "message", metadata: dict = None):
@@ -366,7 +384,7 @@ class MessageBus:
 BUS = MessageBus()
 active_teammates: dict[str, bool] = {}
 
-# ── Protocol State (s16 new) ──
+# ── Protocol State（s16 新增） ──
 
 @dataclass
 class ProtocolState:
@@ -387,13 +405,21 @@ def new_request_id() -> str:
 
 
 def match_response(response_type: str, request_id: str, approve: bool):
-    """Correlate a response to the original request via request_id.
-    Validates that response_type matches the request type."""
+    """
+
+
+
+通过 request_id 把 response 关联到原始 request。
+    验证 response_type 是否匹配 request type。
+    
+    
+    
+    """
     state = pending_requests.get(request_id)
     if not state:
         print(f"  \033[31m[protocol] unknown request_id: {request_id}\033[0m")
         return
-    # Validate response type matches request type
+    # 验证 response type 是否匹配 request type
     if state.type == "shutdown" and response_type != "shutdown_response":
         print(f"  \033[31m[protocol] type mismatch: expected shutdown_response, "
               f"got {response_type}\033[0m")
@@ -413,14 +439,22 @@ def match_response(response_type: str, request_id: str, approve: bool):
           f"({request_id}: {state.status})\033[0m")
 
 
-# ── Unified Lead Inbox Consumer (s16 fix) ──
-# Both check_inbox tool and main loop call this function.
-# Protocol responses are routed via match_response before returning.
+# ── 统一 Lead Inbox Consumer（s16 修复） ──
+# check_inbox tool 和 main loop 都调用此函数。
+# 返回前通过 match_response 路由 protocol responses。
 
 def consume_lead_inbox(route_protocol: bool = True) -> list[dict]:
-    """Read Lead's inbox. Route protocol responses, return all messages.
-    Called by both run_check_inbox() and main loop to avoid
-    messages being consumed without protocol routing."""
+    """
+
+
+
+读取 Lead 的 inbox。路由 protocol responses，返回所有 messages。
+    由 run_check_inbox() 和 main loop 同时调用，避免
+    messages 被消费却没有 protocol routing。
+    
+    
+    
+    """
     msgs = BUS.read_inbox("lead")
     if not msgs:
         return []
@@ -435,12 +469,20 @@ def consume_lead_inbox(route_protocol: bool = True) -> list[dict]:
     return msgs
 
 
-# ── Teammate Thread (s16: idle loop + dispatch) ──
+# ── Teammate Thread（s16：idle loop + dispatch） ──
 
 def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
-    """Spawn a teammate agent in a background thread.
-    Uses idle loop: after each LLM turn, waits for inbox messages
-    (shutdown_request, new task) instead of exiting."""
+    """
+
+
+
+在 background thread 中启动 teammate agent。
+    使用 idle loop：每个 LLM turn 后等待 inbox messages
+    （shutdown_request、new task），而不是退出。
+    
+    
+    
+    """
     if name in active_teammates:
         return f"Teammate '{name}' already exists"
 
@@ -449,8 +491,16 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
               f"Check inbox for protocol messages (shutdown_request, etc).")
 
     def handle_inbox_message(name: str, msg: dict, messages: list) -> bool:
-        """Dispatch incoming protocol messages by type.
-        Returns True if teammate should stop."""
+        """
+
+
+
+按 type dispatch incoming protocol messages。
+        如果 teammate 应该停止，则返回 True。
+        
+        
+        
+        """
         msg_type = msg.get("type", "message")
         meta = msg.get("metadata", {})
         req_id = meta.get("request_id", "")
@@ -511,7 +561,7 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
 
         shutdown_requested = False
         while not shutdown_requested:
-            # Check inbox for protocol messages
+            # 检查 inbox 中的 protocol messages
             inbox = BUS.read_inbox(name)
             should_stop = False
             non_protocol = []
@@ -540,8 +590,8 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
 
             messages.append({"role": "assistant", "content": response.content})
             if response.stop_reason != "tool_use":
-                # Idle: wait for inbox messages instead of exiting
-                # Real CC sends idle_notification to Lead here
+                # Idle：等待 inbox messages，而不是退出
+                # 真实 CC 在这里向 Lead 发送 idle_notification
                 while not shutdown_requested:
                     time.sleep(1)
                     inbox = BUS.read_inbox(name)
@@ -563,7 +613,7 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
                             "content": "<inbox>" + inbox_json + "</inbox>"})
                         break  # back to LLM turn with new messages
 
-            # Execute tool calls
+            # 执行 tool calls
             results = []
             for block in response.content:
                 if block.type == "tool_use":
@@ -574,7 +624,7 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
                                     "content": str(output)})
             messages.append({"role": "user", "content": results})
 
-        # Send final summary to Lead
+        # 向 Lead 发送最终摘要
         summary = "Done."
         for msg in reversed(messages):
             if msg["role"] == "assistant" and isinstance(msg["content"], list):
@@ -596,14 +646,22 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
 
 
 def _teammate_submit_plan(from_name: str, plan: str) -> str:
-    """Teammate submits a plan to Lead for approval.
+    """
 
-    Note: This is a protocol-level request, not a code-level gate.
-    After submitting, the teammate's thread continues running — it can
-    still call bash/write/etc. Real enforcement relies on the model
-    waiting for the approval response before acting. Code-level tool
-    gating would require blocking the teammate's tool dispatch until
-    approval arrives.
+
+
+Teammate 向 Lead 提交 plan 以供 approval。
+
+    注意：这是 protocol-level request，不是 code-level gate。
+    提交后，teammate 的 thread 会继续运行——它仍然可以
+    调用 bash/write/etc。真实 enforcement 依赖 model
+    在行动前等待 approval response。Code-level tool
+    gating 需要阻塞 teammate 的 tool dispatch，直到
+    approval 到达。
+    
+    
+    
+    
     """
     req_id = new_request_id()
     pending_requests[req_id] = ProtocolState(
@@ -616,7 +674,7 @@ def _teammate_submit_plan(from_name: str, plan: str) -> str:
     return f"Plan submitted ({req_id}). Waiting for approval..."
 
 
-# ── Lead Protocol Tools (s16 new) ──
+# ── Lead Protocol Tools（s16 新增） ──
 
 def run_request_shutdown(teammate: str) -> str:
     req_id = new_request_id()
@@ -633,7 +691,7 @@ def run_request_shutdown(teammate: str) -> str:
 
 
 def run_request_plan(teammate: str, task: str) -> str:
-    """Lead asks a teammate to submit a plan for a task."""
+    """Lead 要求 teammate 为一个 task 提交 plan。"""
     BUS.send("lead", teammate, f"Please submit a plan for: {task}",
              "message")
     return f"Asked {teammate} to submit a plan"
@@ -654,7 +712,7 @@ def run_review_plan(request_id: str, approve: bool, feedback: str = "") -> str:
     return f"Plan {'approved' if approve else 'rejected'} ({request_id})"
 
 
-# ── Other Lead Tool Handlers ──
+# ── 其他 Lead Tool Handlers ──
 
 def run_spawn_teammate(name: str, role: str, prompt: str) -> str:
     return spawn_teammate_thread(name, role, prompt)
@@ -666,7 +724,7 @@ def run_send_message(to: str, content: str) -> str:
 
 
 def run_check_inbox() -> str:
-    """Check Lead's inbox. Routes protocol responses via match_response."""
+    """检查 Lead 的 inbox。通过 match_response 路由 protocol responses。"""
     msgs = consume_lead_inbox(route_protocol=True)
     if not msgs:
         return "(inbox empty)"
@@ -682,7 +740,7 @@ def run_check_inbox() -> str:
 # ── Tool Dispatch ──
 
 def execute_tool(block) -> str:
-    """Execute a tool call block, return output."""
+    """执行一个 tool call block，返回 output。"""
     handler = {
         "bash": run_bash, "read_file": run_read, "write_file": run_write,
         "create_task": run_create_task, "list_tasks": run_list_tasks,
@@ -698,7 +756,7 @@ def execute_tool(block) -> str:
     return f"Unknown tool: {block.name}"
 
 
-# ── Tool Definitions ──
+# ── Tool 定义 ──
 
 TOOLS = [
     {"name": "bash", "description": "Run a shell command.",
@@ -788,7 +846,7 @@ TOOLS = [
 # ── Context ──
 
 def update_context(context: dict, messages: list) -> dict:
-    """Derive context from real state."""
+    """从真实状态推导 context。"""
     memories = ""
     if MEMORY_INDEX.exists():
         content = MEMORY_INDEX.read_text().strip()
@@ -839,7 +897,7 @@ def agent_loop(messages: list, context: dict):
                                 "tool_use_id": block.id,
                                 "content": output})
 
-        # Merge background tool results + notifications into one user message
+        # 把 background tool results + notifications 合并到一条 user message
         user_content = list(results)
         bg_notifications = collect_background_results()
         if bg_notifications:
@@ -871,7 +929,7 @@ if __name__ == "__main__":
             elif isinstance(block, dict) and block.get("type") == "text":
                 print(block.get("text", ""))
 
-        # Check inbox → route protocol + inject into history
+        # 检查 inbox → 路由 protocol + 注入 history
         inbox_msgs = consume_lead_inbox(route_protocol=True)
         if inbox_msgs:
             inbox_text = "\n".join(
