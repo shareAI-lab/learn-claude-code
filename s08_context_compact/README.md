@@ -244,7 +244,7 @@ s09 Memory → 三个子系统：选择记什么、提取关键信息、整理�
 | tool_result_budget | 200KB 字符 | 200,000 字符（`toolLimits.ts:49`） |
 | compact_history 阈值 | 字符数估算 | 精确 token：`contextWindow - maxOutputTokens - 13_000` |
 | 摘要要求 | 5 类信息 | 9 个部分 + `<analysis>`/`<summary>` 双标签 |
-| 压缩 prompt | 简单 prompt | 首尾双重防呆禁止调工具 |
+| 压缩 prompt | 简单 prompt | 首尾双重防护禁止调工具 |
 | PTL retry | 有（简化） | `truncateHeadForPTLRetry()` 按消息组回退（`compact.ts:243-290`） |
 | 后压缩恢复 | 无（教学版只保留摘要） | 自动重新读取最近文件、计划、agent/skill/tool 等 |
 | 熔断器 | 3 次 | 3 次（`autoCompact.ts:70`） |
@@ -256,7 +256,7 @@ CC 源码 `query.ts` 中的真实顺序：
 
 1. `applyToolResultBudget`（L379）：先处理大结果，确保完整内容落盘
 2. `snipCompact`（L403）：裁中间消息
-3. `microcompact`（L414）：旧结果占位
+3. `microCompact`（L414）：旧结果占位
 4. `contextCollapse`（L441）：独立的上下文管理系统（教学版无）
 5. `autoCompact`（L454）：LLM 全量摘要
 
