@@ -41,6 +41,7 @@ except ImportError:
     pass
 
 from anthropic import Anthropic
+from anthropic.types import ToolParam
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -54,7 +55,7 @@ MODEL = os.environ["MODEL_ID"]
 SYSTEM = f"You are a coding agent at {os.getcwd()}. Use bash to solve tasks. Act, don't explain."
 
 # ── Tool definition: just bash ────────────────────────────
-TOOLS = [{
+TOOLS: list[ToolParam] = [{
     "name": "bash",
     "description": "Run a shell command.",
     "input_schema": {
@@ -101,7 +102,7 @@ def agent_loop(messages: list):
         for block in response.content:
             if block.type == "tool_use":
                 print(f"\033[33m$ {block.input['command']}\033[0m")
-                output = run_bash(block.input["command"])
+                output = run_bash(str(block.input["command"]))
                 print(output[:200])
                 results.append({
                     "type": "tool_result",
