@@ -2,14 +2,16 @@
 """
 s08_context_compact.py - Context Compact
 
-Four-layer compaction pipeline inserted before LLM calls:
+格言：Context 总会填满——必须有办法腾出空间 —— 多层压缩策略换来无限会话
 
-    L1: snip_compact      — trim middle messages when count > 50
-    L2: micro_compact     — replace old tool_results with placeholders
-    L3: tool_result_budget — persist large results to disk
-    L4: compact_history   — LLM full summary (1 API call)
+在 LLM 调用前插入四层压缩 pipeline：
 
-    Emergency: reactive_compact — when API still returns prompt_too_long
+    L1: snip_compact      — 消息数 > 50 时裁剪中间 messages
+    L2: micro_compact     — 用 placeholder 替换旧 tool_results
+    L3: tool_result_budget — 把大型 results 持久化到磁盘
+    L4: compact_history   — LLM 完整摘要（1 次 API 调用）
+
+    Emergency: reactive_compact — API 仍返回 prompt_too_long 时
 
     ┌─────────────────────────────────────────────────────────────┐
     │  messages[]                                                 │
@@ -23,13 +25,13 @@ Four-layer compaction pipeline inserted before LLM calls:
     │                                      └─ Yes → reactive      │
     └─────────────────────────────────────────────────────────────┘
 
-Core principle: cheap first, expensive last.
-Execution order matches CC source: budget → snip → micro → auto.
+核心原则：便宜的先做，昂贵的后做。
+执行顺序匹配 CC source：budget → snip → micro → auto。
 
-Builds on s07 (skill loading). Usage:
+基于 s07（skill loading）。用法：
 
     python s08_context_compact/code.py
-    Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
+    需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
 """
 
 import ast, json, os, subprocess, time
@@ -55,7 +57,7 @@ client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 CURRENT_TODOS: list[dict] = []
 
-# s07: Skill catalog scan (inherited from s07)
+# s07：Skill catalog 扫描（继承自 s07）
 def _parse_frontmatter(text: str) -> tuple[dict, str]:
     if not text.startswith("---"):
         return {}, text
@@ -79,7 +81,7 @@ def _scan_skills():
             continue
         manifest = d / "SKILL.md"
         if manifest.exists():
-            raw = manifest.read_text()
+            raw = manifest.read_text(encoding="utf-8")
             meta, body = _parse_frontmatter(raw)
             name = meta.get("name", d.name)
             desc = meta.get("description", raw.split("\n")[0].lstrip("#").strip())
@@ -98,7 +100,7 @@ def load_skill(name: str) -> str:
         return f"Skill not found: {name}"
     return skill["content"]
 
-# s08: SYSTEM includes skill catalog (inherited from s07 build_system)
+# s08：SYSTEM 包含 skill catalog（继承自 s07 build_system）
 def build_system() -> str:
     catalog = list_skills()
     return (
@@ -109,7 +111,7 @@ def build_system() -> str:
 
 SYSTEM = build_system()
 
-# s08: subagent gets its own system prompt — no compact, no skill loading
+# s08：subagent 拥有自己的 system prompt —— 不 compact，不加载 skill
 SUB_SYSTEM = (
     f"You are a coding agent at {WORKDIR}. "
     "Complete the task you were given, then return a concise summary. "
@@ -118,7 +120,7 @@ SUB_SYSTEM = (
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s02-s07 (unchanged): Basic Tools
+# 来自 s02-s07（未改动）：基础 Tools
 # ═══════════════════════════════════════════════════════════
 
 def safe_path(p: str) -> Path:
@@ -135,7 +137,7 @@ def run_bash(command: str) -> str:
 
 def run_read(path: str, limit: int | None = None) -> str:
     try:
-        lines = safe_path(path).read_text().splitlines()
+        lines = safe_path(path).read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines): lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
         return "\n".join(lines)
     except Exception as e: return f"Error: {e}"
@@ -143,15 +145,15 @@ def run_read(path: str, limit: int | None = None) -> str:
 def run_write(path: str, content: str) -> str:
     try:
         file_path = safe_path(path); file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content); return f"Wrote {len(content)} bytes to {path}"
+        file_path.write_text(content, encoding="utf-8"); return f"Wrote {len(content)} bytes to {path}"
     except Exception as e: return f"Error: {e}"
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
         file_path = safe_path(path)
-        text = file_path.read_text()
+        text = file_path.read_text(encoding="utf-8")
         if old_text not in text: return f"Error: text not found in {path}"
-        file_path.write_text(text.replace(old_text, new_text, 1))
+        file_path.write_text(text.replace(old_text, new_text, 1), encoding="utf-8")
         return f"Edited {path}"
     except Exception as e: return f"Error: {e}"
 
@@ -204,7 +206,7 @@ def extract_text(content) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s06-s07 (unchanged): Subagent
+# 来自 s06-s07（未改动）：Subagent
 # ═══════════════════════════════════════════════════════════
 
 SUB_TOOLS = [
@@ -259,7 +261,7 @@ def spawn_subagent(description: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
-#  NEW in s08: Four-Layer Compaction Pipeline
+# s08 新增：四层 Compaction Pipeline
 # ═══════════════════════════════════════════════════════════
 
 CONTEXT_LIMIT = 50000
@@ -291,7 +293,7 @@ def _is_tool_result_message(msg):
                for block in content)
 
 
-# L1: snipCompact — trim middle messages
+# L1：snipCompact —— 裁剪中间 messages
 def snip_compact(messages, max_messages=50):
     if len(messages) <= max_messages: return messages
     keep_head, keep_tail = 3, max_messages - 3
@@ -309,7 +311,7 @@ def snip_compact(messages, max_messages=50):
     return messages[:head_end] + [{"role": "user", "content": f"[snipped {snipped} messages]"}] + messages[tail_start:]
 
 
-# L2: microCompact — old result placeholders
+# L2：microCompact —— 旧 result placeholders
 def collect_tool_results(messages):
     blocks = []
     for mi, msg in enumerate(messages):
@@ -328,12 +330,12 @@ def micro_compact(messages):
     return messages
 
 
-# L3: toolResultBudget — persist large results to disk
+# L3：toolResultBudget —— 把大型 results 持久化到磁盘
 def persist_large_output(tool_use_id, output):
     if len(output) <= PERSIST_THRESHOLD: return output
     TOOL_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     path = TOOL_RESULTS_DIR / f"{tool_use_id}.txt"
-    if not path.exists(): path.write_text(output)
+    if not path.exists(): path.write_text(output, encoding="utf-8")
     return f"<persisted-output>\nFull output: {path}\nPreview:\n{output[:2000]}\n</persisted-output>"
 
 def tool_result_budget(messages, max_bytes=200_000):
@@ -353,11 +355,11 @@ def tool_result_budget(messages, max_bytes=200_000):
     return messages
 
 
-# L4: autoCompact — LLM full summary
+# L4：autoCompact —— LLM 完整摘要
 def write_transcript(messages):
     TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
     path = TRANSCRIPT_DIR / f"transcript_{int(time.time())}.jsonl"
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8") as f:
         for msg in messages: f.write(json.dumps(msg, default=str) + "\n")
     return path
 
@@ -379,7 +381,7 @@ def compact_history(messages):
     return [{"role": "user", "content": f"[Compacted]\n\n{summary}"}]
 
 
-# Emergency: reactiveCompact — on API error
+# Emergency：reactiveCompact —— API error 时触发
 def reactive_compact(messages):
     transcript = write_transcript(messages)
     tail_start = max(0, len(messages) - 5)
@@ -392,7 +394,7 @@ def reactive_compact(messages):
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s07: Tool Definitions
+# 来自 s07：Tool 定义
 # ═══════════════════════════════════════════════════════════
 
 TOOLS = [
@@ -412,7 +414,7 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"description": {"type": "string"}}, "required": ["description"]}},
     {"name": "load_skill", "description": "Load the full content of a skill by name.",
      "input_schema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}},
-    # s08 change: new compact tool — triggers compact_history, not a no-op
+    # s08 变化：新的 compact tool —— 触发 compact_history，不是 no-op
     {"name": "compact", "description": "Summarize earlier conversation to free context space.",
      "input_schema": {"type": "object", "properties": {"focus": {"type": "string"}}}},
 ]
@@ -423,7 +425,7 @@ TOOL_HANDLERS = {
     "task": spawn_subagent, "load_skill": load_skill,
 }
 
-# FROM s04 (unchanged): Hooks
+# 来自 s04（未改动）：Hooks
 HOOKS = {"PreToolUse": [], "PostToolUse": []}
 def trigger_hooks(event, *args):
     for cb in HOOKS[event]:
@@ -446,7 +448,7 @@ HOOKS["PreToolUse"].append(log_hook)
 
 
 # ═══════════════════════════════════════════════════════════
-#  agent_loop — s08 core: run compaction pipeline before LLM
+# agent_loop —— s08 核心：LLM 前运行 compaction pipeline
 # ═══════════════════════════════════════════════════════════
 
 MAX_REACTIVE_RETRIES = 1  # retry limit for reactive compact
@@ -454,13 +456,13 @@ MAX_REACTIVE_RETRIES = 1  # retry limit for reactive compact
 def agent_loop(messages: list):
     reactive_retries = 0
     while True:
-        # s08 change: three preprocessors (0 API calls, cheap first)
-        # Order matches CC source: budget → snip → micro
+        # s08 变化：三个预处理器（0 次 API 调用，便宜的先做）
+        # 顺序匹配 CC source：budget → snip → micro
         messages[:] = tool_result_budget(messages)    # L3: persist large results first
         messages[:] = snip_compact(messages)          # L1: trim middle
         messages[:] = micro_compact(messages)         # L2: old result placeholders
 
-        # s08 change: tokens still over threshold → LLM summary (1 API call)
+        # s08 变化：tokens 仍超过阈值 → LLM 摘要（1 次 API 调用）
         if estimate_size(messages) > CONTEXT_LIMIT:
             print("[auto compact]")
             messages[:] = compact_history(messages)
@@ -484,7 +486,7 @@ def agent_loop(messages: list):
             if block.type != "tool_use": continue
             print(f"\033[36m> {block.name}\033[0m")
 
-            # s08: compact tool triggers compact_history, not a no-op string
+            # s08：compact tool 触发 compact_history，不返回 no-op 字符串
             if block.name == "compact":
                 messages[:] = compact_history(messages)
                 results.append({"type": "tool_result", "tool_use_id": block.id,
@@ -502,10 +504,10 @@ def agent_loop(messages: list):
             print(str(output)[:200])
             results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
         else:
-            # normal path: no compact was called
+            # 正常路径：没有调用 compact
             messages.append({"role": "user", "content": results})
             continue
-        # compact was called: results already appended above
+        # 已调用 compact：results 已在上方 append
         continue
 
 

@@ -137,6 +137,7 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+.claude/settings.local.json
 .venv
 env/
 venv/

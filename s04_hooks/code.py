@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-s04: Hooks — move extension logic out of the loop, onto hooks.
+s04: Hooks — 把扩展逻辑从 loop 移到 hooks 上。
 
-  User types query
+格言：围绕 loop 加 hook，永远不要重写 loop —— 不改主 loop 也能增加扩展点
+
+  User 输入 query
        │
        ▼
   ┌──────────────────┐
-  │ UserPromptSubmit │ ── trigger_hooks() before LLM
+  │ UserPromptSubmit │ ── LLM 之前 trigger_hooks()
   └────────┬─────────┘
            ▼
   ┌────────────┐     ┌─────────────────────────────┐
@@ -34,18 +36,18 @@ s04: Hooks — move extension logic out of the loop, onto hooks.
                                                   │
                                           results ──▶ back to messages
 
-Changes from s03:
-  + HOOKS registry (event -> list of callbacks)
+相对 s03 的变化：
+  + HOOKS registry（event -> callback 列表）
   + register_hook() / trigger_hooks()
-  + context_inject_hook (UserPromptSubmit)
-  + permission_hook, log_hook (PreToolUse)
-  + large_output_hook (PostToolUse)
-  + summary_hook (Stop)
-  - check_permission() removed from loop body
-    (logic moved into permission_hook, triggered via PreToolUse)
+  + context_inject_hook（UserPromptSubmit）
+  + permission_hook、log_hook（PreToolUse）
+  + large_output_hook（PostToolUse）
+  + summary_hook（Stop）
+  - 从 loop body 移除 check_permission()
+    （逻辑移入 permission_hook，通过 PreToolUse 触发）
 
-Run: python s04_hooks/code.py
-Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
+运行: python s04_hooks/code.py
+需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
 """
 
 import os, subprocess
@@ -75,7 +77,7 @@ SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. Act, d
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s02-s03 : Tool Implementations
+# 来自 s02-s03：Tool 实现
 # ═══════════════════════════════════════════════════════════
 
 def run_bash(command: str) -> str:
@@ -90,7 +92,7 @@ def run_bash(command: str) -> str:
 def run_read(path: str, limit: int | None = None) -> str:
     try:
         file_path = (WORKDIR / path).resolve()
-        lines = file_path.read_text().splitlines()
+        lines = file_path.read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
         return "\n".join(lines)
@@ -101,7 +103,7 @@ def run_write(path: str, content: str) -> str:
     try:
         file_path = (WORKDIR / path).resolve()
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content)
+        file_path.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -109,10 +111,10 @@ def run_write(path: str, content: str) -> str:
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
         file_path = (WORKDIR / path).resolve()
-        text = file_path.read_text()
+        text = file_path.read_text(encoding="utf-8")
         if old_text not in text:
             return f"Error: text not found in {path}"
-        file_path.write_text(text.replace(old_text, new_text, 1))
+        file_path.write_text(text.replace(old_text, new_text, 1), encoding="utf-8")
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -148,7 +150,7 @@ TOOL_HANDLERS = {
 
 
 # ═══════════════════════════════════════════════════════════
-#  NEW in s04: Hook System (s03 permission logic now via hooks)
+# s04 新增：Hook System（s03 permission 逻辑现在通过 hooks 实现）
 # ═══════════════════════════════════════════════════════════
 
 HOOKS = {"UserPromptSubmit": [], "PreToolUse": [], "PostToolUse": [], "Stop": []}
@@ -164,12 +166,12 @@ def trigger_hooks(event: str, *args):
     return None
 
 
-# s03 permission check logic, now wrapped as a hook
+# s03 permission 检查逻辑，现在包装为 hook
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
 DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
 
 def permission_hook(block):
-    """PreToolUse: s03 check_permission() logic moved here."""
+    """PreToolUse：s03 check_permission() 逻辑移到这里。"""
     if block.name == "bash":
         for pattern in DENY_LIST:
             if pattern in block.input.get("command", ""):
@@ -193,23 +195,23 @@ def permission_hook(block):
     return None
 
 def log_hook(block):
-    """PreToolUse: log every tool call."""
+    """PreToolUse：记录每个 tool call。"""
     args_preview = str(list(block.input.values())[:2])[:60]
     print(f"\033[90m[HOOK] {block.name}({args_preview})\033[0m")
     return None
 
 def large_output_hook(block, output):
-    """PostToolUse: warn on large output."""
+    """PostToolUse：大型 output 时给出警告。"""
     if len(str(output)) > 100000:
         print(f"\033[33m[HOOK] ⚠ Large output from {block.name}: {len(str(output))} chars\033[0m")
     return None
 
-# UserPromptSubmit hook: log user input before it reaches the LLM
+# UserPromptSubmit hook：在用户输入到达 LLM 前记录它
 def context_inject_hook(query: str):
     print(f"\033[90m[HOOK] UserPromptSubmit: working in {WORKDIR}\033[0m")
     return None
 
-# Stop hook: print summary when loop is about to exit
+# Stop hook：loop 即将退出时打印摘要
 def summary_hook(messages: list):
     tool_count = sum(1 for m in messages
                      for b in (m.get("content") if isinstance(m.get("content"), list) else [])
@@ -225,7 +227,7 @@ register_hook("Stop", summary_hook)
 
 
 # ═══════════════════════════════════════════════════════════
-#  agent_loop — same structure as s03, but no hard-coded check
+# agent_loop —— 与 s03 结构相同，但没有硬编码检查
 #  s03: if not check_permission(block): ...
 #  s04: if trigger_hooks("PreToolUse", block): ...
 # ═══════════════════════════════════════════════════════════
@@ -250,7 +252,7 @@ def agent_loop(messages: list):
             if block.type != "tool_use":
                 continue
 
-            # s04 change: hook replaces hard-coded check_permission()
+            # s04 变化：hook 替代硬编码的 check_permission()
             blocked = trigger_hooks("PreToolUse", block)
             if blocked:
                 results.append({"type": "tool_result", "tool_use_id": block.id,

@@ -85,7 +85,7 @@ class EventBus:
         self.path = event_log_path
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if not self.path.exists():
-            self.path.write_text("")
+            self.path.write_text("", encoding="utf-8")
 
     def emit(
         self,
@@ -141,10 +141,10 @@ class TaskManager:
         path = self._path(task_id)
         if not path.exists():
             raise ValueError(f"Task {task_id} not found")
-        return json.loads(path.read_text())
+            return json.loads(path.read_text(encoding="utf-8"))
 
     def _save(self, task: dict):
-        self._path(task["id"]).write_text(json.dumps(task, indent=2))
+            self._path(task["id"]).write_text(json.dumps(task, indent=2), encoding="utf-8")
 
     def create(self, subject: str, description: str = "") -> str:
         task = {
@@ -201,7 +201,7 @@ class TaskManager:
     def list_all(self) -> str:
         tasks = []
         for f in sorted(self.dir.glob("task_*.json")):
-            tasks.append(json.loads(f.read_text()))
+            tasks.append(json.loads(f.read_text(encoding="utf-8")))
         if not tasks:
             return "No tasks."
         lines = []
@@ -231,7 +231,7 @@ class WorktreeManager:
         self.dir.mkdir(parents=True, exist_ok=True)
         self.index_path = self.dir / "index.json"
         if not self.index_path.exists():
-            self.index_path.write_text(json.dumps({"worktrees": []}, indent=2))
+            self.index_path.write_text(json.dumps({"worktrees": []}, indent=2), encoding="utf-8")
         self.git_available = self._is_git_repo()
 
     def _is_git_repo(self) -> bool:
@@ -263,10 +263,10 @@ class WorktreeManager:
         return (r.stdout + r.stderr).strip() or "(no output)"
 
     def _load_index(self) -> dict:
-        return json.loads(self.index_path.read_text())
+            return json.loads(self.index_path.read_text(encoding="utf-8"))
 
     def _save_index(self, data: dict):
-        self.index_path.write_text(json.dumps(data, indent=2))
+            self.index_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     def _find(self, name: str) -> dict | None:
         idx = self._load_index()
@@ -503,7 +503,7 @@ def run_bash(command: str) -> str:
 
 def run_read(path: str, limit: int = None) -> str:
     try:
-        lines = safe_path(path).read_text().splitlines()
+        lines = safe_path(path).read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more)"]
         return "\n".join(lines)[:50000]
@@ -515,7 +515,7 @@ def run_write(path: str, content: str) -> str:
     try:
         fp = safe_path(path)
         fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
+        fp.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes"
     except Exception as e:
         return f"Error: {e}"
@@ -524,10 +524,10 @@ def run_write(path: str, content: str) -> str:
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
         fp = safe_path(path)
-        c = fp.read_text()
+        c = fp.read_text(encoding="utf-8")
         if old_text not in c:
             return f"Error: Text not found in {path}"
-        fp.write_text(c.replace(old_text, new_text, 1))
+        fp.write_text(c.replace(old_text, new_text, 1), encoding="utf-8")
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"

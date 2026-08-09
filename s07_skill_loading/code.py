@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-s07: Skill Loading — two-level on-demand knowledge injection.
+s07: Skill Loading — 两层按需知识注入。
 
-  Layer 1 (cheap, always present):
-    SYSTEM prompt includes skill names + one-line descriptions (~100 tokens/skill)
+格言：按需加载知识，不要一开始全塞进去 —— 先列 skill，需要时再展开
+
+  Layer 1（便宜，始终存在）：
+    SYSTEM prompt 包含 skill 名称 + 单行描述（~100 tokens/skill）
     "Skills available: agent-builder, code-review, mcp-builder, pdf"
 
-  Layer 2 (expensive, on demand):
-    Agent calls load_skill("code-review") → full SKILL.md content
-    injected via tool_result (~2000 tokens/skill)
+  Layer 2（昂贵，按需）：
+    Agent 调用 load_skill("code-review") → 完整 SKILL.md 内容
+    通过 tool_result 注入（~2000 tokens/skill）
 
   skills/
     agent-builder/SKILL.md
@@ -16,14 +18,14 @@ s07: Skill Loading — two-level on-demand knowledge injection.
     mcp-builder/SKILL.md
     pdf/SKILL.md
 
-Changes from s06:
-  + build_system() — scan skills/ dir at startup, inject catalog into SYSTEM
-  + load_skill(name) — return full SKILL.md content via tool_result
-  + SKILLS_DIR config
-  Loop unchanged: load_skill auto-dispatches via TOOL_HANDLERS.
+相对 s06 的变化：
+  + build_system() — 启动时扫描 skills/ 目录，把 catalog 注入 SYSTEM
+  + load_skill(name) — 通过 tool_result 返回完整 SKILL.md 内容
+  + SKILLS_DIR 配置
+  Loop 不变：load_skill 通过 TOOL_HANDLERS 自动分发。
 
-Run: python s07_skill_loading/code.py
-Needs: pip install anthropic python-dotenv pyyaml + ANTHROPIC_API_KEY in .env
+运行: python s07_skill_loading/code.py
+需要: pip install anthropic python-dotenv pyyaml + .env 中配置 ANTHROPIC_API_KEY
 """
 
 import ast, json, os, subprocess
@@ -49,9 +51,9 @@ client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 CURRENT_TODOS: list[dict] = []
 
-# s07: Skill catalog scan (used by build_system below)
+# s07：Skill catalog 扫描（供下方 build_system 使用）
 def _parse_frontmatter(text: str) -> tuple[dict, str]:
-    """Parse YAML frontmatter from SKILL.md. Returns (meta, body)."""
+    """解析 SKILL.md 中的 YAML frontmatter。返回 (meta, body)。"""
     if not text.startswith("---"):
         return {}, text
     parts = text.split("---", 2)
@@ -63,11 +65,11 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
         meta = {}
     return meta, parts[2].strip()
 
-# Build skill registry at startup (used for safe lookup in load_skill)
+# 启动时构建 skill registry（供 load_skill 安全查找）
 SKILL_REGISTRY: dict[str, dict] = {}
 
 def _scan_skills():
-    """Scan skills/ dir, populate SKILL_REGISTRY with name/description/content."""
+    """扫描 skills/ 目录，用 name/description/content 填充 SKILL_REGISTRY。"""
     if not SKILLS_DIR.exists():
         return
     for d in sorted(SKILLS_DIR.iterdir()):
@@ -75,7 +77,7 @@ def _scan_skills():
             continue
         manifest = d / "SKILL.md"
         if manifest.exists():
-            raw = manifest.read_text()
+            raw = manifest.read_text(encoding="utf-8")
             meta, body = _parse_frontmatter(raw)
             name = meta.get("name", d.name)
             desc = meta.get("description", raw.split("\n")[0].lstrip("#").strip())
@@ -84,14 +86,14 @@ def _scan_skills():
 _scan_skills()
 
 def list_skills() -> str:
-    """List all skills (name + one-line description)."""
+    """列出所有 skills（name + 单行 description）。"""
     if not SKILL_REGISTRY:
         return "(no skills found)"
     return "\n".join(f"- **{s['name']}**: {s['description']}" for s in SKILL_REGISTRY.values())
 
-# s07: SYSTEM includes skill catalog (cheap — just names + descriptions)
+# s07：SYSTEM 包含 skill catalog（便宜——只有名称和描述）
 def build_system() -> str:
-    """Build SYSTEM prompt with skill catalog injected at startup."""
+    """启动时注入 skill catalog，构建 SYSTEM prompt。"""
     catalog = list_skills()
     return (
         f"You are a coding agent at {WORKDIR}. "
@@ -101,7 +103,7 @@ def build_system() -> str:
 
 SYSTEM = build_system()
 
-# s07: subagent gets its own system prompt — no skill loading, no task
+# s07：subagent 拥有自己的 system prompt —— 不加载 skill，没有 task
 SUB_SYSTEM = (
     f"You are a coding agent at {WORKDIR}. "
     "Complete the task you were given, then return a concise summary. "
@@ -110,7 +112,7 @@ SUB_SYSTEM = (
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s02-s06 (unchanged): Tool Implementations
+# 来自 s02-s06（未改动）：Tool 实现
 # ═══════════════════════════════════════════════════════════
 
 def safe_path(p: str) -> Path:
@@ -130,7 +132,7 @@ def run_bash(command: str) -> str:
 
 def run_read(path: str, limit: int | None = None) -> str:
     try:
-        lines = safe_path(path).read_text().splitlines()
+        lines = safe_path(path).read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
         return "\n".join(lines)
@@ -141,7 +143,7 @@ def run_write(path: str, content: str) -> str:
     try:
         file_path = safe_path(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content)
+        file_path.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -149,10 +151,10 @@ def run_write(path: str, content: str) -> str:
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
         file_path = safe_path(path)
-        text = file_path.read_text()
+        text = file_path.read_text(encoding="utf-8")
         if old_text not in text:
             return f"Error: text not found in {path}"
-        file_path.write_text(text.replace(old_text, new_text, 1))
+        file_path.write_text(text.replace(old_text, new_text, 1), encoding="utf-8")
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -208,7 +210,7 @@ def extract_text(content) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s06 (unchanged): Subagent
+# 来自 s06（未改动）：Subagent
 # ═══════════════════════════════════════════════════════════
 
 SUB_TOOLS = [
@@ -263,11 +265,11 @@ def spawn_subagent(description: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
-#  NEW in s07: load_skill — runtime full content loading
+# s07 新增：load_skill —— 运行时加载完整内容
 # ═══════════════════════════════════════════════════════════
 
 def load_skill(name: str) -> str:
-    """Load full skill content. Lookup via registry — no path traversal."""
+    """加载完整 skill 内容。通过 registry 查找——不允许 path traversal。"""
     skill = SKILL_REGISTRY.get(name)
     if not skill:
         return f"Skill not found: {name}"
@@ -275,7 +277,7 @@ def load_skill(name: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
-#  Tool Registry — all tools from s02-s07
+# Tool Registry —— s02-s07 的所有 tools
 # ═══════════════════════════════════════════════════════════
 
 TOOLS = [
@@ -293,7 +295,7 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"todos": {"type": "array", "items": {"type": "object", "properties": {"content": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}, "required": ["content", "status"]}}}, "required": ["todos"]}},
     {"name": "task", "description": "Launch a subagent to handle a complex subtask. Returns only the final conclusion.",
      "input_schema": {"type": "object", "properties": {"description": {"type": "string"}}, "required": ["description"]}},
-    # s07: skill tool (catalog is already in SYSTEM prompt, this loads full content)
+    # s07：skill tool（catalog 已在 SYSTEM prompt 中，这里加载完整内容）
     {"name": "load_skill", "description": "Load the full content of a skill by name.",
      "input_schema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}},
 ]
@@ -306,7 +308,7 @@ TOOL_HANDLERS = {
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s04 (unchanged): Hook System
+# 来自 s04（未改动）：Hook System
 # ═══════════════════════════════════════════════════════════
 
 HOOKS = {"UserPromptSubmit": [], "PreToolUse": [], "PostToolUse": [], "Stop": []}
@@ -353,7 +355,7 @@ register_hook("Stop", summary_hook)
 
 
 # ═══════════════════════════════════════════════════════════
-#  agent_loop — same as s05-s06 + nag reminder
+# agent_loop —— 与 s05-s06 相同 + nag reminder
 # ═══════════════════════════════════════════════════════════
 
 def agent_loop(messages: list):

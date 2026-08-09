@@ -78,7 +78,7 @@ def execute_tool(name: str, args: dict) -> str:
 
     if name == "read_file":
         try:
-            return (WORKDIR / args["path"]).read_text()[:50000]
+            return (WORKDIR / args["path"]).read_text(encoding="utf-8")[:50000]
         except Exception as e:
             return f"Error: {e}"
 
@@ -86,7 +86,7 @@ def execute_tool(name: str, args: dict) -> str:
         try:
             p = WORKDIR / args["path"]
             p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(args["content"])
+            p.write_text(args["content"], encoding="utf-8")
             return f"Wrote {len(args['content'])} bytes to {args['path']}"
         except Exception as e:
             return f"Error: {e}"

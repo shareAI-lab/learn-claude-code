@@ -2,6 +2,8 @@
 """
 s02: Tool Use — 在 s01 基础上新增 4 个工具 + 分发映射。
 
+格言：新增一个 tool，就是新增一个 handler —— loop 保持不动；新 tool 注册进 dispatch map
+
 运行: python s02_tool_use/code.py
 需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
 
@@ -40,7 +42,7 @@ SYSTEM = f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. Act, d
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s01 (unchanged)
+# 来自 s01（未改动）
 # ═══════════════════════════════════════════════════════════
 
 def run_bash(command: str) -> str:
@@ -63,6 +65,7 @@ def run_bash(command: str) -> str:
 #  NEW in s02: 4 个新工具
 # ═══════════════════════════════════════════════════════════
 
+# 把用户/LLM 传进来的路径限制在当前 workspace 里面，防止越界读写文件。
 def safe_path(p: str) -> Path:
     path = (WORKDIR / p).resolve()
     if not path.is_relative_to(WORKDIR):
@@ -72,7 +75,7 @@ def safe_path(p: str) -> Path:
 
 def run_read(path: str, limit: int | None = None) -> str:
     try:
-        lines = safe_path(path).read_text().splitlines()
+        lines = safe_path(path).read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
         return "\n".join(lines)
@@ -84,7 +87,7 @@ def run_write(path: str, content: str) -> str:
     try:
         file_path = safe_path(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content)
+        file_path.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -93,10 +96,10 @@ def run_write(path: str, content: str) -> str:
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
         file_path = safe_path(path)
-        text = file_path.read_text()
+        text = file_path.read_text(encoding="utf-8")
         if old_text not in text:
             return f"Error: text not found in {path}"
-        file_path.write_text(text.replace(old_text, new_text, 1))
+        file_path.write_text(text.replace(old_text, new_text, 1), encoding="utf-8")
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"

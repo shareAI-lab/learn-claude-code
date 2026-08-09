@@ -53,7 +53,7 @@
   <text x="370" y="203" fill="#475569" font-size="11" text-anchor="middle">.memory/ — MEMORY.md index + *.md files (YAML frontmatter: name / description / type)</text>
 
   <!-- Arrow: Storage → Memory Files -->
-  <path d="M 112 138 L 112 174 Q 112 180 118 180" fill="none" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M 112 138 L 112 180" fill="none" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrow)"/>
   <text x="120" y="162" fill="#7c3aed" font-size="9">read/write</text>
 
   <!-- Arrow: Extraction → Memory Files -->

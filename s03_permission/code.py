@@ -2,11 +2,13 @@
 """
 s03_permission.py - Permission System
 
-Three gates inserted before tool execution:
+格言：先设边界，再给自由 —— 检查什么能跑、什么必须停、什么需要审批
 
-    Gate 1: Hard deny list (rm -rf /, sudo, ...)
-    Gate 2: Rule matching (write outside workspace? destructive cmd?)
-    Gate 3: User approval (pause and wait for confirmation)
+在 tool 执行前插入三道门：
+
+    Gate 1: 硬拒绝列表（rm -rf /、sudo、...）
+    Gate 2: 规则匹配（写到 workspace 外？破坏性命令？）
+    Gate 3: 用户审批（暂停并等待确认）
 
     +-------+    +--------+    +--------+    +--------+    +------+
     | Tool  | -> | Gate 1 | -> | Gate 2 | -> | Gate 3 | -> | Exec |
@@ -16,15 +18,15 @@ Three gates inserted before tool execution:
          v            v             v             v
       (normal)     (blocked)    (ask user)   (user says no?)
 
-Only one line added to the agent loop:
+只向 agent loop 添加一行：
 
     if not check_permission(block):
         continue
 
-Builds on s02 (multi-tool). Usage:
+基于 s02（multi-tool）。用法：
 
     python s03_permission/code.py
-    Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
+    需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
 """
 
 import os, subprocess
@@ -54,7 +56,7 @@ SYSTEM = f"You are a coding agent at {WORKDIR}. All destructive operations requi
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s02 : Tool Implementations
+# 来自 s02：Tool 实现
 # ═══════════════════════════════════════════════════════════
 
 def run_bash(command: str) -> str:
@@ -69,7 +71,7 @@ def run_bash(command: str) -> str:
 
 def run_read(path: str, limit: int | None = None) -> str:
     try:
-        lines = (WORKDIR / path).resolve().read_text().splitlines()
+        lines = (WORKDIR / path).resolve().read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
         return "\n".join(lines)
@@ -81,7 +83,7 @@ def run_write(path: str, content: str) -> str:
     try:
         file_path = (WORKDIR / path).resolve()
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content)
+        file_path.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -90,10 +92,10 @@ def run_write(path: str, content: str) -> str:
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
         file_path = (WORKDIR / path).resolve()
-        text = file_path.read_text()
+        text = file_path.read_text(encoding="utf-8")
         if old_text not in text:
             return f"Error: text not found in {path}"
-        file_path.write_text(text.replace(old_text, new_text, 1))
+        file_path.write_text(text.replace(old_text, new_text, 1), encoding="utf-8")
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -112,7 +114,7 @@ def run_glob(pattern: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s02 (unchanged): Tool Definitions & Dispatch
+# 来自 s02（未改动）：Tool 定义与分发
 # ═══════════════════════════════════════════════════════════
 
 TOOLS = [
@@ -135,10 +137,10 @@ TOOL_HANDLERS = {
 
 
 # ═══════════════════════════════════════════════════════════
-#  NEW in s03: Three-Gate Permission Pipeline
+# s03 新增：三道门 Permission Pipeline
 # ═══════════════════════════════════════════════════════════
 
-# Gate 1: Hard deny list — always forbidden
+# Gate 1：硬拒绝列表 —— 永远禁止
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if=", "> /dev/sda"]
 
 def check_deny_list(command: str) -> str | None:
@@ -148,7 +150,7 @@ def check_deny_list(command: str) -> str | None:
     return None
 
 
-# Gate 2: Rule matching — context-dependent checks
+# Gate 2：规则匹配 —— 依赖 context 的检查
 PERMISSION_RULES = [
     {"tools": ["read_file", "write_file", "edit_file"],
      "check": lambda args: not (WORKDIR / args.get("path", "")).resolve().is_relative_to(WORKDIR),
@@ -165,7 +167,7 @@ def check_rules(tool_name: str, args: dict) -> str | None:
     return None
 
 
-# Gate 3: User approval — wait for confirmation after rule match
+# Gate 3：用户审批 —— 规则匹配后等待确认
 def ask_user(tool_name: str, args: dict, reason: str) -> str:
     print(f"\n\033[33m⚠  {reason}\033[0m")
     print(f"   Tool: {tool_name}({args})")
@@ -173,7 +175,7 @@ def ask_user(tool_name: str, args: dict, reason: str) -> str:
     return "allow" if choice in ("y", "yes") else "deny"
 
 
-# Pipeline: all three gates chained
+# Pipeline：三道门串联
 def check_permission(block) -> bool:
     if block.name == "bash":
         reason = check_deny_list(block.input.get("command", ""))
@@ -189,7 +191,7 @@ def check_permission(block) -> bool:
 
 
 # ═══════════════════════════════════════════════════════════
-#  agent_loop — same as s02, with check_permission() inserted
+# agent_loop —— 与 s02 相同，但插入 check_permission()
 # ═══════════════════════════════════════════════════════════
 
 def agent_loop(messages: list):
@@ -210,7 +212,7 @@ def agent_loop(messages: list):
 
             print(f"\033[36m> {block.name}\033[0m")
 
-            # s03 change: run through permission pipeline before executing
+            # s03 变化：执行前先经过 permission pipeline
             if not check_permission(block):
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": "Permission denied."})

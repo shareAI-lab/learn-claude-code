@@ -2,26 +2,28 @@
 """
 s09_memory.py - Memory System
 
-Persistent, cross-session knowledge for the coding agent.
+格言：记住重要的，忘掉不重要的 —— 三个子系统：选择、提取、固化
 
-Storage:
+给 coding agent 的跨会话持久知识。
+
+存储：
     .memory/
-      MEMORY.md          ← index (one line per memory, ≤200 lines)
-      feedback_tabs.md    ← individual memory files (Markdown + YAML frontmatter)
+      MEMORY.md          ← index（每条 memory 一行，≤200 行）
+      feedback_tabs.md    ← 单个 memory 文件（Markdown + YAML frontmatter）
       user_profile.md
       project_facts.md
 
-Flow in agent_loop:
-    1. Load MEMORY.md index into SYSTEM prompt (cheap, always present)
-    2. Select relevant memories by filename/description → inject content
-    3. Run compression pipeline from s08
-    4. After each turn ends → extract new memories from original messages
-    5. Periodically consolidate (Dream)
+agent_loop 中的流程：
+    1. 把 MEMORY.md index 加载到 SYSTEM prompt（便宜，始终存在）
+    2. 按 filename/description 选择相关 memories → 注入内容
+    3. 运行 s08 的压缩 pipeline
+    4. 每轮结束后 → 从原始 messages 中提取新 memories
+    5. 定期 consolidate（Dream）
 
-Builds on s08 (context compact). Usage:
+基于 s08（context compact）。用法：
 
     python s09_memory/code.py
-    Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
+    需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
 """
 
 import os, subprocess, json, time, re
@@ -50,7 +52,7 @@ MODEL = os.environ["MODEL_ID"]
 
 
 # ═══════════════════════════════════════════════════════════
-#  NEW in s09: Memory System
+# s09 新增：Memory System
 # ═══════════════════════════════════════════════════════════
 
 MEMORY_TYPES = ["user", "feedback", "project", "reference"]
@@ -70,54 +72,58 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
 
 
 def write_memory_file(name: str, mem_type: str, description: str, body: str):
-    """Write a single memory file with YAML frontmatter."""
+    """写入单个带 YAML frontmatter 的 memory 文件。"""
     slug = name.lower().replace(" ", "-").replace("/", "-")
     filename = f"{slug}.md"
     filepath = MEMORY_DIR / filename
     filepath.write_text(
-        f"---\nname: {name}\ndescription: {description}\ntype: {mem_type}\n---\n\n{body}\n"
+        f"---\nname: {name}\ndescription: {description}\ntype: {mem_type}\n---\n\n{body}\n",
+        encoding="utf-8",
     )
     _rebuild_index()
     return filepath
 
 
 def _rebuild_index():
-    """Rebuild MEMORY.md index from all memory files."""
+    """从所有 memory files 重建 MEMORY.md index。"""
     lines = []
     for f in sorted(MEMORY_DIR.glob("*.md")):
         if f.name == "MEMORY.md":
             continue
-        raw = f.read_text()
+        raw = f.read_text(encoding="utf-8")
         meta, body = _parse_frontmatter(raw)
         name = meta.get("name", f.stem)
         desc = meta.get("description", body.split("\n")[0][:80])
         lines.append(f"- [{name}]({f.name}) — {desc}")
-    MEMORY_INDEX.write_text("\n".join(lines) + "\n" if lines else "")
+    MEMORY_INDEX.write_text(
+        "\n".join(lines) + "\n" if lines else "",
+        encoding="utf-8",
+    )
 
 
 def read_memory_index() -> str:
-    """Read MEMORY.md index (injected into SYSTEM every turn)."""
+    """读取 MEMORY.md index（每轮注入 SYSTEM）。"""
     if not MEMORY_INDEX.exists():
         return ""
-    text = MEMORY_INDEX.read_text().strip()
+    text = MEMORY_INDEX.read_text(encoding="utf-8").strip()
     return text if text else ""
 
 
 def read_memory_file(filename: str) -> str | None:
-    """Read a single memory file's full content."""
+    """读取单个 memory 文件的完整内容。"""
     path = MEMORY_DIR / filename
     if not path.exists():
         return None
-    return path.read_text()
+    return path.read_text(encoding="utf-8")
 
 
 def list_memory_files() -> list[dict]:
-    """List all memory files with metadata."""
+    """列出所有带 metadata 的 memory files。"""
     result = []
     for f in sorted(MEMORY_DIR.glob("*.md")):
         if f.name == "MEMORY.md":
             continue
-        raw = f.read_text()
+        raw = f.read_text(encoding="utf-8")
         meta, body = _parse_frontmatter(raw)
         result.append({
             "filename": f.name,
@@ -130,14 +136,16 @@ def list_memory_files() -> list[dict]:
 
 
 def select_relevant_memories(messages: list, max_items: int = 5) -> list[str]:
-    """Select relevant memory filenames by matching recent conversation against
-    memory names/descriptions. Uses a simple LLM call (or falls back to keyword
-    matching on name+description)."""
+    """
+    通过把最近 conversation 与
+    memory names/descriptions 匹配，选择相关 memory filenames。使用简单 LLM 调用（或 fallback 到 keyword
+    matching on name+description）。
+    """
     files = list_memory_files()
     if not files:
         return []
 
-    # Collect recent user text for context
+    # 收集最近 user 文本作为 context
     recent_texts = []
     for msg in reversed(messages):
         if msg.get("role") == "user":
@@ -156,7 +164,7 @@ def select_relevant_memories(messages: list, max_items: int = 5) -> list[str]:
     if not recent.strip():
         return []
 
-    # Build catalog of name + description for LLM to choose from
+    # 构建 name + description catalog，供 LLM 选择
     catalog_lines = []
     for i, f in enumerate(files):
         catalog_lines.append(f"{i}: {f['name']} — {f['description']}")
@@ -178,7 +186,7 @@ def select_relevant_memories(messages: list, max_items: int = 5) -> list[str]:
             max_tokens=200,
         )
         text = extract_text(response.content).strip()
-        # Extract JSON array from response
+        # 从 response 中提取 JSON array
         match = re.search(r'\[.*?\]', text, re.DOTALL)
         if match:
             indices = json.loads(match.group())
@@ -192,7 +200,7 @@ def select_relevant_memories(messages: list, max_items: int = 5) -> list[str]:
     except Exception:
         pass
 
-    # Fallback: keyword matching on name + description
+    # Fallback：基于 name + description 做 keyword matching
     keywords = [w.lower() for w in recent.split() if len(w) > 3]
     selected = []
     for f in files:
@@ -205,7 +213,7 @@ def select_relevant_memories(messages: list, max_items: int = 5) -> list[str]:
 
 
 def load_memories(messages: list) -> str:
-    """Load relevant memory content for injection into context."""
+    """加载相关 memory 内容，用于注入 context。"""
     selected_files = select_relevant_memories(messages)
     if not selected_files:
         return ""
@@ -220,8 +228,8 @@ def load_memories(messages: list) -> str:
 
 
 def extract_memories(messages: list):
-    """Extract new memories from recent dialogue. Runs after each turn."""
-    # Collect recent conversation text
+    """从最近 dialogue 中提取新 memories。每轮后运行。"""
+    # 收集最近 conversation text
     dialogue_parts = []
     for msg in messages[-10:]:
         role = msg.get("role", "?")
@@ -238,7 +246,7 @@ def extract_memories(messages: list):
     if not dialogue.strip():
         return
 
-    # Check existing memories to avoid duplicates
+    # 检查已有 memories，避免重复
     existing = list_memory_files()
     existing_desc = "\n".join(f"- {m['name']}: {m['description']}" for m in existing) if existing else "(none)"
 
@@ -260,7 +268,7 @@ def extract_memories(messages: list):
             model=MODEL, messages=[{"role": "user", "content": prompt}], max_tokens=800
         )
         text = extract_text(response.content).strip()
-        # Extract JSON array from response
+        # 从 response 中提取 JSON array
         match = re.search(r'\[.*\]', text, re.DOTALL)
         if not match:
             return
@@ -285,7 +293,7 @@ def extract_memories(messages: list):
 CONSOLIDATE_THRESHOLD = 10
 
 def consolidate_memories():
-    """Merge duplicate/stale memories. Triggered when file count ≥ threshold."""
+    """合并重复/陈旧 memories。file count ≥ threshold 时触发。"""
     files = list_memory_files()
     if len(files) < CONSOLIDATE_THRESHOLD:
         return
@@ -315,7 +323,7 @@ def consolidate_memories():
             return
         items = json.loads(match.group())
 
-        # Remove old memory files (keep MEMORY.md)
+        # 移除旧 memory files（保留 MEMORY.md）
         for f in MEMORY_DIR.glob("*.md"):
             if f.name != "MEMORY.md":
                 f.unlink()
@@ -333,9 +341,14 @@ def consolidate_memories():
         pass
 
 
-# Build SYSTEM with memory index
+# 用 memory index 构建 SYSTEM
 def build_system() -> str:
     index = read_memory_index()
+    '''将memory目录注入系统提示词
+    有哪些记忆文件
+    每个记忆文件的名称
+    每个记忆文件的简短描述
+    '''
     memories_section = f"\n\nMemories available:\n{index}" if index else ""
     return (
         f"You are a coding agent at {WORKDIR}."
@@ -352,7 +365,7 @@ SUB_SYSTEM = (
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s02-s08 (skeleton): Basic tools
+# 来自 s02-s08（skeleton）：基础 tools
 # ═══════════════════════════════════════════════════════════
 
 def safe_path(p: str) -> Path:
@@ -369,7 +382,7 @@ def run_bash(command: str) -> str:
 
 def run_read(path: str, limit: int | None = None) -> str:
     try:
-        lines = safe_path(path).read_text().splitlines()
+        lines = safe_path(path).read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines): lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
         return "\n".join(lines)
     except Exception as e: return f"Error: {e}"
@@ -377,15 +390,15 @@ def run_read(path: str, limit: int | None = None) -> str:
 def run_write(path: str, content: str) -> str:
     try:
         file_path = safe_path(path); file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content); return f"Wrote {len(content)} bytes to {path}"
+        file_path.write_text(content, encoding="utf-8"); return f"Wrote {len(content)} bytes to {path}"
     except Exception as e: return f"Error: {e}"
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
         file_path = safe_path(path)
-        text = file_path.read_text()
+        text = file_path.read_text(encoding="utf-8")
         if old_text not in text: return f"Error: text not found in {path}"
-        file_path.write_text(text.replace(old_text, new_text, 1))
+        file_path.write_text(text.replace(old_text, new_text, 1), encoding="utf-8")
         return f"Edited {path}"
     except Exception as e: return f"Error: {e}"
 
@@ -403,7 +416,7 @@ def extract_text(content) -> str:
     if not isinstance(content, list): return str(content)
     return "\n".join(getattr(b, "text", "") for b in content if getattr(b, "type", None) == "text")
 
-# Subagent (simplified from s06-s07)
+# Subagent（从 s06-s07 简化）
 SUB_TOOLS = [
     {"name": "bash", "description": "Run a shell command.",
      "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
@@ -442,7 +455,7 @@ def spawn_subagent(description: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
-#  FROM s08 (skeleton): Compaction pipeline
+# 来自 s08（skeleton）：Compaction pipeline
 # ═══════════════════════════════════════════════════════════
 
 CONTEXT_LIMIT = 50000; KEEP_RECENT = 3; PERSIST_THRESHOLD = 30000
@@ -501,7 +514,7 @@ def persist_large(tid, out):
     if len(out) <= PERSIST_THRESHOLD: return out
     TOOL_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     p = TOOL_RESULTS_DIR / f"{tid}.txt"
-    if not p.exists(): p.write_text(out)
+    if not p.exists(): p.write_text(out, encoding="utf-8")
     return f"<persisted-output>\nFull: {p}\nPreview:\n{out[:2000]}\n</persisted-output>"
 
 def tool_result_budget(msgs, mx=200_000):
@@ -521,7 +534,7 @@ def tool_result_budget(msgs, mx=200_000):
 def write_transcript(msgs):
     TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
     p = TRANSCRIPT_DIR / f"transcript_{int(time.time())}.jsonl"
-    with p.open("w") as f:
+    with p.open("w", encoding="utf-8") as f:
         for m in msgs: f.write(json.dumps(m, default=str) + "\n")
     return p
 
@@ -550,7 +563,7 @@ def reactive_compact(msgs):
 
 
 # ═══════════════════════════════════════════════════════════
-#  Tool Definitions (skeleton — fewer tools to focus on memory)
+# Tool 定义（skeleton —— 减少 tools 以聚焦 memory）
 # ═══════════════════════════════════════════════════════════
 
 TOOLS = [
@@ -575,25 +588,25 @@ TOOL_HANDLERS = {
 
 
 # ═══════════════════════════════════════════════════════════
-#  agent_loop — s09: inject memories + extract after each turn
+# agent_loop —— s09：注入 memories，并在每轮后提取
 # ═══════════════════════════════════════════════════════════
 
 MAX_REACTIVE_RETRIES = 1
 
 def agent_loop(messages: list):
     reactive_retries = 0
-    # s09: inject relevant memory content into the current user turn
+    # s09：把相关 memory 内容注入当前 user turn
     memories_content = load_memories(messages)
     memory_turn = len(messages) - 1 if messages and isinstance(messages[-1].get("content"), str) else None
-    # s09: build system once per user turn; memory is updated after the loop returns
+    # s09：每个 user turn 构建一次 system；loop 返回后更新 memory
     system = build_system()
 
     while True:
-        # s09: save pre-compression snapshot for accurate memory extraction
+        # s09：保存压缩前快照，用于准确 memory extraction
         pre_compress = [m if isinstance(m, dict) else {"role": m.get("role",""),
             "content": str(m.get("content",""))} for m in messages]
 
-        # s08: compression pipeline (budget → snip → micro)
+        # s08：compression pipeline（budget → snip → micro）
         messages[:] = tool_result_budget(messages)
         messages[:] = snip_compact(messages)
         messages[:] = micro_compact(messages)
@@ -624,7 +637,7 @@ def agent_loop(messages: list):
 
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
-            # s09: extract from pre-compression snapshot for full fidelity
+            # s09：从压缩前快照提取，保证完整性
             extract_memories(pre_compress)
             consolidate_memories()
             return

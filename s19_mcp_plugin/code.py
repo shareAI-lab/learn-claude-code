@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """
-s19: MCP Tools — MCPClient + tool discovery + assemble_tool_pool.
+s19: MCP Tools — MCPClient + tool discovery + assemble_tool_pool。
 
-Run:  python s19_mcp_plugin/code.py
-Need: pip install anthropic python-dotenv + .env with ANTHROPIC_API_KEY
+格言：能力不够？通过 MCP 插更多进来 —— 把外部 tool 接入同一个 tool 池
 
-Changes from s18:
-  - MCPClient class: discovers tools, calls tools via mock handler
-  - normalize_mcp_name: normalize tool/server names
-  - assemble_tool_pool: assembles builtin + MCP tools into one pool
-  - connect_mcp: connect to an MCP server, discover tools
-  - Tool naming: mcp__{server}__{tool} with normalization
-  - MCP tools have readOnly/destructive annotations
-  - agent_loop uses dynamic tool pool (builtin + MCP), no prompt cache
-  - Teammate tools: complete_task, worktree cwd (from s17/s18 fixes)
+运行:  python s19_mcp_plugin/code.py
+需要: pip install anthropic python-dotenv + .env 中配置 ANTHROPIC_API_KEY
+
+相对 s18 的变化：
+  - MCPClient class: 发现 tools，通过 mock handler 调用 tools
+  - normalize_mcp_name: 规范化 tool/server names
+  - assemble_tool_pool: 把 builtin + MCP tools 组装到一个池里
+  - connect_mcp: 连接 MCP server，发现 tools
+  - Tool naming: mcp__{server}__{tool}，带 normalization
+  - MCP tools 带 readOnly/destructive annotations
+  - agent_loop 使用动态 tool pool（builtin + MCP），没有 prompt cache
+  - Teammate tools: complete_task, worktree cwd（来自 s17/s18 fixes）
 
 ASCII flow:
   connect_mcp("docs") → MCPClient discovers tools →
@@ -77,15 +79,15 @@ def create_task(subject: str, description: str = "",
 
 
 def save_task(task: Task):
-    _task_path(task.id).write_text(json.dumps(asdict(task), indent=2))
+    _task_path(task.id).write_text(json.dumps(asdict(task), indent=2), encoding="utf-8")
 
 
 def load_task(task_id: str) -> Task:
-    return Task(**json.loads(_task_path(task_id).read_text()))
+    return Task(**json.loads(_task_path(task_id).read_text(encoding="utf-8")))
 
 
 def list_tasks() -> list[Task]:
-    return [Task(**json.loads(p.read_text()))
+    return [Task(**json.loads(p.read_text(encoding="utf-8")))
             for p in sorted(TASKS_DIR.glob("task_*.json"))]
 
 
@@ -172,7 +174,7 @@ def log_event(event_type: str, worktree_name: str, task_id: str = ""):
     event = {"type": event_type, "worktree": worktree_name,
              "task_id": task_id, "ts": time.time()}
     events_file = WORKTREES_DIR / "events.jsonl"
-    with open(events_file, "a") as f:
+    with open(events_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(event) + "\n")
 
 
@@ -243,7 +245,7 @@ def keep_worktree(name: str) -> str:
     return f"Worktree '{name}' kept for review (branch: wt/{name})"
 
 
-# ── Prompt Assembly ──
+# ── Prompt 组装 ──
 
 PROMPT_SECTIONS = {
     "identity": "You are a coding agent. Act, don't explain.",
@@ -270,7 +272,7 @@ def assemble_system_prompt(context: dict) -> str:
     return "\n\n".join(sections)
 
 
-# ── Basic Tools ──
+# ── 基础 Tools ──
 
 def safe_path(p: str, cwd: Path = None) -> Path:
     base = cwd or WORKDIR
@@ -292,7 +294,7 @@ def run_bash(command: str, cwd: Path = None) -> str:
 
 def run_read(path: str, limit: int | None = None, cwd: Path = None) -> str:
     try:
-        lines = safe_path(path, cwd).read_text().splitlines()
+        lines = safe_path(path, cwd).read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
         return "\n".join(lines)
@@ -304,7 +306,7 @@ def run_write(path: str, content: str, cwd: Path = None) -> str:
     try:
         fp = safe_path(path, cwd)
         fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
+        fp.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -323,7 +325,7 @@ class MessageBus:
                "content": content, "type": msg_type,
                "ts": time.time(), "metadata": metadata or {}}
         inbox = MAILBOX_DIR / f"{to_agent}.jsonl"
-        with open(inbox, "a") as f:
+        with open(inbox, "a", encoding="utf-8") as f:
             f.write(json.dumps(msg) + "\n")
         print(f"  \033[33m[bus] {from_agent} → {to_agent}: "
               f"({msg_type}) {content[:50]}\033[0m")
@@ -332,7 +334,7 @@ class MessageBus:
         inbox = MAILBOX_DIR / f"{agent}.jsonl"
         if not inbox.exists():
             return []
-        msgs = [json.loads(line) for line in inbox.read_text().splitlines()
+        msgs = [json.loads(line) for line in inbox.read_text(encoding="utf-8").splitlines()
                 if line.strip()]
         inbox.unlink()
         return msgs
@@ -393,7 +395,7 @@ IDLE_TIMEOUT = 60
 def scan_unclaimed_tasks() -> list[dict]:
     unclaimed = []
     for f in sorted(TASKS_DIR.glob("task_*.json")):
-        task = json.loads(f.read_text())
+        task = json.loads(f.read_text(encoding="utf-8"))
         if (task.get("status") == "pending"
                 and not task.get("owner")
                 and can_start(task["id"])):
@@ -655,10 +657,10 @@ def run_review_plan(request_id: str, approve: bool,
     return f"Plan {'approved' if approve else 'rejected'}"
 
 
-# ── MCP System (s19 new) ──
+# ── MCP System（s19 新增） ──
 
 class MCPClient:
-    """Discovers and calls tools on an MCP server (mock for teaching)."""
+    """发现并调用 MCP server 上的 tools（教学 mock）。"""
 
     def __init__(self, name: str):
         self.name = name
@@ -686,7 +688,7 @@ _DISALLOWED_CHARS = re.compile(r'[^a-zA-Z0-9_-]')
 
 
 def normalize_mcp_name(name: str) -> str:
-    """Replace non [a-zA-Z0-9_-] with underscore."""
+    """把非 [a-zA-Z0-9_-] 替换为 underscore。"""
     return _DISALLOWED_CHARS.sub('_', name)
 
 
@@ -752,7 +754,7 @@ def connect_mcp(name: str) -> str:
 
 
 def assemble_tool_pool() -> tuple[list[dict], dict]:
-    """Assemble builtin tools + all MCP tools into one pool."""
+    """把 builtin tools + 所有 MCP tools 组装到一个池中。"""
     tools = list(BUILTIN_TOOLS)
     handlers = dict(BUILTIN_HANDLERS)
     for server_name, mcp_client in mcp_clients.items():
@@ -782,7 +784,7 @@ def run_keep_worktree(name: str) -> str:
     return keep_worktree(name)
 
 
-# ── Basic tool handlers ──
+# ── 基础 tool handlers ──
 
 def run_create_task(subject: str, description: str = "",
                     blockedBy: list[str] | None = None) -> str:
@@ -834,7 +836,7 @@ def run_connect_mcp(name: str) -> str:
     return connect_mcp(name)
 
 
-# ── Tool Definitions ──
+# ── Tool 定义 ──
 
 BUILTIN_TOOLS = [
     {"name": "bash", "description": "Run a shell command.",
@@ -953,11 +955,11 @@ MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 def update_context(context: dict, messages: list) -> dict:
     memories = ""
     if MEMORY_INDEX.exists():
-        memories = MEMORY_INDEX.read_text()[:2000]
+        memories = MEMORY_INDEX.read_text(encoding="utf-8")[:2000]
     return {"memories": memories}
 
 
-# ── Agent Loop (s19: dynamic tool pool, no prompt cache) ──
+# ── Agent Loop（s19：动态 tool pool，无 prompt cache） ──
 
 def agent_loop(messages: list, context: dict):
     tools, handlers = assemble_tool_pool()
