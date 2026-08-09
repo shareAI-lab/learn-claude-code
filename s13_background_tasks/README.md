@@ -16,7 +16,7 @@ s01 → ... → s11 → s12 → `s13` → [s14](../s14_cron_scheduler/) → s15 
 
 Agent 的 bash 工具也一样。`pip install torch` 要 10 分钟，`npm run build` 要 3 分钟。这些命令一跑，Agent 就在等 bash 工具返回，没法利用这段时间处理别的任务。
 
-读文件是毫秒级，不等。`git status` 一秒内返回，不等。但 `npm install`？分钟级。Agent 等 10 分钟什么都不做，而 LLM 按 token 计费，空转就是浪费。
+读文件是毫秒级，不等。`git status` 一秒内返回，不等。但 `npm install`？分钟级。Agent 如果同步等待 10 分钟，这段等待本身不会持续产生 LLM token 费用，但 Agent 无法继续处理其他任务，浪费了墙钟时间，也降低了任务吞吐量。
 
 ---
 
