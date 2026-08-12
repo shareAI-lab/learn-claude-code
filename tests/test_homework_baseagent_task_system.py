@@ -9,6 +9,13 @@ from pathlib import Path
 
 import pytest
 
+from homework.agent_app.features.tasks import (
+    TaskStore,
+    claim_task as claim_stored_task,
+    create_task as create_stored_task,
+    load_task as load_stored_task,
+)
+
 
 BASE_AGENT = (
     Path(__file__).resolve().parents[1]
@@ -23,6 +30,37 @@ REQUIRED_TASK_TOOLS = {
     "claim_task": {"task_id"},
     "complete_task": {"task_id"},
 }
+
+
+@pytest.fixture
+def task_store(tmp_path):
+    root = tmp_path / ".tasks"
+    root.mkdir()
+    return TaskStore(root=root)
+
+
+def test_task_creation_is_store_scoped(task_store):
+    task = create_stored_task(task_store, "inspect parser")
+
+    assert load_stored_task(task_store, task.id).subject == "inspect parser"
+
+
+def test_store_scoped_simultaneous_claim_has_one_winner(task_store):
+    task = create_stored_task(task_store, "single owner")
+    worker_count = 4
+    barrier = threading.Barrier(worker_count)
+
+    def claim(index):
+        barrier.wait(timeout=5)
+        return claim_stored_task(task_store, task.id, f"agent-{index}")
+
+    with ThreadPoolExecutor(max_workers=worker_count) as pool:
+        results = [
+            future.result(timeout=10)
+            for future in [pool.submit(claim, index) for index in range(worker_count)]
+        ]
+
+    assert sum(result.startswith("Claimed") for result in results) == 1
 
 
 @pytest.fixture
@@ -58,6 +96,10 @@ def baseagent(monkeypatch, tmp_path):
     )
     task_dir = tmp_path / ".tasks"
     task_dir.mkdir()
+
+    globals_["TASK_STORE"] = TaskStore(root=task_dir)
+    globals_["TASK_DIR"] = task_dir
+    globals_["TASK_LOCK"] = globals_["TASK_STORE"].lock
 
     if "TASK_DIR" in globals_:
         monkeypatch.setitem(globals_, "TASK_DIR", task_dir)
