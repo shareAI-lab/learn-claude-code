@@ -56,9 +56,9 @@ Claude Code 对入口说得很直白。
 
 门外还有表亲：**静态** harness，用 Agent SDK 或 `claude -p` 事先写好。它们得扛住所有边角，所以往往更泛。动态的是为这块布现裁的；合身了再存。
 
-![静态 harness 与动态 workflow](images/dynamic-vs-static.svg)
+![静态 harness 与动态 workflow](images/dynamic-vs-static.png)
 
-*同一个问题。左边：永远通向一份泛泛研究报告的通用流水线。右边：读你的代码、按你的量计价、再请来魔鬼代言人的特制菜谱。*
+*来自 Claude Code 设计文：同一个问题，两套 harness。左边——固定的搜索→验证→摘要，终点是一份泛泛的研究报告。右边——读你的 billing 代码、分叉、再请来魔鬼代言人，最后给出具体建议。*
 
 **这一章是 Python 教学运行时。** 同样的想法，每行都能读。演示按名字挂了一个已保存的 workflow；概念和 Claude Code 的脚本世界一一对应。我们不会再说“模型不能提交可执行代码”——那从来不是 Claude Code 的真相。这里只是不嵌入完整的 JS 解释器。
 
@@ -84,9 +84,11 @@ WORKFLOW_TOOL = {
 
 想象学校义卖要烤许多蛋糕。每张桌子都是搅拌 → 烘烤 → 装箱。帮手负责尝；菜谱决定先后。
 
-![Workflow 原语](images/workflow-primitives.svg)
+![Workflow 原语：agent、parallel、pipeline](images/workflow-primitives.png)
 
-`agent(prompt, {schema, label, phase})` 是请一个帮手做一件事。带上 `schema`，答案会变成校验过的 JSON——下一阶段接得住的接口——第一次不对还给一次重试。
+*官方原语卡片：一个 `agent`，以及两种“跑很多”的方式——`parallel`（等齐屏障）与 `pipeline`（每个 item 自己流过各阶段）。*
+
+`agent(prompt, opts?)` 是请一个帮手做一件事。带上 `schema`，答案会变成校验过的 JSON——下一阶段接得住的接口——第一次不对还给一次重试。真正的 Claude Code 还可以选 `model`、`isolation`（worktree / remote）和 `agentType`；本课教学运行时把表面收小一点，好让每一行都读得完。
 
 `pipeline(items, *stages)` 是多阶段工作的默认：每块蛋糕自己走完各阶段，一块在装箱时，另一块可能还在搅拌。阶段之间没有等齐屏障。
 
@@ -113,9 +115,9 @@ journal:  [A 好] [B 好] [C 好] [D 好]
 
 动词是面粉和火候。人们反复发明的，是少数几种*形状*。把它们想成工具箱，不是必点菜单。
 
-![六种 Workflow 模式](images/six-workflow-patterns.svg)
+![六种 Workflow 模式](images/six-workflow-patterns.png)
 
-*人们反复发明的六种形状。脚本掌管拓扑；本课用 `agent` / `parallel` / `pipeline` / `phase` / journal 把它们说出来。*
+*官方六模式网格——工具箱，不是必点菜单。脚本掌管拓扑；本课用 `agent` / `parallel` / `pipeline` / `phase` / journal 把每种形状说出来。*
 
 **Classify-And-Act（分类再行动）。** 痛点：一个万金油帮手样样稀松。形状：分类器看一眼，再路由到专家 A、B 或 C。本课：一次带 `schema` 的 `agent` 返回标签，脚本分支到对的后续 `agent`（或嵌一层 `workflow`）。每件东西其实都该同样处理时，就别用。
 
@@ -140,7 +142,17 @@ journal:  [A 好] [B 好] [C 好] [D 好]
 | Tournament | 两两裁判 `agent` | 排序/品味却没有锋利刻度 |
 | Loop Until Done | `while` + 停止 + `budget` | 埋着不知多少活 |
 
-组合是常态。深度调研常常叠成：分发 → 过滤 → 验证 → 汇总。分流有时会加一层 **quarantine（隔离区）**：读不可信内容的 agent 只读；只有受信任的 actor 才开 PR。我们的示例，是两个音符的一小段和弦。
+组合是常态。深度调研常常叠成：分发 → 过滤 → 验证 → 汇总。我们的示例，是两个音符的一小段和弦。
+
+### 当 workflow 碰上不可信输入
+
+工具箱旁边还值得留一个形状：**quarantine triage（隔离分流）**。工单、bug 报告、用户反馈都是不可信的。你不会希望*读*它们的 agent，同时也握着能开 PR 的钥匙。
+
+![隔离分流](images/quarantine-triage.png)
+
+*读者留在只读的隔离区里，分类、去重，只把结构化摘要递过去。高权限工具住在受信任一侧——它们只根据摘要行动，从不碰原始正文。积压永远睡不着时，可以和 `/loop` 配对。*
+
+落到本课原语，仍是脚本和 agent：一串低权限 reader `agent` 的 `pipeline` 或 `parallel`，摘要进变量，再交给另一个 actor `agent`（或嵌一层 `workflow`）去写。真正值钱的是气闸——谁被允许看见原始文本。
 
 ## 跟着 `review-changes` 走一圈——一种组合
 
@@ -211,4 +223,4 @@ python s16_workflow_runtime/code.py resume   # 同一 runId；期待缓存命中
 
 s16 讲一批活怎么跑。[s17 Goal Loop](../s17_goal_loop/) 在门口问另一个问题：该停，还是再来一轮？可重复的菜谱若还需要硬性的“做完”，可以和它一起用。
 
-<!-- translation-sync: zh@v15, en@v15, ja@v15 -->
+<!-- translation-sync: zh@v16, en@v16, ja@v16 -->

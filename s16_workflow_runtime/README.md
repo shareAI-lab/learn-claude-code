@@ -56,9 +56,9 @@ Sometimes a good script has already been saved under something like `.claude/wor
 
 There is also a cousin: **static** harnesses you write ahead of time with the Agent SDK or `claude -p`. Those must survive every edge case, so they stay generic. Dynamic ones are cut for *this* cloth; save them when the fit is right.
 
-![Static harness vs dynamic workflow](images/dynamic-vs-static.svg)
+![Static harness vs dynamic workflow](images/dynamic-vs-static.png)
 
-*Same question. Left: a generic pipeline that always ends in a generic report. Right: a tailor-made workflow that reads your code, prices your volume, and invites a devil’s advocate.*
+*From Claude Code’s design essay: same question, two harnesses. Left — a fixed search→verify→summarize pipeline that ends in a generic report. Right — a tailor-made workflow that reads your billing code, branches, and invites a devil’s advocate before recommending.*
 
 **This chapter is a Python teaching runtime.** Same ideas, every line readable. Our demo registers one saved workflow by name; the concepts map one-to-one onto Claude Code’s script world. We will not pretend “the model cannot submit executable code” — that was never true of Claude Code. We simply do not embed a full JavaScript interpreter here.
 
@@ -84,9 +84,11 @@ WORKFLOW_TOOL = {
 
 Imagine a school bake sale. Every table needs mix → bake → box. Helpers taste; the recipe decides order.
 
-![Workflow primitives](images/workflow-primitives.svg)
+![Workflow primitives: agent, parallel, pipeline](images/workflow-primitives.png)
 
-`agent(prompt, {schema, label, phase})` asks one helper to do one job. With a `schema`, the answer comes back as validated JSON — a socket the next stage can hold — with one retry if the first reply is messy.
+*Official primitive card: one `agent`, then the two ways to run many — `parallel` (barrier) vs `pipeline` (each item streams its stages).*
+
+`agent(prompt, opts?)` asks one helper to do one job. With a `schema`, the answer comes back as validated JSON — a socket the next stage can hold — with one retry if the first reply is messy. Real Claude Code also lets you pick `model`, `isolation` (worktree / remote), and `agentType`; this teaching runtime keeps the surface smaller so every line stays readable.
 
 `pipeline(items, *stages)` is the default for multi-stage work. Each cake walks its stages alone, so one can be boxing while another is still mixing. No barrier between stages.
 
@@ -113,9 +115,9 @@ resume:   A hit → B hit → C changed → D runs live
 
 The verbs are flour and heat. What people keep reinventing are a handful of *shapes*. Think of them as a toolbox, not a mandatory menu.
 
-![Six Workflow Patterns](images/six-workflow-patterns.svg)
+![Six Workflow Patterns](images/six-workflow-patterns.png)
 
-*Six shapes people keep reinventing. The script owns the topology; this lesson speaks them with `agent` / `parallel` / `pipeline` / `phase` / journal.*
+*The official six-pattern grid — a toolbox, not a mandatory menu. The script owns the topology; this lesson speaks each shape with `agent` / `parallel` / `pipeline` / `phase` / journal.*
 
 **Classify-And-Act.** Pain: one generic helper is mediocre at everything. Shape: a classifier looks, then routes to specialist A, B, or C. Here: one `agent({schema})` returns a label; the script branches to the right follow-up `agent` (or a nested `workflow`). Skip it when every item truly needs the same treatment.
 
@@ -140,7 +142,17 @@ After a few have faces, the toolbox fits in one glance:
 | Tournament | pairwise judge `agent`s | Ranking / taste without a sharp scale |
 | Loop Until Done | `while` + stop + `budget` | Unknown amount of buried work |
 
-Compositions are normal. Deep research often stacks fanout → filter → verify → synthesize. Triage sometimes adds a **quarantine**: readers of untrusted content stay read-only; only a trusted actor opens PRs. Our sample is a smaller chord of two notes.
+Compositions are normal. Deep research often stacks fanout → filter → verify → synthesize. Our sample is a smaller chord of two notes.
+
+### When workflows meet untrusted input
+
+One more shape is worth keeping near the toolbox: **quarantine triage**. Support tickets, bug reports, and user feedback are untrusted. You do not want the agent that *reads* them to also hold the keys that open a PR.
+
+![Quarantine triage](images/quarantine-triage.png)
+
+*Readers stay in a read-only quarantine, classify and dedupe, and pass only a structured summary across. High-privilege tools live on the trusted side — they act on summaries, never on raw content. Pair with `/loop` if the backlog never sleeps.*
+
+In this lesson’s primitives that is still just scripts and agents: a `pipeline` or `parallel` of low-privilege reader `agent`s, a structured summary in a variable, then a separate actor `agent` (or nested `workflow`) that may write. The interesting part is the airlock — who is allowed to see the raw text.
 
 ## Walking `review-changes` — a composition
 
@@ -211,4 +223,4 @@ Watch Review give way to Verify. Watch agents flip from `done` to `cached` on a 
 
 s16 is how a batch runs. [s17 Goal Loop](../s17_goal_loop/) asks a different question at the door: should we stop, or take another turn? Pair them when a repeatable recipe also needs a hard “done.”
 
-<!-- translation-sync: zh@v15, en@v15, ja@v15 -->
+<!-- translation-sync: zh@v16, en@v16, ja@v16 -->

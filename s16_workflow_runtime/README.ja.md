@@ -56,9 +56,9 @@ Claude Code は入口について率直です。
 
 外にはいとこもあります。Agent SDK や `claude -p` で先に書く **static** harness です。あらゆるエッジケースに耐える必要があるので、どうしても汎用になります。dynamic はこの布のための裁断です。形が合ったら保存します。
 
-![Static harness vs dynamic workflow](images/dynamic-vs-static.svg)
+![Static harness vs dynamic workflow](images/dynamic-vs-static.png)
 
-*同じ問い。左: いつも汎用レポートに終わる汎用パイプライン。右: 自分のコードを読み、自分の取引量で値段を見、devil's advocate を呼ぶ特注レシピ。*
+*Claude Code の設計エッセイより。同じ問い、ふたつの harness。左 — 固定の検索→検証→要約で、汎用レポートに終わる。右 — billing コードを読み、分岐し、devil's advocate を呼んでから具体的な推奨を出す特注レシピ。*
 
 **この章は Python の teaching runtime です。** 同じアイデアを、1 行ずつ読める形で示します。デモは名前で一つの saved workflow を登録します。概念は Claude Code の script 世界と一一対応です。「モデルは実行可能コードを渡せない」などと言いません——それは Claude Code については初めから正しくありませんでした。ここでは、完全な JavaScript インタプリタを埋め込まないだけです。
 
@@ -84,9 +84,11 @@ WORKFLOW_TOOL = {
 
 学校のバザーでケーキをたくさん焼くとします。どのテーブルも 混ぜる → 焼く → 箱詰め。助手が味見をし、レシピが順番を決めます。
 
-![Workflow primitives](images/workflow-primitives.svg)
+![Workflow primitives: agent, parallel, pipeline](images/workflow-primitives.png)
 
-`agent(prompt, {schema, label, phase})` は、助手ひとりに一つの仕事を頼むことです。`schema` を付ければ、答えは検証済み JSON になり——次の段が受け取れるソケットになり——最初が雑なら一回だけやり直せます。
+*公式のプリミティブ・カード。ひとつの `agent` と、多くを走らせる二つのやり方 — `parallel`（barrier）と `pipeline`（各 item が自分の stage を流れる）。*
+
+`agent(prompt, opts?)` は、助手ひとりに一つの仕事を頼むことです。`schema` を付ければ、答えは検証済み JSON になり——次の段が受け取れるソケットになり——最初が雑なら一回だけやり直せます。本物の Claude Code では `model`、`isolation`（worktree / remote）、`agentType` も選べます。この teaching runtime は表面を小さく保ち、1 行ずつ読めるようにしています。
 
 `pipeline(items, *stages)` は多段仕事の既定です。各ケーキが自分で段階を歩き、一方が箱詰めのあいだに、もう一方はまだ混ぜていてもよい。stage 間に barrier はありません。
 
@@ -113,9 +115,9 @@ resume:   A hit → B hit → C 変更 → D は live
 
 動詞は小麦粉と火加減です。人が何度も発明し直すのは、少数の*形*です。道具箱だと思ってください。必点メニューではありません。
 
-![Six Workflow Patterns](images/six-workflow-patterns.svg)
+![Six Workflow Patterns](images/six-workflow-patterns.png)
 
-*人が何度も発明する六つの形。トポロジーは script が持ち、このレッスンでは `agent` / `parallel` / `pipeline` / `phase` / journal で話します。*
+*公式の六パターン格子 — 道具箱であり、必点メニューではない。トポロジーは script が持ち、このレッスンでは `agent` / `parallel` / `pipeline` / `phase` / journal で各形を話します。*
 
 **Classify-And-Act。** 痛み: 万能の助手は何でもそこそこ。形: classifier が見て、専門家 A / B / C へ振り分ける。ここ: `agent({schema})` がラベルを返し、script が続く `agent`（または入れ子の `workflow`）へ分岐。全部が本当に同じ扱いでよいなら使わない。
 
@@ -140,7 +142,17 @@ resume:   A hit → B hit → C 変更 → D は live
 | Tournament | pairwise 審判 `agent` | 順位/味に鋭い物差しがない |
 | Loop Until Done | `while` + 停止 + `budget` | どれだけ埋まっているか不明 |
 
-組み合わせはふつうです。深い調査はしばしば fanout → filter → verify → synthesize と重ねます。トリアージでは **quarantine** を足すこともあります。信頼できない内容を読む agent は read-only のまま、trusted な actor だけが PR を開きます。私たちのサンプルは、二つの音の小さな和音です。
+組み合わせはふつうです。深い調査はしばしば fanout → filter → verify → synthesize と重ねます。私たちのサンプルは、二つの音の小さな和音です。
+
+### 信頼できない入力に workflow が出会うとき
+
+道具箱のそばにもう一つ残しておきたい形があります。**quarantine triage** です。サポートチケット、bug 報告、ユーザーフィードバックは信頼できません。それらを*読む* agent に、PR を開ける鍵まで持たせたくはありません。
+
+![Quarantine triage](images/quarantine-triage.png)
+
+*Reader は read-only の quarantine に留まり、分類と dedupe をし、構造化 summary だけを渡します。高権限ツールは trusted 側に住み — summary にだけ作用し、生本文には触れません。バックログが眠らないなら `/loop` と組んでもよいです。*
+
+このレッスンのプリミティブでは、それも script と agent です。低権限 reader `agent` の `pipeline` や `parallel`、変数に入った構造化 summary、それから書く側の別 actor `agent`（または入れ子の `workflow`）。面白いのはエアロック — 誰が生テキストを見てよいか、です。
 
 ## `review-changes` を歩く — ひとつの composition
 
@@ -211,4 +223,4 @@ Review が Verify に道を譲るのを見てください。完全な resume で
 
 s16 はバッチの回し方です。[s17 Goal Loop](../s17_goal_loop/) は戸口で別の問いをします。止めるべきか、もう一ターンか。繰り返せるレシピに硬い「完了」も要るときは、そちらと組んでください。
 
-<!-- translation-sync: zh@v15, en@v15, ja@v15 -->
+<!-- translation-sync: zh@v16, en@v16, ja@v16 -->
