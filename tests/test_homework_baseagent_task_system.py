@@ -1,5 +1,5 @@
 import json
-import runpy
+import importlib.util
 import sys
 import threading
 import types
@@ -30,6 +30,33 @@ REQUIRED_TASK_TOOLS = {
     "claim_task": {"task_id"},
     "complete_task": {"task_id"},
 }
+
+
+class BaseAgentModule:
+    def __init__(self, module):
+        self.module = module
+
+    def __getitem__(self, name):
+        return getattr(self.module, name)
+
+    def __setitem__(self, name, value):
+        setattr(self.module, name, value)
+
+    def __delitem__(self, name):
+        delattr(self.module, name)
+
+    def __contains__(self, name):
+        return hasattr(self.module, name)
+
+    def get(self, name, default=None):
+        return getattr(self.module, name, default)
+
+
+def load_baseagent_module():
+    spec = importlib.util.spec_from_file_location("_baseagent_tasks", BASE_AGENT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return BaseAgentModule(module)
 
 
 @pytest.fixture
@@ -84,11 +111,7 @@ def baseagent(monkeypatch, tmp_path):
     monkeypatch.setenv("MODEL_ID", "test-model")
     monkeypatch.delenv("FALLBACK_MODEL_ID", raising=False)
 
-    namespace = runpy.run_path(
-        str(BASE_AGENT),
-        run_name="not_main",
-    )
-    globals_ = namespace["agent_loop"].__globals__
+    globals_ = load_baseagent_module()
 
     original_task_dir = globals_.get(
         "TASKS_DIR",

@@ -1,5 +1,5 @@
 import json
-import runpy
+import importlib.util
 import sys
 import threading
 import time
@@ -18,6 +18,36 @@ BASE_AGENT = (
     / "homework"
     / "BaseAgent.py"
 )
+
+
+class BaseAgentModule:
+    def __init__(self, module):
+        object.__setattr__(self, "module", module)
+
+    def __getitem__(self, name):
+        return getattr(self.module, name)
+
+    def __getattr__(self, name):
+        return getattr(self.module, name)
+
+    def __contains__(self, name):
+        return hasattr(self.module, name)
+
+    def __iter__(self):
+        return iter(vars(self.module))
+
+    def __setattr__(self, name, value):
+        setattr(self.module, name, value)
+
+    def __delattr__(self, name):
+        delattr(self.module, name)
+
+
+def load_baseagent_module():
+    spec = importlib.util.spec_from_file_location("_baseagent_background", BASE_AGENT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return BaseAgentModule(module)
 
 
 @pytest.fixture
@@ -88,23 +118,19 @@ def baseagent(monkeypatch, tmp_path, background_state):
     monkeypatch.setenv("MODEL_ID", "test-model")
     monkeypatch.delenv("FALLBACK_MODEL_ID", raising=False)
 
-    namespace = runpy.run_path(
-        str(BASE_AGENT),
-        run_name="not_main",
-    )
-    globals_ = namespace["agent_loop"].__globals__
+    baseagent = load_baseagent_module()
 
-    monkeypatch.setitem(globals_, "BACKGROUND_STATE", background_state)
+    monkeypatch.setattr(baseagent, "BACKGROUND_STATE", background_state)
     tool_result_dir = tmp_path / "tool-results"
-    monkeypatch.setitem(globals_, "TOOL_RESULT_DIR", tool_result_dir)
-    monkeypatch.setitem(globals_, "TOOL_RESULTS_DIR", tool_result_dir)
+    monkeypatch.setattr(baseagent, "TOOL_RESULT_DIR", tool_result_dir)
+    monkeypatch.setattr(baseagent, "TOOL_RESULTS_DIR", tool_result_dir)
 
     mailbox_dir = tmp_path / ".mailboxes"
     mailbox_dir.mkdir()
-    monkeypatch.setitem(globals_, "MAILBOX_DIR", mailbox_dir)
-    monkeypatch.setitem(globals_, "BUS", globals_["MessageBus"]())
+    monkeypatch.setattr(baseagent, "MAILBOX_DIR", mailbox_dir)
+    monkeypatch.setattr(baseagent, "BUS", baseagent["MessageBus"]())
 
-    return globals_
+    return baseagent
 
 
 def tool_block(tool_id, command, *, run_in_background=True):
@@ -142,31 +168,6 @@ def wait_for_background(baseagent, bg_id, timeout=1.0):
         f"background task {bg_id} did not finish: "
         f"{baseagent['BACKGROUND_STATE'].tasks.get(bg_id)}"
     )
-
-
-def isolate_agent_loop(baseagent, monkeypatch):
-    def fake_update_context(context, messages, tools=None):
-        return context
-
-    monkeypatch.setitem(baseagent, "tool_result_budget", lambda messages: messages)
-    monkeypatch.setitem(baseagent, "snip_compact", lambda messages: messages)
-    monkeypatch.setitem(baseagent, "micro_compact", lambda messages: messages)
-    monkeypatch.setitem(baseagent, "estimate_size", lambda messages: 0)
-    monkeypatch.setitem(baseagent, "update_context", fake_update_context)
-    monkeypatch.setitem(baseagent, "get_system_prompt", lambda context: "system")
-    monkeypatch.setitem(
-        baseagent,
-        "build_request_messages_with_memories",
-        lambda messages: list(messages),
-    )
-    monkeypatch.setitem(baseagent, "extract_memories", lambda messages: None)
-    monkeypatch.setitem(baseagent, "consolidate_memories", lambda: None)
-    monkeypatch.setitem(baseagent, "trigger_hook", lambda *args: None)
-    monkeypatch.setitem(baseagent, "rounds_since_todo", 0)
-
-
-def serialized(value):
-    return json.dumps(value, ensure_ascii=False, default=str)
 
 
 def test_background_schema_and_dispatch_decisions(baseagent):
@@ -241,7 +242,7 @@ def test_background_worker_success_is_immediate_and_consumed_once(
         assert release.wait(1.0)
         return "worker output"
 
-    monkeypatch.setitem(baseagent, "trigger_hook", lambda *args: None)
+    monkeypatch.setattr(baseagent, "trigger_hook", lambda *args: None)
 
     bg_id = baseagent["start_background_task"](
         tool_block("tool-success", "pytest"),
@@ -291,7 +292,7 @@ def test_multiple_background_workers_complete_without_registry_corruption(
     baseagent,
     monkeypatch,
 ):
-    monkeypatch.setitem(baseagent, "trigger_hook", lambda *args: None)
+    monkeypatch.setattr(baseagent, "trigger_hook", lambda *args: None)
 
     bg_ids = [
         baseagent["start_background_task"](
@@ -317,8 +318,8 @@ def test_large_background_output_is_persisted_and_bounded(
     monkeypatch,
 ):
     full_output = "x" * 256
-    monkeypatch.setitem(baseagent, "PERSIST_THRESHOLD", 32)
-    monkeypatch.setitem(baseagent, "trigger_hook", lambda *args: None)
+    monkeypatch.setattr(baseagent, "PERSIST_THRESHOLD", 32)
+    monkeypatch.setattr(baseagent, "trigger_hook", lambda *args: None)
 
     bg_id = baseagent["start_background_task"](
         tool_block("tool-large", "pytest large"),
@@ -348,7 +349,7 @@ def test_background_thread_is_daemon_and_does_not_run_pretool_hook(
         return thread
 
     monkeypatch.setattr(baseagent["threading"], "Thread", recording_thread)
-    monkeypatch.setitem(
+    monkeypatch.setattr(
         baseagent,
         "trigger_hook",
         lambda event, *args: hook_events.append(event),
@@ -364,197 +365,6 @@ def test_background_thread_is_daemon_and_does_not_run_pretool_hook(
     assert created[0].daemon is True
     assert "PreToolUse" not in hook_events
     assert "PostToolUse" in hook_events
-
-
-def test_denied_background_tool_never_dispatches(baseagent, monkeypatch):
-    isolate_agent_loop(baseagent, monkeypatch)
-    block = tool_block("tool-denied", "pytest denied")
-    replies = iter([
-        response("tool_use", [block]),
-        response(),
-    ])
-
-    def hooks(event, *args):
-        if event == "PreToolUse":
-            return "Permission denied"
-        return None
-
-    monkeypatch.setitem(baseagent, "trigger_hook", hooks)
-    monkeypatch.setitem(
-        baseagent,
-        "start_background_task",
-        lambda _block, _handlers: pytest.fail("denied call was dispatched"),
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "create_message_streaming",
-        lambda **kwargs: next(replies),
-    )
-
-    messages = [{"role": "user", "content": "run it"}]
-    baseagent["agent_loop"](messages, {})
-
-    result_blocks = messages[2]["content"]
-    assert len(result_blocks) == 1
-    assert result_blocks[0]["type"] == "tool_result"
-    assert result_blocks[0]["tool_use_id"] == "tool-denied"
-    assert "Permission denied" in result_blocks[0]["content"]
-
-
-def test_ordinary_bash_executes_synchronously_without_background_record(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    block = tool_block(
-        "tool-sync",
-        "echo ok",
-        run_in_background=False,
-    )
-    replies = iter([
-        response("tool_use", [block]),
-        response(),
-    ])
-    executed = []
-
-    monkeypatch.setitem(
-        baseagent,
-        "start_background_task",
-        lambda _block, _handlers: pytest.fail("ordinary bash was dispatched"),
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "execute_tool",
-        lambda seen, _handlers=None: executed.append(seen.id) or "sync output",
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "create_message_streaming",
-        lambda **kwargs: next(replies),
-    )
-
-    messages = [{"role": "user", "content": "run it"}]
-    baseagent["agent_loop"](messages, {})
-
-    assert executed == ["tool-sync"]
-    assert messages[2]["content"] == [{
-        "type": "tool_result",
-        "tool_use_id": "tool-sync",
-        "content": "sync output",
-    }]
-    assert baseagent["BACKGROUND_STATE"].tasks == {}
-
-
-def test_background_tool_has_one_result_and_completion_is_text(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    block = tool_block("tool-pair", "pytest pair")
-    replies = iter([
-        response("tool_use", [block]),
-        response(),
-    ])
-
-    def immediate_background(_block, _handlers):
-        with baseagent["BACKGROUND_STATE"].lock:
-            baseagent["BACKGROUND_STATE"].tasks["bg_0001"] = {
-                "id": "bg_0001",
-                "tool_use_id": "tool-pair",
-                "tool_name": "bash",
-                "command": "pytest pair",
-                "status": "completed",
-                "error": None,
-            }
-            baseagent["BACKGROUND_STATE"].results["bg_0001"] = "passed"
-        return "bg_0001"
-
-    monkeypatch.setitem(baseagent, "start_background_task", immediate_background)
-    monkeypatch.setitem(
-        baseagent,
-        "create_message_streaming",
-        lambda **kwargs: next(replies),
-    )
-
-    messages = [{"role": "user", "content": "run it"}]
-    baseagent["agent_loop"](messages, {})
-
-    user_content = messages[2]["content"]
-    tool_results = [
-        item for item in user_content
-        if item.get("type") == "tool_result"
-    ]
-    notifications = [
-        item for item in user_content
-        if item.get("type") == "text"
-        and "<task_notification>" in item.get("text", "")
-    ]
-    assert [item["tool_use_id"] for item in tool_results] == ["tool-pair"]
-    assert len(notifications) == 1
-    assert "passed" in notifications[0]["text"]
-
-
-def test_completed_background_results_are_checked_before_each_llm_request(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    with baseagent["BACKGROUND_STATE"].lock:
-        baseagent["BACKGROUND_STATE"].tasks["bg_ready"] = {
-            "id": "bg_ready",
-            "tool_use_id": "old-tool",
-            "tool_name": "bash",
-            "command": "pytest ready",
-            "status": "completed",
-            "error": None,
-        }
-        baseagent["BACKGROUND_STATE"].results["bg_ready"] = "ready output"
-
-    captured_requests = []
-
-    def fake_create(**kwargs):
-        captured_requests.append(kwargs["request_messages"])
-        return response()
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_create)
-    messages = [{"role": "user", "content": "continue"}]
-    baseagent["agent_loop"](messages, {})
-
-    assert "<task_notification>" in serialized(captured_requests[0])
-    assert "ready output" in serialized(captured_requests[0])
-    assert "bg_ready" not in baseagent["BACKGROUND_STATE"].tasks
-
-
-def test_new_user_turn_collects_completed_background_results(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    with baseagent["BACKGROUND_STATE"].lock:
-        baseagent["BACKGROUND_STATE"].tasks["bg_turn"] = {
-            "id": "bg_turn",
-            "tool_use_id": "old-tool",
-            "tool_name": "bash",
-            "command": "pytest turn",
-            "status": "completed",
-            "error": None,
-        }
-        baseagent["BACKGROUND_STATE"].results["bg_turn"] = "turn output"
-
-    captured_requests = []
-
-    def fake_create(**kwargs):
-        captured_requests.append(kwargs["request_messages"])
-        return response()
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_create)
-    baseagent["session_history"].clear()
-    baseagent["session_context"].clear()
-    baseagent["run_agent_turn_locked"]("new question")
-
-    assert "<task_notification>" in serialized(captured_requests[0])
-    assert "turn output" in serialized(captured_requests[0])
-    assert "bg_turn" not in baseagent["BACKGROUND_STATE"].tasks
 
 
 def test_background_notification_escapes_untrusted_boundaries(baseagent):

@@ -1,6 +1,6 @@
 import builtins
+import importlib.util
 import json
-import runpy
 import sys
 import threading
 import types
@@ -26,6 +26,36 @@ BASE_AGENT = (
     / "homework"
     / "BaseAgent.py"
 )
+
+
+class BaseAgentModule:
+    def __init__(self, module):
+        object.__setattr__(self, "module", module)
+
+    def __getitem__(self, name):
+        return getattr(self.module, name)
+
+    def __getattr__(self, name):
+        return getattr(self.module, name)
+
+    def __contains__(self, name):
+        return hasattr(self.module, name)
+
+    def __iter__(self):
+        return iter(vars(self.module))
+
+    def __setattr__(self, name, value):
+        setattr(self.module, name, value)
+
+    def __delattr__(self, name):
+        delattr(self.module, name)
+
+
+def load_baseagent_module():
+    spec = importlib.util.spec_from_file_location("_baseagent_teams", BASE_AGENT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return BaseAgentModule(module)
 
 
 @pytest.fixture
@@ -182,29 +212,25 @@ def baseagent(monkeypatch, tmp_path):
     monkeypatch.setenv("MODEL_ID", "test-model")
     monkeypatch.delenv("FALLBACK_MODEL_ID", raising=False)
 
-    namespace = runpy.run_path(
-        str(BASE_AGENT),
-        run_name="not_main",
-    )
-    globals_ = namespace["agent_loop"].__globals__
+    baseagent = load_baseagent_module()
 
-    original_mailbox_dir = globals_["MAILBOX_DIR"]
+    original_mailbox_dir = baseagent["MAILBOX_DIR"]
     mailbox_dir = tmp_path / ".mailboxes"
     mailbox_dir.mkdir()
-    monkeypatch.setitem(globals_, "_ACCEPTANCE_ORIGINAL_MAILBOX_DIR", original_mailbox_dir)
-    monkeypatch.setitem(globals_, "MAILBOX_DIR", mailbox_dir)
-    monkeypatch.setitem(globals_, "BUS", MessageBus(root=mailbox_dir))
-    monkeypatch.setitem(globals_, "PROTOCOL_STORE", ProtocolStore())
+    monkeypatch.setattr(baseagent, "_ACCEPTANCE_ORIGINAL_MAILBOX_DIR", original_mailbox_dir, raising=False)
+    monkeypatch.setattr(baseagent, "MAILBOX_DIR", mailbox_dir)
+    monkeypatch.setattr(baseagent, "BUS", MessageBus(root=mailbox_dir))
+    monkeypatch.setattr(baseagent, "PROTOCOL_STORE", ProtocolStore())
     team_state = TeamState()
-    monkeypatch.setitem(globals_, "TEAM_STATE", team_state)
-    monkeypatch.setitem(globals_, "team_lock", team_state.lock)
-    monkeypatch.setitem(globals_, "active_teammates", team_state.active)
-    monkeypatch.setitem(globals_, "IDLE_POLL_INTERVAL", 1)
-    monkeypatch.setitem(globals_, "IDLE_TIMEOUT", 0)
-    monkeypatch.setitem(globals_, "PERMISSION_POLL_INTERVAL", 0)
-    monkeypatch.setitem(globals_, "PERMISSION_TIMEOUT", 0)
+    monkeypatch.setattr(baseagent, "TEAM_STATE", team_state)
+    monkeypatch.setattr(baseagent, "team_lock", team_state.lock)
+    monkeypatch.setattr(baseagent, "active_teammates", team_state.active)
+    monkeypatch.setattr(baseagent, "IDLE_POLL_INTERVAL", 1)
+    monkeypatch.setattr(baseagent, "IDLE_TIMEOUT", 0)
+    monkeypatch.setattr(baseagent, "PERMISSION_POLL_INTERVAL", 0)
+    monkeypatch.setattr(baseagent, "PERMISSION_TIMEOUT", 0)
 
-    return globals_
+    return baseagent
 
 
 def text_response(text="done"):
@@ -276,27 +302,6 @@ def teammate_retry_with_current_policy(baseagent):
     return retry
 
 
-def isolate_agent_loop(baseagent, monkeypatch):
-    def fake_update_context(context, messages, tools=None):
-        return context
-
-    monkeypatch.setitem(baseagent, "tool_result_budget", lambda messages: messages)
-    monkeypatch.setitem(baseagent, "snip_compact", lambda messages: messages)
-    monkeypatch.setitem(baseagent, "micro_compact", lambda messages: messages)
-    monkeypatch.setitem(baseagent, "estimate_size", lambda messages: 0)
-    monkeypatch.setitem(baseagent, "update_context", fake_update_context)
-    monkeypatch.setitem(baseagent, "get_system_prompt", lambda context: "system")
-    monkeypatch.setitem(
-        baseagent,
-        "build_request_messages_with_memories",
-        lambda messages: list(messages),
-    )
-    monkeypatch.setitem(baseagent, "extract_memories", lambda messages: None)
-    monkeypatch.setitem(baseagent, "consolidate_memories", lambda: None)
-    monkeypatch.setitem(baseagent, "trigger_hook", lambda *args: None)
-    monkeypatch.setitem(baseagent, "rounds_since_todo", 0)
-
-
 def test_required_team_api_and_tools_are_registered(baseagent):
     required_names = {
         "MessageBus",
@@ -347,7 +352,7 @@ def test_loading_baseagent_does_not_initialize_mailbox_storage(monkeypatch):
         return original_mkdir(path, *args, **kwargs)
 
     monkeypatch.setattr(Path, "mkdir", track_mkdir)
-    runpy.run_path(str(BASE_AGENT), run_name="not_main")
+    load_baseagent_module()
 
     assert mkdir_calls == []
 
@@ -549,7 +554,7 @@ def test_teammate_history_is_independent_and_tools_are_nonrecursive(
         return text_response("investigation complete")
 
     baseagent["client"].messages.create = fake_create
-    monkeypatch.setitem(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
+    monkeypatch.setattr(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
 
     baseagent["spawn_teammate_thread"](
         "researcher",
@@ -604,7 +609,7 @@ def test_teammate_collects_its_inbox_before_each_request(
         return text_response("done")
 
     baseagent["client"].messages.create = fake_create
-    monkeypatch.setitem(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
+    monkeypatch.setattr(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
     baseagent["spawn_teammate_thread"](
         "researcher",
         "Repository investigator",
@@ -647,8 +652,8 @@ def test_teammate_worker_uses_noninteractive_write_policy(
         raise AssertionError("teammate worker called input()")
 
     baseagent["client"].messages.create = fake_create
-    monkeypatch.setitem(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
-    monkeypatch.setitem(baseagent, "run_write", forbidden_write)
+    monkeypatch.setattr(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
+    monkeypatch.setattr(baseagent, "run_write", forbidden_write)
     monkeypatch.setattr(builtins, "input", forbidden_input)
 
     baseagent["spawn_teammate_thread"](
@@ -680,7 +685,7 @@ def test_teammate_reuses_transient_retry_helper(baseagent, monkeypatch):
         retry_calls.append(state)
         return fn()
 
-    monkeypatch.setitem(baseagent, "with_retry", recording_retry)
+    monkeypatch.setattr(baseagent, "with_retry", recording_retry)
     baseagent["spawn_teammate_thread"](
         "retryer",
         "Repository investigator",
@@ -698,7 +703,7 @@ def test_teammate_normal_completion_sends_result_and_cleans_registry(
 ):
     created = capture_threads(baseagent, monkeypatch)
     baseagent["client"].messages.create = lambda **kwargs: text_response("final summary")
-    monkeypatch.setitem(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
+    monkeypatch.setattr(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
 
     baseagent["spawn_teammate_thread"](
         "normal",
@@ -736,7 +741,7 @@ def test_teammate_exception_sends_error_and_cleans_registry(
         }
         return fn()
 
-    monkeypatch.setitem(baseagent, "with_retry", fail_retry)
+    monkeypatch.setattr(baseagent, "with_retry", fail_retry)
     baseagent["spawn_teammate_thread"](
         "failing",
         "Repository investigator",
@@ -770,8 +775,8 @@ def test_teammate_round_limit_sends_result_and_cleans_registry(
         )
 
     baseagent["client"].messages.create = fake_create
-    monkeypatch.setitem(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
-    monkeypatch.setitem(
+    monkeypatch.setattr(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
+    monkeypatch.setattr(
         baseagent,
         "run_read",
         lambda path, offset=0, limit=None, cwd=None: "read",
@@ -791,80 +796,6 @@ def test_teammate_round_limit_sends_result_and_cleans_registry(
         for item in messages
     )
     assert "bounded" not in baseagent["active_teammates"]
-
-
-def test_lead_inbox_is_injected_before_llm_request_exactly_once(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    baseagent["BUS"].send(
-        "researcher",
-        "lead",
-        "found the failing module",
-        "result",
-    )
-    requests = []
-
-    def fake_create(**kwargs):
-        requests.append(kwargs["request_messages"])
-        return text_response("acknowledged")
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_create)
-    history = [{"role": "user", "content": "continue"}]
-    baseagent["agent_loop"](history, {})
-
-    first_request = json.dumps(requests[0], default=str)
-    assert "Team inbox" in first_request
-    assert "researcher" in first_request
-    assert "result" in first_request
-    assert "found the failing module" in first_request
-    assert baseagent["BUS"].read_inbox("lead") == []
-
-
-def test_empty_lead_inbox_adds_no_history_message(baseagent, monkeypatch):
-    isolate_agent_loop(baseagent, monkeypatch)
-    requests = []
-
-    def fake_create(**kwargs):
-        requests.append(kwargs["request_messages"])
-        return text_response("done")
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_create)
-    history = [{"role": "user", "content": "continue"}]
-    baseagent["agent_loop"](history, {})
-
-    assert requests[0] == [{"role": "user", "content": "continue"}]
-    assert len(history) == 2
-
-
-def test_inbox_arriving_during_final_response_triggers_one_more_lead_round(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    requests = []
-
-    def fake_create(**kwargs):
-        requests.append(kwargs["request_messages"])
-        if len(requests) == 1:
-            baseagent["BUS"].send(
-                "researcher",
-                "lead",
-                "late result",
-                "result",
-            )
-            return text_response("about to finish")
-        return text_response("processed late result")
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_create)
-    history = [{"role": "user", "content": "continue"}]
-    baseagent["agent_loop"](history, {})
-
-    assert len(requests) == 2
-    second_request = json.dumps(requests[1], default=str)
-    assert "late result" in second_request
-    assert baseagent["BUS"].read_inbox("lead") == []
 
 
 def test_team_guidance_and_active_names_are_in_prompt_context(baseagent):

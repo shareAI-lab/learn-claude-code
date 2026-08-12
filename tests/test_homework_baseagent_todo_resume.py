@@ -1,5 +1,5 @@
 import builtins
-import runpy
+import importlib.util
 import sys
 import types
 from pathlib import Path
@@ -15,6 +15,27 @@ BASE_AGENT = (
     / "homework"
     / "BaseAgent.py"
 )
+
+
+class BaseAgentModule:
+    def __init__(self, module):
+        self.module = module
+
+    def __getitem__(self, name):
+        return getattr(self.module, name)
+
+    def __setitem__(self, name, value):
+        setattr(self.module, name, value)
+
+    def __contains__(self, name):
+        return hasattr(self.module, name)
+
+
+def load_baseagent_module():
+    spec = importlib.util.spec_from_file_location("_baseagent_todos", BASE_AGENT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return BaseAgentModule(module)
 
 
 def load_baseagent(monkeypatch):
@@ -37,11 +58,7 @@ def load_baseagent(monkeypatch):
     monkeypatch.setenv("MODEL_ID", "dummy")
     monkeypatch.delenv("FALLBACK_MODEL_ID", raising=False)
 
-    namespace = runpy.run_path(
-        str(BASE_AGENT),
-        run_name="not_main",
-    )
-    return namespace["agent_loop"].__globals__
+    return load_baseagent_module()
 
 
 @pytest.fixture
@@ -191,7 +208,7 @@ def test_main_does_not_run_an_automatic_resume_turn(
         turns.append(content)
         return context
 
-    monkeypatch.setitem(baseagent, "run_agent_turn", record_turn)
+    baseagent["run_agent_turn"] = record_turn
     monkeypatch.setattr(builtins, "input", lambda _prompt: "q")
 
     baseagent["main"]()

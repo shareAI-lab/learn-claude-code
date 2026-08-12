@@ -1,4 +1,4 @@
-import os,json,subprocess,time,re,copy,random,threading,uuid
+import os,json,subprocess,time,re,random,threading,uuid
 from pathlib import Path
 from dataclasses import dataclass,asdict,field,replace
 from types import SimpleNamespace
@@ -12,7 +12,8 @@ except ImportError:
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from homework.agent_app.config import AppConfig
-from homework.agent_app.runtime import SessionState
+from homework.agent_app.runtime import RuntimeContext, SessionState
+from homework.agent_app.core.loop import run_agent_loop
 from homework.agent_app.adapters.anthropic import AnthropicAdapter
 from homework.agent_app.core.context import (
     append_user_text_blocks as context_append_user_text_blocks,
@@ -822,253 +823,50 @@ def update_context(context:dict,messages:list, tools: list[dict] | None = None) 
     return build_context(runtime_view, tools)
 
 #==================== AGENT LOOP ====================
-rounds_since_todo = 0
+class _LegacyLoopAdapter:
+    def create(self, **kwargs):
+        return _anthropic_adapter().create(**kwargs)
 
-def agent_loop(messages:list, context:dict):
-    global rounds_since_todo
-    state = RecoveryState(
-        current_model=PRIMARY_MODEL,
-        fallback_model=FALLBACK_MODEL,
+    def create_streaming(self, *, system, messages, model, max_tokens, tools):
+        return create_message_streaming(
+            system,
+            messages,
+            model=model,
+            max_tokens=max_tokens,
+            tools=tools,
+        )
+
+
+def _legacy_runtime() -> RuntimeContext:
+    return RuntimeContext(
+        config=APP_CONFIG,
+        llm=_LegacyLoopAdapter(),
+        session=SESSION_STATE,
+        prompt_builder=PROMPT_BUILDER,
+        tools=TOOL_REGISTRY,
+        hooks=HOOK_REGISTRY,
+        scheduler=SCHEDULER_STATE,
+        background=BACKGROUND_STATE,
+        tasks=TASK_STORE,
+        worktrees=WORKTREE_STATE,
+        skills=SKILL_STATE,
+        memory=MEMORY_STORE,
+        bus=BUS,
+        protocols=PROTOCOL_STORE,
+        team=TEAM_STATE,
+        mcp=MCP_STATE,
+        agent_lock=agent_lock,
     )
-    max_tokens = DEFAULT_MAX_TOKENS
 
-    while True:
-        fired_jobs = consume_cron_queue()
-        pending_texts = [
-            f"[Scheduled: {job.id}] {job.prompt}"
-            for job in fired_jobs
-        ]
-        pending_texts.extend(collect_background_results())
-        team_messages = collect_lead_inbox()
-        if team_messages:
-            pending_texts.append(
-                format_team_inbox(team_messages)
-            )
 
-        append_user_text_blocks(messages,pending_texts)
+def agent_loop(messages: list, context: dict):
+    """Temporary Task 14 compatibility adapter; core.loop owns the algorithm."""
+    runtime = _legacy_runtime()
+    runtime.session.history = messages
+    runtime.session.context = context
+    run_agent_loop(runtime)
+    return runtime.session.context
 
-        pre_compact_messages = copy.deepcopy(messages)
-
-        messages[:] = tool_result_budget(messages)
-        messages[:] = snip_compact(messages)
-        messages[:] = micro_compact(messages)
-
-        if estimate_size(messages) > CONTEXT_LIMIT:
-            print("[auto compact]")
-            messages[:] = compact_history(messages)
-
-        if rounds_since_todo >=3:
-            messages.append(
-                {"role":"user",
-                 "content":"<reminder> Update your todos.</reminder>"}
-            )
-            rounds_since_todo = 0
-
-        tools, handlers = assemble_tool_pool()
-        context = update_context(context, messages, tools= tools)
-        system = get_system_prompt(context)
-
-        request_messages = build_request_messages_with_memories(messages)
-
-        try:
-            def call_llm():
-                return create_message_streaming(
-                    system=system,
-                    request_messages=request_messages,
-                    model=state.current_model,
-                    max_tokens=max_tokens,
-                    tools=tools,
-                )
-
-            response = with_retry(
-                call_llm,
-                state,
-                max_transient_retries=MAX_TRANSIENT_RETRIES,
-                max_consecutive_529=MAX_CONSECUTIVE_529,
-                base_delay_ms=BASE_DELAY_MS,
-            )
-        except PartialStreamError as stream_exc:
-            state.has_escalated = True
-            max_tokens = ESCALATED_MAX_TOKENS
-            partial_text = stream_exc.partial_text
-
-            if state.continuation_count < MAX_CONTINUATIONS:
-                messages.append({
-                    "role": "assistant",
-                    "content": [{
-                        "type": "text",
-                        "text": partial_text,
-                    }],
-                })
-                state.continuation_count += 1
-                messages.append({
-                    "role": "user",
-                    "content": CONTINUATION_PROMPT,
-                })
-                print(
-                    f"  \033[33m[stream interrupted] continuation "
-                    f"{state.continuation_count}/{MAX_CONTINUATIONS} "
-                    f"with {ESCALATED_MAX_TOKENS} tokens\033[0m"
-                )
-                continue
-
-            cause_text = (
-                f"{type(stream_exc.cause).__name__}: "
-                f"{str(stream_exc.cause)[:300]}"
-            )
-            marker = f"[Stream interrupted: {cause_text}]"
-            separator = "" if partial_text.endswith("\n") else "\n"
-            print(marker)
-            messages.append({
-                "role": "assistant",
-                "content": [{
-                    "type": "text",
-                    "text": f"{partial_text}{separator}{marker}",
-                }],
-            })
-            return update_context(context, messages)
-        except Exception as e:
-            if (
-                is_prompt_too_long_error(e)
-                and state.reactive_compact_count < MAX_REACTIVE_COMPACTS
-            ):
-                state.reactive_compact_count += 1
-                try:
-                     messages[:] = reactive_compact(messages)
-                except Exception as compact_exc:
-                    append_unrecoverable_error(messages, compact_exc)
-                    return update_context(context, messages)
-                
-                print("[recovery] reactive compact")
-                continue
-            
-            append_unrecoverable_error(messages, e)
-            return update_context(context, messages)
-        
-        if response.stop_reason == "max_tokens":
-            messages.append({
-                "role": "assistant",
-                "content": response.content,
-            })
-            truncated_tool_uses = [
-                block for block in response.content
-                if getattr(block, "type", None) == "tool_use"
-            ]
-            if truncated_tool_uses:
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": (
-                                "Tool call was not executed because the "
-                                "response hit the output token limit."
-                            ),
-                            "is_error": True,
-                        }
-                        for block in truncated_tool_uses
-                    ],
-                })
-            state.has_escalated = True
-            max_tokens = ESCALATED_MAX_TOKENS
-
-            if state.continuation_count < MAX_CONTINUATIONS:
-                state.continuation_count += 1
-                if truncated_tool_uses:
-                    messages[-1]["content"].append({
-                        "type": "text",
-                        "text": CONTINUATION_PROMPT,
-                    })
-                else:
-                    messages.append({
-                        "role": "user",
-                        "content": CONTINUATION_PROMPT,
-                    })
-
-                print(
-                    f"  \033[33m[max_tokens] continuation "
-                    f"{state.continuation_count}/{MAX_CONTINUATIONS} "
-                    f"with {ESCALATED_MAX_TOKENS} tokens\033[0m"
-                )
-                continue
-
-            print("  \033[31m[max_tokens] recovery limit reached\033[0m")
-            return update_context(context, messages)
-
-        messages.append({"role":"assistant","content":response.content})
-        if not has_tool_use(response.content):
-            force = trigger_hook("Stop",messages)
-            if force:
-                messages.append({"role":"user","content": force})
-                continue
-            
-            if wait_for_team_activity(messages):
-                continue
-
-            extract_memories(pre_compact_messages)
-            consolidate_memories()
-
-            context = update_context(context, messages)
-            return context
-        
-        rounds_since_todo += 1
-        results = []
-        compacted_now = False
-
-        for block in response.content:
-            if block.type != "tool_use":
-                continue
-            print(f"\033[36m> {block.name}\033[0m")
-
-            if block.name == "compact":
-                messages[:] = compact_history(messages)
-                messages.append({
-                    "role": "user",
-                    "content": (
-                        "[Compacted. Continue with summarized context.]"
-                    ),
-                })
-                compacted_now = True
-                break
-
-            blocked = trigger_hook("PreToolUse", block)
-            if blocked:
-                results.append({"type": "tool_result", "tool_use_id": block.id,
-                                "content": str(blocked)})
-                continue
-
-            if should_run_background(block.name, block.input):
-                bg_id = start_background_task(block, handlers)
-                results.append({"type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": f"[Background task {bg_id} started] "
-                                           f"Command: {block.input.get('command', '')}. "
-                                           f"Result will be available when complete."})
-                continue
-                
-            output = execute_tool(block, handlers)
-            trigger_hook("PostToolUse", block, output)
-
-            if block.name == "todo_write":
-                rounds_since_todo = 0
-            
-            results.append({
-                "type": "tool_result",
-                "tool_use_id": block.id,
-                "content": output,
-            })
-
-        if compacted_now:
-            continue
-
-        user_content = list(results)
-        bg_notifications = collect_background_results()
-        if bg_notifications:
-            user_content.extend([{"type": "text", "text": notif} for notif in bg_notifications])
-        print(f"  \033[32m[inject] {len(bg_notifications)} background "
-                  f"notification(s)\033[0m")
-        messages.append({"role":"user","content":user_content})
 
 session_history: list = []
 session_context: dict = {}

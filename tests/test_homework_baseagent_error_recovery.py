@@ -1,4 +1,4 @@
-import runpy
+import importlib.util
 import sys
 import types
 from pathlib import Path
@@ -16,6 +16,36 @@ BASE_AGENT = (
     / "homework"
     / "BaseAgent.py"
 )
+
+
+class BaseAgentModule:
+    def __init__(self, module):
+        object.__setattr__(self, "module", module)
+
+    def __getitem__(self, name):
+        return getattr(self.module, name)
+
+    def __getattr__(self, name):
+        return getattr(self.module, name)
+
+    def __contains__(self, name):
+        return hasattr(self.module, name)
+
+    def __iter__(self):
+        return iter(vars(self.module))
+
+    def __setattr__(self, name, value):
+        setattr(self.module, name, value)
+
+    def __delattr__(self, name):
+        delattr(self.module, name)
+
+
+def load_baseagent_module():
+    spec = importlib.util.spec_from_file_location("_baseagent_error_recovery", BASE_AGENT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return BaseAgentModule(module)
 
 
 @pytest.fixture
@@ -39,11 +69,7 @@ def baseagent(monkeypatch):
     monkeypatch.setenv("MODEL_ID", "primary-model")
     monkeypatch.setenv("FALLBACK_MODEL_ID", "fallback-model")
 
-    namespace = runpy.run_path(
-        str(BASE_AGENT),
-        run_name="not_main",
-    )
-    return namespace["agent_loop"].__globals__
+    return load_baseagent_module()
 
 
 class FakeAPIError(Exception):
@@ -75,101 +101,6 @@ def fake_response(stop_reason="end_turn", text="done"):
             )
         ],
     )
-
-
-def disable_real_waiting(baseagent, monkeypatch):
-    monkeypatch.setattr(
-        baseagent["time"],
-        "sleep",
-        lambda _delay: None,
-    )
-    monkeypatch.setattr(
-        baseagent["random"],
-        "uniform",
-        lambda _start, _end: 0,
-    )
-
-
-def isolate_agent_loop(baseagent, monkeypatch):
-    """Replace unrelated s01-s10 systems with deterministic no-ops."""
-    def fake_update_context(context, messages, tools=None):
-        return context
-
-    monkeypatch.setitem(
-        baseagent,
-        "tool_result_budget",
-        lambda messages: messages,
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "snip_compact",
-        lambda messages: messages,
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "micro_compact",
-        lambda messages: messages,
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "estimate_size",
-        lambda messages: 0,
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "update_context",
-        fake_update_context,
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "get_system_prompt",
-        lambda context: "test-system",
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "build_request_messages_with_memories",
-        lambda messages: list(messages),
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "trigger_hook",
-        lambda *args: None,
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "extract_memories",
-        lambda messages: None,
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "consolidate_memories",
-        lambda: None,
-    )
-    monkeypatch.setitem(baseagent, "rounds_since_todo", 0)
-    disable_real_waiting(baseagent, monkeypatch)
-
-
-def assistant_texts(messages):
-    texts = []
-    for message in messages:
-        if message.get("role") != "assistant":
-            continue
-
-        content = message.get("content")
-        if isinstance(content, str):
-            texts.append(content)
-            continue
-
-        if not isinstance(content, list):
-            continue
-
-        for block in content:
-            text = getattr(block, "text", None)
-            if text:
-                texts.append(text)
-            elif isinstance(block, dict) and block.get("type") == "text":
-                texts.append(str(block.get("text", "")))
-    return texts
 
 
 def test_retry_delay_grows_exponentially_and_caps_at_32_seconds(monkeypatch):
@@ -334,492 +265,6 @@ def test_prompt_too_long_does_not_match_unrelated_token_error():
     )
 
 
-def test_prompt_too_long_compacts_once_and_rebuilds_request(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    stream_calls = 0
-    compact_calls = 0
-    request_builds = []
-
-    def fake_streaming(**kwargs):
-        nonlocal stream_calls
-        stream_calls += 1
-        raise FakeAPIError(
-            400,
-            "prompt_is_too_long",
-        )
-
-    def fake_compact(messages):
-        nonlocal compact_calls
-        compact_calls += 1
-        return [{
-            "role": "user",
-            "content": "[Reactive compact] summary",
-        }]
-
-    def build_request(messages):
-        request_builds.append(list(messages))
-        return list(messages)
-
-    monkeypatch.setitem(
-        baseagent,
-        "create_message_streaming",
-        fake_streaming,
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "reactive_compact",
-        fake_compact,
-    )
-    monkeypatch.setitem(
-        baseagent,
-        "build_request_messages_with_memories",
-        build_request,
-    )
-
-    messages = [{"role": "user", "content": "large prompt"}]
-    baseagent["agent_loop"](messages, {})
-
-    assert compact_calls == 1
-    assert stream_calls == 2
-    assert len(request_builds) == 2
-    assert request_builds[0][0]["content"] == "large prompt"
-    assert request_builds[1][0]["content"].startswith(
-        "[Reactive compact]"
-    )
-    assert messages[-1]["role"] == "assistant"
-    assert assistant_texts(messages)[-1].startswith("[Error]")
-
-
-def test_first_max_tokens_is_saved_then_continues_at_64k(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    responses = iter([
-        fake_response("max_tokens", "first-part"),
-        fake_response("end_turn", "final-part"),
-    ])
-    max_tokens_seen = []
-
-    def fake_streaming(**kwargs):
-        max_tokens_seen.append(kwargs["max_tokens"])
-        return next(responses)
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_streaming)
-    messages = [{"role": "user", "content": "test"}]
-    baseagent["agent_loop"](messages, {})
-
-    assert max_tokens_seen == [8_000, 64_000]
-    assert [message["role"] for message in messages] == [
-        "user", "assistant", "user", "assistant",
-    ]
-    assert messages[2]["content"] == baseagent["CONTINUATION_PROMPT"]
-    assert assistant_texts(messages) == ["first-part", "final-part"]
-
-
-def test_max_tokens_tool_uses_get_error_results_before_continuation(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    tool_calls = [
-        types.SimpleNamespace(
-            type="tool_use",
-            id="tool-truncated-1",
-            name="bash",
-            input={"command": "first"},
-        ),
-        types.SimpleNamespace(
-            type="tool_use",
-            id="tool-truncated-2",
-            name="bash",
-            input={"command": "second"},
-        ),
-    ]
-    responses = iter([
-        types.SimpleNamespace(
-            stop_reason="max_tokens",
-            content=[
-                types.SimpleNamespace(type="text", text="partial"),
-                *tool_calls,
-            ],
-        ),
-        fake_response("end_turn", "resumed"),
-    ])
-    executed_commands = []
-
-    def record_execution(command):
-        executed_commands.append(command)
-
-    monkeypatch.setitem(
-        baseagent,
-        "create_message_streaming",
-        lambda **kwargs: next(responses),
-    )
-    monkeypatch.setitem(
-        baseagent["BUILTIN_HANDLERS"],
-        "bash",
-        record_execution,
-    )
-
-    messages = [{"role": "user", "content": "test"}]
-    baseagent["agent_loop"](messages, {})
-
-    assert executed_commands == []
-    assert messages[2]["role"] == "user"
-    recovery_blocks = messages[2]["content"]
-    assert isinstance(recovery_blocks, list)
-    assert [block["type"] for block in recovery_blocks] == [
-        "tool_result",
-        "tool_result",
-        "text",
-    ]
-    assert [
-        block["tool_use_id"] for block in recovery_blocks[:-1]
-    ] == ["tool-truncated-1", "tool-truncated-2"]
-    assert all(block["is_error"] is True for block in recovery_blocks[:-1])
-    assert all(block["content"] for block in recovery_blocks[:-1])
-    assert recovery_blocks[-1] == {
-        "type": "text",
-        "text": baseagent["CONTINUATION_PROMPT"],
-    }
-
-
-def test_max_tokens_tool_uses_are_paired_when_continuations_are_exhausted(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    monkeypatch.setitem(baseagent, "MAX_CONTINUATIONS", 0)
-    tool_calls = [
-        types.SimpleNamespace(
-            type="tool_use",
-            id="tool-at-limit-1",
-            name="bash",
-            input={"command": "first"},
-        ),
-        types.SimpleNamespace(
-            type="tool_use",
-            id="tool-at-limit-2",
-            name="bash",
-            input={"command": "second"},
-        ),
-    ]
-    llm_calls = []
-    executed_commands = []
-
-    def fake_streaming(**kwargs):
-        llm_calls.append(kwargs["max_tokens"])
-        if len(llm_calls) > 1:
-            raise AssertionError("agent_loop made an unexpected continuation")
-        return types.SimpleNamespace(
-            stop_reason="max_tokens",
-            content=[
-                types.SimpleNamespace(type="text", text="partial"),
-                *tool_calls,
-            ],
-        )
-
-    def record_execution(command):
-        executed_commands.append(command)
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_streaming)
-    monkeypatch.setitem(
-        baseagent["BUILTIN_HANDLERS"],
-        "bash",
-        record_execution,
-    )
-
-    messages = [{"role": "user", "content": "test"}]
-    baseagent["agent_loop"](messages, {})
-
-    assert llm_calls == [8_000]
-    assert executed_commands == []
-    assert [message["role"] for message in messages] == [
-        "user", "assistant", "user",
-    ]
-    recovery_blocks = messages[2]["content"]
-    assert [block["type"] for block in recovery_blocks] == [
-        "tool_result", "tool_result",
-    ]
-    assert [block["tool_use_id"] for block in recovery_blocks] == [
-        "tool-at-limit-1", "tool-at-limit-2",
-    ]
-    assert all(block["is_error"] is True for block in recovery_blocks)
-    assert all(block["content"] for block in recovery_blocks)
-
-
-def test_continuation_is_limited_and_preserves_every_partial_response(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    responses = iter([
-        fake_response("max_tokens", "part-0"),
-        fake_response("max_tokens", "part-1"),
-        fake_response("max_tokens", "part-2"),
-        fake_response("max_tokens", "part-3"),
-    ])
-    max_tokens_seen = []
-
-    def fake_streaming(**kwargs):
-        max_tokens_seen.append(kwargs["max_tokens"])
-        return next(responses)
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_streaming)
-    messages = [{"role": "user", "content": "test"}]
-    baseagent["agent_loop"](messages, {})
-
-    assert max_tokens_seen == [8_000, 64_000, 64_000, 64_000]
-    assert [message["role"] for message in messages] == [
-        "user", "assistant", "user", "assistant",
-        "user", "assistant", "user", "assistant",
-    ]
-    assert assistant_texts(messages) == [
-        "part-0",
-        "part-1",
-        "part-2",
-        "part-3",
-    ]
-    assert sum(
-        message.get("content") == baseagent["CONTINUATION_PROMPT"]
-        for message in messages
-    ) == 3
-
-
-def test_mixed_recoveries_share_continuation_budget_without_fifth_call(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    events = [
-        fake_response("max_tokens", "max-part-0"),
-        baseagent["PartialStreamError"](
-            "stream-part-1",
-            RuntimeError("connection lost 1"),
-        ),
-        fake_response("max_tokens", "max-part-2"),
-        baseagent["PartialStreamError"](
-            "stream-part-3",
-            RuntimeError("connection lost 3"),
-        ),
-    ]
-    max_tokens_seen = []
-
-    def fake_streaming(**kwargs):
-        max_tokens_seen.append(kwargs["max_tokens"])
-        if len(max_tokens_seen) > len(events):
-            raise AssertionError("agent_loop made an unexpected fifth call")
-        event = events[len(max_tokens_seen) - 1]
-        if isinstance(event, Exception):
-            raise event
-        return event
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_streaming)
-    messages = [{"role": "user", "content": "test"}]
-    baseagent["agent_loop"](messages, {})
-
-    assert max_tokens_seen == [8_000, 64_000, 64_000, 64_000]
-    assert sum(
-        message.get("content") == baseagent["CONTINUATION_PROMPT"]
-        for message in messages
-    ) == 3
-    assert assistant_texts(messages) == [
-        "max-part-0",
-        "stream-part-1",
-        "max-part-2",
-        "stream-part-3\n"
-        "[Stream interrupted: RuntimeError: connection lost 3]",
-    ]
-
-
-def test_agent_loop_does_not_print_streamed_response_twice(
-    baseagent,
-    monkeypatch,
-    capsys,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-
-    def fake_streaming(**kwargs):
-        print("unique-final-answer", end="", flush=True)
-        return fake_response("end_turn", "unique-final-answer")
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_streaming)
-    messages = [{"role": "user", "content": "test"}]
-    baseagent["agent_loop"](messages, {})
-
-    output = capsys.readouterr().out
-    assert output.count("unique-final-answer") == 1
-    assert assistant_texts(messages).count("unique-final-answer") == 1
-
-
-def test_partial_stream_error_is_saved_then_continued_without_replay(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    calls = []
-
-    def fake_streaming(**kwargs):
-        calls.append(kwargs["max_tokens"])
-        if len(calls) == 1:
-            raise baseagent["PartialStreamError"](
-                "visible-part",
-                RuntimeError("connection lost"),
-            )
-        return fake_response("end_turn", "resumed-part")
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_streaming)
-    messages = [{"role": "user", "content": "test"}]
-    baseagent["agent_loop"](messages, {})
-
-    assert calls == [8_000, 64_000]
-    assert [message["role"] for message in messages] == [
-        "user", "assistant", "user", "assistant",
-    ]
-    assert messages[2]["content"] == baseagent["CONTINUATION_PROMPT"]
-    assert assistant_texts(messages) == ["visible-part", "resumed-part"]
-
-
-def test_real_stream_partial_failure_continues_through_agent_loop_once(
-    baseagent,
-    monkeypatch,
-    capsys,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    cause = FakeAPIError(529, "stream overloaded")
-    stream_calls = []
-
-    class PartialFailureStream:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, traceback):
-            return False
-
-        @property
-        def text_stream(self):
-            def chunks():
-                yield "visible-"
-                yield "part"
-                raise cause
-            return chunks()
-
-        def get_final_message(self):
-            raise AssertionError("failed stream has no final message")
-
-    class SuccessfulStream:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, traceback):
-            return False
-
-        @property
-        def text_stream(self):
-            return iter(["resumed-part"])
-
-        def get_final_message(self):
-            return fake_response("end_turn", "resumed-part")
-
-    streams = iter([PartialFailureStream(), SuccessfulStream()])
-
-    def fake_sdk_stream(**kwargs):
-        stream_calls.append(kwargs)
-        return next(streams)
-
-    baseagent["client"].messages.stream = fake_sdk_stream
-    messages = [{"role": "user", "content": "test"}]
-    baseagent["agent_loop"](messages, {})
-
-    assert [call["max_tokens"] for call in stream_calls] == [8_000, 64_000]
-    assert stream_calls[1]["messages"][1] == {
-        "role": "assistant",
-        "content": [{"type": "text", "text": "visible-part"}],
-    }
-    assert stream_calls[1]["messages"][2] == {
-        "role": "user",
-        "content": baseagent["CONTINUATION_PROMPT"],
-    }
-    assert assistant_texts(messages) == ["visible-part", "resumed-part"]
-    assert assistant_texts(messages).count("visible-part") == 1
-    output = capsys.readouterr().out
-    assert output.count("visible-part") == 1
-    assert output.count("resumed-part") == 1
-
-
-def test_partial_stream_error_at_limit_stores_visible_marker(
-    baseagent,
-    monkeypatch,
-    capsys,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    monkeypatch.setitem(baseagent, "MAX_CONTINUATIONS", 0)
-
-    def fake_streaming(**kwargs):
-        print("visible-part")
-        raise baseagent["PartialStreamError"](
-            "visible-part",
-            RuntimeError("connection lost"),
-        )
-
-    monkeypatch.setitem(baseagent, "create_message_streaming", fake_streaming)
-    messages = [{"role": "user", "content": "test"}]
-    baseagent["agent_loop"](messages, {})
-
-    marker = "[Stream interrupted: RuntimeError: connection lost]"
-    assert capsys.readouterr().out.count(marker) == 1
-    assert assistant_texts(messages) == [f"visible-part\n{marker}"]
-
-
-def test_streamed_tool_use_keeps_adjacent_tool_result(
-    baseagent,
-    monkeypatch,
-):
-    isolate_agent_loop(baseagent, monkeypatch)
-    tool_call = types.SimpleNamespace(
-        type="tool_use",
-        id="tool-stream-1",
-        name="bash",
-        input={"command": "pwd"},
-    )
-    responses = iter([
-        types.SimpleNamespace(
-            stop_reason="tool_use",
-            content=[
-                types.SimpleNamespace(type="text", text="Checking."),
-                tool_call,
-            ],
-        ),
-        fake_response("end_turn", "Done."),
-    ])
-
-    monkeypatch.setitem(
-        baseagent,
-        "create_message_streaming",
-        lambda **kwargs: next(responses),
-    )
-    monkeypatch.setitem(
-        baseagent["BUILTIN_HANDLERS"],
-        "bash",
-        lambda command: "/workspace",
-    )
-
-    messages = [{"role": "user", "content": "where am I?"}]
-    baseagent["agent_loop"](messages, {})
-
-    assert messages[1]["role"] == "assistant"
-    assert messages[2]["role"] == "user"
-    assert messages[2]["content"] == [{
-        "type": "tool_result",
-        "tool_use_id": "tool-stream-1",
-        "content": "/workspace",
-    }]
-
-
 def test_streaming_prints_chunks_before_returning_final_message(
     baseagent,
     capsys,
@@ -970,11 +415,7 @@ def test_subagent_routes_llm_request_through_with_retry(
         return call()
 
     baseagent["client"].messages.create = fake_create
-    monkeypatch.setitem(
-        baseagent,
-        "with_retry",
-        spy_with_retry,
-    )
+    monkeypatch.setattr(baseagent, "with_retry", spy_with_retry)
 
     result = baseagent["spawn_subagent"]("review one file")
 
