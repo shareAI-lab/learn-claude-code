@@ -784,7 +784,9 @@ register_hook("UserPromptSubmit", make_context_inject_hook(APP_CONFIG.workdir))
 register_hook(
     "PreToolUse",
     make_permission_hook(
-        APP_CONFIG.workdir, input, MCP_TOOL_METADATA, mcp_lock
+        APP_CONFIG.workdir,
+        input,
+        mcp_state=lambda: MCP_STATE,
     ),
 )
 register_hook("PreToolUse", make_log_hook(APP_CONFIG.workdir))
@@ -878,7 +880,6 @@ def run_agent_turn_locked(user_query: str | None = None):
         session_history.append({"role": "user", "content": user_query})
 
     session_context = agent_loop(session_history, session_context)
-    session_context = update_context(session_context, session_history)
     print()
 
 

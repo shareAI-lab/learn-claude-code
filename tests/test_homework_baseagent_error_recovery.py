@@ -1,3 +1,4 @@
+import builtins
 import importlib.util
 import sys
 import types
@@ -9,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from homework.agent_app.core import recovery
+from homework.agent_app.features.mcp import MCPState
 
 
 BASE_AGENT = (
@@ -66,10 +68,62 @@ def baseagent(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "anthropic", fake_anthropic)
     monkeypatch.setitem(sys.modules, "dotenv", fake_dotenv)
+    monkeypatch.setattr(builtins, "input", lambda _prompt: "n")
     monkeypatch.setenv("MODEL_ID", "primary-model")
     monkeypatch.setenv("FALLBACK_MODEL_ID", "fallback-model")
 
     return load_baseagent_module()
+
+
+def test_legacy_turn_does_not_rebuild_context_after_core_loop(
+    baseagent,
+    monkeypatch,
+):
+    expected_context = {"owner": "core-loop"}
+    core_calls = []
+
+    def fake_core_loop(runtime):
+        core_calls.append(runtime)
+        runtime.session.context = expected_context
+
+    def fail_legacy_context_build(*_args, **_kwargs):
+        pytest.fail("legacy update_context rebuilt the context")
+
+    monkeypatch.setattr(baseagent, "run_agent_loop", fake_core_loop)
+    monkeypatch.setattr(baseagent, "update_context", fail_legacy_context_build)
+    baseagent.session_history.clear()
+    baseagent.session_context = {}
+
+    baseagent.run_agent_turn_locked("hello")
+
+    assert len(core_calls) == 1
+    assert baseagent.session_context is expected_context
+
+
+def test_legacy_permission_hook_uses_replaced_mcp_state(
+    baseagent,
+    monkeypatch,
+):
+    replacement = MCPState()
+    replacement.metadata["mcp__deploy__trigger"] = {
+        "server": "deploy",
+        "original_name": "trigger",
+        "destructive": True,
+    }
+    monkeypatch.setattr(baseagent, "MCP_STATE", replacement)
+    block = types.SimpleNamespace(
+        name="mcp__deploy__trigger",
+        input={"service": "api"},
+    )
+
+    assert baseagent.trigger_hook("PreToolUse", block) == (
+        "Permission denied by user"
+    )
+
+    replacement.metadata.clear()
+    assert baseagent.trigger_hook("PreToolUse", block) == (
+        "Permission denied: unknown MCP tool metadata"
+    )
 
 
 class FakeAPIError(Exception):

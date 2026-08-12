@@ -36,11 +36,19 @@ class HookRegistry:
 def make_permission_hook(
     root: Path,
     confirmation: Callable[[str], str],
-    mcp_metadata: Mapping[str, Mapping] | None = None,
+    mcp_metadata: (
+        Mapping[str, Mapping]
+        | Callable[[], Mapping[str, Mapping]]
+        | None
+    ) = None,
     mcp_lock=None,
+    *,
+    mcp_state=None,
 ):
-    metadata = mcp_metadata if mcp_metadata is not None else {}
-    lock = mcp_lock if mcp_lock is not None else nullcontext()
+    def resolve(value, default):
+        if value is None:
+            return default
+        return value() if callable(value) else value
 
     def permission_hook(block, *, _root=root):
         if block.name == "bash":
@@ -62,6 +70,13 @@ def make_permission_hook(
                         return "Permission denied by user"
 
         if block.name.startswith("mcp__"):
+            state = resolve(mcp_state, None)
+            if state is not None:
+                metadata = state.metadata
+                lock = state.lock
+            else:
+                metadata = resolve(mcp_metadata, {})
+                lock = resolve(mcp_lock, nullcontext())
             with lock:
                 tool_metadata = dict(metadata.get(block.name, {}))
             if not tool_metadata:
