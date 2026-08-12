@@ -1,51 +1,57 @@
-# s16: Workflow Runtime — The Model Decides Each Step; a Script Decides the Orchestration
+# s16: Workflow Runtime — Put the Recipe in Code
 
 [English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md)
 
 s01 → ... → s14 → [s15](../s15_integrated_harness/) → `s16` → [s17](../s17_goal_loop/)
 
-> *"One tool_use runs an entire orchestration"* — The `Workflow` tool starts a recoverable script runtime that coordinates many agent calls.
+> *"Chatting turn-by-turn is like texting the chef every ten seconds. A workflow is a recipe the kitchen can follow."*
 >
-> **Harness layer**: Orchestration — run saved multi-agent scripts above the single-agent loop.
+> **Harness layer**: Orchestration — run a multi-agent script above the single-agent loop.
 
 ---
 
-From s01 through s15, the model decides which tools to call in each round. Their results enter `messages[]`, and the model decides the next step from the updated context. This works well when the path depends on what the previous step discovers.
+Imagine you are cooking with a friend over text. You send “chop the onions,” wait, ask “are they done?”, then “now the pan…”. It works for one dish. For a feast with twenty dishes, that chat becomes the bottleneck: you forget steps, repeat yourself, and if the phone dies you start over.
 
-Some tasks repeat a fixed sequence. A code review may inspect several dimensions concurrently, verify each finding, combine duplicates, and sort the result. The sequence and dependencies are known before execution. Here the host needs three things:
+That is ordinary model-as-orchestrator chatting. A **workflow** is the written recipe: the kitchen (runtime) follows it, helpers (subagents) do judgment, and intermediate bowls sit on the counter — not in the group chat.
 
-- **Parallelism**, rather than waiting for one item at a time;
-- **A stable result structure**, even when individual agent answers vary;
-- **Recoverability**, so an interruption does not rerun work that is already complete.
+## The problem
 
-If this orchestration exists only in conversation history, its ordering and checkpoints also exist only in that history. A saved workflow puts the fixed sequence in code and records completed calls in a journal.
+From s01 through s15, the model picks the next tool each round. That shines when the path depends on what you just discovered.
 
-## Put the Plan in Code, Not in a Sequence of Chat Turns
+Some jobs already know their shape:
 
-Add a `Workflow` tool to the harness tool pool. The host registers trusted scripts built from `agent()`, `parallel()`, `pipeline()`, and `phase()`. The model supplies only a saved workflow name, arguments, and an optional run ID to resume; it does not send executable code or metadata.
+- review many files on several dimensions
+- research, then verify, then merge
+- migrate N modules the same way
 
-The workflow enters the main loop as one `tool_use`. As the script runs, the runtime emits lifecycle and progress events and records every step in a journal on disk. When the script finishes, the call returns the launch envelope, result, and task state. Intermediate script results live in variables instead of taking space in conversation history. When restarted with `resume_from_run_id`, unchanged `agent()` calls hit the journal cache and reuse previous results.
+If the model keeps “remembering” the plan inside `messages[]`, three things go wrong: context fills with orchestration noise, the plan drifts mid-run, and a crash means redoing finished work.
+
+You want parallelism, stable result shapes, and a way to resume. Chat history is a weak place to store all three.
+
+## The idea in one breath
+
+**Move the plan into code.** Subagents still think. The script owns loops, fan-out, and merge. Intermediate results live in variables, not in the conversation.
 
 ![Workflow Runtime Overview](images/workflow-runtime-overview.svg)
 
-```python
-SAMPLE_META = {"name": "review-changes", "description": "Review code changes", "phases": ["Review", "Verify"]}
+One `Workflow` tool call starts that scripted run. Lifecycle and progress events fire while it works; one tool result comes back with launch info, the result, and task state.
 
-async def sample_workflow(ctx, args):
-    ctx.phase("Review")
-    results = await ctx.pipeline(DIMENSIONS, audit, verify)   # Each dimension independently runs audit → verify
-    confirmed = [f for r in results if r for f in r["confirmed"]]
-    ctx.log(f"Confirmed {len(confirmed)} real issues")
-    return {"confirmed": confirmed}
-```
+## Two doors into a workflow
 
-## The Workflow Tool: One Call, One Complete Run
+Claude Code is honest about how a workflow starts:
 
-`Workflow` is added to the s15 host's existing tool pool. The user can request a saved workflow, or the model can select it when a task matches a known orchestration. The adapter resolves the name through the host-owned `WORKFLOWS` registry, then passes its trusted metadata and function to the runtime. The other s15 tools remain available in the same loop.
+| Door | What you pass | When |
+|------|----------------|------|
+| **Dynamic** | A JavaScript orchestration script (`script`, or later `scriptPath`) | The model writes a recipe for *this* task |
+| **Saved** | `name` + `args` | A good recipe lives under e.g. `.claude/workflows/` and you rerun it |
 
-The model-facing schema accepts `name`, `args`, and `resume_from_run_id`. Unknown names and malformed arguments become an error tool result instead of ending the host loop. The runtime then validates the registered metadata, checks permissions, registers a local workflow task, and emits `async_launched` before running the script. Progress events follow, then the final `task_notification`; the call returns JSON-safe launch information, result, and task state.
+Same kitchen either way. Dynamic is “write the recipe now.” Saved is “pull the card from the box.”
+
+**This lesson is a Python teaching runtime.** It shows the same ideas so you can read every line. Our demo registers a saved workflow by name; the concepts map 1:1 to Claude Code’s script world. We do **not** claim “the model cannot submit executable code” — that was wrong for Claude Code. We simply skip embedding a full JS interpreter here.
 
 ```python
+# Teaching adapter: saved door (name + args).
+# Claude Code also accepts script / scriptPath / resumeFromRunId.
 WORKFLOW_TOOL = {
     "name": "Workflow",
     "input_schema": {
@@ -54,192 +60,148 @@ WORKFLOW_TOOL = {
             "name": {"type": "string"},
             "args": {"type": "object"},
             "resume_from_run_id": {"type": "string"},
+            "resumeFromRunId": {"type": "string"},
         },
         "required": ["name"],
-        "additionalProperties": False,
     },
 }
-
-async def run_workflow(name, args=None, resume_from_run_id=None):
-    meta, script_fn = WORKFLOWS[name]
-    out = await WorkflowTool().call(
-        meta, script_fn,
-        args=args,
-        resume_from_run_id=resume_from_run_id,
-    )
-    return {"launched": out["launched"], "result": out["result"],
-            "task": serialize_task(out["task"])}
 ```
 
-## Workflow Metadata: Validate Before Launch
+## Primitives, taught with a kitchen story
 
-Each saved workflow registers trusted metadata with `name`, `description`, and optional `phases`. The runtime validates it before executing workflow code. `name` and `description` identify the task in the UI, while `phases` names groups in the progress display. These fields belong to the host registry, not to model input.
+You are running a school bake sale. Each table needs mix → bake → box. Helpers taste and judge; the recipe decides the order.
 
-Invalid registration raises `WorkflowInputError` before launch. This is the same idea as validating cron expressions in s12: do not wait until execution to discover a bad saved workflow.
+| Primitive | Kitchen meaning |
+|-----------|-----------------|
+| `agent(prompt, {schema, label, phase})` | Ask one helper to do one job |
+| `pipeline(items, *stages)` | **Default.** Each cake goes through mix→bake→box on its own. Cake A can be boxing while cake B is still mixing |
+| `parallel(thunks)` | Wait until **every** tray comes back — only when the next step needs all of them together |
+| `phase(title)` | Announce “we’re in baking now” on the progress board |
+| `log(message)` | Shout a short status line |
+| `workflow(name, args)` | Call a smaller recipe (one level deep) |
+| `args` | The ingredients list passed into this run |
+| `budget` | How many “oven minutes” (tokens) you may spend |
 
-Because the runtime uses `meta.name` in local artifact filenames, it also requires a 1-64 character safe slug containing letters, numbers, `.`, `_`, or `-`.
+Default to `pipeline`. Reach for `parallel` only when the next step truly needs every prior result at once — like tasting all trays before writing the scorecard.
 
 ```python
-def validate_meta(meta):
-    if not isinstance(meta, dict):
-        raise WorkflowInputError("meta must be an object literal")
-    if not meta.get("name") or not meta.get("description"):
-        raise WorkflowInputError("meta requires name and description")
-    if not isinstance(meta["name"], str) or not WORKFLOW_NAME_RE.fullmatch(meta["name"]):
-        raise WorkflowInputError("meta.name must be a safe 1-64 character slug")
-    if "phases" in meta and (
-        not isinstance(meta["phases"], list)
-        or not all(isinstance(p, str) and p for p in meta["phases"])
-    ):
-        raise WorkflowInputError("meta.phases must contain non-empty strings")
-    return meta
+# Each dimension walks audit → verify on its own (no barrier between stages).
+results = await ctx.pipeline(DIMENSIONS, audit, verify)
+confirmed = [f for r in results if r for f in r["confirmed"]]
 ```
 
-## Orchestration Primitives
+## Make answers machine-readable
 
-A script receives an `ExecutionState` exposing a small set of orchestration primitives. It does not read files or run shell commands directly. The default interactive mode connects `agent()` to the same real API client as the host, and each workflow agent reads only the content supplied through workflow arguments. `demo` and unit tests use `MockAgentRunner` so events and journal replay are repeatable.
-
-| Primitive | Purpose |
-|------|------|
-| `agent(prompt, {schema, label, phase})` | Dispatch one subagent |
-| `parallel(thunks)` | **Barrier**: run every task concurrently and wait until all results return |
-| `pipeline(items, *stages)` | Run each item through stages **without a barrier**; finished items proceed immediately |
-| `phase(title)` | Mark the current progress phase and update the progress display |
-| `log(message)` | Emit a progress log line |
-| `workflow(name, args)` | Run a nested sub-workflow, one level only |
-
-Use `pipeline` when each item independently crosses the same stages. Item A may reach stage three while item B is still in stage one. Use `parallel` when the next step needs every result from the preceding group.
+If a helper returns a poem, the next stage cannot reliably zip findings to verdicts. Pass a `schema`: the runtime asks for JSON, validates it, and retries **once**. Fail again and that call errors (see null-isolation below).
 
 ```python
-async def pipeline(self, items, *stages):
-    async def run_item(item, idx):
-        value = item
-        for stage in stages:                       # Each item independently completes every stage
-            value = await stage(value, item, idx)
-        return value
-    return await asyncio.gather(*[run_item(it, i) for i, it in enumerate(items)])
+out = await ctx.agent(
+    f"Inspect this change for {dimension} issues:\n{changes}",
+    schema=FINDINGS_SCHEMA,
+    label=f"audit:{dimension}",
+)
+# out is a dict with "findings", not a paragraph
 ```
 
-## Structured Output: Do Not Let Subagents Return Essays
+Free-form prose is fine for chatting with you. Pipelines need sockets that fit.
 
-`agent({schema})` asks a workflow agent to return only a JSON object matching the schema. The runtime parses and validates the result, then retries once if it does not match. Downstream code receives an object instead of extracting fields from prose.
+## When one helper fails
 
-s05 warned that tool arguments cannot be trusted completely. This is the same lesson in reverse: subagent output cannot be trusted completely either. Validate at the orchestration boundary, give one retry, and keep uncertainty out of the rest of the flow.
+A fleet should not stop because one tray burned.
+
+- **`parallel`**: a failing thunk becomes `null` / `None` in that slot; the gather itself does not reject.
+- **`pipeline`**: a failing stage drops **that item** to `null` / `None` and skips its remaining stages; other items keep going.
+
+Filter with care — usually `if r` / `.filter(Boolean)` — before you merge.
 
 ```python
-run = await asyncio.to_thread(self.runner.run, prompt, schema, label)
-result = run.value
-if schema is not None:
-    ok, err = SimpleJsonSchema(schema).validate(result)
-    if not ok:                                       # Retry once with a reminder, then fail
-        retry = await asyncio.to_thread(
-            self.runner.run, prompt + "\n\nReturn valid JSON.", schema, label
-        )
-        result = retry.value
-        ok, err = SimpleJsonSchema(schema).validate(result)
-        if not ok:
-            raise WorkflowInputError(f"agent({{schema}}) returned invalid output: {err}")
+verdicts = await ctx.parallel([...])  # some entries may be None
+confirmed = [
+    f for f, v in zip(findings, verdicts)
+    if v and v.get("isReal")
+]
 ```
 
-## Task State and Progress Events
+## Journal + resume
 
-`LocalWorkflowTask` maintains status and token usage and emits an SDK-style event stream: `task_started` → a sequence of `task_progress` events containing phase changes, subagent starts, and log batches → one final `task_notification` reporting completion or failure, plus the output file and agent and token counts.
+Every run gets a `runId`. As each `agent()` finishes, the runtime appends a line to a journal on disk. Think of a notebook that lists helpers in the order you *called* them, not the order they wandered back from the oven.
 
-The demo prints these events in order and returns the task state after the final notification.
+On resume (`resume_from_run_id` / `resumeFromRunId`), the script runs from the top again, but:
 
-```python
-class LocalWorkflowTask:
-    def progress_event(self, ptype, **data):         # Phase/subagent/log
-        self.progress.append({"type": ptype, **data})
-        print(f"  progress   {ptype} ...")
+1. Compare each `agent()` call, in call order, to the next journal line.
+2. **Longest unchanged prefix** → cache hits (instant replay).
+3. At the **first** changed or unfinished call, the prefix breaks.
+4. **Everything after that runs live** — even if an old key still sits later in the journal.
+
+That is why real JS workflow runtimes ban `Date.now()`, `Math.random()`, and bare `new Date()`: nondeterministic clocks and dice change prompts or call order, and the notebook no longer matches. This Python demo does not fully sandbox that — still write deterministic scripts.
+
+```text
+journal:  [A ✓] [B ✓] [C ✓] [D ✓]
+resume:   A hit → B hit → C changed → D runs live (no silent hit on old D)
 ```
 
-## Storage: Snapshot + Journal for Resuming after Interruptions
+## Walk the sample: `review-changes`
 
-The runtime stores each run under `s16_workflow_runtime/.runtime/`: a `<runId>.json` snapshot, `<runId>.output.json` output, `<runId>.journal.jsonl` journal, and `<runId>.lock` coordination file. Every fresh run reserves a new `runId` with exclusive file creation before opening its journal. The run lock stays held through execution and final persistence, so another process cannot resume the same run at the same time. Its snapshot records the workflow name, arguments, and task state; resume validates the saved snapshot and journal before changing either successful artifact.
+Four review dimensions walk the same two-stage path:
 
-The journal is the core of checkpointed resume. It records every `agent()` result one line at a time:
-
-```python
-class WorkflowJournal:
-    def record(self, key, value):
-        self._f.write(json.dumps({"key": key, "value": value}) + "\n")
-        self._f.flush()
-        self.cache[key] = value
+```text
+correctness ── audit ── verify ──┐
+security    ── audit ── verify ──┤── merge confirmed findings
+performance ── audit ── verify ──┤
+style       ── audit ── verify ──┘
 ```
 
-## Resume: Continue by runId and Reuse Everything Unchanged
-
-Calling the workflow again with `resume_from_run_id` reruns the script, but every `agent()` computes a deterministic semantic key. If that key is present in the journal, it returns the cached result without executing again. Every unchanged call hits the cache; only a changed call and the downstream steps that depend on it actually rerun.
-
-The key detail is that keys cannot depend on concurrency order. Agents in `parallel` and `pipeline` finish in nondeterministic order. If "the nth completion" became the key, cache entries would map to the wrong calls on the next run. A key therefore uses a stable hash of call content, including type, label, prompt, and schema, rather than a shared counter:
-
-```python
-def key(self, kind, label, prompt, schema):
-    basis = f"{kind}|{label}|{prompt}|{json.dumps(schema, sort_keys=True)}"
-    return f"{kind}-{_stable_hash(basis) % 10**10:010d}"
-
-# Inside agent():
-cached = self.journal.cached(key)
-if cached is not MISS:
-    self.task.progress_event("workflow_agent", label=label, status="cached")
-    return cached
-```
-
-## Stable Call Keys
-
-On resume, the runtime must match each current `agent()` call with its earlier journal record. A stable hash gives unchanged workflow code and arguments the same call key. Real model output may vary; when the call content has not changed, resume uses the result already saved in the journal.
-
-## See It Run
-
-The sample `review-changes` workflow uses `pipeline` to send each review dimension independently through audit → verify. Interactive mode uses the real API and reads the material to review from `args.changes`. `demo` uses fixed runner data to show pipeline, validation, journal, and resume behavior.
+1. **Review** — each dimension’s auditor returns structured findings.
+2. **Verify** — each finding gets an adversarial checker (`parallel` inside the verify stage).
+3. Keep only findings marked real; sort by severity.
 
 ```python
 async def sample_workflow(ctx, args):
     ctx.phase("Review")
-    changes = args.get("changes", "")
-
-    async def audit(_v, dimension, _i):
-        out = await ctx.agent(f"Inspect this change for {dimension} issues:\n{changes}",
-                              schema=FINDINGS_SCHEMA, label=f"audit:{dimension}", phase="Review")
-        return {"dimension": dimension, "findings": out["findings"]}
-
-    async def verify(audited, dimension, _i):
-        ctx.phase("Verify")
-        verdicts = await ctx.parallel([                       # Verify every finding independently
-            (lambda f=f: ctx.agent(f"Verify this finding against the change:\n{changes}\n\n{f}",
-                                   schema=VERDICT_SCHEMA, label=f"verify:{dimension}:{f['title']}"))
-            for f in audited["findings"]])
-        return {"dimension": dimension,
-                "confirmed": [f for f, v in zip(audited["findings"], verdicts) if v and v["isReal"]]}
-
     results = await ctx.pipeline(DIMENSIONS, audit, verify)
-    ...
+    confirmed = [f for r in results if r for f in r["confirmed"]]
+    ctx.log(f"confirmed {len(confirmed)} real finding(s)")
+    return {"confirmed": confirmed}
 ```
 
-## Changes from s15
+## How this plugs into s15
 
-| | s15 Integrated Harness | s16 Workflow Runtime |
-|--|-----------|---------------------|
-| Loop | One model-driven loop | Main loop unchanged; a tool runs scripted orchestration |
-| Who decides the next step | Model decides each round | Script declares the orchestration in advance |
-| Multiple agents | One-shot s06 subagents | Scripted, resumable calls through an agent-runner boundary |
-| New mechanisms | — | Script primitives, host registry and tool adapter, task lifecycle, progress events, journal/resume, structured output |
+s15 is still the host loop. s16 adds one tool: `Workflow`. The model (or you) asks for a saved name; the adapter resolves the registry and runs the script.
 
-s16 does not replace the main loop. It exposes `Workflow` at the tool layer and starts a local workflow runtime behind it: one saved script coordinates N calls through an agent-runner boundary. An s06 subagent is dispatched once at the model's discretion; s16 turns the orchestration into resumable host code.
+| | Claude Code / Pi (product) | This teaching CLI |
+|--|----------------------------|-------------------|
+| Script language | JavaScript in a sandbox | Python functions you can read |
+| Dynamic door | Model writes `script` / edits `scriptPath` | Explained in docs; demo uses saved `name` |
+| Host while running | Background + notification; session stays responsive | `demo` / `resume` run in the foreground for clarity |
+| Ideas | Same primitives, journal, prefix resume | Teaching model — precise where we simplify |
 
-## Try It
+The main loop does not become a workflow engine. It borrows one tool, the way it borrows `bash` or `task`.
+
+## Try it
 
 ```bash
-python s16_workflow_runtime/code.py          # Both the main model and Workflow agents use the real API
-python s16_workflow_runtime/code.py demo     # Deterministic review-changes fixture and event stream
-python s16_workflow_runtime/code.py resume   # Resume by the last runId; every agent() hits the journal cache
+python s16_workflow_runtime/code.py          # s15 host + Workflow tool (real API)
+python s16_workflow_runtime/code.py demo     # fixed fixture: watch phases + agents
+python s16_workflow_runtime/code.py resume   # same runId; prefix should be all cache hits
 ```
 
-In the default command, ask the model to read the changes, place that text in `args.changes`, and run the saved `review-changes` workflow. Both the main model and workflow agents use the real API. The `demo` command uses fixed runner data so lifecycle and resume behavior can be observed repeatedly. A resumed demo reports `agents=0 tokens=0` when every call hits the cache.
+What to watch for:
 
-## Next
+- `workflow_phase` lines for Review, then Verify
+- each `workflow_agent` flip from `done` (first run) to `cached` (full resume)
+- a short confirmed list at the end; full resume shows `agents=0 tokens=0`
 
-[s17 Goal Loop](../s17_goal_loop/) uses a smaller, independent loop to check whether a stated goal has been reached and decide whether another turn is needed.
+## Relative to s15 → next is s17
 
-<!-- translation-sync: zh@v10, en@v10, ja@v10 -->
+| | s15 Integrated Harness | s16 Workflow Runtime |
+|--|------------------------|----------------------|
+| Loop | One model-driven loop | Same loop; one tool runs a script |
+| Who decides the next step | Model, each round | Script owns the batch shape |
+| Multi-agent | One-shot subagents | Scripted, resumable `agent()` calls |
+| Failure / resume | Conversation memory | Null-isolation + journal prefix |
+
+**s16 = how a batch runs. s17 = whether the whole goal is done.**
+
+[s17 Goal Loop](../s17_goal_loop/) asks an independent evaluator: should we stop, or take another turn?
+
+<!-- translation-sync: zh@v11, en@v11, ja@v11 -->

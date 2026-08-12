@@ -117,8 +117,8 @@ def test_workflow_runtime_enforces_budget_and_shared_agent_cap(
         async def fail_stage(_value, _item, _index):
             raise RuntimeError("stage failed")
 
-        with pytest.raises(RuntimeError, match="stage failed"):
-            await state.pipeline(["item"], fail_stage)
+        # Null-isolation: a failing stage drops that item, not the whole run.
+        assert await state.pipeline(["item"], fail_stage) == [None]
 
     try:
         asyncio.run(run())
@@ -482,16 +482,139 @@ def test_workflow_default_entry_extends_the_real_s15_host(
     )
 
 
-def test_workflow_tool_adapter_rejects_model_supplied_code() -> None:
+def test_workflow_tool_adapter_uses_saved_name_surface() -> None:
+    """Teaching adapter stays on name/args; Claude Code also has script/scriptPath."""
     workflow = load_lesson(
         "workflow_schema_test", ROOT / "s16_workflow_runtime" / "code.py"
     )
     properties = workflow.WORKFLOW_TOOL["input_schema"]["properties"]
 
-    assert set(properties) == {"name", "args", "resume_from_run_id"}
+    assert set(properties) == {
+        "name",
+        "args",
+        "resume_from_run_id",
+        "resumeFromRunId",
+    }
     assert "description" not in properties
     assert "script" not in properties
+    assert "scriptPath" not in properties
     with pytest.raises(workflow.WorkflowInputError, match="name must be a string"):
         asyncio.run(workflow.run_workflow({"name": "review-changes"}))
     with pytest.raises(workflow.WorkflowInputError, match="unknown workflow"):
         asyncio.run(workflow.run_workflow("missing"))
+
+
+def test_parallel_and_pipeline_isolate_failures(tmp_path: Path) -> None:
+    workflow = load_lesson(
+        "workflow_null_isolation_test", ROOT / "s16_workflow_runtime" / "code.py"
+    )
+    journal = workflow.WorkflowJournal(
+        "wf_null-iso_0001", resume=False, store=tmp_path
+    )
+    task = workflow.LocalWorkflowTask("task", "wf_null-iso_0001", {})
+    state = workflow.ExecutionState(
+        task, journal, workflow.MockAgentRunner(), workflow.Budget(), {}
+    )
+
+    async def ok():
+        return await state.agent("ok", label="ok")
+
+    async def boom():
+        raise RuntimeError("helper crashed")
+
+    async def stage_ok(value, _item, _index):
+        return f"ok:{value}"
+
+    async def stage_fail(value, _item, _index):
+        if value == "bad":
+            raise RuntimeError("stage crashed")
+        return f"next:{value}"
+
+    async def stage_later(value, _item, _index):
+        return f"final:{value}"
+
+    async def run():
+        parallel_out = await state.parallel([ok, boom, ok])
+        pipeline_out = await state.pipeline(
+            ["good", "bad", "also"], stage_fail, stage_later
+        )
+        return parallel_out, pipeline_out
+
+    try:
+        parallel_out, pipeline_out = asyncio.run(run())
+    finally:
+        journal.close()
+
+    assert parallel_out[1] is None
+    assert parallel_out[0] is not None and parallel_out[2] is not None
+    assert pipeline_out == ["final:next:good", None, "final:next:also"]
+
+
+def test_resume_uses_longest_unchanged_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workflow = load_lesson(
+        "workflow_prefix_resume_test", ROOT / "s16_workflow_runtime" / "code.py"
+    )
+    monkeypatch.setattr(workflow, "STORE", tmp_path)
+    run_id = "wf_prefix-test_0000000000001a7b"
+    monkeypatch.setattr(workflow, "create_run_id", lambda _meta: run_id)
+    calls: list[str] = []
+
+    class TrackingRunner:
+        def run(self, prompt, schema=None, label=None):
+            calls.append(label or prompt)
+            return workflow.RunnerOutput({"label": label, "prompt": prompt}, 1)
+
+    monkeypatch.setattr(workflow, "RUNNER_FACTORY", TrackingRunner)
+    meta = {"name": "prefix-test", "description": "prefix resume"}
+
+    async def script_v1(ctx, _args):
+        a = await ctx.agent("one", label="a")
+        b = await ctx.agent("two", label="b")
+        c = await ctx.agent("three", label="c")
+        return [a, b, c]
+
+    async def script_v2(ctx, _args):
+        # a unchanged, b's prompt changes → prefix breaks; c must run live
+        # even though an old "c" key exists further down the journal.
+        a = await ctx.agent("one", label="a")
+        b = await ctx.agent("two-changed", label="b")
+        c = await ctx.agent("three", label="c")
+        return [a, b, c]
+
+    first = asyncio.run(workflow.WorkflowTool().call(meta, script_v1))
+    assert first["task"].status == "completed"
+    assert calls == ["a", "b", "c"]
+
+    calls.clear()
+    resumed = asyncio.run(
+        workflow.WorkflowTool().call(
+            meta, script_v2, resume_from_run_id=run_id
+        )
+    )
+    assert resumed["task"].status == "completed"
+    assert calls == ["b", "c"], "after the first miss, later calls must run live"
+    assert resumed["result"][0] == {"label": "a", "prompt": "one"}
+    assert resumed["result"][1]["prompt"] == "two-changed"
+    assert resumed["task"].usage["agents"] == 2
+
+
+def test_resume_from_run_id_camel_case_alias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workflow = load_lesson(
+        "workflow_resume_alias_test", ROOT / "s16_workflow_runtime" / "code.py"
+    )
+    monkeypatch.setattr(workflow, "STORE", tmp_path)
+    first = asyncio.run(
+        workflow.run_workflow("review-changes", {"budget": None})
+    )
+    resumed = asyncio.run(
+        workflow.run_workflow(
+            "review-changes",
+            resumeFromRunId=first["task"]["runId"],
+        )
+    )
+    assert resumed["task"]["status"] == "completed"
+    assert resumed["task"]["usage"]["agents"] == 0

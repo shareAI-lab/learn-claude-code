@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
-s16: Workflow Runtime - run a saved orchestration through one tool call.
+s16: Workflow Runtime — a teaching model of Claude Code Dynamic Workflows.
+
+Claude Code's Workflow tool accepts script / scriptPath / name / args /
+resumeFromRunId. The model can write a JavaScript orchestration script for the
+task (dynamic), or rerun a saved one by name. This lesson is a small Python
+runtime that shows the same ideas line-by-line. The demo registers one saved
+workflow by name; we do not embed a JS interpreter.
 
 Run:
   python s16_workflow_runtime/code.py
@@ -319,15 +325,32 @@ RUNNER_FACTORY = MockAgentRunner
 
 # -- Journal --
 class WorkflowJournal:
-    """Append-only <runId>.journal.jsonl. On resume, agent() calls whose
-    semantic key is already present are replayed from cache instead of re-run."""
+    """Append-only <runId>.journal.jsonl with longest-unchanged-prefix resume.
+
+    Replay walks agent() calls in *invocation* order (the contract Claude Code
+    and mature Pi ports use). Cache hits continue only while each call's
+    semantic key matches the next journal entry. The first mismatch or missing
+    entry breaks the prefix: every later call runs live, even if an older key
+    still exists further down the journal.
+
+    Why real JS runtimes ban Date.now() / Math.random() / bare new Date(): those
+    make call order or prompts nondeterministic, so resume cannot match the
+    journal. This Python teaching runtime does not sandbox that — write
+    deterministic scripts anyway.
+    """
 
     def __init__(self, run_id, resume, store=None):
         store = STORE if store is None else store
         store.mkdir(parents=True, exist_ok=True)
         self.path = store / f"{run_id}.journal.jsonl"
         self.resume = resume
+        self.entries = []
         self.cache = {}
+        self._cursor = 0          # next call-order index to assign
+        self._write_cursor = 0    # next index to flush to disk
+        self._pending = {}        # idx -> (key, value) awaiting in-order flush
+        self._prefix_broken = False
+        self._did_truncate = False
         if resume:
             if not self.path.exists():
                 raise WorkflowInputError(f"resume journal not found for {run_id}")
@@ -344,24 +367,54 @@ class WorkflowJournal:
                     raise WorkflowInputError(
                         f"invalid resume journal record at line {line_number}"
                     ) from exc
+                self.entries.append({"key": rec["key"], "value": rec["value"]})
                 self.cache[rec["key"]] = rec["value"]
             self._f = self.path.open("a")
         else:
             self._f = self.path.open("w")             # fresh run truncates
 
     def key(self, kind, label, prompt, schema):
-        # Deterministic semantic key, independent of concurrency order, so a
-        # parallel/pipeline call gets the same key on resume.
+        # Content hash identifies *this* call. Prefix matching uses call order;
+        # the hash must stay stable across resume (not Python's salted hash()).
         basis = f"{kind}|{label}|{prompt}|{json.dumps(schema, sort_keys=True)}"
         return f"{kind}-{_stable_hash(basis) % 10**10:010d}"
 
-    def cached(self, key):
-        return self.cache.get(key, MISS)
+    def try_replay(self, key):
+        """Reserve the next call-order slot. Return (cached_value_or_MISS, idx)."""
+        idx = self._cursor
+        self._cursor += 1
+        if self._prefix_broken or not self.resume:
+            return MISS, idx
+        if idx >= len(self.entries) or self.entries[idx]["key"] != key:
+            self._prefix_broken = True
+            return MISS, idx
+        return self.entries[idx]["value"], idx
 
-    def record(self, key, value):
-        self._f.write(json.dumps({"key": key, "value": value}) + "\n")
-        self._f.flush()
-        self.cache[key] = value
+    def record(self, idx, key, value):
+        """Record a live result at call-order index idx; flush in order."""
+        if self.resume and self._prefix_broken and not self._did_truncate:
+            # Keep only the unchanged prefix; rewrite the file from there.
+            self.entries = self.entries[:idx]
+            self._f.close()
+            self._f = self.path.open("w")
+            for rec in self.entries:
+                self._f.write(json.dumps({"key": rec["key"], "value": rec["value"]}) + "\n")
+            self._f.flush()
+            self._write_cursor = len(self.entries)
+            self._did_truncate = True
+
+        self._pending[idx] = (key, value)
+        while self._write_cursor in self._pending:
+            k, v = self._pending.pop(self._write_cursor)
+            self._f.write(json.dumps({"key": k, "value": v}) + "\n")
+            self._f.flush()
+            rec = {"key": k, "value": v}
+            if self._write_cursor < len(self.entries):
+                self.entries[self._write_cursor] = rec
+            else:
+                self.entries.append(rec)
+            self.cache[k] = v
+            self._write_cursor += 1
 
     def close(self):
         self._f.close()
@@ -439,6 +492,9 @@ class ExecutionState:
         self._phase = None
         self._phases_seen = set()
         self._limits = limits or ExecutionLimits()
+        # Serializes call-order tickets so parallel agent() invocations still
+        # get a stable prefix position (creation order, not completion order).
+        self._order_lock = asyncio.Lock()
 
     def phase(self, title):
         """Start a phase; subsequent agent()s group under it. Upsert: emitting the
@@ -453,69 +509,125 @@ class ExecutionState:
         self.task.progress_event("workflow_log", message=message)
 
     async def agent(self, prompt, schema=None, label=None, phase=None):
-        """Spawn one subagent. With a schema, force StructuredOutput + validate
-        (retry once). On resume, a cached key short-circuits the run."""
+        """Spawn one subagent. With a schema, validate (+ one retry).
+
+        Resume uses longest unchanged prefix in agent() call order: hits continue
+        until the first changed/missing call; everything after runs live.
+        """
         label = label or (prompt[:24] + "...")
         self._limits.claim_agent()
         if self.budget.remaining() <= 0:
             raise WorkflowInputError("token budget exceeded")
 
         key = self.journal.key("agent", label, prompt, schema)
-        cached = self.journal.cached(key)
-        if cached is not MISS:
-            if schema is not None:
-                ok, err = SimpleJsonSchema(schema).validate(cached)
-                if not ok:
-                    raise WorkflowInputError(
-                        f"cached agent output failed schema validation: {err}"
-                    )
-            self.task.progress_event("workflow_agent", label=label,
-                                     phase=phase or self._phase, status="cached")
-            return cached
-
-        async with self._limits.semaphore:
-            run = await asyncio.to_thread(
-                self.runner.run, prompt, schema, label
-            )
-            result = run.value
-            tokens = run.tokens
-
-        if schema is not None:
-            ok, err = SimpleJsonSchema(schema).validate(result)
-            if not ok:
-                retry = await asyncio.to_thread(
-                    self.runner.run,
-                    prompt + "\n\nReturn valid JSON.",
-                    schema,
-                    label,
+        async with self._order_lock:
+            cached, call_idx = self.journal.try_replay(key)
+            if cached is not MISS:
+                # None is a recorded failure (null-isolation); replay it as-is.
+                if cached is not None and schema is not None:
+                    ok, err = SimpleJsonSchema(schema).validate(cached)
+                    if not ok:
+                        raise WorkflowInputError(
+                            f"cached agent output failed schema validation: {err}"
+                        )
+                self.task.progress_event(
+                    "workflow_agent",
+                    label=label,
+                    phase=phase or self._phase,
+                    status="cached",
                 )
-                result = retry.value
-                tokens += retry.tokens
+                return cached
+
+        result = None
+        tokens = 0
+        live_error = None
+        try:
+            async with self._limits.semaphore:
+                run = await asyncio.to_thread(
+                    self.runner.run, prompt, schema, label
+                )
+                result = run.value
+                tokens = run.tokens
+
+            if schema is not None:
                 ok, err = SimpleJsonSchema(schema).validate(result)
                 if not ok:
-                    raise WorkflowInputError(f"agent({{schema}}) invalid output: {err}")
+                    retry = await asyncio.to_thread(
+                        self.runner.run,
+                        prompt + "\n\nReturn valid JSON.",
+                        schema,
+                        label,
+                    )
+                    result = retry.value
+                    tokens += retry.tokens
+                    ok, err = SimpleJsonSchema(schema).validate(result)
+                    if not ok:
+                        raise WorkflowInputError(
+                            f"agent({{schema}}) invalid output: {err}"
+                        )
 
-        self.budget.add(tokens)
-        self.task.usage["agents"] += 1
-        self.task.usage["tokens"] += tokens
-        self.journal.record(key, result)
+            self.budget.add(tokens)
+            self.task.usage["agents"] += 1
+            self.task.usage["tokens"] += tokens
+        except Exception as exc:
+            # Fill the call-order slot with null so later parallel records can
+            # flush; parallel/pipeline turn the raise into a null slot.
+            result = None
+            live_error = exc
+
+        async with self._order_lock:
+            self.journal.record(call_idx, key, result)
+
+        if live_error is not None:
+            self.task.progress_event(
+                "workflow_agent",
+                label=label,
+                phase=phase or self._phase,
+                status="null",
+            )
+            raise live_error
+
         self.task.progress_event("workflow_agent", label=label,
                                  phase=phase or self._phase, status="done")
         return result
 
     async def parallel(self, thunks):
-        """BARRIER: run all thunks concurrently and fail if any thunk fails."""
-        return await asyncio.gather(*[thunk() for thunk in thunks])
+        """BARRIER: run all thunks concurrently; wait for every result.
+
+        A failing thunk becomes None in that slot — the gather itself does not
+        reject. Filter with care (e.g. [x for x in results if x]).
+        """
+        async def isolate(thunk):
+            try:
+                return await thunk()
+            except Exception as exc:
+                self.log(f"parallel step → null ({type(exc).__name__})")
+                return None
+
+        return await asyncio.gather(*[isolate(thunk) for thunk in thunks])
 
     async def pipeline(self, items, *stages):
         """Per-item staged flow, NO barrier between stages: item A can be in
         stage 3 while item B is still in stage 1. Each stage gets
-        (prev_result, original_item, index). A throwing stage fails the workflow."""
+        (prev_result, original_item, index).
+
+        A failing stage drops that item to None and skips its remaining stages;
+        other items keep going.
+        """
         async def run_item(item, idx):
             value = item
             for stage in stages:
-                value = await stage(value, item, idx)
+                try:
+                    value = await stage(value, item, idx)
+                except Exception as exc:
+                    self.log(
+                        f"pipeline item {idx} → null ({type(exc).__name__})"
+                    )
+                    return None
+                if value is None:
+                    return None
             return value
+
         return await asyncio.gather(*[run_item(it, i) for i, it in enumerate(items)])
 
     async def workflow(self, name, args=None):
@@ -713,15 +825,22 @@ async def sample_workflow(ctx, args):
 # Saved workflow registry
 WORKFLOWS = {SAMPLE_META["name"]: (SAMPLE_META, sample_workflow)}
 
+# Teaching adapter: saved-workflow path (name + args). Claude Code also accepts
+# script / scriptPath for dynamic JS the model writes; we keep this surface
+# small and map the same resume idea via resume_from_run_id / resumeFromRunId.
 WORKFLOW_TOOL = {
     "name": "Workflow",
-    "description": "Run a saved workflow by name. Pass input in args.",
+    "description": (
+        "Run a saved workflow by name. Pass input in args. "
+        "Optional resume_from_run_id (alias: resumeFromRunId) continues a prior run."
+    ),
     "input_schema": {
         "type": "object",
         "properties": {
             "name": {"type": "string"},
             "args": {"type": "object"},
             "resume_from_run_id": {"type": "string"},
+            "resumeFromRunId": {"type": "string"},
         },
         "required": ["name"],
         "additionalProperties": False,
@@ -741,20 +860,34 @@ def serialize_task(task):
     }
 
 
-async def run_workflow(name, args=None, resume_from_run_id=None):
-    """Model-facing adapter: resolve trusted code from the host registry."""
+async def run_workflow(
+    name,
+    args=None,
+    resume_from_run_id=None,
+    resumeFromRunId=None,
+):
+    """Model-facing adapter: resolve a saved workflow from the host registry.
+
+    Claude Code's dynamic door passes script/scriptPath instead of name; this
+    teaching runtime stays on the saved-name path so every line stays readable.
+    """
     if not isinstance(name, str):
         raise WorkflowInputError("workflow name must be a string")
     if name not in WORKFLOWS:
         raise WorkflowInputError(f"unknown workflow '{name}'")
     if args is not None and not isinstance(args, dict):
         raise WorkflowInputError("workflow args must be an object")
+    if resume_from_run_id and resumeFromRunId and resume_from_run_id != resumeFromRunId:
+        raise WorkflowInputError(
+            "resume_from_run_id and resumeFromRunId disagree"
+        )
+    resume_id = resume_from_run_id or resumeFromRunId
     meta, script_fn = WORKFLOWS[name]
     out = await WorkflowTool().call(
         meta,
         script_fn,
         args=args,
-        resume_from_run_id=resume_from_run_id,
+        resume_from_run_id=resume_id,
     )
     return {
         "launched": out["launched"],
@@ -814,9 +947,14 @@ async def run_demo(argv):
         if not resume_id:
             print("nothing to resume; run `python code.py demo` first.")
             return
-        print(f"resuming {resume_id}; unchanged agent() calls use the journal cache\n")
+        print(
+            f"resuming {resume_id}\n"
+            "longest unchanged agent() prefix → cache hit; "
+            "first change breaks the prefix\n"
+        )
     else:
-        print("launching workflow `review-changes`\n")
+        print("launching saved workflow `review-changes`")
+        print("watch phases: Review → Verify, then a confirmed list\n")
 
     out = await WORKFLOW_HANDLERS["Workflow"](
         name="review-changes",
