@@ -16,6 +16,7 @@ from homework.agent_app.features.teams.protocol import (
     match_response,
     process_permission_request,
 )
+from homework.agent_app.features.teams.teammates import TeamState
 
 
 BASE_AGENT = (
@@ -54,6 +55,15 @@ def test_protocol_stores_do_not_share_requests():
     )
 
     assert second.pending == {}
+
+
+def test_team_states_are_isolated():
+    first = TeamState()
+    second = TeamState()
+
+    first.active["worker"] = {"status": "running"}
+
+    assert second.active == {}
 
 
 def test_protocol_matches_only_the_expected_response_type():
@@ -136,7 +146,10 @@ def baseagent(monkeypatch, tmp_path):
     monkeypatch.setitem(globals_, "MAILBOX_DIR", mailbox_dir)
     monkeypatch.setitem(globals_, "BUS", MessageBus(root=mailbox_dir))
     monkeypatch.setitem(globals_, "PROTOCOL_STORE", ProtocolStore())
-    monkeypatch.setitem(globals_, "active_teammates", {})
+    team_state = TeamState()
+    monkeypatch.setitem(globals_, "TEAM_STATE", team_state)
+    monkeypatch.setitem(globals_, "team_lock", team_state.lock)
+    monkeypatch.setitem(globals_, "active_teammates", team_state.active)
     monkeypatch.setitem(globals_, "IDLE_POLL_INTERVAL", 1)
     monkeypatch.setitem(globals_, "IDLE_TIMEOUT", 0)
     monkeypatch.setitem(globals_, "PERMISSION_POLL_INTERVAL", 0)

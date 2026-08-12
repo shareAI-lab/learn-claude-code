@@ -48,6 +48,8 @@ from homework.agent_app.features import memory as memory_feature
 from homework.agent_app.features import background as background_feature
 from homework.agent_app.features.teams import bus as team_bus
 from homework.agent_app.features.teams import protocol as team_protocol
+from homework.agent_app.features.teams import teammates as teammate_runtime
+from homework.agent_app.features import subagents as subagent_runtime
 from homework.agent_app.features import skills as skills_feature
 from homework.agent_app.features import todos as todos_feature
 from homework.agent_app.features import tasks as tasks_feature
@@ -123,8 +125,9 @@ def load_durable_jobs():
 
 #==================== AGENT TEAMS ====================
 MAILBOX_DIR = APP_CONFIG.mailbox_dir
-team_lock = threading.Lock()
-active_teammates: dict[str,dict] = {}
+TEAM_STATE = teammate_runtime.TeamState()
+team_lock = TEAM_STATE.lock
+active_teammates = TEAM_STATE.active
 
 def MessageBus(root: Path | None = None) -> team_bus.MessageBus:
     return team_bus.MessageBus(root=root or MAILBOX_DIR)
@@ -159,51 +162,15 @@ def scan_unclaimed_tasks() -> list[dict]:
 
 def idle_poll(agent_name: str, messages: list,
               name: str, role: str, worktree_context: dict | None = None) -> str:
-    for _ in range(IDLE_TIMEOUT // IDLE_POLL_INTERVAL):
-        time.sleep(IDLE_POLL_INTERVAL)
-
-        inbox = BUS.read_inbox(agent_name)
-        if inbox:
-            for msg in inbox:
-                if msg.get("type") == "shutdown_request":
-                    req_id = msg.get("metadata", {}).get("request_id", "")
-                    BUS.send(name, "lead", "Shutting down gracefully.",
-                             "shutdown_response",
-                             {"request_id": req_id, "approve": True})
-                    print(f"  \033[35m[protocol] {name} approved shutdown "
-                                              f"in idle ({req_id})\033[0m")
-                    return "shutdown"
-
-            messages.append({
-                "role": "user",
-                "content": "<inbox>" + json.dumps(inbox) + "</inbox>"
-            })
-            print(f"  \033[36m[idle] {name} found inbox messages\033[0m")
-            return "work"
-
-        unclaimed = scan_unclaimed_tasks()
-        if unclaimed:
-            task = unclaimed[0]
-            result = claim_task(task["id"], agent_name)
-            if "Claimed" in result:
-                worktree_name = task.get("worktree")
-
-                if worktree_context is not None:
-                    worktree_context["path"] = (str(WORKTREES_DIR / worktree_name) if worktree_name else None)
-
-                messages.append({
-                    "role": "user",
-                    "content": f"<auto-claimed>Task {task['id']}: "
-                               f"{task['subject']}</auto-claimed>"
-                })
-                print(f"  \033[32m[idle] {name} auto-claimed: "
-                      f"{task['subject']}\033[0m")
-                return "work"
-            print(f"  \033[33m[idle] {name} claim failed: "
-                  f"{result}\033[0m")
-
-    print(f"  \033[31m[idle] {name} timeout ({IDLE_TIMEOUT}s)\033[0m")
-    return "timeout"
+    return teammate_runtime.idle_poll(
+        BUS, agent_name, messages, name, worktree_context,
+        scan_unclaimed=scan_unclaimed_tasks,
+        claim_task=claim_task,
+        worktree_path=lambda worktree: WORKTREES_DIR / worktree,
+        sleep=time.sleep,
+        poll_interval=IDLE_POLL_INTERVAL,
+        timeout=IDLE_TIMEOUT,
+    )
 
 def validate_agent_name(name: str, *, allow_lead: bool = True) -> str:
     return team_bus.validate_agent_name(name, allow_lead=allow_lead)
@@ -256,327 +223,43 @@ def run_teammate_guarded_tool(
     return str(output), False
     
 
-def spawn_teammate_thread(name: str, role:str, prompt: str) -> str:
-    try:
-        validate_agent_name(name, allow_lead=False)
-    except (TypeError, ValueError) as e:
-        return f"Invalid teammate: {e}"
-    
-    if not role.strip():
-        return "Invalid teammate: role is required"
-    if not prompt.strip():
-        return "Invalid teammate: prompt is required"
+def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
+    state = RecoveryState(
+        current_model=PRIMARY_MODEL,
+        fallback_model=FALLBACK_MODEL,
+    )
 
-    with team_lock:
-        if name in active_teammates:
-            return f"Teammate {name} already exists"
-        
-        active_teammates[name] = {
-            "name": name,
-            "role": role,
-            "status": "running",
-        }
-    
-    team_tools = [{"name": "bash", "description": "Run a shell command.",
-    "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
-    {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "offset": {"type": "integer", "minimum": 0}, "limit": {"type": "integer", "minimum": 1, "maximum": 1000}}, "required": ["path"]}},
-    {"name": "write_file", "description": "Write content to a file.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
-    {"name": "send_message", "description": "Send a message to another agent.", 
-     "input_schema": {"type": "object", "properties": {"to": {"type": "string"}, "content": {"type": "string"}}, "required": ["to", "content"]}},
-    {"name": "submit_plan",
-                  "description": "Submit a plan for Lead approval.",
-                  "input_schema": {"type": "object",
-                                   "properties": {"plan": {"type": "string"}},
-                                   "required": ["plan"]}},
-    {"name": "list_tasks",
-                 "description": "List all tasks on the board.",
-                 "input_schema": {"type": "object", "properties": {},
-                                  "required": []}},
-    {"name": "claim_task",
-        "description": "Claim a pending task.",
-        "input_schema": {"type": "object",
-                        "properties": {"task_id": {"type": "string"}},
-                        "required": ["task_id"]}},
-    {"name": "complete_task",
-        "description": "Mark an in-progress task as completed.",
-        "input_schema": {"type": "object",
-                        "properties": {"task_id": {"type": "string"}},
-                        "required": ["task_id"]}},
-    ]
-
-    team_tool_name = ", ".join(t["name"] for t in team_tools)
-        
-    system = (f"You are '{name}', role: {role}.\n"
-                f"Workspace: {WORKDIR}\n"
-                f"Available tools: {team_tool_name}\n"
-                "You must send your final result to lead using send_message.\n"
-                "Do not create subagents or additional teammates.\n"
-                "bash and write_file require permission from Lead. "
-                "When permission is approved, you will execute the tool yourself. "
-                "Do not claim that a protected operation succeeded until its "
-                "tool_result confirms success.")
-
-    protocol_ctx = {"waiting_plan": None}
-
-    def handle_inbox_message(name: str, msg: dict, messages: list) -> bool:
-        msg_type = msg.get("type", "message")
-        meta = msg.get("metadata", {})
-        req_id = meta.get("request_id", "")
-
-        if msg_type == "shutdown_request":
-            BUS.send(name, "lead", "Shutting down gracefully.",
-                     "shutdown_response",
-                     {"request_id":req_id, "approve": True})
-            print(f"  \033[35m[protocol] {name} approved shutdown "
-                              f"({req_id})\033[0m")
-            return True
-
-        if msg_type == "plan_approval_response":
-            if req_id != protocol_ctx["waiting_plan"]:
-                return False
-
-            protocol_ctx["waiting_plan"] = None
-            approve = meta.get("approve", False)
-            if approve:
-                messages.append({"role": "user",
-                                 "content": f"[Plan approved] Proceed with the task."})
-            else:
-                messages.append({"role": "user",
-                                 "content": f"[Plan rejected] Feedback: {msg['content']}"})
-
-        return False
-            
-    def run():
-        messages = [{"role": "user", "content": prompt}]
-        summary = "Stopped after 10 teammate rounds."
-        deferred_inbox: list[dict] = []
-        state = RecoveryState(
-            current_model=PRIMARY_MODEL,
-            fallback_model=FALLBACK_MODEL,
+    def llm(**kwargs):
+        return with_retry(
+            lambda: client.messages.create(model=state.current_model, **kwargs),
+            state,
+            max_transient_retries=MAX_TRANSIENT_RETRIES,
+            max_consecutive_529=MAX_CONSECUTIVE_529,
+            base_delay_ms=BASE_DELAY_MS,
         )
-        wt_ctx = {"path": None}
-        
-        def _wt_cwd() -> Path | None:
-            p = wt_ctx["path"]
-            return Path(p) if p else None
 
-        def _run_bash(command: str) -> str:
-            return run_bash(command, cwd=_wt_cwd())
+    handlers = {
+        "bash": run_bash,
+        "read_file": run_read,
+        "write_file": run_write,
+        "send_message": lambda to, content: (BUS.send(name, to, content), "Sent")[1],
+        "submit_plan": lambda plan: _teammate_submit_plan(name, plan),
+        "list_tasks": run_list_tasks,
+        "claim_task": run_claim_task,
+        "complete_task": run_complete_task,
+    }
+    return teammate_runtime.spawn_teammate_thread(
+        TEAM_STATE, BUS, llm,
+        name=name, role=role, prompt=prompt, workdir=WORKDIR,
+        handlers=handlers, hooks=HOOK_REGISTRY,
+        validate_name=validate_agent_name,
+        guarded_tools=TEAM_GUARDED_TOOLS,
+        guarded_tool=run_teammate_guarded_tool,
+        idle=idle_poll,
+        max_tokens=DEFAULT_MAX_TOKENS,
+        thread_factory=threading.Thread,
+    )
 
-        def _run_read(path: str, offset: int = 0, limit: int | None = None) -> str:
-            return run_read(path, offset=offset, limit=limit, cwd=_wt_cwd())
-
-        def _run_write(path: str, content: str) -> str:
-            return run_write(path, content, cwd=_wt_cwd())
-
-        def _run_list_tasks():
-            tasks = list_tasks()
-            if not tasks:
-                return "No tasks."
-            return "\n".join(
-                f"  {t.id}: {t.subject} [{t.status}]"
-                + (f" (wt:{t.worktree})" if t.worktree else "")
-                for t in tasks)
-
-        def _run_claim_task(task_id: str):
-            result = claim_task(task_id, owner=name)
-            if "Claimed" in result:
-                # Set worktree cwd if task has one
-                task = load_task(task_id)
-                if task.worktree:
-                    wt_ctx["path"] = str(WORKTREES_DIR / task.worktree)
-                else:
-                    wt_ctx["path"] = None
-            return result
-
-        def _run_complete_task(task_id: str):
-            result = complete_task(task_id)
-
-            if result.startswith("Completed"):
-                wt_ctx["path"] = None
-
-            return result
-
-        sub_handlers = {
-            "bash": _run_bash,
-            "read_file": _run_read,
-            "write_file": _run_write,
-            "send_message": lambda to, content: (BUS.send(name, to, content), "Sent")[1],
-            "submit_plan": lambda plan: _teammate_submit_plan(name, plan),
-            "list_tasks": _run_list_tasks,
-            "claim_task": _run_claim_task,
-            "complete_task": _run_complete_task,
-        }
-
-        lifecycle_done = False
-        try:
-            while not lifecycle_done:
-                if len(messages) <= 3:
-                    messages.insert(0,{
-                        "role": "user",
-                        "content": f"<identity>You are '{name}', role: {role}. "
-                                f"Continue your work.</identity>"
-                    })
-
-                should_shutdown = False
-                work_completed = False
-
-                for _ in range(10):
-                    inbox = deferred_inbox + BUS.read_inbox(name)
-                    deferred_inbox.clear()
-                    for msg in inbox:
-                        if handle_inbox_message(name, msg, messages):
-                            should_shutdown = True
-                            break
-                    if should_shutdown:
-                        lifecycle_done = True
-                        break
-
-                    if work_completed:
-                        idle_result = idle_poll(name, messages, name, role, wt_ctx)
-                        if idle_result == "work":
-                            continue
-                        if idle_result in ("timeout","shutdown"):
-                            lifecycle_done = True
-                            break
-
-                    if inbox and not should_shutdown:
-                        non_protocol = [m for m in inbox
-                                        if m.get("type") == "message"]
-                        if non_protocol:
-                            messages.append({
-                                "role": "user",
-                                "content": f"<inbox>{json.dumps(non_protocol)}</inbox>"
-                            })
-
-                    if protocol_ctx["waiting_plan"]:
-                        time.sleep(IDLE_POLL_INTERVAL)
-                        continue
-                        
-                    try:
-                        response = with_retry(
-                            lambda: client.messages.create(
-                            model = state.current_model, system = system,messages = messages[-20:],
-                            tools = team_tools, max_tokens = DEFAULT_MAX_TOKENS
-                            ),
-                        state,
-                        max_transient_retries=MAX_TRANSIENT_RETRIES,
-                        max_consecutive_529=MAX_CONSECUTIVE_529,
-                        base_delay_ms=BASE_DELAY_MS,
-                        )
-                    except Exception as e:
-                        summary = (
-                            f"Teammate error: "
-                            f"{type(e).__name__}: {e}"
-                        )
-                        lifecycle_done = True
-                        break
-
-                    messages.append({"role": "assistant", "content": response.content})
-                    if not has_tool_use(response.content):
-                        summary = extract_text(response.content) or summary
-                        work_completed = True
-                        break
-                        
-                    results = []
-                    for block in response.content:
-                        if block.type != "tool_use":
-                            continue
-
-                        handler = sub_handlers.get(block.name)
-
-                        if not handler:
-                            output = f"Unknown tool: {block.name}"
-                            is_error = True
-                        elif block.name == "submit_plan":
-                            output = handler(**block.input)
-                            match = re.search(r"\((req_[^)]+)\)", str(output))
-
-                            if match:
-                                protocol_ctx["waiting_plan"] = match.group(1)
-                                is_error = False
-                            else:
-                                output = f"Invalid plan submission response: {output}"
-                                is_error = True
-                        elif block.name in TEAM_GUARDED_TOOLS:
-                            output, is_error = run_teammate_guarded_tool(
-                                name, block, deferred_inbox, handler, _wt_cwd()
-                            )
-                        else:
-                            output = handler(**block.input)
-                            is_error = False
-
-                        result = {
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": str(output),
-                        }
-
-                        if is_error:
-                            result["is_error"] = True
-
-                        results.append(result)
-
-                        if protocol_ctx["waiting_plan"]:
-                            break
-
-                    messages.append({"role": "user", "content": results})
-                    if protocol_ctx["waiting_plan"]:
-                        break
-
-                    response_text = extract_text(response.content)
-                    if response_text:
-                        summary = response_text
-
-                if lifecycle_done:
-                        break
-                if protocol_ctx["waiting_plan"]:
-                    continue
-                if not work_completed:
-                        summary = "Stopped after 10 teammate tool rounds."
-                        break
-
-                with team_lock:
-                    teammate = active_teammates.get(name)
-                    if teammate:
-                        teammate["status"] = "idle"
-
-                idle_result = idle_poll(
-                    name,
-                    messages,
-                    name,
-                    role,
-                    wt_ctx,
-                )
-
-                if idle_result == "work":
-                    with team_lock:
-                        teammate = active_teammates.get(name)
-                        if teammate:
-                            teammate["status"] = "running"
-                    continue
-
-                if idle_result in ("timeout", "shutdown"):
-                    lifecycle_done = True
-        except Exception as e:
-            summary = f"Teammate error: {type(e).__name__}: {e}"
-
-        finally:
-            try:
-                BUS.send(name, "lead", summary, "result")
-            except Exception as e:
-                print(f"  \033[31m[teammate result error]"
-                    f"{name}: {e}\033[0m")
-            
-            with team_lock:
-                active_teammates.pop(name, None)
-            print(f"  \033[32m[teammate] {name} finished\033[0m")
-
-    threading.Thread(target=run, daemon=True).start()
-    print(f"  \033[36m[teammate] {name} spawned as {role}\033[0m")
-    return f"Teammate '{name}' spawned as {role}"
 
 def _teammate_submit_plan(from_name: str, plan: str) -> str:
     return team_protocol.submit_plan(BUS, PROTOCOL_STORE, from_name, plan)
@@ -1272,61 +955,20 @@ def has_tool_use(content) -> bool:
         for block in content
     )
 
-def spawn_subagent(description:str) -> str:
-    print(f"\n\033[35m[Subagent spawned]\033[0m")
-    messages = [{"role": "user", "content": description}]  # fresh context
+def spawn_subagent(description: str) -> str:
+    state = RecoveryState(current_model=PRIMARY_MODEL, fallback_model=FALLBACK_MODEL)
 
-    state = RecoveryState(
-        current_model=PRIMARY_MODEL,
-        fallback_model=FALLBACK_MODEL,
-    )
-
-    for _ in range(30):
-        try:
-            response = with_retry(lambda: client.messages.create(
-                model = state.current_model,
-                system = SUB_SYSTEM,
-                messages = messages,
-                tools = SUB_TOOLS,
-                max_tokens = DEFAULT_MAX_TOKENS,
-            ), state,
+    def llm(**kwargs):
+        return with_retry(
+            lambda: client.messages.create(**kwargs), state,
             max_transient_retries=MAX_TRANSIENT_RETRIES,
             max_consecutive_529=MAX_CONSECUTIVE_529,
-            base_delay_ms=BASE_DELAY_MS)
-        except Exception as exc:
-            error = f"[Subagent error] {type(exc).__name__}: {str(exc)[:300]}"
-            print(f"  \033[31m{error}\033[0m")
-            return error
-        
-        messages.append({"role":"assistant","content":response.content})
-        if not has_tool_use(response.content):
-            break
-        results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                blocked = trigger_hook("PreToolUse", block)
-                if blocked:
-                    results.append({"type": "tool_result", "tool_use_id": block.id,
-                                    "content": str(blocked)})
-                    continue
-                handler = SUB_HANDLERS.get(block.name)
-                output = handler(**block.input) if handler else f"Unknown: {block.name}"
-                trigger_hook("PostToolUse", block, output)
-                print(f"  \033[90m[sub] {block.name}: {str(output)[:100]}\033[0m")
-                results.append({"type": "tool_result", "tool_use_id": block.id,
-                                "content": output})
-        messages.append({"role":"user","content":results})
+            base_delay_ms=BASE_DELAY_MS,
+        )
 
-    result = extract_text(messages[-1]["content"])
-    if not result:
-        for msg in reversed(messages):
-            result = extract_text(msg["content"])
-            if result:
-                break
-        if not result:
-            result = "Subagent stopped after 30 turns without final answer."
-    print(f"\033[35m[Subagent done]\033[0m")
-    return result
+    return subagent_runtime.spawn_subagent(
+        description, llm, APP_CONFIG, SUB_SYSTEM, SUB_TOOLS, SUB_HANDLERS, HOOK_REGISTRY
+    )
 
 BUILTIN_TOOLS.append({
     "name": "task",
