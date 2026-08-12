@@ -164,8 +164,10 @@ def test_explicit_compact_replaces_history_and_starts_next_round(
     )
     monkeypatch.setitem(baseagent, "rounds_since_todo", 0)
 
-    def fake_compact(messages):
+    def fake_compact(config, summarize, messages):
         compact_inputs.append(list(messages))
+        assert config is baseagent["APP_CONFIG"]
+        assert summarize is baseagent["summarize"]
         return [{
             "role": "user",
             "content": "[Compacted]\n\nsummary",
@@ -175,7 +177,11 @@ def test_explicit_compact_replaces_history_and_starts_next_round(
         llm_requests.append(kwargs["request_messages"])
         return next(responses)
 
-    monkeypatch.setitem(baseagent, "compact_history", fake_compact)
+    monkeypatch.setitem(
+        baseagent,
+        "compaction_compact_history",
+        fake_compact,
+    )
     monkeypatch.setitem(
         baseagent,
         "create_message_streaming",
