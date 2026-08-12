@@ -16,6 +16,8 @@ from homework.agent_app.config import AppConfig
 from homework.agent_app.runtime import SessionState
 from homework.agent_app.tools import builtin as builtin_tools
 from homework.agent_app.tools import executor as tool_executor
+from homework.agent_app.tools.registry import ToolRegistry
+from homework.agent_app.features import mcp as mcp_feature
 from homework.agent_app.tools.hooks import (
     HookRegistry,
     make_context_inject_hook,
@@ -427,9 +429,10 @@ class MCPClient:
             return f"MCP error: {e}"
 
 
-mcp_clients: dict[str, MCPClient] = {}
-mcp_lock = threading.RLock()
-MCP_TOOL_METADATA: dict[str, dict] = {}
+MCP_STATE = mcp_feature.MCPState()
+mcp_clients = MCP_STATE.clients
+mcp_lock = MCP_STATE.lock
+MCP_TOOL_METADATA = MCP_STATE.metadata
 
 _DISALLOWED_CHARS = re.compile(r'[^a-zA-Z0-9_-]')
 
@@ -501,6 +504,9 @@ MOCK_SERVERS = {
 
 
 def connect_mcp(name: str) -> str:
+    return mcp_feature.connect_mcp(MCP_STATE, name)
+
+def _legacy_connect_mcp(name: str) -> str:
     factory = MOCK_SERVERS.get(name)
     if not factory:
         available = ", ".join(MOCK_SERVERS.keys())
@@ -527,9 +533,15 @@ def connect_mcp(name: str) -> str:
 
 def assemble_tool_pool() -> tuple[list[dict], dict]:
     """Assemble builtin tools + all MCP tools into one pool."""
+    return mcp_feature.snapshot_mcp_tools(
+        MCP_STATE, *TOOL_REGISTRY.snapshot()
+    )
+
+def _legacy_assemble_tool_pool() -> tuple[list[dict], dict]:
+    builtin_tools, builtin_handlers = TOOL_REGISTRY.snapshot()
     with mcp_lock:
-        tools = list(BUILTIN_TOOLS)
-        handlers = dict(BUILTIN_HANDLERS)
+        tools = list(builtin_tools)
+        handlers = dict(builtin_handlers)
         metadata: dict[str, dict] = {}
 
         for server_name, mcp_client in sorted(mcp_clients.items()):
@@ -981,6 +993,16 @@ BUILTIN_TOOLS.append({
                      "additionalProperties": False},
 })
 BUILTIN_HANDLERS["task"] = spawn_subagent
+
+TOOL_REGISTRY = ToolRegistry()
+for _tool_schema in BUILTIN_TOOLS:
+    TOOL_REGISTRY.register(
+        _tool_schema,
+        BUILTIN_HANDLERS.get(_tool_schema["name"]),
+    )
+
+# Compatibility snapshots for existing callers; each loop uses TOOL_REGISTRY.
+BUILTIN_TOOLS, BUILTIN_HANDLERS = TOOL_REGISTRY.snapshot()
 
 #==================== COMPACTION PIPELINE ====================
 CONTEXT_LIMIT = APP_CONFIG.context_limit
