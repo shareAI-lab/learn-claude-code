@@ -1,9 +1,6 @@
-import runpy
-import sys
-import types
-from pathlib import Path
-
 import pytest
+from homework.agent_app.bootstrap import build_runtime
+from homework.agent_app.config import AppConfig
 from homework.agent_app.tools.registry import ToolRegistry
 from homework.agent_app.tools import builtin as builtin_tools
 from homework.agent_app.features import mcp as mcp_feature
@@ -13,6 +10,18 @@ from homework.agent_app.features import tasks as tasks_feature
 from homework.agent_app.features import todos as todos_feature
 from homework.agent_app.features import worktrees as worktrees_feature
 from homework.agent_app.features.teams import teammates as teammate_runtime
+
+
+class FakeSDKClient:
+    class Messages:
+        def create(self, **_kwargs):
+            raise AssertionError("no live request expected")
+
+        def stream(self, **_kwargs):
+            raise AssertionError("no live request expected")
+
+    def __init__(self):
+        self.messages = self.Messages()
 
 
 def tool_schema(name):
@@ -114,42 +123,32 @@ def test_mcp_collision_rolls_back_connection_and_snapshots_are_independent():
     assert metadata["destructive"] is True
 
 
-def test_baseagent_registry_handlers_resolve_replaced_legacy_state(
-    monkeypatch, tmp_path
+def test_runtime_registry_handlers_are_bound_to_instance_state(
+    monkeypatch,
+    tmp_path,
 ):
-    fake_anthropic = types.ModuleType("anthropic")
-    fake_dotenv = types.ModuleType("dotenv")
-
-    class FakeAnthropic:
-        def __init__(self, *args, **kwargs):
-            self.messages = types.SimpleNamespace(create=None, stream=None)
-
-    fake_anthropic.Anthropic = FakeAnthropic
-    fake_dotenv.load_dotenv = lambda override=True: None
-    monkeypatch.setitem(sys.modules, "anthropic", fake_anthropic)
-    monkeypatch.setitem(sys.modules, "dotenv", fake_dotenv)
     monkeypatch.setenv("MODEL_ID", "test-model")
-
-    namespace = runpy.run_path(
-        str(Path(__file__).parents[1] / "homework" / "BaseAgent.py"),
-        run_name="not_main",
+    first = build_runtime(
+        AppConfig.from_env(tmp_path / "first"),
+        FakeSDKClient(),
     )
-    globals_ = namespace["assemble_tool_pool"].__globals__
-    replacement_tasks = tasks_feature.TaskStore(tmp_path / ".tasks")
-    replacement_scheduler = scheduler_feature.SchedulerState()
-    replacement_scheduler.jobs["replacement"] = scheduler_feature.CronJob(
+    second = build_runtime(
+        AppConfig.from_env(tmp_path / "second"),
+        FakeSDKClient(),
+    )
+    first.scheduler.jobs["first-only"] = scheduler_feature.CronJob(
         id="replacement",
         cron="* * * * *",
         prompt="new state",
         recurring=True,
         durable=False,
     )
-    globals_["TASK_STORE"] = replacement_tasks
-    globals_["SCHEDULER_STATE"] = replacement_scheduler
-
-    _, handlers = globals_["assemble_tool_pool"]()
-    created = handlers["create_task"](subject="replacement task")
+    _, first_handlers = first.tools.snapshot()
+    _, second_handlers = second.tools.snapshot()
+    created = first_handlers["create_task"](subject="first runtime task")
 
     assert "Created" in created
-    assert list(replacement_tasks.root.glob("task_*.json"))
-    assert "new state" in handlers["list_crons"]()
+    assert list(first.tasks.root.glob("task_*.json"))
+    assert list(second.tasks.root.glob("task_*.json")) == []
+    assert "new state" in first_handlers["list_crons"]()
+    assert "new state" not in second_handlers["list_crons"]()

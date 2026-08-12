@@ -1,75 +1,36 @@
-import builtins
-import importlib.util
-import sys
-import types
-from pathlib import Path
-
-import pytest
-
-from homework.agent_app.features.todos import run_todo_write
+from homework.agent_app import bootstrap
+from homework.agent_app.config import AppConfig
+from homework.agent_app.core.context import build_context
+from homework.agent_app.features import todos
 from homework.agent_app.runtime import SessionState
+from homework.agent_app.tools.registry import ToolRegistry
 
 
-BASE_AGENT = (
-    Path(__file__).resolve().parents[1]
-    / "homework"
-    / "BaseAgent.py"
-)
+class FakeSDKClient:
+    class Messages:
+        def create(self, **_kwargs):
+            raise AssertionError("no live request expected")
+
+        def stream(self, **_kwargs):
+            raise AssertionError("no live request expected")
+
+    def __init__(self):
+        self.messages = self.Messages()
 
 
-class BaseAgentModule:
-    def __init__(self, module):
-        self.module = module
-
-    def __getitem__(self, name):
-        return getattr(self.module, name)
-
-    def __setitem__(self, name, value):
-        setattr(self.module, name, value)
-
-    def __contains__(self, name):
-        return hasattr(self.module, name)
-
-
-def load_baseagent_module():
-    spec = importlib.util.spec_from_file_location("_baseagent_todos", BASE_AGENT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return BaseAgentModule(module)
-
-
-def load_baseagent(monkeypatch):
-    """Load BaseAgent without creating a real Anthropic client."""
-    fake_anthropic = types.ModuleType("anthropic")
-    fake_dotenv = types.ModuleType("dotenv")
-
-    class FakeAnthropic:
-        def __init__(self, *args, **kwargs):
-            self.messages = types.SimpleNamespace(
-                create=None,
-                stream=None,
-            )
-
-    fake_anthropic.Anthropic = FakeAnthropic
-    fake_dotenv.load_dotenv = lambda override=True: None
-
-    monkeypatch.setitem(sys.modules, "anthropic", fake_anthropic)
-    monkeypatch.setitem(sys.modules, "dotenv", fake_dotenv)
+def build_test_runtime(tmp_path, monkeypatch):
     monkeypatch.setenv("MODEL_ID", "dummy")
     monkeypatch.delenv("FALLBACK_MODEL_ID", raising=False)
-
-    return load_baseagent_module()
-
-
-@pytest.fixture
-def baseagent(monkeypatch):
-    return load_baseagent(monkeypatch)
+    return bootstrap.build_runtime(
+        AppConfig.from_env(tmp_path),
+        FakeSDKClient(),
+    )
 
 
 def test_todo_update_is_session_owned():
     session = SessionState()
 
-    result = run_todo_write(
+    result = todos.run_todo_write(
         session,
         [{"content": "inspect", "status": "in_progress"}],
     )
@@ -78,17 +39,20 @@ def test_todo_update_is_session_owned():
     assert session.todos == [{"content": "inspect", "status": "in_progress"}]
 
 
-def test_legacy_todo_alias_shares_session_state(baseagent):
-    assert baseagent["CURRENT_TODOS"] is baseagent["SESSION_STATE"].todos
+def test_todo_sessions_do_not_share_state():
+    first = SessionState()
+    second = SessionState()
 
-    baseagent["run_todo_write"]([
-        {"content": "inspect", "status": "in_progress"},
-    ])
+    todos.run_todo_write(
+        first,
+        [{"content": "inspect", "status": "in_progress"}],
+    )
 
-    assert baseagent["CURRENT_TODOS"] is baseagent["SESSION_STATE"].todos
+    assert first.todos == [{"content": "inspect", "status": "in_progress"}]
+    assert second.todos == []
 
 
-def test_todo_persistence_and_resume_apis_are_removed(baseagent):
+def test_todo_persistence_and_resume_apis_are_not_part_of_owner_module():
     for name in (
         "TODO_FILE",
         "save_todos",
@@ -96,136 +60,99 @@ def test_todo_persistence_and_resume_apis_are_removed(baseagent):
         "all_todos_completed",
         "ask_resume_todos",
     ):
-        assert name not in baseagent
+        assert not hasattr(todos, name)
 
 
-def test_todo_write_does_not_touch_legacy_todo_file(
-    baseagent,
-    monkeypatch,
-    tmp_path,
-):
+def test_todo_write_does_not_touch_legacy_todo_file(tmp_path):
     legacy_file = tmp_path / ".todo.json"
     legacy_file.write_text("legacy-state", encoding="utf-8")
+    session = SessionState()
 
-    if "TODO_FILE" in baseagent:
-        monkeypatch.setitem(
-            baseagent,
-            "TODO_FILE",
-            legacy_file,
-        )
-
-    result = baseagent["run_todo_write"]([{
-        "content": "current session step",
-        "status": "in_progress",
-    }])
+    result = todos.run_todo_write(
+        session,
+        [{"content": "current session step", "status": "in_progress"}],
+    )
 
     assert result == "Updated 1 tasks"
     assert legacy_file.read_text(encoding="utf-8") == "legacy-state"
 
 
-def test_todos_remain_available_across_turns_in_one_process(
-    baseagent,
+def test_todos_remain_available_across_turns_in_one_runtime(
+    tmp_path,
+    monkeypatch,
 ):
-    first_plan = [{
-        "content": "inspect files",
-        "status": "completed",
-    }]
+    runtime = build_test_runtime(tmp_path, monkeypatch)
+    first_plan = [{"content": "inspect files", "status": "completed"}]
     latest_plan = [
-        {
-            "content": "modify agent loop",
-            "status": "in_progress",
-        },
-        {
-            "content": "run tests",
-            "status": "pending",
-        },
+        {"content": "modify agent loop", "status": "in_progress"},
+        {"content": "run tests", "status": "pending"},
     ]
 
-    assert baseagent["run_todo_write"](first_plan) == (
-        "Updated 1 tasks"
-    )
-    assert baseagent["run_todo_write"](latest_plan) == (
-        "Updated 2 tasks"
-    )
+    assert todos.run_todo_write(runtime.session, first_plan) == "Updated 1 tasks"
+    assert todos.run_todo_write(runtime.session, latest_plan) == "Updated 2 tasks"
 
-    assert baseagent["CURRENT_TODOS"] == latest_plan
-    formatted = baseagent["format_current_todos"]()
+    assert runtime.session.todos == latest_plan
+    formatted = todos.format_current_todos(runtime.session)
     assert "modify agent loop" in formatted
     assert "run tests" in formatted
     assert "inspect files" not in formatted
 
-    context = baseagent["update_context"]({}, [])
+    tools, _ = runtime.tools.snapshot()
+    context = build_context(runtime, tools)
     assert context["todos"] == formatted
 
 
-def test_loading_baseagent_again_starts_with_empty_todos(
-    monkeypatch,
-):
-    first_process = load_baseagent(monkeypatch)
-    plan = [{
-        "content": "only in first process",
-        "status": "pending",
-    }]
-    first_process["run_todo_write"](plan)
+def test_new_runtime_starts_with_empty_todos(tmp_path, monkeypatch):
+    first = build_test_runtime(tmp_path / "first", monkeypatch)
+    second = build_test_runtime(tmp_path / "second", monkeypatch)
+    plan = [{"content": "only in first runtime", "status": "pending"}]
+    todos.run_todo_write(first.session, plan)
 
-    second_process = load_baseagent(monkeypatch)
-
-    assert first_process["CURRENT_TODOS"] == plan
-    assert second_process["CURRENT_TODOS"] == []
-    assert second_process["format_current_todos"]() == ""
+    assert first.session.todos == plan
+    assert second.session.todos == []
+    assert todos.format_current_todos(second.session) == ""
 
 
-def test_invalid_todo_update_preserves_current_plan(baseagent):
-    current_plan = [{
-        "content": "keep this",
-        "status": "in_progress",
-    }]
-    baseagent["run_todo_write"](current_plan)
+def test_invalid_todo_update_preserves_current_plan():
+    session = SessionState()
+    current_plan = [{"content": "keep this", "status": "in_progress"}]
+    todos.run_todo_write(session, current_plan)
 
-    result = baseagent["run_todo_write"]([{
-        "content": "invalid update",
-        "status": "unknown",
-    }])
+    result = todos.run_todo_write(
+        session,
+        [{"content": "invalid update", "status": "unknown"}],
+    )
 
     assert result.startswith("Error:")
-    assert baseagent["CURRENT_TODOS"] == current_plan
+    assert session.todos == current_plan
 
 
-def test_main_does_not_run_an_automatic_resume_turn(
-    baseagent,
-    monkeypatch,
-):
-    turns = []
+def test_runtime_todo_handler_is_bound_to_its_session(tmp_path, monkeypatch):
+    first = build_test_runtime(tmp_path / "first", monkeypatch)
+    second = build_test_runtime(tmp_path / "second", monkeypatch)
+    _, first_handlers = first.tools.snapshot()
+    _, second_handlers = second.tools.snapshot()
 
-    if "ask_resume_todos" in baseagent:
-        monkeypatch.setitem(
-            baseagent,
-            "ask_resume_todos",
-            lambda: "automatic resume",
-        )
+    assert first_handlers["todo_write"](
+        [{"content": "runtime-local", "status": "pending"}]
+    ) == "Updated 1 tasks"
 
-    def record_turn(history, content, context):
-        turns.append(content)
-        return context
-
-    baseagent["run_agent_turn"] = record_turn
-    monkeypatch.setattr(builtins, "input", lambda _prompt: "q")
-
-    baseagent["main"]()
-
-    assert turns == []
-
-
-def test_todo_tool_contract_remains_registered(baseagent):
-    schemas = {
-        tool["name"]: tool
-        for tool in baseagent["BUILTIN_TOOLS"]
-    }
-
-    assert "todo_write" in schemas
-    assert schemas["todo_write"]["input_schema"]["required"] == [
-        "todos"
+    assert first.session.todos == [
+        {"content": "runtime-local", "status": "pending"}
     ]
-    assert baseagent["BUILTIN_HANDLERS"]["todo_write"] is (
-        baseagent["run_todo_write"]
-    )
+    assert second.session.todos == []
+    assert first_handlers["todo_write"] is not second_handlers["todo_write"]
+
+
+def test_todo_tool_contract_remains_registered():
+    session = SessionState()
+    registry = ToolRegistry()
+    todos.register_todo_tools(registry, session)
+    registered, handlers = registry.snapshot()
+    schema = next(tool for tool in registered if tool["name"] == "todo_write")
+
+    assert schema["input_schema"]["required"] == ["todos"]
+    assert handlers["todo_write"](
+        [{"content": "registered", "status": "pending"}]
+    ) == "Updated 1 tasks"
+    assert session.todos == [{"content": "registered", "status": "pending"}]

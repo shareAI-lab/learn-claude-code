@@ -1,127 +1,43 @@
-import builtins
-import importlib.util
-import sys
 import types
-from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT))
-
+from homework.agent_app import bootstrap
+from homework.agent_app.config import AppConfig
 from homework.agent_app.core import recovery
-from homework.agent_app.features.mcp import MCPState
-
-
-BASE_AGENT = (
-    REPO_ROOT
-    / "homework"
-    / "BaseAgent.py"
-)
-
-
-class BaseAgentModule:
-    def __init__(self, module):
-        object.__setattr__(self, "module", module)
-
-    def __getitem__(self, name):
-        return getattr(self.module, name)
-
-    def __getattr__(self, name):
-        return getattr(self.module, name)
-
-    def __contains__(self, name):
-        return hasattr(self.module, name)
-
-    def __iter__(self):
-        return iter(vars(self.module))
-
-    def __setattr__(self, name, value):
-        setattr(self.module, name, value)
-
-    def __delattr__(self, name):
-        delattr(self.module, name)
-
-
-def load_baseagent_module():
-    spec = importlib.util.spec_from_file_location("_baseagent_error_recovery", BASE_AGENT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return BaseAgentModule(module)
+class FakeSDKClient:
+    def __init__(self):
+        self.messages = types.SimpleNamespace(create=None, stream=None)
 
 
 @pytest.fixture
-def baseagent(monkeypatch):
-    """Load BaseAgent without creating a real Anthropic client."""
-    fake_anthropic = types.ModuleType("anthropic")
-    fake_dotenv = types.ModuleType("dotenv")
-
-    class FakeAnthropic:
-        def __init__(self, *args, **kwargs):
-            self.messages = types.SimpleNamespace(
-                create=None,
-                stream=None,
-            )
-
-    fake_anthropic.Anthropic = FakeAnthropic
-    fake_dotenv.load_dotenv = lambda override=True: None
-
-    monkeypatch.setitem(sys.modules, "anthropic", fake_anthropic)
-    monkeypatch.setitem(sys.modules, "dotenv", fake_dotenv)
-    monkeypatch.setattr(builtins, "input", lambda _prompt: "n")
+def runtime(tmp_path, monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda _prompt: "n")
     monkeypatch.setenv("MODEL_ID", "primary-model")
     monkeypatch.setenv("FALLBACK_MODEL_ID", "fallback-model")
-
-    return load_baseagent_module()
-
-
-def test_legacy_turn_does_not_rebuild_context_after_core_loop(
-    baseagent,
-    monkeypatch,
-):
-    expected_context = {"owner": "core-loop"}
-    core_calls = []
-
-    def fake_core_loop(runtime):
-        core_calls.append(runtime)
-        runtime.session.context = expected_context
-
-    def fail_legacy_context_build(*_args, **_kwargs):
-        pytest.fail("legacy update_context rebuilt the context")
-
-    monkeypatch.setattr(baseagent, "run_agent_loop", fake_core_loop)
-    monkeypatch.setattr(baseagent, "update_context", fail_legacy_context_build)
-    baseagent.session_history.clear()
-    baseagent.session_context = {}
-
-    baseagent.run_agent_turn_locked("hello")
-
-    assert len(core_calls) == 1
-    assert baseagent.session_context is expected_context
+    return bootstrap.build_runtime(
+        AppConfig.from_env(tmp_path),
+        FakeSDKClient(),
+    )
 
 
-def test_legacy_permission_hook_uses_replaced_mcp_state(
-    baseagent,
-    monkeypatch,
-):
-    replacement = MCPState()
-    replacement.metadata["mcp__deploy__trigger"] = {
+def test_runtime_permission_hook_uses_its_mcp_state(runtime):
+    runtime.mcp.metadata["mcp__deploy__trigger"] = {
         "server": "deploy",
         "original_name": "trigger",
         "destructive": True,
     }
-    monkeypatch.setattr(baseagent, "MCP_STATE", replacement)
     block = types.SimpleNamespace(
         name="mcp__deploy__trigger",
         input={"service": "api"},
     )
 
-    assert baseagent.trigger_hook("PreToolUse", block) == (
+    assert runtime.hooks.trigger("PreToolUse", block) == (
         "Permission denied by user"
     )
 
-    replacement.metadata.clear()
-    assert baseagent.trigger_hook("PreToolUse", block) == (
+    runtime.mcp.metadata.clear()
+    assert runtime.hooks.trigger("PreToolUse", block) == (
         "Permission denied: unknown MCP tool metadata"
     )
 
@@ -320,7 +236,7 @@ def test_prompt_too_long_does_not_match_unrelated_token_error():
 
 
 def test_streaming_prints_chunks_before_returning_final_message(
-    baseagent,
+    runtime,
     capsys,
 ):
     captured = {}
@@ -353,14 +269,15 @@ def test_streaming_prints_chunks_before_returning_final_message(
         captured.update(kwargs)
         return FakeStream()
 
-    baseagent["client"].messages.stream = fake_stream
+    runtime.llm.client.messages.stream = fake_stream
+    registered_tools, _ = runtime.tools.snapshot()
 
-    result = baseagent["create_message_streaming"](
+    result = runtime.llm.create_streaming(
         system="system",
-        request_messages=[{"role": "user", "content": "test"}],
+        messages=[{"role": "user", "content": "test"}],
         model="fallback-model",
         max_tokens=64_000,
-        tools=baseagent["BUILTIN_TOOLS"],
+        tools=registered_tools,
     )
 
     assert result is final_response
@@ -371,7 +288,7 @@ def test_streaming_prints_chunks_before_returning_final_message(
     assert capsys.readouterr().out == "\n"
 
 
-def test_streaming_wraps_error_after_visible_text(baseagent, capsys):
+def test_streaming_wraps_error_after_visible_text(runtime, capsys):
     cause = FakeAPIError(529, "stream overloaded")
 
     class FailingStream:
@@ -391,15 +308,15 @@ def test_streaming_wraps_error_after_visible_text(baseagent, capsys):
         def get_final_message(self):
             raise AssertionError("failed stream has no final message")
 
-    baseagent["client"].messages.stream = lambda **kwargs: FailingStream()
+    runtime.llm.client.messages.stream = lambda **kwargs: FailingStream()
 
-    with pytest.raises(baseagent["PartialStreamError"]) as raised:
-        baseagent["create_message_streaming"](
+    with pytest.raises(recovery.PartialStreamError) as raised:
+        runtime.llm.create_streaming(
             system="system",
-            request_messages=[{"role": "user", "content": "test"}],
+            messages=[{"role": "user", "content": "test"}],
             model="primary-model",
             max_tokens=8_000,
-            tools=baseagent["BUILTIN_TOOLS"],
+            tools=[],
         )
 
     assert raised.value.partial_text == "visible-part"
@@ -407,7 +324,7 @@ def test_streaming_wraps_error_after_visible_text(baseagent, capsys):
     assert capsys.readouterr().out == "visible-part\n"
 
 
-def test_streaming_reraises_original_error_before_first_chunk(baseagent):
+def test_streaming_reraises_original_error_before_first_chunk(runtime):
     cause = FakeAPIError(429, "rate limit before output")
 
     class FailingStream:
@@ -417,15 +334,15 @@ def test_streaming_reraises_original_error_before_first_chunk(baseagent):
         def __exit__(self, exc_type, exc, traceback):
             return False
 
-    baseagent["client"].messages.stream = lambda **kwargs: FailingStream()
+    runtime.llm.client.messages.stream = lambda **kwargs: FailingStream()
 
     with pytest.raises(FakeAPIError) as raised:
-        baseagent["create_message_streaming"](
+        runtime.llm.create_streaming(
             system="system",
-            request_messages=[{"role": "user", "content": "test"}],
+            messages=[{"role": "user", "content": "test"}],
             model="primary-model",
             max_tokens=8_000,
-            tools=baseagent["BUILTIN_TOOLS"],
+            tools=[],
         )
 
     assert raised.value is cause
@@ -454,7 +371,7 @@ def test_with_retry_never_replays_partial_stream_error():
 
 
 def test_subagent_routes_llm_request_through_with_retry(
-    baseagent,
+    runtime,
     monkeypatch,
 ):
     retry_calls = []
@@ -468,16 +385,17 @@ def test_subagent_routes_llm_request_through_with_retry(
         retry_calls.append((state, kwargs))
         return call()
 
-    baseagent["client"].messages.create = fake_create
-    monkeypatch.setattr(baseagent, "with_retry", spy_with_retry)
+    runtime.llm.client.messages.create = fake_create
+    monkeypatch.setattr(bootstrap, "with_retry", spy_with_retry)
+    _, handlers = runtime.tools.snapshot()
 
-    result = baseagent["spawn_subagent"]("review one file")
+    result = handlers["task"]("review one file")
 
     assert result == "subagent done"
     assert len(retry_calls) == 1
     assert retry_calls[0][1] == {
-        "max_transient_retries": baseagent["MAX_TRANSIENT_RETRIES"],
-        "max_consecutive_529": baseagent["MAX_CONSECUTIVE_529"],
-        "base_delay_ms": baseagent["BASE_DELAY_MS"],
+        "max_transient_retries": runtime.config.max_transient_retries,
+        "max_consecutive_529": runtime.config.max_consecutive_529,
+        "base_delay_ms": runtime.config.base_delay_ms,
     }
     assert requested_models == ["primary-model"]

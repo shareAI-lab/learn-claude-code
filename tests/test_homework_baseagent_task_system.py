@@ -1,27 +1,18 @@
 import json
-import importlib.util
-import sys
 import threading
-import types
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, fields
-from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from homework.agent_app.features.tasks import (
-    TaskStore,
-    claim_task as claim_stored_task,
-    create_task as create_stored_task,
-    load_task as load_stored_task,
-)
+from homework.agent_app.config import AppConfig
+from homework.agent_app.core.prompt import assemble_system_prompt
+from homework.agent_app.features import tasks
+from homework.agent_app.features.todos import run_todo_write
+from homework.agent_app.runtime import SessionState
+from homework.agent_app.tools.registry import ToolRegistry
 
-
-BASE_AGENT = (
-    Path(__file__).resolve().parents[1]
-    / "homework"
-    / "BaseAgent.py"
-)
 
 REQUIRED_TASK_TOOLS = {
     "create_task": {"subject"},
@@ -32,132 +23,19 @@ REQUIRED_TASK_TOOLS = {
 }
 
 
-class BaseAgentModule:
-    def __init__(self, module):
-        self.module = module
-
-    def __getitem__(self, name):
-        return getattr(self.module, name)
-
-    def __setitem__(self, name, value):
-        setattr(self.module, name, value)
-
-    def __delitem__(self, name):
-        delattr(self.module, name)
-
-    def __contains__(self, name):
-        return hasattr(self.module, name)
-
-    def get(self, name, default=None):
-        return getattr(self.module, name, default)
-
-
-def load_baseagent_module():
-    spec = importlib.util.spec_from_file_location("_baseagent_tasks", BASE_AGENT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return BaseAgentModule(module)
-
-
 @pytest.fixture
 def task_store(tmp_path):
-    root = tmp_path / ".tasks"
-    root.mkdir()
-    return TaskStore(root=root)
-
-
-def test_task_creation_is_store_scoped(task_store):
-    task = create_stored_task(task_store, "inspect parser")
-
-    assert load_stored_task(task_store, task.id).subject == "inspect parser"
-
-
-def test_store_scoped_simultaneous_claim_has_one_winner(task_store):
-    task = create_stored_task(task_store, "single owner")
-    worker_count = 4
-    barrier = threading.Barrier(worker_count)
-
-    def claim(index):
-        barrier.wait(timeout=5)
-        return claim_stored_task(task_store, task.id, f"agent-{index}")
-
-    with ThreadPoolExecutor(max_workers=worker_count) as pool:
-        results = [
-            future.result(timeout=10)
-            for future in [pool.submit(claim, index) for index in range(worker_count)]
-        ]
-
-    assert sum(result.startswith("Claimed") for result in results) == 1
+    return tasks.TaskStore(root=tmp_path / ".tasks")
 
 
 @pytest.fixture
-def baseagent(monkeypatch, tmp_path):
-    """Load BaseAgent with fake API modules and isolated task storage."""
-    fake_anthropic = types.ModuleType("anthropic")
-    fake_dotenv = types.ModuleType("dotenv")
-
-    class FakeAnthropic:
-        def __init__(self, *args, **kwargs):
-            self.messages = types.SimpleNamespace(
-                create=None,
-                stream=None,
-            )
-
-    fake_anthropic.Anthropic = FakeAnthropic
-    fake_dotenv.load_dotenv = lambda override=True: None
-
-    monkeypatch.setitem(sys.modules, "anthropic", fake_anthropic)
-    monkeypatch.setitem(sys.modules, "dotenv", fake_dotenv)
-    monkeypatch.setenv("MODEL_ID", "test-model")
-    monkeypatch.delenv("FALLBACK_MODEL_ID", raising=False)
-
-    globals_ = load_baseagent_module()
-
-    original_task_dir = globals_.get(
-        "TASKS_DIR",
-        globals_.get("TASK_DIR"),
-    )
-    task_dir = tmp_path / ".tasks"
-    task_dir.mkdir()
-
-    globals_["TASK_STORE"] = TaskStore(root=task_dir)
-    globals_["TASK_DIR"] = task_dir
-    globals_["TASK_LOCK"] = globals_["TASK_STORE"].lock
-
-    if "TASK_DIR" in globals_:
-        monkeypatch.setitem(globals_, "TASK_DIR", task_dir)
-    if "TASKS_DIR" in globals_:
-        monkeypatch.setitem(globals_, "TASKS_DIR", task_dir)
-
-    monkeypatch.setitem(
-        globals_,
-        "_ACCEPTANCE_ORIGINAL_TASK_DIR",
-        original_task_dir,
-    )
-    monkeypatch.setitem(
-        globals_,
-        "_ACCEPTANCE_TASK_DIR",
-        task_dir,
-    )
-    todo_file = tmp_path / ".todo.json"
-    if "TODO_FILE" in globals_:
-        monkeypatch.setitem(
-            globals_,
-            "TODO_FILE",
-            todo_file,
-        )
-    monkeypatch.setitem(
-        globals_,
-        "_ACCEPTANCE_TODO_FILE",
-        todo_file,
-    )
-    monkeypatch.setitem(globals_, "CURRENT_TODOS", [])
-
-    return globals_
+def task_tools(task_store):
+    registry = ToolRegistry()
+    tasks.register_task_tools(registry, task_store)
+    return registry.snapshot()
 
 
 def make_task(
-    baseagent,
     task_id,
     subject,
     *,
@@ -166,7 +44,7 @@ def make_task(
     owner=None,
     blocked_by=None,
 ):
-    return baseagent["Task"](
+    return tasks.Task(
         id=task_id,
         subject=subject,
         description=description,
@@ -192,8 +70,34 @@ def assert_clear_error(result):
     )
 
 
-def test_task_model_has_required_fields(baseagent):
-    assert [field.name for field in fields(baseagent["Task"])] == [
+def test_task_creation_is_store_scoped(task_store):
+    task = tasks.create_task(task_store, "inspect parser")
+
+    assert tasks.load_task(task_store, task.id).subject == "inspect parser"
+
+
+def test_store_scoped_simultaneous_claim_has_one_winner(task_store):
+    task = tasks.create_task(task_store, "single owner")
+    worker_count = 4
+    barrier = threading.Barrier(worker_count)
+
+    def claim(index):
+        barrier.wait(timeout=5)
+        return tasks.claim_task(task_store, task.id, f"agent-{index}")
+
+    with ThreadPoolExecutor(max_workers=worker_count) as pool:
+        results = [
+            future.result(timeout=10)
+            for future in [
+                pool.submit(claim, index) for index in range(worker_count)
+            ]
+        ]
+
+    assert sum(result.startswith("Claimed") for result in results) == 1
+
+
+def test_task_model_has_required_fields():
+    assert [field.name for field in fields(tasks.Task)] == [
         "id",
         "subject",
         "description",
@@ -204,79 +108,68 @@ def test_task_model_has_required_fields(baseagent):
     ]
 
 
-def test_required_task_tools_are_registered(baseagent):
-    schemas = {
-        tool["name"]: tool
-        for tool in baseagent["BUILTIN_TOOLS"]
-    }
+def test_required_task_tools_are_registered(task_tools):
+    registered, handlers = task_tools
+    schemas = {tool["name"]: tool for tool in registered}
 
     for name, required in REQUIRED_TASK_TOOLS.items():
         assert name in schemas
-        assert name in baseagent["BUILTIN_HANDLERS"]
-        assert callable(baseagent["BUILTIN_HANDLERS"][name])
+        assert callable(handlers[name])
         assert schemas[name]["input_schema"]["type"] == "object"
-        assert set(
-            schemas[name]["input_schema"].get("required", [])
-        ) == required
+        assert set(schemas[name]["input_schema"].get("required", [])) == required
 
 
-def test_task_storage_is_configured_as_dot_tasks(baseagent):
-    original = baseagent["_ACCEPTANCE_ORIGINAL_TASK_DIR"]
-    assert isinstance(original, Path)
-    assert original.name == ".tasks"
+def test_task_storage_is_configured_as_dot_tasks(tmp_path, monkeypatch):
+    monkeypatch.setenv("MODEL_ID", "test-model")
+
+    assert AppConfig.from_env(tmp_path).task_dir == tmp_path / ".tasks"
 
 
-def test_create_task_persists_utf8_json_and_reloads(baseagent):
-    task = baseagent["create_task"](
+def test_create_task_persists_utf8_json_and_reloads(task_store):
+    task = tasks.create_task(
+        task_store,
         "检查解析器",
         "实现并测试中文解析器",
     )
-    path = baseagent["_task_path"](task.id)
+    path = tasks.task_path(task_store, task.id)
 
-    assert path.parent == baseagent["_ACCEPTANCE_TASK_DIR"]
+    assert path.parent == task_store.root
     assert path.name == f"{task.id}.json"
     assert path.exists()
 
     raw = path.read_text(encoding="utf-8")
     assert "检查解析器" in raw
     assert "实现并测试中文解析器" in raw
-    assert "\n  \"subject\"" in raw
+    assert '\n  "subject"' in raw
     assert "\\u68c0" not in raw.lower()
 
-    stored = json.loads(raw)
-    assert stored == asdict(task)
-    assert asdict(baseagent["load_task"](task.id)) == asdict(task)
+    assert json.loads(raw) == asdict(task)
+    assert asdict(tasks.load_task(task_store, task.id)) == asdict(task)
 
 
 def test_empty_and_populated_task_lists_are_stable_and_readable(
-    baseagent,
+    task_store,
+    task_tools,
 ):
-    assert baseagent["list_tasks"]() == []
-    assert "no tasks" in baseagent["run_list_tasks"]().lower()
+    _, handlers = task_tools
+    assert tasks.list_tasks(task_store) == []
+    assert "no tasks" in handlers["list_tasks"]().lower()
 
     task_b = make_task(
-        baseagent,
         "task_b",
         "second",
         status="in_progress",
         owner="alice",
         blocked_by=["task_a"],
     )
-    task_a = make_task(
-        baseagent,
-        "task_a",
-        "first",
-    )
-    baseagent["save_task"](task_b)
-    baseagent["save_task"](task_a)
+    task_a = make_task("task_a", "first")
+    tasks.save_task(task_store, task_b)
+    tasks.save_task(task_store, task_a)
 
-    tasks = baseagent["list_tasks"]()
-    assert [task.id for task in tasks] == [
-        "task_a",
-        "task_b",
-    ]
+    stored = tasks.list_tasks(task_store)
+    assert [task.id for task in stored] == ["task_a", "task_b"]
 
-    output = baseagent["run_list_tasks"]()
+    output = handlers["list_tasks"]()
     assert output.index("task_a") < output.index("task_b")
     for marker in (
         "first",
@@ -289,9 +182,9 @@ def test_empty_and_populated_task_lists_are_stable_and_readable(
         assert marker in output
 
 
-def test_get_task_returns_complete_json(baseagent):
+def test_get_task_returns_complete_json(task_store, task_tools):
+    _, handlers = task_tools
     task = make_task(
-        baseagent,
         "task_details",
         "inspect parser",
         description="read every parser module",
@@ -299,83 +192,69 @@ def test_get_task_returns_complete_json(baseagent):
         owner="reviewer",
         blocked_by=["task_setup"],
     )
-    baseagent["save_task"](task)
+    tasks.save_task(task_store, task)
 
-    assert json.loads(
-        baseagent["run_get_task"](task.id)
-    ) == asdict(task)
+    assert json.loads(handlers["get_task"](task.id)) == asdict(task)
 
 
 def test_generated_task_ids_do_not_overwrite_on_collision(
-    baseagent,
+    task_store,
     monkeypatch,
 ):
+    values = iter(["same", "tmp1", "same", "different", "tmp2"])
     monkeypatch.setattr(
-        baseagent["time"],
-        "time",
-        lambda: 1234567890,
-    )
-    values = iter([7, 7, 8])
-    monkeypatch.setattr(
-        baseagent["random"],
-        "randint",
-        lambda _start, _end: next(values),
+        tasks.uuid,
+        "uuid4",
+        lambda: SimpleNamespace(hex=next(values)),
     )
 
-    first = baseagent["create_task"]("first")
-    second = baseagent["create_task"]("second")
+    first = tasks.create_task(task_store, "first")
+    second = tasks.create_task(task_store, "second")
 
-    assert first.id != second.id
-    assert len(list(
-        baseagent["_ACCEPTANCE_TASK_DIR"].glob("*.json")
-    )) == 2
-    assert baseagent["load_task"](first.id).subject == "first"
-    assert baseagent["load_task"](second.id).subject == "second"
+    assert first.id == "task_same"
+    assert second.id == "task_different"
+    assert len(list(task_store.root.glob("*.json"))) == 2
+    assert tasks.load_task(task_store, first.id).subject == "first"
+    assert tasks.load_task(task_store, second.id).subject == "second"
 
 
-def test_missing_dependency_blocks_start_and_claim(baseagent):
-    task = baseagent["create_task"](
+def test_missing_dependency_blocks_start_and_claim(task_store):
+    task = tasks.create_task(
+        task_store,
         "blocked work",
         blockedBy=["task_missing"],
     )
 
-    assert baseagent["can_start"](task.id) is False
-    result = baseagent["claim_task"](
-        task.id,
-        owner="worker",
-    )
+    assert tasks.can_start(task_store, task.id) is False
+    result = tasks.claim_task(task_store, task.id, owner="worker")
     assert "blocked" in result.lower()
 
-    stored = baseagent["load_task"](task.id)
+    stored = tasks.load_task(task_store, task.id)
     assert stored.status == "pending"
     assert stored.owner is None
 
 
-def test_upstream_completion_unblocks_downstream(baseagent):
-    upstream = baseagent["create_task"]("inspect parser")
-    downstream = baseagent["create_task"](
+def test_upstream_completion_unblocks_downstream(task_store):
+    upstream = tasks.create_task(task_store, "inspect parser")
+    downstream = tasks.create_task(
+        task_store,
         "fix parser",
         blockedBy=[upstream.id],
     )
 
-    blocked = baseagent["claim_task"](
-        downstream.id,
-        owner="fixer",
-    )
+    blocked = tasks.claim_task(task_store, downstream.id, owner="fixer")
     assert "blocked" in blocked.lower()
 
-    claimed = baseagent["claim_task"](
-        upstream.id,
-        owner="inspector",
-    )
+    claimed = tasks.claim_task(task_store, upstream.id, owner="inspector")
     assert claimed.lower().startswith("claimed")
 
-    completed = baseagent["complete_task"](upstream.id)
+    completed = tasks.complete_task(task_store, upstream.id)
     assert "completed" in completed.lower()
     assert "fix parser" in completed
-    assert baseagent["can_start"](downstream.id) is True
+    assert tasks.can_start(task_store, downstream.id) is True
 
-    downstream_claim = baseagent["claim_task"](
+    downstream_claim = tasks.claim_task(
+        task_store,
         downstream.id,
         owner="fixer",
     )
@@ -383,126 +262,95 @@ def test_upstream_completion_unblocks_downstream(baseagent):
 
 
 def test_state_machine_rejects_invalid_transitions_and_preserves_owner(
-    baseagent,
+    task_store,
 ):
-    task = baseagent["create_task"]("run tests")
+    task = tasks.create_task(task_store, "run tests")
 
-    early_complete = baseagent["complete_task"](task.id)
+    early_complete = tasks.complete_task(task_store, task.id)
     assert "cannot" in early_complete.lower()
 
-    first_claim = baseagent["claim_task"](
-        task.id,
-        owner="qa-agent",
-    )
+    first_claim = tasks.claim_task(task_store, task.id, owner="qa-agent")
     assert first_claim.lower().startswith("claimed")
-    assert baseagent["load_task"](task.id).owner == "qa-agent"
+    assert tasks.load_task(task_store, task.id).owner == "qa-agent"
 
-    second_claim = baseagent["claim_task"](
-        task.id,
-        owner="other-agent",
-    )
+    second_claim = tasks.claim_task(task_store, task.id, owner="other-agent")
     assert "cannot" in second_claim.lower()
 
-    first_complete = baseagent["complete_task"](task.id)
+    first_complete = tasks.complete_task(task_store, task.id)
     assert first_complete.lower().startswith("completed")
-    completed = baseagent["load_task"](task.id)
+    completed = tasks.load_task(task_store, task.id)
     assert completed.status == "completed"
     assert completed.owner == "qa-agent"
 
-    second_complete = baseagent["complete_task"](task.id)
+    second_complete = tasks.complete_task(task_store, task.id)
     assert "cannot" in second_complete.lower()
 
 
 @pytest.mark.parametrize(
     "task_id",
-    [
-        "../outside",
-        "/tmp/outside",
-        "task_bad/child",
-        "..",
-    ],
+    ["../outside", "/tmp/outside", "task_bad/child", ".."],
 )
-def test_invalid_task_ids_cannot_escape_task_directory(
-    baseagent,
-    task_id,
-):
+def test_invalid_task_ids_cannot_escape_task_directory(task_store, task_id):
     with pytest.raises(ValueError):
-        baseagent["_task_path"](task_id)
+        tasks.task_path(task_store, task_id)
 
 
-def test_valid_task_path_stays_inside_task_directory(baseagent):
-    path = baseagent["_task_path"]("task_safe_123")
-    assert path.resolve().is_relative_to(
-        baseagent["_ACCEPTANCE_TASK_DIR"].resolve()
+def test_valid_task_path_stays_inside_task_directory(task_store):
+    path = tasks.task_path(task_store, "task_safe_123")
+    assert path.resolve().is_relative_to(task_store.root.resolve())
+
+
+@pytest.mark.parametrize("handler_name", ["get_task", "claim_task", "complete_task"])
+def test_missing_tasks_return_clear_handler_errors(task_tools, handler_name):
+    _, handlers = task_tools
+    assert_clear_error(handlers[handler_name]("task_missing"))
+
+
+def test_corrupt_json_does_not_break_task_listing(task_store, task_tools):
+    _, handlers = task_tools
+    valid = make_task("task_valid", "valid task")
+    tasks.save_task(task_store, valid)
+    (task_store.root / "task_corrupt.json").write_text(
+        "{not valid json",
+        encoding="utf-8",
     )
 
-
-@pytest.mark.parametrize(
-    "handler_name",
-    [
-        "run_get_task",
-        "run_claim_task",
-        "run_complete_task",
-    ],
-)
-def test_missing_tasks_return_clear_handler_errors(
-    baseagent,
-    handler_name,
-):
-    result = baseagent[handler_name]("task_missing")
-    assert_clear_error(result)
+    stored = tasks.list_tasks(task_store)
+    assert [task.id for task in stored] == ["task_valid"]
+    assert "task_valid" in handlers["list_tasks"]()
 
 
-def test_corrupt_json_does_not_break_task_listing(baseagent):
-    valid = make_task(
-        baseagent,
-        "task_valid",
-        "valid task",
+def test_corrupt_task_detail_returns_clear_error(task_store, task_tools):
+    _, handlers = task_tools
+    task_store.root.mkdir(parents=True, exist_ok=True)
+    (task_store.root / "task_corrupt.json").write_text(
+        "{not valid json",
+        encoding="utf-8",
     )
-    baseagent["save_task"](valid)
-    (
-        baseagent["_ACCEPTANCE_TASK_DIR"]
-        / "task_corrupt.json"
-    ).write_text("{not valid json", encoding="utf-8")
 
-    tasks = baseagent["list_tasks"]()
-    assert [task.id for task in tasks] == ["task_valid"]
-    assert "task_valid" in baseagent["run_list_tasks"]()
+    assert_clear_error(handlers["get_task"]("task_corrupt"))
 
 
-def test_corrupt_task_detail_returns_clear_error(baseagent):
-    (
-        baseagent["_ACCEPTANCE_TASK_DIR"]
-        / "task_corrupt.json"
-    ).write_text("{not valid json", encoding="utf-8")
+def test_todo_write_and_durable_tasks_remain_independent(task_store):
+    session = SessionState()
+    task = tasks.create_task(task_store, "durable work")
+    original_task = asdict(tasks.load_task(task_store, task.id))
+    todos = [{"content": "current session step", "status": "in_progress"}]
 
-    result = baseagent["run_get_task"]("task_corrupt")
-    assert_clear_error(result)
-
-
-def test_todo_write_and_durable_tasks_remain_independent(baseagent):
-    task = baseagent["create_task"]("durable work")
-    original_task = asdict(baseagent["load_task"](task.id))
-    todos = [{
-        "content": "current session step",
-        "status": "in_progress",
-    }]
-
-    result = baseagent["run_todo_write"](todos)
+    result = run_todo_write(session, todos)
     assert "updated 1" in result.lower()
-    assert baseagent["CURRENT_TODOS"] == todos
-    assert asdict(baseagent["load_task"](task.id)) == original_task
+    assert session.todos == todos
+    assert asdict(tasks.load_task(task_store, task.id)) == original_task
 
-    baseagent["claim_task"](task.id, owner="agent")
-    baseagent["complete_task"](task.id)
-    assert baseagent["CURRENT_TODOS"] == todos
-    assert not baseagent["_ACCEPTANCE_TODO_FILE"].exists()
+    tasks.claim_task(task_store, task.id, owner="agent")
+    tasks.complete_task(task_store, task.id)
+    assert session.todos == todos
 
 
-def test_system_prompt_distinguishes_todos_from_durable_tasks(
-    baseagent,
-):
-    prompt = baseagent["assemble_system_prompt"]({}).lower()
+def test_system_prompt_distinguishes_todos_from_durable_tasks():
+    prompt = assemble_system_prompt(
+        {"enabled_tools": ["todo_write", "create_task"]}
+    ).lower()
 
     assert "todo_write" in prompt
     assert "create_task" in prompt
@@ -510,22 +358,21 @@ def test_system_prompt_distinguishes_todos_from_durable_tasks(
     assert "current" in prompt
 
 
-def test_task_state_transitions_define_a_shared_lock(baseagent):
-    assert "TASK_LOCK" in baseagent
-    lock = baseagent["TASK_LOCK"]
-    assert callable(getattr(lock, "acquire", None))
-    assert callable(getattr(lock, "release", None))
+def test_task_state_transitions_define_a_store_owned_lock(task_store):
+    assert callable(getattr(task_store.lock, "acquire", None))
+    assert callable(getattr(task_store.lock, "release", None))
 
 
-def test_simultaneous_claims_have_exactly_one_winner(baseagent):
-    task = baseagent["create_task"]("single-owner work")
+def test_simultaneous_claims_have_exactly_one_winner(task_store):
+    task = tasks.create_task(task_store, "single-owner work")
     worker_count = 8
     barrier = threading.Barrier(worker_count)
 
     def worker(index):
         try:
             barrier.wait(timeout=5)
-            result = baseagent["claim_task"](
+            result = tasks.claim_task(
+                task_store,
                 task.id,
                 owner=f"agent-{index}",
             )
@@ -533,36 +380,24 @@ def test_simultaneous_claims_have_exactly_one_winner(baseagent):
         except Exception as exc:
             return "error", repr(exc)
 
-    with ThreadPoolExecutor(
-        max_workers=worker_count,
-    ) as pool:
-        futures = [
-            pool.submit(worker, index)
-            for index in range(worker_count)
-        ]
+    with ThreadPoolExecutor(max_workers=worker_count) as pool:
         results = [
             future.result(timeout=10)
-            for future in futures
+            for future in [
+                pool.submit(worker, index) for index in range(worker_count)
+            ]
         ]
 
-    errors = [
-        value
-        for kind, value in results
-        if kind == "error"
-    ]
-    assert errors == []
-
+    assert [value for kind, value in results if kind == "error"] == []
     successes = [
         value
         for kind, value in results
-        if kind == "result"
-        and value.lower().startswith("claimed")
+        if kind == "result" and value.lower().startswith("claimed")
     ]
     assert len(successes) == 1
 
-    stored = baseagent["load_task"](task.id)
+    stored = tasks.load_task(task_store, task.id)
     assert stored.status == "in_progress"
     assert stored.owner in {
-        f"agent-{index}"
-        for index in range(worker_count)
+        f"agent-{index}" for index in range(worker_count)
     }
