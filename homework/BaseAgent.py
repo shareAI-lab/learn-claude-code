@@ -1,4 +1,4 @@
-import os,json,ast,subprocess,difflib,yaml,time,re,copy,random,threading,uuid,hashlib
+import os,json,subprocess,difflib,time,re,copy,random,threading,uuid,hashlib
 from pathlib import Path
 from dataclasses import dataclass,asdict,field,replace
 from types import SimpleNamespace
@@ -14,6 +14,7 @@ except ImportError:
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from homework.agent_app.config import AppConfig
+from homework.agent_app.runtime import SessionState
 from homework.agent_app.core.compaction import (
     estimate_size as compaction_estimate_size,
     micro_compact as compaction_micro_compact,
@@ -33,6 +34,9 @@ from homework.agent_app.features.scheduler import (
     load_durable_jobs as scheduler_load_durable_jobs,
     schedule_job as scheduler_schedule_job,
 )
+from homework.agent_app.features import memory as memory_feature
+from homework.agent_app.features import skills as skills_feature
+from homework.agent_app.features import todos as todos_feature
 from homework.agent_app.core.recovery import (
     PartialStreamError,
     RecoveryState,
@@ -51,15 +55,19 @@ PRIMARY_MODEL = os.environ["MODEL_ID"]
 MODEL = PRIMARY_MODEL
 FALLBACK_MODEL = os.getenv("FALLBACK_MODEL_ID")
 APP_CONFIG = AppConfig.from_env(REPO_ROOT)
-SKILLS_DIR = WORKDIR / "skills"
-MEMORY_DIR = WORKDIR / ".memory"; MEMORY_DIR.mkdir(exist_ok=True)
-MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 TOOL_RESULT_DIR = APP_CONFIG.tool_result_dir
 TOOL_RESULTS_DIR = TOOL_RESULT_DIR
 PERSIST_THRESHOLD = APP_CONFIG.persist_threshold
 
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
-CURRENT_TODOS:list[dict] = []
+SESSION_STATE = SessionState()
+SKILL_STATE = skills_feature.SkillState(root=APP_CONFIG.skills_dir)
+MEMORY_STORE = memory_feature.MemoryStore(
+    root=APP_CONFIG.memory_dir,
+    index_path=APP_CONFIG.memory_index,
+)
+CURRENT_TODOS = SESSION_STATE.todos
+SKILL_REGISTRY = SKILL_STATE.registry
 
 def resolve_tool_cwd(
         cwd: str | Path | None= None
@@ -1416,342 +1424,40 @@ CONTINUATION_PROMPT = (
     "no apology, no recap. Pick up mid-thought."
 )
 
-#==================== MEMORY SYSTEM ====================
-MEMORY_TYPES = ['user', 'feedback', 'project', 'reference']
-
-def _parse_memory_frontmatter(text:str) -> tuple[dict,str]:
-    if not text.startswith("---"):
-        return {}, text
-    parts = text.split("---", 2)
-    if len(parts) < 3: return {}, text
-    meta = {}
-    for line in parts[1].splitlines():
-        if ":" in line:
-            k,v = line.split(":",1)
-            meta[k.strip()] = v.strip().strip('"').strip("'")
-    return meta, parts[2].strip()
-
-def write_memory_file(name:str, mem_type:str, description:str, body:str):
-    slug = name.lower().replace(" ","-").replace("/","-")
-    filename = f"{slug}.md"
-    filepath = MEMORY_DIR / filename
-    filepath.write_text(
-        f"---\nname: {name}\ndescription: {description}\ntype: {mem_type}\n---\n\n{body}\n"
+ #==================== MEMORY SYSTEM ====================
+def memory_summarize(prompt, max_tokens):
+    response = client.messages.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
     )
-    _rebuild_index()
-    return filepath
+    return extract_text(response.content)
 
-def _rebuild_index():
-    lines = []
-    for f in sorted(MEMORY_DIR.glob("*.md")):
-        if f.name == "MEMORY.md": continue
-        raw = f.read_text()
-        meta, body = _parse_memory_frontmatter(raw)
-        name = meta.get("name", f.stem)
-        desc = meta.get("description", body.split("\n")[0][:80])
-        lines.append(f"- [{name}]({f.name}) — {desc}")
-    MEMORY_INDEX.write_text("\n".join(lines) + "\n" if lines else "")
-
-def read_memory_index() -> str:
-    if not MEMORY_INDEX.exists():
-        return ""
-    text = MEMORY_INDEX.read_text().strip()
-    return text if text else ""
-
-def read_memory_file(filename:str) -> str | None:
-    path = MEMORY_DIR / filename
-    if not path.exists():
-        return None
-    return path.read_text()
-
-def list_memory_files() -> list[dict]:
-    result = []
-    for f in sorted(MEMORY_DIR.glob("*.md")):
-        if f.name == "MEMORY.md": continue
-        raw = f.read_text()
-        meta, body = _parse_memory_frontmatter(raw)
-        result.append({
-            "filename": f.name,
-            "name": meta.get("name", f.stem),
-            "description": meta.get("description", ""),
-            "type": meta.get("type", "user"),
-            "body":body,
-        })
-    return result
-
-def select_relevant_memories(messages: list, max_items: int = 5) -> list[str]:
-    files = list_memory_files()
-    if not files:
-        return []
-    
-    recent_texts = []
-    for msg in reversed(messages):
-        content = msg.get("content","")
-        if isinstance(content,list):
-            content = " ".join(
-                str(getattr(b,"text","")) for b in content
-                if getattr(b,"type",None) == "text"
-            )
-        if _is_internal_reminder_text(content.strip()):
-            continue
-        if isinstance(content, str):
-            recent_texts.append(content)
-        if len(recent_texts) >= 5:
-            break
-
-    recent = " ".join(reversed(recent_texts))[:2000]
-
-    if not recent.strip():
-        return []
-    
-    catalog_lines = []
-    for i, f in enumerate(files):
-        catalog_lines.append(f"{i}: {f['name']} — {f['description']}")
-    catalog = "\n".join(catalog_lines)
-
-    prompt = (
-        "Given the recent conversation and the memory catalog below, "
-        "select the indices of memories that are clearly relevant. "
-        "Return ONLY a JSON array of integers, e.g. [0, 3]. "
-        "If none are relevant, return [].\n\n"
-        f"Recent conversation:\n{recent}\n\n"
-        f"Memory catalog:\n{catalog}"
-    )
-
-    try:
-        response = client.messages.create(
-            model = MODEL, messages = [{"role": "user", "content": prompt}], max_tokens = 200,
-        )
-        text = extract_text(response.content).strip()
-
-        match = re.search(r'\[.*?\]', text, re.DOTALL)
-        if match:
-            indices = json.loads(match.group())
-            selected = []
-            for idx in indices:
-                if isinstance(idx, int) and 0<= idx < len(files):
-                    selected.append(files[idx]["filename"])
-                    if len(selected) >= max_items:
-                        break
-            return selected
-    except Exception:
-        pass
-
-    keywords = [w.lower() for w in recent.split() if len(w) > 3]
-    selected = []
-    for f in files:
-        text = (f["name"] + " " + f["description"]).lower()
-        if any(kw in text for kw in keywords):
-            selected.append(f["filename"])
-            if len(selected) >= max_items:
-                break
-    return selected
-
-def load_memories(messages:list) -> str:
-    selected_files = select_relevant_memories(messages)
-    if not selected_files:
-        return ""
-    
-    parts = ["<relevant_memories>"]
-    for filename in selected_files:
-        content = read_memory_file(filename)
-        if content:
-            parts.append(content)
-    parts.append("</relevant_memories>")
-    return "\n\n".join(parts)
-
-def _is_internal_reminder_text(text:str) -> bool:
-    text = text.strip().lower()
-    return text.startswith("<reminder>") or text.startswith("</reminder>")
-
-def extract_memories(messages:list) -> list[dict]:
-    dialoge_parts = []
-    for msg in messages:
-        role = msg.get("role", "?")
-        content = msg.get("content", "")
-        if isinstance(content,list):
-            content = " ".join(
-                str(getattr(b,"text","")) for b in content
-                if getattr(b,"type",None) == "text"
-            )
-        if isinstance(content,str) and content.strip():
-
-            if role == "user" and _is_internal_reminder_text(content.strip()):
-                continue
-
-            dialoge_parts.append(f"{role}: {content}")
-    dialogue = "\n".join(dialoge_parts)
-
-    if not dialogue.strip():
-        return
-    
-    existing = list_memory_files()
-    existing_desc = "\n".join(f"- {m['name']}: {m['description']}" for m in existing) if existing else "(none)"
-
-    prompt = (
-        "Extract user preferences, constraints, or project facts from this dialogue.\n"
-        "Return a JSON array. Each item: {name, type, description, body}.\n"
-        "- name: short kebab-case identifier (e.g. 'user-preference-tabs')\n"
-        "- type: one of 'user' (user preference), 'feedback' (guidance), "
-        "'project' (project fact), 'reference' (external pointer)\n"
-        "- description: one-line summary for index lookup\n"
-        "- body: full detail in markdown\n"
-        "If nothing new or already covered by existing memories, return [].\n\n"
-        f"Existing memories:\n{existing_desc}\n\n"
-        f"Dialogue:\n{dialogue[:4000]}"
-    )
-
-    try:
-        response = client.messages.create(
-            model = MODEL, messages = [{"role": "user", "content": prompt}], max_tokens = 800,
-        )
-        text = extract_text(response.content).strip()
-
-        match = re.search(r'\[.*\]', text, re.DOTALL)
-        if not match:
-            return
-        items = json.loads(match.group())
-        if not items:
-            return 
-        count = 0
-        for mem in items:
-            name = mem.get("name",f"memory_{int(time.time())}")
-            mem_type = mem.get("type","user")
-            desc = mem.get("description","")
-            body = mem.get("body","")
-            if desc and body:
-                write_memory_file(name, mem_type, desc, body)
-                count += 1
-        if count:
-            print(f"\n\033[33m[Memory: extracted {count} new memories]\033[0m")
-    except Exception:
-        pass
-
-CONSOLIDATE_THRESHOLD = 10
-
-def consolidate_memories():
-    files = list_memory_files()
-    if len(files) < CONSOLIDATE_THRESHOLD:
-        return
-    
-    catalog = "\n".join(
-        f"## {f['filename']}\nname: {f['name']}\ndescription: {f['description']}\n{f['body']}"
-        for f in files
-    )
-
-    prompt = (
-        "Consolidate the following memory files. Rules:\n"
-        "1. Merge duplicates into one\n"
-        "2. Remove outdated/contradicted memories\n"
-        "3. Keep the total under 30 memories\n"
-        "4. Preserve important user preferences above all\n"
-        "Return a JSON array. Each item: {name, type, description, body}.\n\n"
-        f"{catalog[:16000]}"
-    )
-
-    try:
-        response = client.messages.create(
-            model = MODEL, messages = [{"role": "user", "content": prompt}], max_tokens = 3000,
-        )
-        text = extract_text(response.content).strip()
-        match = re.search(r'\[.*\]', text, re.DOTALL)
-        if not match:
-            return
-        items = json.loads(match.group())
-        
-        for f in MEMORY_DIR.glob("*.md"):
-            if f.name != "MEMORY.md":
-                f.unlink()
-
-        for mem in items:
-            name = mem.get("name",f"memory_{int(time.time())}")
-            mem_type = mem.get("type","user")
-            desc = mem.get("description","")
-            body = mem.get("body","")
-            if desc and body:
-                write_memory_file(name, mem_type, desc, body)
-
-        print(f"\n\033[33m[Memory: consolidated {len(files)} → {len(items)} memories]\033[0m")
-    except Exception:
-        pass
-
-def find_latest_text_user_message(messages: list) -> int | None:
-      for i in range(len(messages) - 1, -1, -1):
-          msg = messages[i]
-          if msg.get("role") != "user":
-              continue
-
-          content = msg.get("content")
-          if not isinstance(content, str) or not content.strip():
-              continue
-
-          if content.strip().startswith("<reminder>"):
-              continue
-
-          return i
-
-      return None
-
-def build_request_messages_with_memories(messages:list):
-    memories = load_memories(messages)
-    if not memories:
-        return messages
-
-    target = find_latest_text_user_message(messages)
-    if target is None:
-        return messages
-
-    request_messages = messages.copy()
-    request_messages[target] = {
-        **messages[target],
-        "content": messages[target]["content"] + "\n\n" + memories,
-    }
-    return request_messages
-
-#==================== TODO SYSTEM ====================
+#==================== TODO, SKILL, AND MEMORY WIRING ====================
 def format_current_todos() -> str:
-    if not CURRENT_TODOS:
-        return ""
-    return "\n".join(
-        f"- [{t['status']}] {t['content']}"
-        for t in CURRENT_TODOS
-    )
-
-#==================== SKILL LOADING ====================
-def _parse_skill_frontmatter(text:str) -> dict:
-    """Parse YAML frontmatter from SKILL.md. Returns (meta, body)."""
-    if not text.startswith("---"):
-        return {}, text
-    parts = text.split("---", 2)
-    if len(parts) < 3: return {}, text
-    try:
-        meta = yaml.safe_load(parts[1])
-    except yaml.YAMLError:
-        meta = {}
-    return meta, parts[2].strip()
-
-SKILL_REGISTRY:dict[str, dict] = {}
-
-def _scan_skills():
-    if not SKILLS_DIR.exists():
-        return
-    for d in sorted(SKILLS_DIR.iterdir()):
-        if not d.is_dir():
-            continue
-        manifest = d / "SKILL.md"
-        if manifest.exists():
-            raw = manifest.read_text()
-            meta, body = _parse_skill_frontmatter(raw)
-            name = meta.get("name", d.name)
-            desc = meta.get("description", raw.split("\n")[0].lstrip("#").strip())
-            SKILL_REGISTRY[d.name] = {"name": name, "description": desc, "content": raw}
-
-_scan_skills()
+    global CURRENT_TODOS
+    if CURRENT_TODOS is not SESSION_STATE.todos:
+        SESSION_STATE.todos = CURRENT_TODOS
+    return todos_feature.format_current_todos(SESSION_STATE)
 
 def list_skills() -> str:
-    if not SKILL_REGISTRY:
-        return "(no skills found)"
-    return "\n".join(f"- **{s['name']}**: {s['description']}" for s in SKILL_REGISTRY.values())
+    return skills_feature.list_skills(SKILL_STATE)
+
+def load_memories(messages):
+    return memory_feature.load_memories(MEMORY_STORE, messages, memory_summarize)
+
+def extract_memories(messages):
+    return memory_feature.extract_memories(MEMORY_STORE, messages, memory_summarize)
+
+def consolidate_memories():
+    return memory_feature.consolidate_memories(MEMORY_STORE, memory_summarize)
+
+def build_request_messages_with_memories(messages):
+    return memory_feature.build_request_messages_with_memories(
+        MEMORY_STORE, messages, memory_summarize
+    )
+
+skills_feature.scan_skills(SKILL_STATE)
 
 
 #==================== TOOL SYSTEM ====================
@@ -1821,45 +1527,16 @@ def run_glob(pattern:str, cwd: str | Path | None = None) -> str:
     except Exception as e:
         return f"Error: {e}"
     
-def _normalize_todos(todos):
-    if isinstance(todos,str):
-        try:
-            todos = json.loads(todos)
-        except json.JSONDecodeError:
-            try:
-                todos = ast.literal_eval(todos)
-            except (SyntaxError, ValueError):
-                return None, "Error: todos must be a list or JSON array string"
-    if not isinstance(todos,list):
-        return None, "Error: todos must be a list"
-    for i, t in enumerate(todos):
-        if not isinstance(t, dict):
-            return None, f"Error: todos[{i}] must be an object"
-        if "content" not in t or "status" not in t:
-            return None, f"Error: todos[{i}] missing 'content' or 'status'"
-        if t["status"] not in ("pending", "in_progress", "completed"):
-            return None, f"Error: todos[{i}] has invalid status '{t['status']}'"
-    return todos, None
-
 def run_todo_write(todos:list) -> str:
     global CURRENT_TODOS
-    todos, error = _normalize_todos(todos)
-    if error:
-        return error
-    CURRENT_TODOS = todos
-    lines = ["\n\033[33m## Current Tasks\033[0m"]
-    for t in CURRENT_TODOS:
-        icon = {"pending": " ", "in_progress": "\033[36m▸\033[0m", "completed": "\033[32m✓\033[0m"}[t["status"]]
-        #print(t, icon)
-        lines.append(f"  [{icon}] {t['content']}")
-    print("\n".join(lines))
-    return f"Updated {len(CURRENT_TODOS)} tasks"
+    if CURRENT_TODOS is not SESSION_STATE.todos:
+        SESSION_STATE.todos = CURRENT_TODOS
+    result = todos_feature.run_todo_write(SESSION_STATE, todos)
+    CURRENT_TODOS = SESSION_STATE.todos
+    return result
 
 def load_skill(name:str) -> str:
-    skill = SKILL_REGISTRY.get(name)
-    if not skill:
-        return f"Skill not found: {name}"
-    return skill["content"]
+    return skills_feature.load_skill(SKILL_STATE, name)
 
 def run_create_task(subject: str, description: str = "", blockedBy: list[str] | None = None) -> str:
     task = create_task(subject, description,blockedBy)
@@ -2430,11 +2107,8 @@ def get_system_prompt(context:dict) -> str:
 
 def update_context(context:dict,messages:list, tools: list[dict] | None = None) -> dict:
     memories = ""
-    if MEMORY_INDEX.exists():
-        content = MEMORY_INDEX.read_text().strip()
-        if content:
-            memories = content
-    skills = list_skills() if SKILL_REGISTRY else ""
+    memories = memory_feature.read_memory_index(MEMORY_STORE)
+    skills = list_skills() if SKILL_STATE.registry else ""
 
     if tools is None:
         tools, _ = assemble_tool_pool()

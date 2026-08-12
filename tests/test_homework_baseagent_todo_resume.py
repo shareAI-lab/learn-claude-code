@@ -6,6 +6,9 @@ from pathlib import Path
 
 import pytest
 
+from homework.agent_app.features.todos import run_todo_write
+from homework.agent_app.runtime import SessionState
+
 
 BASE_AGENT = (
     Path(__file__).resolve().parents[1]
@@ -44,6 +47,28 @@ def load_baseagent(monkeypatch):
 @pytest.fixture
 def baseagent(monkeypatch):
     return load_baseagent(monkeypatch)
+
+
+def test_todo_update_is_session_owned():
+    session = SessionState()
+
+    result = run_todo_write(
+        session,
+        [{"content": "inspect", "status": "in_progress"}],
+    )
+
+    assert result == "Updated 1 tasks"
+    assert session.todos == [{"content": "inspect", "status": "in_progress"}]
+
+
+def test_legacy_todo_alias_shares_session_state(baseagent):
+    assert baseagent["CURRENT_TODOS"] is baseagent["SESSION_STATE"].todos
+
+    baseagent["run_todo_write"]([
+        {"content": "inspect", "status": "in_progress"},
+    ])
+
+    assert baseagent["CURRENT_TODOS"] is baseagent["SESSION_STATE"].todos
 
 
 def test_todo_persistence_and_resume_apis_are_removed(baseagent):
