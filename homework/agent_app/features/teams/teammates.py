@@ -188,6 +188,8 @@ def spawn_teammate_thread(
                             cwd = Path(worktree_context["path"]) if worktree_context["path"] else None
                             scoped_handler = lambda **input: handler(**input, cwd=cwd)
                             output, is_error = guarded_tool(name, block, deferred_inbox, scoped_handler, cwd)
+                            if not is_error:
+                                hooks.trigger("PostToolUse", block, output)
                         else:
                             if block.name in {"bash", "read_file", "write_file"}:
                                 cwd = Path(worktree_context["path"]) if worktree_context["path"] else None

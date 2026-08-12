@@ -219,7 +219,6 @@ def run_teammate_guarded_tool(
         return f"Permission denied: {reason}", True
 
     output = handler(**block.input)
-    trigger_hook("PostToolUse", block, output)
     return str(output), False
     
 

@@ -17,6 +17,8 @@ from homework.agent_app.features.teams.protocol import (
     process_permission_request,
 )
 from homework.agent_app.features.teams.teammates import TeamState
+from homework.agent_app.features.teams import teammates as teammate_runtime
+from homework.agent_app.tools.hooks import HookRegistry
 
 
 BASE_AGENT = (
@@ -64,6 +66,53 @@ def test_team_states_are_isolated():
     first.active["worker"] = {"status": "running"}
 
     assert second.active == {}
+
+
+def test_teammate_runtime_triggers_injected_post_hook_once_for_guarded_success(bus):
+    events = []
+    hooks = HookRegistry()
+    hooks.register("PostToolUse", lambda block, output: events.append((block, output)))
+    block = types.SimpleNamespace(
+        type="tool_use",
+        id="guarded-1",
+        name="bash",
+        input={"command": "echo guarded"},
+    )
+    responses = iter([
+        types.SimpleNamespace(stop_reason="tool_use", content=[block]),
+        text_response("done"),
+    ])
+
+    class ImmediateThread:
+        def __init__(self, *, target, daemon):
+            self.target = target
+            self.daemon = daemon
+
+        def start(self):
+            self.target()
+
+    teammate_runtime.spawn_teammate_thread(
+        TeamState(),
+        bus,
+        lambda **_kwargs: next(responses),
+        name="worker",
+        role="reviewer",
+        prompt="inspect",
+        workdir=Path.cwd(),
+        handlers={"bash": lambda command, cwd=None: "guarded output"},
+        hooks=hooks,
+        validate_name=lambda name, **_kwargs: name,
+        guarded_tools={"bash"},
+        guarded_tool=lambda _agent, used_block, _inbox, handler, _cwd: (
+            handler(**used_block.input),
+            False,
+        ),
+        idle=lambda *_args: "timeout",
+        max_tokens=100,
+        thread_factory=ImmediateThread,
+    )
+
+    assert events == [(block, "guarded output")]
 
 
 def test_protocol_matches_only_the_expected_response_type():
