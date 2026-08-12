@@ -1,6 +1,4 @@
 import pytest
-from pathlib import Path
-
 from homework.agent_app.tools.registry import ToolRegistry
 from homework.agent_app.tools import builtin as builtin_tools
 from homework.agent_app.features import mcp as mcp_feature
@@ -44,15 +42,33 @@ def test_compact_schema_omits_handler_from_snapshot():
     assert handlers == {}
 
 
-def test_baseagent_has_no_append_time_tool_registration():
-    source = (Path(__file__).parents[1] / "homework" / "BaseAgent.py").read_text()
+def test_owner_registrars_own_schemas_and_bind_feature_dependencies():
+    dependency_names = [
+        "bash", "read_file", "write_file", "edit_file", "glob", "load_skill",
+        "todo_write", "create_task", "list_tasks", "get_task", "claim_task",
+        "complete_task", "schedule_cron", "list_crons", "cancel_cron",
+        "spawn_teammate", "send_message", "check_inbox", "request_shutdown",
+        "request_plan", "review_plan", "create_worktree", "remove_worktree",
+        "keep_worktree", "task",
+    ]
+    dependencies = {
+        name: (lambda name=name, **_kwargs: name) for name in dependency_names
+    }
+    registry = ToolRegistry()
 
-    assert "BUILTIN_TOOLS.append(" not in source
-    assert "BUILTIN_HANDLERS[\"task\"] =" not in source
+    builtin_tools.register_builtin_tools(registry, dependencies)
+    todos_feature.register_todo_tools(registry, dependencies)
+    tasks_feature.register_task_tools(registry, dependencies)
+    scheduler_feature.register_scheduler_tools(registry, dependencies, object())
+    teammate_runtime.register_team_tools(registry, dependencies)
+    worktrees_feature.register_worktree_tools(registry, dependencies, object())
+    subagent_runtime.register_subagent_tool(registry, dependencies)
+    mcp_state = mcp_feature.MCPState()
+    mcp_feature.register_mcp_connection_tool(registry, mcp_state)
 
-
-def test_owner_registrars_build_the_builtin_registry():
-    names = [
+    tools, registered_handlers = registry.snapshot()
+    names = [tool["name"] for tool in tools]
+    assert names == [
         "bash", "read_file", "write_file", "edit_file", "glob", "load_skill",
         "compact", "todo_write", "create_task", "list_tasks", "get_task",
         "claim_task", "complete_task", "schedule_cron", "list_crons",
@@ -60,36 +76,34 @@ def test_owner_registrars_build_the_builtin_registry():
         "request_shutdown", "request_plan", "review_plan", "create_worktree",
         "remove_worktree", "keep_worktree", "task", "connect_mcp",
     ]
-    schemas = {name: tool_schema(name) for name in names}
-    handlers = {name: (lambda name=name: name) for name in names if name != "compact"}
-    registry = ToolRegistry()
-
-    builtin_tools.register_builtin_tools(registry, schemas, handlers)
-    todos_feature.register_todo_tools(registry, schemas, handlers)
-    tasks_feature.register_task_tools(registry, schemas, handlers)
-    scheduler_feature.register_scheduler_tools(registry, schemas, handlers)
-    teammate_runtime.register_team_tools(registry, schemas, handlers)
-    worktrees_feature.register_worktree_tools(registry, schemas, handlers)
-    subagent_runtime.register_subagent_tool(registry, schemas, handlers)
-    mcp_feature.register_mcp_connection_tool(registry, schemas, handlers)
-
-    tools, registered_handlers = registry.snapshot()
-    assert [tool["name"] for tool in tools] == names
     assert "compact" not in registered_handlers
+    for name in dependency_names:
+        assert registered_handlers[name] is dependencies[name]
+    assert registered_handlers["connect_mcp"]("missing") == (
+        "Unknown server 'missing'. Available: docs, deploy"
+    )
+    assert all(tool["description"] for tool in tools)
 
 
-def test_baseagent_wires_owner_registrars_without_static_task_extension():
-    source = (Path(__file__).parents[1] / "homework" / "BaseAgent.py").read_text()
+def test_mcp_collision_rolls_back_connection_and_snapshots_are_independent():
+    state = mcp_feature.MCPState()
+    registry = ToolRegistry()
+    registry.register(tool_schema("mcp__docs__search"), lambda: "builtin")
 
-    for call in (
-        "builtin_tools.register_builtin_tools(",
-        "todos_feature.register_todo_tools(",
-        "tasks_feature.register_task_tools(",
-        "scheduler_feature.register_scheduler_tools(",
-        "teammate_runtime.register_team_tools(",
-        "worktrees_feature.register_worktree_tools(",
-        "subagent_runtime.register_subagent_tool(",
-        "mcp_feature.register_mcp_connection_tool(",
-    ):
-        assert call in source
-    assert "[*BUILTIN_TOOLS" not in source
+    result = mcp_feature.connect_mcp(state, "docs", registry.snapshot)
+
+    assert result.startswith("Error connecting")
+    assert state.clients == {}
+
+    client = mcp_feature._mock_server_docs()
+    client.tools[0]["inputSchema"]["properties"]["query"]["nested"] = {"value": 1}
+    client.tools[0]["annotations"] = {"readOnly": True, "destructiveHint": True}
+    state.clients["docs"] = client
+    tools, _ = mcp_feature.snapshot_mcp_tools(state, [], {})
+    schema = next(tool["input_schema"] for tool in tools if tool["name"] == "mcp__docs__search")
+    client.tools[0]["inputSchema"]["properties"]["query"]["nested"]["value"] = 2
+
+    assert schema["properties"]["query"]["nested"]["value"] == 1
+    metadata = state.metadata["mcp__docs__search"]
+    assert metadata["readOnly"] is True
+    assert metadata["destructive"] is True

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Callable
 
 
@@ -23,9 +24,14 @@ TASK_TOOL_SCHEMA = {
 }
 
 
-def register_subagent_tool(registry, schemas: dict, handlers: dict) -> None:
+def register_subagent_tool(registry, subagent_dependencies) -> None:
     """Register the non-recursive synchronous subagent tool."""
-    registry.register(schemas["task"], handlers.get("task"))
+    handler = (
+        subagent_dependencies["task"]
+        if isinstance(subagent_dependencies, Mapping)
+        else subagent_dependencies
+    )
+    registry.register(TASK_TOOL_SCHEMA, handler)
 
 
 def extract_text(content) -> str:

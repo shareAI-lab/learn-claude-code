@@ -2,7 +2,7 @@ import json
 import re
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -12,10 +12,43 @@ from homework.agent_app.features.tasks import TaskStore, _save_task_unlocked, lo
 VALID_WT_NAME = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
-def register_worktree_tools(registry, schemas: dict, handlers: dict) -> None:
+WORKTREE_TOOL_SCHEMAS = [
+    {"name": "create_worktree",
+     "description": "Create an isolated git worktree with its own branch.",
+     "input_schema": {"type": "object",
+                      "properties": {"name": {"type": "string"},
+                                     "task_id": {"type": "string"}},
+                      "required": ["name"]}},
+    {"name": "remove_worktree",
+     "description": "Remove a worktree. Refuses if uncommitted changes unless discard_changes=true.",
+     "input_schema": {"type": "object",
+                      "properties": {"name": {"type": "string"},
+                                     "discard_changes": {"type": "boolean"}},
+                      "required": ["name"]}},
+    {"name": "keep_worktree",
+     "description": "Keep a worktree for manual review.",
+     "input_schema": {"type": "object",
+                      "properties": {"name": {"type": "string"}},
+                      "required": ["name"]}},
+]
+
+
+def register_worktree_tools(registry, worktree_state, task_store) -> None:
     """Register worktree lifecycle tools."""
-    for name in ("create_worktree", "remove_worktree", "keep_worktree"):
-        registry.register(schemas[name], handlers.get(name))
+    if isinstance(worktree_state, Mapping):
+        handlers = worktree_state
+    else:
+        handlers = {
+            "create_worktree": lambda name, task_id="": create_worktree(
+                worktree_state, name, task_id, task_store
+            ),
+            "remove_worktree": lambda name, discard_changes=False: remove_worktree(
+                worktree_state, name, discard_changes
+            ),
+            "keep_worktree": lambda name: keep_worktree(worktree_state, name),
+        }
+    for schema in WORKTREE_TOOL_SCHEMAS:
+        registry.register(schema, handlers[schema["name"]])
 
 
 @dataclass(slots=True)

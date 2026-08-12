@@ -2,6 +2,7 @@ import json
 import re
 import threading
 import uuid
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -9,12 +10,85 @@ from pathlib import Path
 TASK_ID_PATTERN = re.compile(r"^task_[A-Za-z0-9_-]+$")
 
 
-def register_task_tools(registry, schemas: dict, handlers: dict) -> None:
+TASK_TOOL_SCHEMAS = [
+    {"name": "create_task", "description": "Create a new task with optinal blockedBy dependencies.",
+     "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}, "description": {"type": "string"}, "blockedBy": {"type": "array", "items": {"type": "string"}}}, "required": ["subject"]}},
+    {"name": "list_tasks",
+     "description": "List all tasks with status, owner, and denpendencies.",
+     "input_schema": {"type": "object", "properties": {},
+                      "required": []}},
+    {"name": "get_task",
+     "description": "Get full details of a specific task by ID.",
+     "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}},
+                      "required": ["task_id"]}},
+    {"name": "claim_task",
+     "description": "Claim a pending task. Sets owner, changes status to in_progress.",
+     "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}},
+                      "required": ["task_id"]}},
+    {"name": "complete_task",
+     "description": "Complete an in-progress task. Reports unblocked downstream tasks.",
+     "input_schema": {"type": "object",
+                      "properties": {"task_id": {"type": "string"}},
+                      "required": ["task_id"]}},
+]
+
+
+def register_task_tools(registry, task_store) -> None:
     """Register task-board tools using the supplied task-store handlers."""
-    for name in (
-        "create_task", "list_tasks", "get_task", "claim_task", "complete_task",
-    ):
-        registry.register(schemas[name], handlers.get(name))
+    if isinstance(task_store, Mapping):
+        handlers = task_store
+    else:
+        handlers = {
+            "create_task": lambda **kwargs: _run_create_task_tool(
+                task_store, **kwargs
+            ),
+            "list_tasks": lambda: _run_list_tasks_tool(task_store),
+            "get_task": lambda task_id: _run_task_operation(
+                task_store, "read", task_id, get_task
+            ),
+            "claim_task": lambda task_id: _run_task_operation(
+                task_store, "claim", task_id, claim_task
+            ),
+            "complete_task": lambda task_id: _run_task_operation(
+                task_store, "complete", task_id, complete_task
+            ),
+        }
+    for schema in TASK_TOOL_SCHEMAS:
+        registry.register(schema, handlers[schema["name"]])
+
+
+def _run_create_task_tool(
+    store, subject: str, description: str = "", blockedBy: list[str] | None = None
+) -> str:
+    task = create_task(store, subject, description, blockedBy)
+    dependencies = f" (blocked by: {', '.join(blockedBy)})" if blockedBy else ""
+    print(f"  \033[34m[create] {task.subject}{dependencies}\033[0m")
+    return f"Created {task.id}: {task.subject}{dependencies}"
+
+
+def _run_list_tasks_tool(store) -> str:
+    stored_tasks = list_tasks(store)
+    if not stored_tasks:
+        return "No tasks. Use create_task to add some."
+    lines = []
+    for task in stored_tasks:
+        icon = {"pending": "○", "in_progress": "●", "completed": "✓"}.get(
+            task.status, "?"
+        )
+        dependencies = f" (blocked by: {', '.join(task.blockedBy)})"
+        owner = f"[{task.owner}]" if task.owner else ""
+        lines.append(
+            f"  {icon} {task.id}: {task.subject} "
+            f"[{task.status}]{owner}{dependencies}"
+        )
+    return "\n".join(lines)
+
+
+def _run_task_operation(store, operation: str, task_id: str, callback) -> str:
+    try:
+        return callback(store, task_id)
+    except (OSError, ValueError, TypeError) as exc:
+        return f"Error: cannot {operation} task {task_id}: {exc}"
 
 
 @dataclass

@@ -1,16 +1,75 @@
 import json
 import random
 import threading
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
 from homework.agent_app.config import AppConfig
 
 
-def register_scheduler_tools(registry, schemas: dict, handlers: dict) -> None:
+SCHEDULER_TOOL_SCHEMAS = [
+    {"name": "schedule_cron",
+     "description": "Schedule a cron job. cron is 5-field: min hour dom month dow.",
+     "input_schema": {"type": "object",
+                      "properties": {
+                          "cron": {"type": "string",
+                                   "description": "5-field cron expression"},
+                          "prompt": {"type": "string",
+                                     "description": "Message to inject when fired"},
+                          "recurring": {"type": "boolean",
+                                        "description": "True=recurring, False=one-shot"},
+                          "durable": {"type": "boolean",
+                                      "description": "True=persist to disk"}},
+                      "required": ["cron", "prompt"]}},
+    {"name": "list_crons",
+     "description": "List all registered cron jobs.",
+     "input_schema": {"type": "object", "properties": {},
+                      "required": []}},
+    {"name": "cancel_cron",
+     "description": "Cancel a cron job by ID.",
+     "input_schema": {"type": "object",
+                      "properties": {"job_id": {"type": "string"}},
+                      "required": ["job_id"]}},
+]
+
+
+def register_scheduler_tools(registry, scheduler_state, config) -> None:
     """Register cron tools using the supplied scheduler handlers."""
-    for name in ("schedule_cron", "list_crons", "cancel_cron"):
-        registry.register(schemas[name], handlers.get(name))
+    if isinstance(scheduler_state, Mapping):
+        handlers = scheduler_state
+    else:
+        def run_schedule(cron, prompt, recurring=True, durable=True):
+            result = schedule_job(
+                scheduler_state, config, cron, prompt, recurring, durable
+            )
+            if isinstance(result, str):
+                return f"Error: {result}"
+            return f"Scheduled {result.id}: '{cron}' → '{prompt}'"
+
+        def run_list():
+            jobs = list_jobs(scheduler_state)
+            if not jobs:
+                return "No cron jobs. Use schedule_cron to add one."
+            lines = []
+            for job in jobs:
+                tag = "recurring" if job.recurring else "one-shot"
+                durability = "durable" if job.durable else "session"
+                lines.append(
+                    f"  {job.id}: '{job.cron}' → {job.prompt[:40]} "
+                    f"[{tag}, {durability}]"
+                )
+            return "\n".join(lines)
+
+        handlers = {
+            "schedule_cron": run_schedule,
+            "list_crons": run_list,
+            "cancel_cron": lambda job_id: cancel_job(
+                scheduler_state, config, job_id
+            ),
+        }
+    for schema in SCHEDULER_TOOL_SCHEMAS:
+        registry.register(schema, handlers[schema["name"]])
 
 
 @dataclass

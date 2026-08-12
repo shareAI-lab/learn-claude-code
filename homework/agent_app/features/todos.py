@@ -1,12 +1,24 @@
 import ast
 import json
+from collections.abc import Mapping
 
 from homework.agent_app.runtime import SessionState
 
 
-def register_todo_tools(registry, schemas: dict, handlers: dict) -> None:
+TODO_TOOL_SCHEMA = {
+    "name": "todo_write",
+    "description": "Create and manage a task list for your current coding session.",
+    "input_schema": {"type": "object", "properties": {"todos": {"type": "array", "items": {"type": "object", "properties": {"content": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}, "required": ["content", "status"]}}}, "required": ["todos"]},
+}
+
+
+def register_todo_tools(registry, session) -> None:
     """Register the session todo tool."""
-    registry.register(schemas["todo_write"], handlers.get("todo_write"))
+    if isinstance(session, Mapping):
+        handler = session["todo_write"]
+    else:
+        handler = lambda todos: run_todo_write(session, todos)
+    registry.register(TODO_TOOL_SCHEMA, handler)
 
 
 def _normalize_todos(todos):

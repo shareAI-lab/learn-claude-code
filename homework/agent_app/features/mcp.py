@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import threading
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -35,9 +36,21 @@ class MCPState:
     lock: threading.RLock = field(default_factory=threading.RLock)
 
 
-def register_mcp_connection_tool(registry, schemas: dict, handlers: dict) -> None:
+MCP_CONNECTION_TOOL_SCHEMA = {
+    "name": "connect_mcp",
+    "description": "Connect to an MCP server (docs, deploy) and discover tools.",
+    "input_schema": {"type": "object",
+                     "properties": {"name": {"type": "string"}},
+                     "required": ["name"]},
+}
+
+
+def register_mcp_connection_tool(registry, mcp_state) -> None:
     """Register the explicit MCP connection entry point, not discovered tools."""
-    registry.register(schemas["connect_mcp"], handlers.get("connect_mcp"))
+    registry.register(
+        MCP_CONNECTION_TOOL_SCHEMA,
+        lambda name: connect_mcp(mcp_state, name, registry.snapshot),
+    )
 
 
 _DISALLOWED_CHARS = re.compile(r"[^a-zA-Z0-9_-]")
@@ -75,15 +88,22 @@ def _mock_server_deploy() -> MCPClient:
 MOCK_SERVERS = {"docs": _mock_server_docs, "deploy": _mock_server_deploy}
 
 
-def connect_mcp(state: MCPState, name: str) -> str:
+def connect_mcp(state: MCPState, name: str, builtin_snapshot=None) -> str:
     factory = MOCK_SERVERS.get(name)
     if not factory:
         return f"Unknown server '{name}'. Available: {', '.join(MOCK_SERVERS)}"
     with state.lock:
         if name in state.clients:
             return f"MCP server '{name}' already connected"
-        state.clients[name] = factory()
-    tools = [tool["name"] for tool in state.clients[name].tools]
+        client = factory()
+        state.clients[name] = client
+        if builtin_snapshot:
+            try:
+                snapshot_mcp_tools(state, *builtin_snapshot())
+            except ValueError as exc:
+                state.clients.pop(name, None)
+                return f"Error connecting to MCP server '{name}': {exc}"
+    tools = [tool["name"] for tool in client.tools]
     print(f"  \033[31m[mcp] connected: {name} → {tools}\033[0m")
     return f"Connected to MCP server '{name}'. Discovered {len(tools)} tools: {', '.join(tools)}"
 
@@ -91,7 +111,7 @@ def connect_mcp(state: MCPState, name: str) -> str:
 def snapshot_mcp_tools(
     state: MCPState, builtin_tools: list[dict], builtin_handlers: dict[str, Callable]
 ) -> tuple[list[dict], dict[str, Callable]]:
-    tools = list(builtin_tools)
+    tools = deepcopy(builtin_tools)
     handlers = dict(builtin_handlers)
     metadata: dict[str, dict] = {}
     with state.lock:
@@ -102,11 +122,20 @@ def snapshot_mcp_tools(
             prefixed = f"mcp__{normalize_mcp_name(server_name)}__{normalize_mcp_name(original_name)}"
             if prefixed in handlers or any(tool["name"] == prefixed for tool in tools):
                 raise ValueError(f"Duplicate MCP tool name: {prefixed}")
-            schema = dict(tool_def.get("inputSchema", {"type": "object", "properties": {}}))
+            schema = deepcopy(tool_def.get("inputSchema", {"type": "object", "properties": {}}))
             tools.append({"name": prefixed, "description": tool_def.get("description", ""), "input_schema": schema})
             handlers[prefixed] = lambda _client=client, _name=original_name, **kwargs: _client.call_tool(_name, kwargs)
             annotations = tool_def.get("annotations", {})
-            metadata[prefixed] = {"server": server_name, "original_name": original_name, "destructive": annotations.get("destructive", False)}
+            metadata[prefixed] = {
+                "server": server_name,
+                "original_name": original_name,
+                "readOnly": bool(annotations.get("readOnly", False)),
+                "destructive": bool(
+                    annotations.get(
+                        "destructive", annotations.get("destructiveHint", False)
+                    )
+                ),
+            }
     with state.lock:
         state.metadata.clear()
         state.metadata.update(metadata)

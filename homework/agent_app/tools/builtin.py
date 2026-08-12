@@ -11,15 +11,36 @@ import subprocess
 from pathlib import Path
 
 
-def register_builtin_tools(
-    registry, schemas: dict, handlers: dict, names: tuple[str, ...] | None = None
-) -> None:
-    """Register the file and skill tools owned by this module."""
-    for name in names or (
-        "bash", "read_file", "write_file", "edit_file", "glob",
-        "load_skill", "compact",
-    ):
-        registry.register(schemas[name], handlers.get(name))
+BUILTIN_TOOL_SCHEMAS = [
+    {"name": "bash",
+     "description": "Run a shell command.",
+     "input_schema": {"type": "object",
+                      "properties": {"command": {"type": "string"}, "run_in_background": {"type": "boolean","description": "Run this command asynchronously"}},
+                      "required": ["command"]}},
+    {"name": "read_file", "description": "Read file contents.",
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "offset": {"type": "integer", "minimum": 0}, "limit": {"type": "integer", "minimum": 1, "maximum": 1000}}, "required": ["path"]}},
+    {"name": "write_file", "description": "Write content to a file.",
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
+    {"name": "edit_file", "description": "Replace exact text in a file once.",
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
+    {"name": "glob", "description": "Find files matching a glob pattern.",
+     "input_schema": {"type": "object", "properties": {"pattern": {"type": "string"}}, "required": ["pattern"]}},
+    {"name": "load_skill", "description": "Load the content of a skill by name.",
+     "input_schema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}},
+    {"name": "compact",
+     "description": "Summarize earlier conversation and continue with compacted context.",
+     "input_schema": {"type": "object",
+                      "properties": {"focus": {"type": "string"}},
+                      "required": []}},
+]
+
+
+def register_builtin_tools(registry, builtin_dependencies) -> None:
+    """Register builtins with callbacks supplied by the composition root."""
+    for schema in BUILTIN_TOOL_SCHEMAS:
+        name = schema["name"]
+        handler = None if name == "compact" else builtin_dependencies[name]
+        registry.register(schema, handler)
 
 
 def resolve_tool_cwd(workdir: Path, cwd: str | Path | None = None) -> Path:

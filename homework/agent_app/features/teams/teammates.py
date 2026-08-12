@@ -30,15 +30,51 @@ TEAM_TOOLS = [
 ]
 
 
-def register_team_tools(
-    registry, schemas: dict, handlers: dict, names: tuple[str, ...] | None = None
-) -> None:
+LEAD_TEAM_TOOL_SCHEMAS = [
+    {"name": "spawn_teammate",
+     "description": "Spawn a teammate agent in a background thread.",
+     "input_schema": {"type": "object",
+                      "properties": {
+                          "name": {"type": "string"},
+                          "role": {"type": "string"},
+                          "prompt": {"type": "string"}},
+                      "required": ["name", "role", "prompt"]}},
+    {"name": "send_message",
+     "description": "Send a message to a teammate via MessageBus.",
+     "input_schema": {"type": "object",
+                      "properties": {"to": {"type": "string"},
+                                     "content": {"type": "string"}},
+                      "required": ["to", "content"]}},
+    {"name": "check_inbox",
+     "description": "Check Lead's inbox for teammate messages.",
+     "input_schema": {"type": "object", "properties": {},
+                      "required": []}},
+    {"name": "request_shutdown",
+     "description": "Request a teammate to shut down gracefully.",
+     "input_schema": {"type": "object",
+                      "properties": {"teammate": {"type": "string"}},
+                      "required": ["teammate"]}},
+    {"name": "request_plan",
+     "description": "Ask a teammate to submit a plan for review.",
+     "input_schema": {"type": "object",
+                      "properties": {"teammate": {"type": "string"},
+                                     "task": {"type": "string"}},
+                      "required": ["teammate", "task"]}},
+    {"name": "review_plan",
+     "description": "Approve or reject a submitted plan by request_id.",
+     "input_schema": {"type": "object",
+                      "properties": {
+                          "request_id": {"type": "string"},
+                          "approve": {"type": "boolean"},
+                          "feedback": {"type": "string"}},
+                      "required": ["request_id", "approve"]}},
+]
+
+
+def register_team_tools(registry, team_dependencies) -> None:
     """Register lead-team messaging and protocol tools."""
-    for name in names or (
-        "spawn_teammate", "send_message", "check_inbox", "request_shutdown",
-        "request_plan", "review_plan",
-    ):
-        registry.register(schemas[name], handlers.get(name))
+    for schema in LEAD_TEAM_TOOL_SCHEMAS:
+        registry.register(schema, team_dependencies[schema["name"]])
 
 
 @dataclass(slots=True)

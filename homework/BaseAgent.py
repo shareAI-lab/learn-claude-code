@@ -413,7 +413,7 @@ mcp_lock = MCP_STATE.lock
 MCP_TOOL_METADATA = MCP_STATE.metadata
 
 def connect_mcp(name: str) -> str:
-    return mcp_feature.connect_mcp(MCP_STATE, name)
+    return mcp_feature.connect_mcp(MCP_STATE, name, TOOL_REGISTRY.snapshot)
 
 def assemble_tool_pool() -> tuple[list[dict], dict]:
     return mcp_feature.snapshot_mcp_tools(MCP_STATE, *TOOL_REGISTRY.snapshot())
@@ -605,159 +605,6 @@ def run_keep_worktree(name: str) -> str:
 def run_connect_mcp(name: str) -> str:
     return connect_mcp(name)
 
-BUILTIN_TOOLS = [
-    {"name": "bash", 
-     "description": "Run a shell command.",
-     "input_schema": {"type": "object", 
-                      "properties": {"command": {"type": "string"}, "run_in_background": {"type": "boolean","description": "Run this command asynchronously"}}, 
-                      "required": ["command"]}},
-    {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "offset": {"type": "integer", "minimum": 0}, "limit": {"type": "integer", "minimum": 1, "maximum": 1000}}, "required": ["path"]}},
-    {"name": "write_file", "description": "Write content to a file.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
-    {"name": "edit_file", "description": "Replace exact text in a file once.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
-    {"name": "glob", "description": "Find files matching a glob pattern.",
-     "input_schema": {"type": "object", "properties": {"pattern": {"type": "string"}}, "required": ["pattern"]}},
-    {"name": "todo_write", "description": "Create and manage a task list for your current coding session.",
-     "input_schema": {"type": "object", "properties": {"todos": {"type": "array", "items": {"type": "object", "properties": {"content": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}, "required": ["content", "status"]}}}, "required": ["todos"]}},
-    {"name": "load_skill", "description": "Load the content of a skill by name.",
-     "input_schema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}},
-    {"name": "compact",
-     "description": "Summarize earlier conversation and continue with compacted context.",
-     "input_schema": {"type": "object",
-                      "properties": {"focus": {"type": "string"}},
-                      "required": []}},
-    {"name": "create_task", "description": "Create a new task with optinal blockedBy dependencies.",
-     "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}, "description": {"type": "string"}, "blockedBy": {"type": "array", "items": {"type": "string"}}}, "required": ["subject"]}},
-    {"name": "list_tasks", 
-     "description": "List all tasks with status, owner, and denpendencies.",
-     "input_schema": {"type": "object", "properties": {},
-                      "required": []}},
-    {"name": "get_task",
-     "description": "Get full details of a specific task by ID.",
-     "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}},
-                      "required": ["task_id"]}},
-    {"name": "claim_task",
-     "description": "Claim a pending task. Sets owner, changes status to in_progress.",
-     "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}},
-                      "required": ["task_id"]}},
-    {"name": "complete_task",
-     "description": "Complete an in-progress task. Reports unblocked downstream tasks.",
-     "input_schema": {"type": "object",
-                      "properties": {"task_id": {"type": "string"}},
-                      "required": ["task_id"]}},
-    {"name": "spawn_teammate",
-     "description": "Spawn a teammate agent in a background thread.",
-     "input_schema": {"type": "object",
-                      "properties": {
-                          "name": {"type": "string"},
-                          "role": {"type": "string"},
-                          "prompt": {"type": "string"}},
-                      "required": ["name", "role", "prompt"]}},
-    {"name": "send_message",
-     "description": "Send a message to a teammate via MessageBus.",
-     "input_schema": {"type": "object",
-                      "properties": {"to": {"type": "string"},
-                                     "content": {"type": "string"}},
-                      "required": ["to", "content"]}},
-    {"name": "check_inbox",
-     "description": "Check Lead's inbox for teammate messages.",
-     "input_schema": {"type": "object", "properties": {},
-                      "required": []}},
-    {"name": "schedule_cron",
-         "description": "Schedule a cron job. cron is 5-field: min hour dom month dow.",
-         "input_schema": {"type": "object",
-                          "properties": {
-                              "cron": {"type": "string",
-                                       "description": "5-field cron expression"},
-                              "prompt": {"type": "string",
-                                         "description": "Message to inject when fired"},
-                              "recurring": {"type": "boolean",
-                                            "description": "True=recurring, False=one-shot"},
-                              "durable": {"type": "boolean",
-                                          "description": "True=persist to disk"}},
-                          "required": ["cron", "prompt"]}},
-        {"name": "list_crons",
-         "description": "List all registered cron jobs.",
-         "input_schema": {"type": "object", "properties": {},
-                          "required": []}},
-        {"name": "cancel_cron",
-         "description": "Cancel a cron job by ID.",
-         "input_schema": {"type": "object",
-                          "properties": {"job_id": {"type": "string"}},
-                          "required": ["job_id"]}},
-        {"name": "request_shutdown",
-             "description": "Request a teammate to shut down gracefully.",
-             "input_schema": {"type": "object",
-                              "properties": {"teammate": {"type": "string"}},
-                              "required": ["teammate"]}},
-        {"name": "request_plan",
-            "description": "Ask a teammate to submit a plan for review.",
-            "input_schema": {"type": "object",
-                            "properties": {"teammate": {"type": "string"},
-                                            "task": {"type": "string"}},
-                            "required": ["teammate", "task"]}},
-        {"name": "review_plan",
-            "description": "Approve or reject a submitted plan by request_id.",
-            "input_schema": {"type": "object",
-                            "properties": {
-                                "request_id": {"type": "string"},
-                                "approve": {"type": "boolean"},
-                                "feedback": {"type": "string"}},
-                            "required": ["request_id", "approve"]}},
-        {"name": "create_worktree",
-             "description": "Create an isolated git worktree with its own branch.",
-             "input_schema": {"type": "object",
-                              "properties": {"name": {"type": "string"},
-                                             "task_id": {"type": "string"}},
-                              "required": ["name"]}},
-        {"name": "remove_worktree",
-            "description": "Remove a worktree. Refuses if uncommitted changes unless discard_changes=true.",
-            "input_schema": {"type": "object",
-                            "properties": {"name": {"type": "string"},
-                                            "discard_changes": {"type": "boolean"}},
-                            "required": ["name"]}},
-        {"name": "keep_worktree",
-            "description": "Keep a worktree for manual review.",
-            "input_schema": {"type": "object",
-                            "properties": {"name": {"type": "string"}},
-                            "required": ["name"]}},
-        {"name": "connect_mcp",
-             "description": "Connect to an MCP server (docs, deploy) and discover tools.",
-             "input_schema": {"type": "object",
-                              "properties": {"name": {"type": "string"}},
-                              "required": ["name"]}},
-]
-
-BUILTIN_HANDLERS = {
-    "bash":run_bash,
-    "read_file":run_read,
-    "write_file":run_write,
-    "edit_file":run_edit,
-    "glob":run_glob,
-    "todo_write":run_todo_write,
-    "load_skill":load_skill,
-    "create_task":run_create_task,
-    "list_tasks":run_list_tasks,
-    "get_task":run_get_task,
-    "claim_task":run_claim_task,
-    "complete_task":run_complete_task,
-    "spawn_teammate":run_spawn_teammate,
-    "send_message":run_send_message,
-    "check_inbox":run_check_inbox,
-    "schedule_cron":run_schedule_cron,
-    "list_crons":run_list_crons,
-    "cancel_cron":run_cancel_cron,
-    "request_shutdown": run_request_shutdown,
-    "request_plan": run_request_plan,
-    "review_plan": run_review_plan,
-    "create_worktree": run_create_worktree,
-    "remove_worktree": run_remove_worktree,
-    "keep_worktree": run_keep_worktree,
-    "connect_mcp": run_connect_mcp,
-}
-
 #==================== SUBAGENT SYSTEM ====================
 SUB_SYSTEM = (
     f"You are a coding agent at {WORKDIR}. "
@@ -814,55 +661,41 @@ def spawn_subagent(description: str) -> str:
     )
 
 TOOL_REGISTRY = ToolRegistry()
-_REGISTRATION_SCHEMAS = {
-    **{tool["name"]: tool for tool in BUILTIN_TOOLS},
-    "task": subagent_runtime.TASK_TOOL_SCHEMA,
-}
-_REGISTRATION_HANDLERS = {**BUILTIN_HANDLERS, "task": spawn_subagent}
 
-# Temporary composition root: owners register their own schemas and callbacks.
-builtin_tools.register_builtin_tools(
-    TOOL_REGISTRY,
-    _REGISTRATION_SCHEMAS,
-    _REGISTRATION_HANDLERS,
-    ("bash", "read_file", "write_file", "edit_file", "glob"),
-)
+# Temporary composition root: owners provide schemas; this file supplies dependencies.
+_BUILTIN_DEPENDENCIES = {
+    "bash": run_bash,
+    "read_file": run_read,
+    "write_file": run_write,
+    "edit_file": run_edit,
+    "glob": run_glob,
+    "load_skill": load_skill,
+}
+_TEAM_DEPENDENCIES = {
+    "spawn_teammate": run_spawn_teammate,
+    "send_message": run_send_message,
+    "check_inbox": run_check_inbox,
+    "request_shutdown": run_request_shutdown,
+    "request_plan": run_request_plan,
+    "review_plan": run_review_plan,
+}
+
+builtin_tools.register_builtin_tools(TOOL_REGISTRY, _BUILTIN_DEPENDENCIES)
 todos_feature.register_todo_tools(
-    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
+    TOOL_REGISTRY, {"state": SESSION_STATE, "todo_write": run_todo_write}
 )
-builtin_tools.register_builtin_tools(
-    TOOL_REGISTRY,
-    _REGISTRATION_SCHEMAS,
-    _REGISTRATION_HANDLERS,
-    ("load_skill", "compact"),
-)
-tasks_feature.register_task_tools(
-    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
-)
-teammate_runtime.register_team_tools(
-    TOOL_REGISTRY,
-    _REGISTRATION_SCHEMAS,
-    _REGISTRATION_HANDLERS,
-    ("spawn_teammate", "send_message", "check_inbox"),
-)
+tasks_feature.register_task_tools(TOOL_REGISTRY, TASK_STORE)
 scheduler_feature.register_scheduler_tools(
-    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
+    TOOL_REGISTRY, SCHEDULER_STATE, APP_CONFIG
 )
-teammate_runtime.register_team_tools(
-    TOOL_REGISTRY,
-    _REGISTRATION_SCHEMAS,
-    _REGISTRATION_HANDLERS,
-    ("request_shutdown", "request_plan", "review_plan"),
-)
+teammate_runtime.register_team_tools(TOOL_REGISTRY, _TEAM_DEPENDENCIES)
 worktrees_feature.register_worktree_tools(
-    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
-)
-mcp_feature.register_mcp_connection_tool(
-    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
+    TOOL_REGISTRY, WORKTREE_STATE, TASK_STORE
 )
 subagent_runtime.register_subagent_tool(
-    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
+    TOOL_REGISTRY, {"task": spawn_subagent}
 )
+mcp_feature.register_mcp_connection_tool(TOOL_REGISTRY, MCP_STATE)
 
 # Compatibility snapshots for existing callers; each loop uses TOOL_REGISTRY.
 BUILTIN_TOOLS, BUILTIN_HANDLERS = TOOL_REGISTRY.snapshot()
