@@ -6,62 +6,55 @@ s01 → ... → s14 → [s15](../s15_integrated_harness/) → `s16` → [s17](..
 
 > *「ターンごとのチャットは、10 秒ごとにシェフへメールするようなものです。Workflow は厨房が従えるレシピです。」*
 >
-> **Harness 層**: Orchestration — single-agent loop の上で multi-agent script を実行します。
+> **Harness 層**: Orchestration — single-agent loop の上に multi-agent script を載せます。
 >
-> モデルを信頼し、harness をエンジニアリングする。Workflow は orchestration 層での harness 設計です。
+> モデルを信頼し、harness をエンジニアリングする。Workflow は、その考えを orchestration の階へ運んだものです。
 
 ---
 
-友だちとチャットだけで料理している場面を想像してください。「玉ねぎを切って」と送り、返事を待ち、「できた？」、次は「フライパンを……」。一品ならまだよいです。二十卓の宴会では、チャット自体がボトルネックになります。手順を忘れ、同じ指示を繰り返し、スマホが落ちたら最初からやり直しです。
+友だちとチャットだけで料理しているところを想像してください。「玉ねぎを切って」。待つ。「できた？」。次はフライパン、塩。一品ならそのリズムでも持ちます。二十卓の宴会では持ちません。手順は抜け、同じ言葉が返り、スマホが落ちたら冷たいところからやり直しです。
 
-ふつうの「モデルが指揮者」な会話も同じです。**Workflow** は書かれたレシピです。厨房（runtime）がそれに従い、助手（subagent）が判断し、途中の器はカウンターに置かれます —— グループチャットの中ではありません。
+モデルがシェフとクリップボードを兼ねるときも、同じ感触です。計画と実行が一つの会話に押し込まれます。**Workflow** は書かれたレシピです。厨房（runtime）がそれに従い、助手（subagent）が味見と判断をし、仕掛かりの器はカウンターに置かれます。グループスレッドの中ではありません。
 
-## そもそも harness は何のため？
+## なぜ、もう一枚の harness が要るのか
 
-デフォルトの Claude Code harness は、コーディング型の仕事に強いです。直す、走らせる、エラーを読む、また試す —— すべて同じループの中です。
+デフォルトの Claude Code harness は、コーディング型の仕事にもう十分強いです。直す、走らせる、エラーを読む、また試す。一つのループ、一つの頭で、かなりの手業が出ます。
 
-ある種の仕事には、その上に**定制の harness** が要ります。深い調査、セキュリティ分析、agent teams、大規模な code review。SDK でその harness を先に手書きしてもよいです。あるいは —— ここが dynamic の発想ですが —— Claude に**このタスク用の harness をその場で書かせ**、走らせ、良いものを保存できます。
+ただ、形の違う仕事もあります。深い調査、セキュリティの洗い出し、agent teams、変更一式を広げて review するような仕事です。そういうとき、人は昔からその上に第二の harness を載せてきました。SDK で先に手書きしてもよい。あるいは——ここが生きているところですが——Claude に**このタスク用**の harness を書かせ、走らせ、良いものを残せます。
 
-コースのモットーを一段上げるとこうなります。各ステップの中ではモデルを信頼する。ステップ同士の構造はエンジニアリングで決める。
+コースのモットーを一階上げると、こうなります。各ステップの中ではモデルを信頼する。ステップの並びは、自分で形を決める。
 
-## 問題: ひとつの窓、三つの失敗
+## 長いチャットで見かける癖
 
-s01 から s15 まで、モデルは**同じ** context の中で計画と実行をします。直前の発見で次が決まるタスクには向いています。長く、大規模に並行し、硬い構造が要り、あるいは敵対的な検証が要る仕事では脆くなります。
+s01 から s15 まで、計画と行動は同じ context window を共有します。次の一手が直前の発見に依るときは、とても心地よいです。
 
-Claude Code の設計者は、その単一ウィンドウで起きやすい三つの失敗に名前を付けています。平たい言葉では:
+ところが仕事が長く、大規模に並行し、硬い構造を求め、あるいは疑り深い第二意見が要ると、脆くなります。長いチャットをじっと見ていると、見覚えのある癖に出会います。50 項目のうち 35 で勝利宣言をする。自分の宿題を採点させると甘くなる——狐が鶏小屋を採点する。多ターンと圧縮のあいだに、「X には触るな」という静かな制約が薄れて、なぜそれがそこにあったのか誰も覚えていない。
 
-| 失敗モード | どんな感じか |
-|------------|--------------|
-| **Agentic laziness（途中で切り上げ）** | 50 項目の review のうち 35 で「完了」と言う |
-| **Self-preferential bias（自己びいき）** | 自分の発見を自分で採点すると甘くなる —— 狐が鶏小屋を採点する |
-| **Goal drift（目標の漂流）** | もともとの「X には触るな」が多ターンと圧縮のあいだに薄れる |
+Claude Code の設計者は、これらを agentic laziness、self-preferential bias、goal drift と呼びます。名前より感触が大事です。仕事をする窓が、計画を覚える窓でもある。会話履歴は、並行性や安定した結果の形、落ちたあとの再開を預けるには柔らかい場所です。多くのファイルを review する、調査してから検証する、N 個のモジュールを同じやり方で移す——そうした仕事は、形が先に分かっています。柔らかい記憶だけでは足りません。
 
-会話履歴は、並行性・安定した結果の形・再開の三つを同時に預ける場所としても弱いです。多くのファイルを review する、調査してから検証する、N 個のモジュールを同じやり方で移す —— こうした仕事は**形が先に分かっている**ので、なおさらその三つが要ります。
+## アイデアが落ちる瞬間
 
-## 一息でいうアイデア
+もし計画がコードの中に住んだらどうでしょう。
 
-**オーケストレーションを「賢さ」から「構造」へ移します。**
+助手は相変わらず考えます——きれいな机で、焦点の定まった一つの仕事を。**script** がループと扇状の分配とマージを持ちます。中間結果は変数と journal にあり、会話には入りません。途中で切り上げる癖は、艦隊全体を止めにくくなります。自己採点の甘さは、著者ではない第二の助手にぶつかります。drift も掴みにくくなります。トポロジーを、疲れた語り手が毎ターン書き換える必要がないからです。
 
-Subagent は相変わらず判断します —— それぞれきれいな context と、焦点の定まった仕事で。**script** がループ、扇状の分配、マージを持ちます。中間結果は変数（と journal）にあり、会話には入りません。分かれた助手 + script が握る制御フローが、laziness・自己チェックの偏り・drift への対抗策です。
+一行で言えば、workflow はオーケストレーションを「賢さ」から「構造」へ移します。モデルは各 `agent()` の中で判断し、地図は script が持ちます。
 
 ![Workflow Runtime Overview](images/workflow-runtime-overview.svg)
 
-1 回の `Workflow` tool call が、その script 実行を始めます。実行中に lifecycle / progress event が出て、最後に launch 情報・result・task state を含む tool result が返ります。
+1 回の `Workflow` tool call が、その実行を始めます。進み具合は途中で小さく鳴り、最後に launch 情報と結果と task state が一つの tool result で戻ります。
 
-## ふたつの入口 — dynamic と static
+## 同じ厨房への、ふたつの入口
 
-Claude Code は同じ厨房への入口を二つ開いています。
+Claude Code は入口について率直です。
 
-| 入口 | 渡すもの | いつ使うか |
-|------|----------|------------|
-| **Dynamic** | オーケストレーション用の JavaScript（`script`、あとから `scriptPath`） | モデルが**このタスク用**にレシピを書く |
-| **Saved** | `name` + `args` | 良いレシピを例えば `.claude/workflows/` に保存し、名前で再実行する |
+ときどきモデルは、*この*タスク用の JavaScript オーケストレーションを書き、`script` として渡します（あとから `scriptPath` を編集することもあります）。これが **dynamic** の入口です。問題がまだ熱いうちに、合わせた harness を裁断します。
 
-厨房は同じです。Dynamic は「今レシピを書く」、Saved は「カード箱から引く」—— 良い dynamic run の残した、再利用できる残りです。
+ときどき、良い script はすでに `.claude/workflows/` のような場所にあります。`name` と `args` で呼び出します。これが **saved** の入口です。残すに値した run が、再利用できるカードになったものです。
 
-このレッスンの外にはいとこもあります。**static** harness（あらかじめ書く Agent SDK / `claude -p` の编排）です。static はあらゆるエッジケース向けなので、どうしても汎用になります。dynamic は*この*タスク向けの特注です。形が合ったら saved にします。
+このレッスンの外にはいとこもあります。Agent SDK や `claude -p` で先に書く **static** harness です。あらゆるエッジケースに耐える必要があるので、どうしても汎用になります。dynamic はこの布のための裁断です。形が合ったら保存します。
 
-**このレッスンは Python の teaching runtime です。** 同じアイデアを、1 行ずつ読める形で示します。デモは名前で saved workflow を登録します。概念は Claude Code の script 世界と 1:1 です。「モデルは実行可能コードを渡せない」と Claude Code について主張するのは誤りでした。ここでは単に、完全な JS インタプリタを埋め込まないだけです。
+**この章は Python の teaching runtime です。** 同じアイデアを、1 行ずつ読める形で示します。デモは名前で一つの saved workflow を登録します。概念は Claude Code の script 世界と一一対応です。「モデルは実行可能コードを渡せない」などと言いません——それは Claude Code については初めから正しくありませんでした。ここでは、完全な JavaScript インタプリタを埋め込まないだけです。
 
 ```python
 # Teaching adapter: saved の入口（name + args）。
@@ -81,44 +74,35 @@ WORKFLOW_TOOL = {
 }
 ```
 
-## プリミティブを学校のバザーで
+## 厨房の動詞を少し
 
-学校のバザーでたくさんのケーキを焼くとします。各テーブルは 混ぜる → 焼く → 箱詰め。助手が味見と判断をし、レシピが順番を決めます。
+学校のバザーでケーキをたくさん焼くとします。どのテーブルも 混ぜる → 焼く → 箱詰め。助手が味見をし、レシピが順番を決めます。
 
-| Primitive | 厨房での意味 |
-|-----------|--------------|
-| `agent(prompt, {schema, label, phase})` | 助手ひとりに一つの仕事を頼む |
-| `pipeline(items, *stages)` | **既定。** 各ケーキが自分で混ぜ→焼き→箱詰めを通る。A が箱詰め中でも、B はまだ混ぜているかもしれない |
-| `parallel(thunks)` | **すべての**トレイが戻るまで待つ — 次の段が本当に全部の結果を必要とするときだけ |
-| `phase(title)` | 進捗ボードに「今は焼き工程」と出す |
-| `log(message)` | 短いステータスを一声 |
-| `workflow(name, args)` | 小さなレシピを呼ぶ（ネストは 1 段） |
-| `args` | この run に渡す材料リスト |
-| `budget` | 使える「オーブン分」（token） |
+`agent(...)` は、助手ひとりに一つの仕事を頼むことです。`pipeline(items, *stages)` が既定で、各ケーキが自分で段階を歩きます。だから一方が箱詰めのあいだに、もう一方はまだ混ぜていてもよい。`parallel(...)` は揃うまで待つバリアで、次の段が本当に全部の結果を要すときだけ欲しくなります。トレイ全部を味見してから採点表を書く、といった場面です。
 
-既定は `pipeline` です。次の段が直前の結果をすべてまとめて必要とするときだけ `parallel` を使います —— 全トレイを味見してから採点表を書く、といった場合です。
+その周りに、静かな動詞もあります。`phase` はボードにいまの場所を出し、`log` は短い一声、`workflow` は小さなレシピを入れ子にし、`args` は材料リスト、`budget` は使えるオーブン分（token）です。
 
 ```python
-# 各 dimension が独立して audit → verify を通る（stage 間に barrier なし）。
+# 各 review dimension が自分で audit → verify を歩く。
 results = await ctx.pipeline(DIMENSIONS, audit, verify)
 confirmed = [f for r in results if r for f in r["confirmed"]]
 ```
 
-## 味のあるパターン（一覧の投げ売りではない）
+## パターンは、元が取れるときだけ
 
-パターンはレシピのスタイルだと思ってください。サンプル `review-changes` が頼るのは主に三つです。
+カタログを暗記する必要はありません。サンプルが何をしているかに気づけば、手元に三つのスタイルがあります。
 
-| パターン | 平たい意味 | サンプルでは |
-|----------|------------|--------------|
-| **Fan-out-and-synthesize** | 仕事を分け、きれいな机で進め、あとでまとめる | 4 つの dimension が `pipeline` で audit し、確認リストへ |
-| **Adversarial verification** | 別の助手が前の成果をあえて疑う | 各 finding が verify agent を通ってから残る |
-| **Generate-and-filter** | 候補を出し、検査を通ったものだけ残す | findings 入り → `isReal` だけ出し |
+変更を review の各 dimension へ**広げ**、きれいな机で進め、一つの確認リストへ**まとめ**ます。fan-out-and-synthesize です。かけらが一つの騒がしい context で混線するときに効きます。
 
-同じ道具箱には、あとで出会うスタイルもあります。**classify-and-act**（種類で振り分け）、**tournament**（競わせて勝者を選ぶ）、**loop-until-done**（新しいものがなくなるまで回す）。コストに見合う、より明確で安全な結果が取れるときだけ使います。
+verify の内側では、第二の助手が各 finding をあえて疑います。adversarial verification——自分の宿題に甘くならないための、構造からの答えです。
 
-## 答えを機械が読める形に
+残るのは、生成したものへのフィルタです。Generate-and-filter。候補が入り、通ったものだけが出ます。
 
-助手が散文で返してくると、次の stage は finding と verdict を reliably に対応づけられません。`schema` を渡します。runtime は JSON を求め、検証し、だめなら**1 回だけ**再試行します。それでもだめならその call はエラーになります（下の null 分離を参照）。
+同じ道具箱には classify-and-act、tournament、loop-until-done もあり、あとで出会います。余分なコストが、安くは手に入らない明瞭さや安全を買うときだけ、スタイルを借りてください。
+
+## 次の段が受け取れる答え
+
+助手が散文で返してくると、次の stage は finding と verdict を揃えられません。`schema` を渡します。runtime は JSON を求め、確かめ、**一度だけ**やり直します。それでもだめならその call はエラーになります——失敗のとき艦隊がどう優しくいられるかは、次の話です。
 
 ```python
 out = await ctx.agent(
@@ -126,60 +110,49 @@ out = await ctx.agent(
     schema=FINDINGS_SCHEMA,
     label=f"audit:{dimension}",
 )
-# out は "findings" を持つ dict であり、段落ではない
 ```
 
-あなたとの会話は自然言語でよいです。パイプラインには合うソケットが必要です。
+あなたとの会話は散文のままでよいです。パイプラインには合うソケットが要ります。
 
-## 助手がひとり失敗したとき
+## トレイがひとつ焦げたとき
 
-トレイがひとつ焦げても、艦隊全体を止めてはいけません。
+助手のオーブンが一つ失敗したくらいで、艦隊を止めてはいけません。
 
-- **`parallel`**: 失敗した thunk はそのスロットで `null` / `None` になります。gather 自体は reject しません。
-- **`pipeline`**: 失敗した stage は**その item** を `null` / `None` にし、残りの stage をスキップします。他の item は進み続けます。
-
-マージ前に注意して絞り込みます。よくあるのは `if r` / `.filter(Boolean)` です。
+`parallel` では、失敗した thunk がそのスロットで `null` / `None` になり、gather 自体は reject しません。`pipeline` では、失敗した stage が**その item** を null にし、残りの stage を飛ばします。ほかの item は歩き続けます。マージの前に注意して絞ります。`if r`、JS ならよく `.filter(Boolean)` です。
 
 ```python
-verdicts = await ctx.parallel([...])  # いくつかは None かもしれない
+verdicts = await ctx.parallel([...])  # 空のスロットがありうる
 confirmed = [
     f for f, v in zip(findings, verdicts)
     if v and v.get("isReal")
 ]
 ```
 
-## Journal と resume
+## また開けるノート
 
-各 run には `runId` があります。`agent()` が終わるたびに、runtime は disk 上の journal へ 1 行追記します。ノートだと思ってください。助手がオーブンから戻った順ではなく、あなたが**呼んだ**順です。
+各 run には `runId` があります。`agent()` が終わるたび、disk 上の journal に一行が乗ります——助手がオーブンから戻った順ではなく、あなたが**呼んだ**順のノートです。
 
-resume（`resume_from_run_id` / `resumeFromRunId`）では script をまた先頭から走らせますが：
+resume（`resume_from_run_id` / `resumeFromRunId`）は script をまた先頭から走らせますが、丁寧です。呼び出し順に次の journal 行と照合し、最長の未変更プレフィックスはキャッシュから再生します。最初の変更または未完了でプレフィックスが切れ——それ以降はすべて live です。ノートの後ろに古い key が残っていても、割れ目を飛び越えて黙って hit しません。
 
-1. 呼び出し順で、各 `agent()` を次の journal 行と照合します。
-2. **最長の未変更プレフィックス** → cache hit（即座に再生）。
-3. **最初の**変更または未完了 call でプレフィックスが切れます。
-4. **それ以降はすべて live** — journal の後ろに古い key が残っていても、黙って hit しません。
-
-本物の JS workflow runtime が `Date.now()` / `Math.random()` / 引数なしの `new Date()` を禁じるのはこのためです。非決定的な時計や乱数は prompt や呼び出し順を変え、ノートが合わなくなります。この Python デモは完全なサンドボックスではありません —— それでも script は決定的に書いてください。
+本物の JavaScript workflow runtime が `Date.now()` や `Math.random()`、引数なしの `new Date()` を禁じるのも、このためです。時計とサイコロが prompt や呼び出し順を揺らすと、ノートが揃わなくなります。この Python デモはそのサンドボックスまではやりません。それでも script は決定的に書いてください。
 
 ```text
 journal:  [A ✓] [B ✓] [C ✓] [D ✓]
-resume:   A hit → B hit → C 変更 → D は live（古い D への silent hit なし）
+resume:   A hit → B hit → C 変更 → D は live
 ```
 
-## サンプルを歩く: `review-changes`
+## `review-changes` を歩く
 
-4 つの review dimension が同じ 2 段階の道を通ります —— fan-out、敵対的 verify、filter。
+四つの dimension が同じ二段の道を共有します——広げ、敵対的に確かめ、残ったものを残す。
 
 ```text
 correctness ── audit ── verify ──┐
-security    ── audit ── verify ──┤── 確認済み finding を統合
+security    ── audit ── verify ──┤── 確認済みの finding
 performance ── audit ── verify ──┤
 style       ── audit ── verify ──┘
 ```
 
-1. **Review** — 各 dimension の auditor が構造化 findings を返します（きれいな机 → 混線が減る）。
-2. **Verify** — 各 finding を敵対的チェッカーへ（verify stage 内で `parallel`）。書いた本人が審判を兼ねない。
-3. 本物とされたものだけ残し、severity で並べます。
+Review は各 auditor を自分の机に置き、correctness の雑談が security へ流れ込まないようにします。Verify は各 finding を、著者ではない懐疑者へ渡します。本物だけが残り、severity で並びます。三つの癖が、お気に入りの席を失う感触が、そこにあります。
 
 ```python
 async def sample_workflow(ctx, args):
@@ -190,64 +163,46 @@ async def sample_workflow(ctx, args):
     return {"confirmed": confirmed}
 ```
 
-## s15 へのつなぎ方
+## s15 に掛けて、置き換えない
 
-s15 は依然として host loop です。s16 が足すのは一つの tool、`Workflow` だけです。モデル（またはあなた）が saved name を渡し、adapter が registry を解決して script を走らせます。
+s15 は依然として host loop です。s16 が足すのは `Workflow` という tool だけです。あなた（またはモデル）が saved の名前を頼み、adapter が script を見つけて走らせます。
 
-| | Claude Code / Pi（製品） | この teaching CLI |
-|--|--------------------------|-------------------|
-| Script 言語 | サンドボックス内の JavaScript | 読める Python 関数 |
-| Dynamic 入口 | モデルが `script` を書く / `scriptPath` を編集 | 文書で説明。デモは saved の `name` |
-| 実行中の host | バックグラウンド + 通知でセッションが応答し続ける | 観察しやすいよう `demo` / `resume` は前景 |
-| アイデア | 同じ primitives、journal、prefix resume | teaching model — 簡略化は明示する |
+本番では、その run は通知付きで背景に置き、セッションは応答し続けられます。teaching CLI は `demo` と `resume` を前景に置き、phase と cache hit を目で追えるようにしています。アイデアは同じで、簡略化したところははっきり言います。
 
-main loop が workflow エンジンになるわけではありません。`bash` や `task` を借りるのと同じく、tool をひとつ借ります。
+main loop が workflow エンジンになるわけではありません。`bash` や `task` を借りるように、tool を一つ借ります。
 
-## 近所: 計画を握っているのは誰か
+## 宝石を回す: 計画を握っているのは誰か
 
-Workflow は「agent を増やす」ことではありません。**トポロジーを誰が持つか**を変えます。
+近所を見ると、同じものが別の面を見せます。役に立つ問いは「agent は何人か？」ではなく、**トポロジーを誰が持つか**、仕掛かりの器はどこに置かれるか、です。
 
 | 近所 | 計画を握るもの | 中間結果の置き場 | 向いている用途 |
 |------|----------------|------------------|----------------|
-| [s06 Subagent](../s06_subagent/) | モデル、一度きり | 最終 summary 以外は捨てる | 汚い子タスクを隔離 |
-| [s13 Agent Teams](../s13_agent_teams/) | Lead モデルがターンごと + mailbox | 共有タスク / メッセージ | 長時間の同僚、人間らしい協働 |
-| [s15 Integrated Harness](../s15_integrated_harness/) | 一つのループ内のモデル | 会話 `messages[]` | 積み上げ型の coding agent |
-| **s16 Workflow** | **Script** | **Script 変数 + journal** | 既知 / 大規模な構造化 fan-out + verify |
-| [s17 Goal Loop](../s17_goal_loop/) | 停止境界の evaluator | 会話を証拠にする | 「ゴール全体は終わったか？」 |
+| [s06 Subagent](../s06_subagent/) | モデル、一度きり | ほとんど捨てる | 汚い子タスクの隔離 |
+| [s13 Agent Teams](../s13_agent_teams/) | Lead がターンごと + mailbox | 共有タスク / メッセージ | 長時間の同僚 |
+| [s15 Integrated Harness](../s15_integrated_harness/) | 一つのループ内のモデル | 会話 `messages[]` | 積み上げ型 coding agent |
+| **s16 Workflow** | **Script** | **変数 + journal** | 構造化した fan-out と verify |
+| [s17 Goal Loop](../s17_goal_loop/) | 停止時の evaluator | 会話を証拠に | 「ゴール全体は終わったか？」 |
 
-より安い代替もしばしば勝ちます。skill / prompt を軟らかい計画にする、短い multi-agent チャット、手書きの static SDK orchestrator、あるいは単に大きな一回のモデルターン。単一 context より長く構造を保ちたいときに workflow へ手を伸ばします —— 審査員パネルが聞こえがいいからではありません。
+より安い道もしばしば勝ちます。skill を軟らかい計画にする、短い multi-agent の会話、手書きの static orchestrator、あるいは大きな一回のモデルターン。構造が単一の context より長く生きねばならないときに、workflow へ手を伸ばします。審査員パネルが聞こえがいいからではありません。
 
-## Workflow を*使わない*とき
+## 棚に戻しておくとき
 
-Workflow は token と調整コストがかかります。ふつうのコーディングの大半は、5 人の reviewer パネルを**必要としません**。
+Workflow は token と調整のコストを使います。ふつうのコーディングの大半は、五人の reviewer を必要としません。
 
-聞いてください。この仕事は本当にもっと計算と定制 harness が要るか？ ふつうの s15 の一ターン（や一つの s06 subagent）で足りるなら、そこで止めます。抑制も設計思想の一部です —— 並行と専門化は、そのコストを回収しなければなりません。
+回す前に聞いてください。この仕事は本当にもっと計算と定制 harness を欲しがっているか。ふつうの s15 の一ターン——あるいは一つの誠実な s06 subagent——で足りるなら、そこで止めます。抑制も思想の一部です。並行と専門化は、自分の席を自分で稼がねばなりません。
 
 ## 試してみる
 
 ```bash
-python s16_workflow_runtime/code.py          # s15 host + Workflow tool（real API）
-python s16_workflow_runtime/code.py demo     # 固定 fixture: phase と agent を観察
-python s16_workflow_runtime/code.py resume   # 同じ runId。prefix はすべて cache hit になるはず
+python s16_workflow_runtime/code.py          # s15 host + Workflow（real API）
+python s16_workflow_runtime/code.py demo     # 固定 fixture。phase を見る
+python s16_workflow_runtime/code.py resume   # 同じ runId。cache hit を期待
 ```
 
-見るポイント:
+Review が Verify に道を譲るのを見てください。完全な resume で agent が `done` から `cached` へ翻るのを見てください。終わりには短い確認リストがあり——きれいな resume では `agents=0 tokens=0` と出ます。ノートが「温め直しは要らない」と言っている感じです。
 
-- `workflow_phase` が Review、続いて Verify
-- 各 `workflow_agent` が初回は `done`、完全 resume では `cached`
-- 末尾の短い confirmed リスト。全 hit の resume は `agents=0 tokens=0`
+## 次へ
 
-## s15 との対比 → 次は s17
+s16 はバッチの回し方です。[s17 Goal Loop](../s17_goal_loop/) は戸口で別の問いをします。止めるべきか、もう一ターンか。繰り返せるレシピに硬い「完了」も要るときは、そちらと組んでください。
 
-| | s15 Integrated Harness | s16 Workflow Runtime |
-|--|------------------------|----------------------|
-| loop | 1 つ、モデル駆動 | 同じ loop。1 つの tool が script を実行 |
-| 次の step を決めるもの | モデルが毎ラウンド | script がバッチの形を持つ |
-| multi-agent | 一度きりの subagent | script 化・再開可能な `agent()` |
-| 失敗 / resume | 会話メモリ頼り | null 分離 + journal prefix |
-
-**s16 = バッチの回し方。s17 = ゴール全体が終わったかどうか。**
-
-[s17 Goal Loop](../s17_goal_loop/) は独立した評価器に聞きます。止めるべきか、もう一ターンか。繰り返せる workflow に硬い完了条件も要るときは、そちらと組み合わせます。
-
-<!-- translation-sync: zh@v12, en@v12, ja@v12 -->
+<!-- translation-sync: zh@v13, en@v13, ja@v13 -->
