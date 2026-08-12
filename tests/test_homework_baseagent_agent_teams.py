@@ -9,12 +9,97 @@ from pathlib import Path
 
 import pytest
 
+from homework.agent_app.features.teams.bus import MessageBus
+from homework.agent_app.features.teams.protocol import (
+    ProtocolState,
+    ProtocolStore,
+    match_response,
+    process_permission_request,
+)
+
 
 BASE_AGENT = (
     Path(__file__).resolve().parents[1]
     / "homework"
     / "BaseAgent.py"
 )
+
+
+@pytest.fixture
+def bus(tmp_path):
+    root = tmp_path / ".mailboxes"
+    root.mkdir()
+    return MessageBus(root=root)
+
+
+def test_bus_consumes_each_message_once(bus):
+    bus.send("lead", "worker", "hello")
+
+    assert [message["content"] for message in bus.read_inbox("worker")] == [
+        "hello"
+    ]
+    assert bus.read_inbox("worker") == []
+
+
+def test_protocol_stores_do_not_share_requests():
+    first = ProtocolStore()
+    second = ProtocolStore()
+    first.pending["req_1"] = ProtocolState(
+        request_id="req_1",
+        type="shutdown",
+        sender="lead",
+        target="worker",
+        status="pending",
+        payload="",
+    )
+
+    assert second.pending == {}
+
+
+def test_protocol_matches_only_the_expected_response_type():
+    store = ProtocolStore()
+    store.pending["req_shutdown"] = ProtocolState(
+        request_id="req_shutdown",
+        type="shutdown",
+        sender="lead",
+        target="worker",
+        status="pending",
+        payload="",
+    )
+
+    assert not match_response(store, "plan_approval_response", "req_shutdown", True)
+    assert match_response(store, "shutdown_response", "req_shutdown", True)
+    assert store.pending["req_shutdown"].status == "approved"
+
+
+def test_permission_processing_replies_to_the_matching_request(bus, tmp_path):
+    process_permission_request(
+        bus,
+        ProtocolStore(),
+        {
+            "from": "worker",
+            "content": {
+                "request_id": "req_permission",
+                "tool_use_id": "tool_permission",
+                "tool_name": "bash",
+                "tool_input": {"command": "echo safe"},
+                "cwd": str(tmp_path),
+            },
+        },
+        hook=lambda event, block: None,
+        cwd_resolver=Path,
+        guarded_tools={"bash"},
+        clock=lambda: 0.0,
+        sleep=lambda _seconds: None,
+    )
+
+    reply = bus.read_inbox("worker")[0]
+    assert reply["type"] == "permission_response"
+    assert reply["content"] == {
+        "request_id": "req_permission",
+        "approved": True,
+        "reason": "",
+    }
 
 
 @pytest.fixture
@@ -49,7 +134,8 @@ def baseagent(monkeypatch, tmp_path):
     mailbox_dir.mkdir()
     monkeypatch.setitem(globals_, "_ACCEPTANCE_ORIGINAL_MAILBOX_DIR", original_mailbox_dir)
     monkeypatch.setitem(globals_, "MAILBOX_DIR", mailbox_dir)
-    monkeypatch.setitem(globals_, "BUS", globals_["MessageBus"]())
+    monkeypatch.setitem(globals_, "BUS", MessageBus(root=mailbox_dir))
+    monkeypatch.setitem(globals_, "PROTOCOL_STORE", ProtocolStore())
     monkeypatch.setitem(globals_, "active_teammates", {})
     monkeypatch.setitem(globals_, "IDLE_POLL_INTERVAL", 1)
     monkeypatch.setitem(globals_, "IDLE_TIMEOUT", 0)

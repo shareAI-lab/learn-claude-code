@@ -46,6 +46,8 @@ from homework.agent_app.features.scheduler import (
 )
 from homework.agent_app.features import memory as memory_feature
 from homework.agent_app.features import background as background_feature
+from homework.agent_app.features.teams import bus as team_bus
+from homework.agent_app.features.teams import protocol as team_protocol
 from homework.agent_app.features import skills as skills_feature
 from homework.agent_app.features import todos as todos_feature
 from homework.agent_app.features import tasks as tasks_feature
@@ -120,117 +122,25 @@ def load_durable_jobs():
     return scheduler_load_durable_jobs(SCHEDULER_STATE, APP_CONFIG)
 
 #==================== AGENT TEAMS ====================
-MAILBOX_DIR = WORKDIR / ".mailboxes"
-AGENT_NAME_PATTERN = re.compile(
-    r"^[A-Za-z][A-Za-z0-9_-]{0,31}$"
-)
-
-ALLOWED_MESSAGE_TYPES = {
-    "message",
-    "result",
-    "permission_request",
-    "permission_response",
-    "shutdown_request",
-    "shutdown_response",
-    "plan_approval_request",
-    "plan_approval_response",
-}
-
-mailbox_lock = threading.RLock()
+MAILBOX_DIR = APP_CONFIG.mailbox_dir
 team_lock = threading.Lock()
 active_teammates: dict[str,dict] = {}
 
-class MessageBus:
-    def send(self,from_agent: str, to_agent:str, content:object,
-             msg_type:str = "message", metadata: dict = None):
-        validate_agent_name(from_agent)
-        validate_agent_name(to_agent)
+def MessageBus(root: Path | None = None) -> team_bus.MessageBus:
+    return team_bus.MessageBus(root=root or MAILBOX_DIR)
 
-        if msg_type not in ALLOWED_MESSAGE_TYPES:
-            raise ValueError(f"Invalid message type: {msg_type}")
 
-        msg = {"from": from_agent, "to": to_agent, 
-               "content": content,  "type": msg_type, 
-               "ts": time.time(), "metadata": metadata or {}}
-        path = mailbox_path(to_agent)
-
-        with mailbox_lock:
-            MAILBOX_DIR.mkdir(exist_ok=True)
-            with path.open("a", encoding='utf-8') as f:
-                f.write(
-                    json.dumps(msg, ensure_ascii = False) + "\n"
-                )
-                f.flush()
-        
-    def read_inbox(self, agent: str) -> list[dict]:
-        path = mailbox_path(agent)
-
-        with mailbox_lock:
-            if not path.exists():
-                return []
-            
-            lines = path.read_text(encoding='utf-8').splitlines()
-
-            path.write_text("",encoding='utf-8')
-
-        msgs = []
-        for line in lines:
-            if not line.strip():
-                continue
-
-            try:
-                msgs.append(json.loads(line))
-            except json.JSONDecodeError as e:
-                print(f"[mailbox warning] ignored corrupt line: {e}")
-        return msgs
-
-BUS = MessageBus()
-
-@dataclass
-class ProtocolState:
-    request_id: str
-    type: str
-    sender: str
-    target: str
-    status: str
-    payload: str
-    created_at: float = field(default_factory=time.time)
-
-pending_requests: dict[str, ProtocolState] = {}
-protocol_lock = threading.RLock()
-
-EXCEPTED_RESPONSE_TYPES = {
-    "shutdown": "shutdown_response",
-    "plan_approval": "plan_approval_response",
-}
+ProtocolState = team_protocol.ProtocolState
+BUS = MessageBus(root=MAILBOX_DIR)
+PROTOCOL_STORE = team_protocol.ProtocolStore()
 
 def new_request_id() -> str:
-    return f"req_{uuid.uuid4().hex}"
+    return team_protocol.new_request_id()
 
 def match_response(response_type: str, request_id: str, approve: bool) -> bool:
-    with protocol_lock:
-        state = pending_requests.get(request_id)
-        if not state:
-            print(f"  \033[31m[protocol] unknown request_id: {request_id}\033[0m")
-            return False
-        
-        excepted_type = EXCEPTED_RESPONSE_TYPES.get(state.type)
-        if response_type != excepted_type:
-            print(f"  \033[31m[protocol] type mismatch: "
-                  f"(expected {excepted_type}), got {response_type}\033[0m")
-            return False
-        
-        if state.status != "pending":
-            print(f"  \033[33m[protocol] {request_id} already {state.status}, "
-                f"ignoring duplicate\033[0m")
-            return False
-        state.status = "approved" if approve else "rejected"
-
-    icon = "✓" if approve else "✗"
-    color = "32" if approve else "31"
-    print(f"  \033[{color}m[protocol] {state.type} {icon} "
-          f"({request_id}: {state.status})\033[0m")
-    return True
+    return team_protocol.match_response(
+        PROTOCOL_STORE, response_type, request_id, approve
+    )
 
 #================== AUTONOMOUS AGENT ==========================
 IDLE_POLL_INTERVAL = 5
@@ -296,60 +206,22 @@ def idle_poll(agent_name: str, messages: list,
     return "timeout"
 
 def validate_agent_name(name: str, *, allow_lead: bool = True) -> str:
-    if not isinstance(name, str):
-        raise TypeError("Agent name must be a string")
-    
-    if not AGENT_NAME_PATTERN.fullmatch(name):
-        raise ValueError(f"Invalid agent name: {name!r}")
-    
-    if not allow_lead and name == "lead":
-        raise ValueError("'lead' is a reversed agent name")
-    
-    return name
+    return team_bus.validate_agent_name(name, allow_lead=allow_lead)
 
 def mailbox_path(agent: str) -> Path:
-    validate_agent_name(agent)
-
-    path = (MAILBOX_DIR / f"{agent}.jsonl").resolve()
-    root = MAILBOX_DIR.resolve()
-
-    if not path.is_relative_to(root):
-        raise ValueError("Mailbox path escapes mailbox directory")
-    
-    return path
+    return BUS.mailbox_path(agent)
 
 TEAM_GUARDED_TOOLS = {"bash", "write_file"}
 PERMISSION_POLL_INTERVAL = 0.5
 PERMISSION_TIMEOUT = 300
 
 def wait_for_permission_response(agent: str, request_id: str, deferred_inbox: list[dict]) -> dict:
-    deadline = time.time() + PERMISSION_TIMEOUT
-
-    while time.time() < deadline:
-        matched = None
-
-        for msg in BUS.read_inbox(agent):
-            content = msg.get("content", {})
-
-            if (
-                msg.get("type") == "permission_response"
-                and msg.get("from") == "lead"
-                and isinstance(content, dict)
-                and content.get("request_id") == request_id
-            ):
-                matched = content
-            else:
-                deferred_inbox.append(msg)
-        
-        if matched:
-            return matched
-        
-        time.sleep(PERMISSION_POLL_INTERVAL)
-    return {
-        "request_id": request_id,
-        "approved": False,
-        "reason": "Permission request timed out"
-    }
+    return team_protocol.wait_for_permission_response(
+        BUS, agent, request_id, deferred_inbox,
+        clock=time.time, sleep=time.sleep,
+        poll_interval=PERMISSION_POLL_INTERVAL,
+        timeout=PERMISSION_TIMEOUT,
+    )
 
 def run_teammate_guarded_tool(
         agent: str,
@@ -707,106 +579,23 @@ def spawn_teammate_thread(name: str, role:str, prompt: str) -> str:
     return f"Teammate '{name}' spawned as {role}"
 
 def _teammate_submit_plan(from_name: str, plan: str) -> str:
-    req_id = new_request_id()
-    with protocol_lock:
-        pending_requests[req_id] = ProtocolState(
-            request_id=req_id, type = "plan_approval",
-            sender = from_name, target = "lead",
-            status = "pending", payload = plan
-        )
-    BUS.send(
-        from_name, "lead", plan,
-        "plan_approval_request",
-        {"request_id": req_id}
-    )
-    return f"Plan submitted ({req_id}). Waiting for approval..."
+    return team_protocol.submit_plan(BUS, PROTOCOL_STORE, from_name, plan)
     
 def process_permission_request(msg: dict) -> None:
-    requester = msg.get("from")
-    request = msg.get("content", {})
-
-    cwd_valid = True
-    tool_cwd = None
-
-    if cwd_valid:
-        try:
-            tool_cwd = resolve_tool_cwd(request.get("cwd"))
-        except (TypeError, ValueError) as e:
-            cwd_valid = False
-
-    if isinstance(request, dict):
-        request_id = request.get("request_id")
-        tool_name = request.get("tool_name")
-        tool_input = request.get("tool_input")
-    else:
-        request_id = None
-        tool_name = None
-        tool_input = None
-
-    valid = (
-        isinstance(request_id, str)
-        and tool_name in TEAM_GUARDED_TOOLS
-        and isinstance(tool_input, dict)
-        and cwd_valid
-    )
-
-    if not valid:
-        BUS.send(
-            "lead",
-            requester,
-            {
-                "request_id": request_id,
-                "approved": False,
-                "reason": "Invalid permission request",
-            },
-            msg_type="permission_response",
-        )
-        return
-
-    block = SimpleNamespace(
-        id=request.get("tool_use_id"),
-        name=tool_name,
-        input=tool_input,
-        agent=requester,
-        cwd = tool_cwd,
-    )
-
-    denied_reason = trigger_hook("PreToolUse", block)
-    approved = denied_reason is None
-
-    BUS.send(
-        "lead",
-        requester,
-        {
-            "request_id": request_id,
-            "approved": approved,
-            "reason": "" if approved else str(denied_reason),
-        },
-        msg_type="permission_response",
+    return team_protocol.process_permission_request(
+        BUS, PROTOCOL_STORE, msg,
+        hook=trigger_hook, cwd_resolver=resolve_tool_cwd,
+        guarded_tools=TEAM_GUARDED_TOOLS,
+        clock=time.time, sleep=time.sleep,
     )
 
 def collect_lead_inbox() -> str:
-    ordinary_msgs = []
-
-    for msg in BUS.read_inbox("lead"):
-        msg_type = msg.get("type", "")
-
-        if msg_type == "permission_request":
-            process_permission_request(msg)
-            continue
-
-        if msg_type in {"shutdown_response", "plan_approval_response"}:
-            metadata = msg.get("metadata", {})
-            request_id = metadata.get("request_id", "")
-
-            if request_id:
-                match_response(msg_type, request_id, bool(metadata.get("approve", False)))
-            else:
-                print(f"  [protocol] {msg_type} missing request_id")
-
-        ordinary_msgs.append(msg)
-
-    return ordinary_msgs
+    return team_protocol.collect_lead_inbox(
+        BUS, PROTOCOL_STORE,
+        hook=trigger_hook, cwd_resolver=resolve_tool_cwd,
+        guarded_tools=TEAM_GUARDED_TOOLS,
+        clock=time.time, sleep=time.sleep,
+    )
 
 def format_team_inbox(messages: list[dict]) -> str:
     lines = ["[Team inbox]"]
@@ -866,38 +655,16 @@ def run_check_inbox() -> str:
     return format_team_inbox(msgs)
 
 def run_request_shutdown(teammate: str) -> str:
-    req_id = new_request_id()
-    with protocol_lock:
-        pending_requests[req_id] = ProtocolState(
-            request_id=req_id, type = "shutdown",
-            sender = "lead", target = teammate,
-            status = "pending", payload = ""
-        )
-    BUS.send(
-        "lead", teammate, "Please shut down gracefully.",
-        "shutdown_request",
-        {"request_id": req_id}
-    )
-    print(f"  \033[35m[protocol] shutdown_request → {teammate} "
-              f"({req_id})\033[0m")
-    return f"Shutdown request sent to {teammate} (req: {req_id})"
+    return team_protocol.request_shutdown(BUS, PROTOCOL_STORE, teammate)
 
 def run_request_plan(teammate: str, task: str) -> str:
     BUS.send("lead", teammate, f"Please submit a plan for: {task}", "message")
     return f"Asked {teammate} to submit a plan"
 
 def run_review_plan(request_id: str, approve: bool, feedback: str = "") -> str:
-    with protocol_lock:
-        state = pending_requests.get(request_id)
-        if not state:
-            return f"Request {request_id} not found"
-        state.status = "approved" if approve else "rejected"
-    BUS.send("lead", state.sender, feedback or ("Approved" if approve else "Rejected"),
-                "plan_approval_response",
-                {"request_id": request_id, "approve": approve})
-    icon = "✓" if approve else "✗"
-    print(f"  \033[32m[protocol] plan {icon} ({request_id})\033[0m")
-    return f"Plan {'approved' if approve else 'rejected'} ({request_id})"
+    return team_protocol.review_plan(
+        BUS, PROTOCOL_STORE, request_id, approve, feedback
+    )
 
 #==================== BACKGROUND TASKS ===============
 BACKGROUND_STATE = background_feature.BackgroundState()
