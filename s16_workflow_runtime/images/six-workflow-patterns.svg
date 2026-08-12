@@ -1,159 +1,108 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720" font-family="system-ui, -apple-system, sans-serif" role="img" aria-labelledby="title description">
   <title id="title">Six Workflow Patterns</title>
-  <desc id="description">A toolbox of six common dynamic workflow shapes: Classify-And-Act, Fanout-And-Synthesize, Adversarial Verification, Generate-And-Filter, Tournament, and Loop Until Done.</desc>
+  <desc id="description">Toolbox of six common dynamic workflow shapes.</desc>
   <defs>
-    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#888888"/>
-    </marker>
-    <marker id="arr-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e"/>
-    </marker>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#888"/></marker>
+    <marker id="arr-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#22c55e"/></marker>
   </defs>
-
-  <rect width="960" height="720" rx="8" fill="#ffffff"/>
+  <rect width="960" height="720" rx="8" fill="#fff"/>
   <text x="480" y="28" text-anchor="middle" fill="#1a1a1a" font-size="18" font-weight="700">Six Workflow Patterns</text>
-  <text x="480" y="48" text-anchor="middle" fill="#888888" font-size="11">a toolbox  -  not a mandatory menu. Compose with agent / parallel / pipeline</text>
+  <text x="480" y="48" text-anchor="middle" fill="#888" font-size="11">a toolbox - not a mandatory menu. Compose with agent / parallel / pipeline</text>
+  <rect x="20" y="64" width="300" height="300" rx="8" fill="#fff" stroke="#d0d0d0"/>
+  <rect x="330" y="64" width="300" height="300" rx="8" fill="#fff" stroke="#d0d0d0"/>
+  <rect x="640" y="64" width="300" height="300" rx="8" fill="#fff" stroke="#d0d0d0"/>
+  <rect x="20" y="380" width="300" height="300" rx="8" fill="#fff" stroke="#d0d0d0"/>
+  <rect x="330" y="380" width="300" height="300" rx="8" fill="#fff" stroke="#d0d0d0"/>
+  <rect x="640" y="380" width="300" height="300" rx="8" fill="#fff" stroke="#d0d0d0"/>
 
-  <!-- Panel frames: 2x3 -->
-  <!-- Row 1 -->
-  <rect x="20" y="64" width="300" height="300" rx="8" fill="#ffffff" stroke="#d0d0d0" stroke-width="1.5"/>
-  <rect x="330" y="64" width="300" height="300" rx="8" fill="#ffffff" stroke="#d0d0d0" stroke-width="1.5"/>
-  <rect x="640" y="64" width="300" height="300" rx="8" fill="#ffffff" stroke="#d0d0d0" stroke-width="1.5"/>
-  <!-- Row 2 -->
-  <rect x="20" y="380" width="300" height="300" rx="8" fill="#ffffff" stroke="#d0d0d0" stroke-width="1.5"/>
-  <rect x="330" y="380" width="300" height="300" rx="8" fill="#ffffff" stroke="#d0d0d0" stroke-width="1.5"/>
-  <rect x="640" y="380" width="300" height="300" rx="8" fill="#ffffff" stroke="#d0d0d0" stroke-width="1.5"/>
+  <text x="170" y="88" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">1. Classify-And-Act</text>
+  <rect x="120" y="110" width="100" height="28" rx="4" fill="#fafafa" stroke="#1a1a1a"/><text x="170" y="128" text-anchor="middle" fill="#1a1a1a" font-size="11">task</text>
+  <line x1="170" y1="138" x2="170" y2="158" stroke="#888" marker-end="url(#arr)"/>
+  <path d="M170 162 L192 184 L170 206 L148 184 Z" fill="#fff" stroke="#22c55e"/><text x="170" y="188" text-anchor="middle" fill="#1a1a1a" font-size="9">classifier</text>
+  <line x1="152" y1="196" x2="90" y2="230" stroke="#888" marker-end="url(#arr)"/>
+  <line x1="170" y1="206" x2="170" y2="230" stroke="#22c55e" stroke-width="1.8" marker-end="url(#arr-g)"/>
+  <line x1="188" y1="196" x2="250" y2="230" stroke="#888" marker-end="url(#arr)"/>
+  <circle cx="90" cy="258" r="22" fill="#fff" stroke="#1a1a1a"/><text x="90" y="262" text-anchor="middle" fill="#1a1a1a" font-size="11">A</text>
+  <circle cx="170" cy="258" r="22" fill="#fff" stroke="#22c55e" stroke-width="1.8"/><text x="170" y="262" text-anchor="middle" fill="#1a1a1a" font-size="11">B</text>
+  <circle cx="250" cy="258" r="22" fill="#fff" stroke="#1a1a1a"/><text x="250" y="262" text-anchor="middle" fill="#1a1a1a" font-size="11">C</text>
+  <text x="170" y="310" text-anchor="middle" fill="#888" font-size="10">route to the right specialist</text>
+  <text x="170" y="330" text-anchor="middle" fill="#888" font-size="9" font-family="monospace">agent -&gt; branch -&gt; agent</text>
 
-  <!-- ===== 1. Classify-And-Act ===== -->
-  <text x="170" y="88" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">Classify-And-Act</text>
-  <rect x="120" y="108" width="100" height="28" rx="4" fill="#fafafa" stroke="#1a1a1a" stroke-width="1.2"/>
-  <text x="170" y="126" text-anchor="middle" fill="#1a1a1a" font-size="11">task</text>
-  <line x1="170" y1="136" x2="170" y2="158" stroke="#888888" stroke-width="1.5" marker-end="url(#arr)"/>
-  <path d="M170 162 L190 182 L170 202 L150 182 Z" fill="#ffffff" stroke="#22c55e" stroke-width="1.5"/>
-  <text x="170" y="186" text-anchor="middle" fill="#1a1a1a" font-size="9">classifier</text>
-  <line x1="150" y1="192" x2="80" y2="230" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="170" y1="202" x2="170" y2="230" stroke="#22c55e" stroke-width="1.8" marker-end="url(#arr-g)"/>
-  <line x1="190" y1="192" x2="260" y2="230" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <circle cx="80" cy="255" r="22" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <text x="80" y="258" text-anchor="middle" fill="#1a1a1a" font-size="10">A</text>
-  <circle cx="170" cy="255" r="22" fill="#ffffff" stroke="#22c55e" stroke-width="1.8"/>
-  <text x="170" y="258" text-anchor="middle" fill="#1a1a1a" font-size="10">B</text>
-  <circle cx="260" cy="255" r="22" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <text x="260" y="258" text-anchor="middle" fill="#1a1a1a" font-size="10">C</text>
-  <text x="170" y="310" text-anchor="middle" fill="#888888" font-size="10">route to the right specialist</text>
-  <text x="170" y="328" text-anchor="middle" fill="#888888" font-size="9" font-family="monospace">agent ' branch ' agent</text>
-
-  <!-- ===== 2. Fanout-And-Synthesize ===== -->
-  <text x="480" y="88" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">Fanout-And-Synthesize</text>
-  <rect x="430" y="108" width="100" height="28" rx="4" fill="#fafafa" stroke="#1a1a1a" stroke-width="1.2"/>
-  <text x="480" y="126" text-anchor="middle" fill="#1a1a1a" font-size="11">task</text>
-  <line x1="450" y1="136" x2="400" y2="168" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="470" y1="136" x2="450" y2="168" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="490" y1="136" x2="510" y2="168" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="510" y1="136" x2="560" y2="168" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <circle cx="400" cy="190" r="16" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <circle cx="450" cy="190" r="16" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <circle cx="510" cy="190" r="16" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <circle cx="560" cy="190" r="16" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <line x1="400" y1="206" x2="400" y2="232" stroke="#888888" stroke-width="1.2"/>
-  <line x1="450" y1="206" x2="450" y2="232" stroke="#888888" stroke-width="1.2"/>
-  <line x1="510" y1="206" x2="510" y2="232" stroke="#888888" stroke-width="1.2"/>
-  <line x1="560" y1="206" x2="560" y2="232" stroke="#888888" stroke-width="1.2"/>
+  <text x="480" y="88" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">2. Fanout-And-Synthesize</text>
+  <rect x="430" y="110" width="100" height="28" rx="4" fill="#fafafa" stroke="#1a1a1a"/><text x="480" y="128" text-anchor="middle" fill="#1a1a1a" font-size="11">task</text>
+  <line x1="450" y1="138" x2="400" y2="168" stroke="#888" marker-end="url(#arr)"/>
+  <line x1="470" y1="138" x2="450" y2="168" stroke="#888" marker-end="url(#arr)"/>
+  <line x1="490" y1="138" x2="510" y2="168" stroke="#888" marker-end="url(#arr)"/>
+  <line x1="510" y1="138" x2="560" y2="168" stroke="#888" marker-end="url(#arr)"/>
+  <circle cx="400" cy="190" r="16" fill="#fff" stroke="#1a1a1a"/>
+  <circle cx="450" cy="190" r="16" fill="#fff" stroke="#1a1a1a"/>
+  <circle cx="510" cy="190" r="16" fill="#fff" stroke="#1a1a1a"/>
+  <circle cx="560" cy="190" r="16" fill="#fff" stroke="#1a1a1a"/>
+  <line x1="400" y1="206" x2="400" y2="232" stroke="#888"/>
+  <line x1="450" y1="206" x2="450" y2="232" stroke="#888"/>
+  <line x1="510" y1="206" x2="510" y2="232" stroke="#888"/>
+  <line x1="560" y1="206" x2="560" y2="232" stroke="#888"/>
   <line x1="400" y1="232" x2="560" y2="232" stroke="#22c55e" stroke-width="3"/>
-  <text x="480" y="250" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="600">barrier</text>
-  <line x1="480" y1="252" x2="480" y2="272" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr-g)"/>
-  <circle cx="480" cy="298" r="22" fill="#ffffff" stroke="#22c55e" stroke-width="1.8"/>
-  <text x="480" y="302" text-anchor="middle" fill="#1a1a1a" font-size="9">synthesize</text>
-  <text x="480" y="340" text-anchor="middle" fill="#888888" font-size="9" font-family="monospace">parallel / pipeline ' merge</text>
+  <text x="480" y="252" text-anchor="middle" fill="#22c55e" font-size="10" font-weight="600">barrier</text>
+  <line x1="480" y1="256" x2="480" y2="274" stroke="#22c55e" marker-end="url(#arr-g)"/>
+  <circle cx="480" cy="300" r="22" fill="#fff" stroke="#22c55e" stroke-width="1.8"/><text x="480" y="304" text-anchor="middle" fill="#1a1a1a" font-size="9">synthesize</text>
+  <text x="480" y="340" text-anchor="middle" fill="#888" font-size="9" font-family="monospace">parallel / pipeline -&gt; merge</text>
 
-  <!-- ===== 3. Adversarial Verification ===== -->
-  <text x="790" y="88" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">Adversarial Verification</text>
-  <circle cx="720" cy="200" r="36" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5"/>
-  <text x="720" y="204" text-anchor="middle" fill="#1a1a1a" font-size="11">worker</text>
-  <line x1="756" y1="180" x2="850" y2="140" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="756" y1="200" x2="850" y2="200" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr-g)"/>
-  <line x1="756" y1="220" x2="850" y2="260" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <circle cx="875" cy="140" r="20" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <text x="875" y="144" text-anchor="middle" fill="#1a1a1a" font-size="9">verify</text>
-  <circle cx="875" cy="200" r="20" fill="#ffffff" stroke="#22c55e" stroke-width="1.5"/>
-  <text x="875" y="204" text-anchor="middle" fill="#1a1a1a" font-size="9">verify</text>
-  <circle cx="875" cy="260" r="20" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <text x="875" y="264" text-anchor="middle" fill="#1a1a1a" font-size="9">verify</text>
-  <text x="790" y="310" text-anchor="middle" fill="#888888" font-size="10">independents stress-test the work</text>
-  <text x="790" y="328" text-anchor="middle" fill="#888888" font-size="9" font-family="monospace">agent ' parallel(verifiers)</text>
+  <text x="790" y="88" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">3. Adversarial Verification</text>
+  <circle cx="720" cy="200" r="34" fill="#fff" stroke="#1a1a1a" stroke-width="1.5"/><text x="720" y="204" text-anchor="middle" fill="#1a1a1a" font-size="11">worker</text>
+  <line x1="754" y1="180" x2="848" y2="140" stroke="#888" marker-end="url(#arr)"/>
+  <line x1="754" y1="200" x2="848" y2="200" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr-g)"/>
+  <line x1="754" y1="220" x2="848" y2="260" stroke="#888" marker-end="url(#arr)"/>
+  <circle cx="872" cy="140" r="20" fill="#fff" stroke="#1a1a1a"/><text x="872" y="144" text-anchor="middle" fill="#1a1a1a" font-size="9">verify</text>
+  <circle cx="872" cy="200" r="20" fill="#fff" stroke="#22c55e" stroke-width="1.5"/><text x="872" y="204" text-anchor="middle" fill="#1a1a1a" font-size="9">verify</text>
+  <circle cx="872" cy="260" r="20" fill="#fff" stroke="#1a1a1a"/><text x="872" y="264" text-anchor="middle" fill="#1a1a1a" font-size="9">verify</text>
+  <text x="790" y="310" text-anchor="middle" fill="#888" font-size="10">independents stress-test the work</text>
+  <text x="790" y="330" text-anchor="middle" fill="#888" font-size="9" font-family="monospace">agent -&gt; parallel(verifiers)</text>
 
-  <!-- ===== 4. Generate-And-Filter ===== -->
-  <text x="170" y="404" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">Generate-And-Filter</text>
-  <circle cx="70" cy="460" r="18" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <circle cx="70" cy="510" r="18" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <circle cx="70" cy="560" r="18" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <text x="70" y="464" text-anchor="middle" fill="#1a1a1a" font-size="8">gen</text>
-  <text x="70" y="514" text-anchor="middle" fill="#1a1a1a" font-size="8">gen</text>
-  <text x="70" y="564" text-anchor="middle" fill="#1a1a1a" font-size="8">gen</text>
-  <rect x="105" y="448" width="14" height="10" rx="1" fill="#fafafa" stroke="#888888"/>
-  <rect x="105" y="460" width="14" height="10" rx="1" fill="#fafafa" stroke="#888888"/>
-  <rect x="105" y="498" width="14" height="10" rx="1" fill="#fafafa" stroke="#888888"/>
-  <rect x="105" y="510" width="14" height="10" rx="1" fill="#fafafa" stroke="#888888"/>
-  <rect x="105" y="548" width="14" height="10" rx="1" fill="#fafafa" stroke="#888888"/>
-  <rect x="105" y="560" width="14" height="10" rx="1" fill="#fafafa" stroke="#888888"/>
-  <line x1="120" y1="460" x2="155" y2="510" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="120" y1="510" x2="155" y2="510" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="120" y1="560" x2="155" y2="510" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <rect x="160" y="488" width="70" height="44" rx="4" fill="#ffffff" stroke="#22c55e" stroke-width="1.5"/>
-  <text x="195" y="506" text-anchor="middle" fill="#1a1a1a" font-size="10" font-weight="600">filter</text>
-  <text x="195" y="520" text-anchor="middle" fill="#888888" font-size="8">rubric+dedupe</text>
-  <line x1="230" y1="500" x2="260" y2="470" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr-g)"/>
-  <line x1="230" y1="520" x2="260" y2="550" stroke="#888888" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#arr)"/>
-  <rect x="262" y="452" width="40" height="28" rx="3" fill="#fafafa" stroke="#22c55e" stroke-width="1.2"/>
-  <text x="282" y="470" text-anchor="middle" fill="#1a1a1a" font-size="9">best</text>
-  <rect x="262" y="538" width="40" height="28" rx="3" fill="#fafafa" stroke="#d0d0d0" stroke-width="1.2"/>
-  <text x="282" y="556" text-anchor="middle" fill="#888888" font-size="8">drop</text>
-  <text x="170" y="620" text-anchor="middle" fill="#888888" font-size="9" font-family="monospace">parallel(gens) ' filter</text>
-  <text x="170" y="638" text-anchor="middle" fill="#888888" font-size="10">keep what survives the test</text>
+  <text x="170" y="404" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">4. Generate-And-Filter</text>
+  <circle cx="70" cy="460" r="18" fill="#fff" stroke="#1a1a1a"/><text x="70" y="464" text-anchor="middle" fill="#1a1a1a" font-size="8">gen</text>
+  <circle cx="70" cy="510" r="18" fill="#fff" stroke="#1a1a1a"/><text x="70" y="514" text-anchor="middle" fill="#1a1a1a" font-size="8">gen</text>
+  <circle cx="70" cy="560" r="18" fill="#fff" stroke="#1a1a1a"/><text x="70" y="564" text-anchor="middle" fill="#1a1a1a" font-size="8">gen</text>
+  <line x1="90" y1="460" x2="150" y2="508" stroke="#888" marker-end="url(#arr)"/>
+  <line x1="90" y1="510" x2="150" y2="510" stroke="#888" marker-end="url(#arr)"/>
+  <line x1="90" y1="560" x2="150" y2="512" stroke="#888" marker-end="url(#arr)"/>
+  <rect x="155" y="488" width="72" height="44" rx="4" fill="#fff" stroke="#22c55e"/><text x="191" y="506" text-anchor="middle" fill="#1a1a1a" font-size="10" font-weight="600">filter</text><text x="191" y="520" text-anchor="middle" fill="#888" font-size="8">rubric+dedupe</text>
+  <line x1="227" y1="500" x2="255" y2="470" stroke="#22c55e" marker-end="url(#arr-g)"/>
+  <line x1="227" y1="520" x2="255" y2="550" stroke="#888" stroke-dasharray="3,2" marker-end="url(#arr)"/>
+  <rect x="258" y="454" width="42" height="26" rx="3" fill="#fafafa" stroke="#22c55e"/><text x="279" y="471" text-anchor="middle" fill="#1a1a1a" font-size="9">best</text>
+  <rect x="258" y="538" width="42" height="26" rx="3" fill="#fafafa" stroke="#d0d0d0"/><text x="279" y="555" text-anchor="middle" fill="#888" font-size="8">drop</text>
+  <text x="170" y="610" text-anchor="middle" fill="#888" font-size="10">keep what survives the test</text>
+  <text x="170" y="630" text-anchor="middle" fill="#888" font-size="9" font-family="monospace">parallel(gens) -&gt; filter</text>
 
-  <!-- ===== 5. Tournament ===== -->
-  <text x="480" y="404" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">Tournament</text>
-  <circle cx="380" cy="450" r="16" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <circle cx="430" cy="450" r="16" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <circle cx="530" cy="450" r="16" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <circle cx="580" cy="450" r="16" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
-  <text x="380" y="454" text-anchor="middle" fill="#1a1a1a" font-size="8">a</text>
-  <text x="430" y="454" text-anchor="middle" fill="#1a1a1a" font-size="8">b</text>
-  <text x="530" y="454" text-anchor="middle" fill="#1a1a1a" font-size="8">c</text>
-  <text x="580" y="454" text-anchor="middle" fill="#1a1a1a" font-size="8">d</text>
-  <line x1="380" y1="466" x2="395" y2="495" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="430" y1="466" x2="415" y2="495" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="530" y1="466" x2="545" y2="495" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="580" y1="466" x2="565" y2="495" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <path d="M405 500 L420 515 L405 530 L390 515 Z" fill="#ffffff" stroke="#22c55e" stroke-width="1.3"/>
-  <path d="M555 500 L570 515 L555 530 L540 515 Z" fill="#ffffff" stroke="#22c55e" stroke-width="1.3"/>
-  <text x="405" y="519" text-anchor="middle" fill="#1a1a1a" font-size="7">judge</text>
-  <text x="555" y="519" text-anchor="middle" fill="#1a1a1a" font-size="7">judge</text>
-  <line x1="405" y1="530" x2="460" y2="560" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="555" y1="530" x2="500" y2="560" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <path d="M480 564 L498 582 L480 600 L462 582 Z" fill="#ffffff" stroke="#22c55e" stroke-width="1.5"/>
-  <text x="480" y="586" text-anchor="middle" fill="#1a1a1a" font-size="8">final</text>
-  <line x1="480" y1="600" x2="480" y2="618" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr-g)"/>
-  <rect x="452" y="620" width="56" height="20" rx="3" fill="#fafafa" stroke="#22c55e" stroke-width="1.2"/>
-  <text x="480" y="634" text-anchor="middle" fill="#1a1a1a" font-size="9">winner</text>
-  <text x="480" y="662" text-anchor="middle" fill="#888888" font-size="9" font-family="monospace">pairwise agent judges</text>
+  <text x="480" y="404" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">5. Tournament</text>
+  <circle cx="380" cy="450" r="16" fill="#fff" stroke="#1a1a1a"/><text x="380" y="454" text-anchor="middle" fill="#1a1a1a" font-size="9">a</text>
+  <circle cx="430" cy="450" r="16" fill="#fff" stroke="#1a1a1a"/><text x="430" y="454" text-anchor="middle" fill="#1a1a1a" font-size="9">b</text>
+  <circle cx="530" cy="450" r="16" fill="#fff" stroke="#1a1a1a"/><text x="530" y="454" text-anchor="middle" fill="#1a1a1a" font-size="9">c</text>
+  <circle cx="580" cy="450" r="16" fill="#fff" stroke="#1a1a1a"/><text x="580" y="454" text-anchor="middle" fill="#1a1a1a" font-size="9">d</text>
+  <line x1="380" y1="466" x2="395" y2="494" stroke="#888" marker-end="url(#arr)"/>
+  <line x1="430" y1="466" x2="415" y2="494" stroke="#888" marker-end="url(#arr)"/>
+  <line x1="530" y1="466" x2="545" y2="494" stroke="#888" marker-end="url(#arr)"/>
+  <line x1="580" y1="466" x2="565" y2="494" stroke="#888" marker-end="url(#arr)"/>
+  <path d="M405 498 L420 514 L405 530 L390 514 Z" fill="#fff" stroke="#22c55e"/><text x="405" y="518" text-anchor="middle" fill="#1a1a1a" font-size="7">judge</text>
+  <path d="M555 498 L570 514 L555 530 L540 514 Z" fill="#fff" stroke="#22c55e"/><text x="555" y="518" text-anchor="middle" fill="#1a1a1a" font-size="7">judge</text>
+  <line x1="405" y1="530" x2="460" y2="558" stroke="#888" marker-end="url(#arr)"/>
+  <line x1="555" y1="530" x2="500" y2="558" stroke="#888" marker-end="url(#arr)"/>
+  <path d="M480 562 L498 580 L480 598 L462 580 Z" fill="#fff" stroke="#22c55e"/><text x="480" y="584" text-anchor="middle" fill="#1a1a1a" font-size="8">final</text>
+  <line x1="480" y1="598" x2="480" y2="616" stroke="#22c55e" marker-end="url(#arr-g)"/>
+  <rect x="452" y="618" width="56" height="20" rx="3" fill="#fafafa" stroke="#22c55e"/><text x="480" y="632" text-anchor="middle" fill="#1a1a1a" font-size="9">winner</text>
+  <text x="480" y="660" text-anchor="middle" fill="#888" font-size="9" font-family="monospace">pairwise agent judges</text>
 
-  <!-- ===== 6. Loop Until Done ===== -->
-  <text x="790" y="404" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">Loop Until Done</text>
-  <circle cx="790" cy="470" r="28" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5"/>
-  <text x="790" y="474" text-anchor="middle" fill="#1a1a1a" font-size="11">agent</text>
-  <line x1="790" y1="498" x2="790" y2="525" stroke="#888888" stroke-width="1.5" marker-end="url(#arr)"/>
-  <path d="M790 530 L812 552 L790 574 L768 552 Z" fill="#ffffff" stroke="#22c55e" stroke-width="1.5"/>
-  <text x="790" y="548" text-anchor="middle" fill="#1a1a1a" font-size="8">new?</text>
-  <text x="790" y="560" text-anchor="middle" fill="#1a1a1a" font-size="8">findings</text>
-  <line x1="812" y1="560" x2="870" y2="560" stroke="#888888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <rect x="872" y="548" width="40" height="24" rx="3" fill="#1a1a1a"/>
-  <text x="892" y="564" text-anchor="middle" fill="#ffffff" font-size="9">done</text>
-  <path d="M768 548 C720 548 720 470 762 470" fill="none" stroke="#22c55e" stroke-width="1.8" marker-end="url(#arr-g)"/>
-  <text x="730" y="512" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="600">yes  - </text>
-  <text x="730" y="524" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="600">spawn</text>
-  <text x="790" y="620" text-anchor="middle" fill="#888888" font-size="10">stop when dry rounds appear</text>
-  <text x="790" y="638" text-anchor="middle" fill="#888888" font-size="9" font-family="monospace">while + agent + budget</text>
+  <text x="790" y="404" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">6. Loop Until Done</text>
+  <circle cx="790" cy="470" r="28" fill="#fff" stroke="#1a1a1a" stroke-width="1.5"/><text x="790" y="474" text-anchor="middle" fill="#1a1a1a" font-size="11">agent</text>
+  <line x1="790" y1="498" x2="790" y2="524" stroke="#888" marker-end="url(#arr)"/>
+  <path d="M790 528 L814 552 L790 576 L766 552 Z" fill="#fff" stroke="#22c55e"/><text x="790" y="548" text-anchor="middle" fill="#1a1a1a" font-size="8">new?</text><text x="790" y="562" text-anchor="middle" fill="#1a1a1a" font-size="8">findings</text>
+  <line x1="814" y1="560" x2="868" y2="560" stroke="#888" marker-end="url(#arr)"/>
+  <rect x="870" y="548" width="40" height="24" rx="3" fill="#1a1a1a"/><text x="890" y="564" text-anchor="middle" fill="#fff" font-size="9">done</text>
+  <path d="M766 548 C720 548 720 470 762 470" fill="none" stroke="#22c55e" stroke-width="1.8" marker-end="url(#arr-g)"/>
+  <text x="728" y="512" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="600">yes -</text>
+  <text x="728" y="526" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="600">spawn</text>
+  <text x="790" y="620" text-anchor="middle" fill="#888" font-size="10">stop when dry rounds appear</text>
+  <text x="790" y="640" text-anchor="middle" fill="#888" font-size="9" font-family="monospace">while + agent + budget</text>
 
-  <text x="480" y="702" text-anchor="middle" fill="#888888" font-size="10">Script owns the topology; agents judge inside each step.</text>
+  <text x="480" y="702" text-anchor="middle" fill="#888" font-size="10">Script owns the topology; agents judge inside each step.</text>
 </svg>

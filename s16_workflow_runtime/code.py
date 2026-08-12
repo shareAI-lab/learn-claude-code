@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 """
-s16: Workflow Runtime — a teaching model of Claude Code Dynamic Workflows.
+s16: Workflow Runtime — teaching model of Dynamic Agentic Workflows.
 
-Claude Code's Workflow tool accepts script / scriptPath / name / args /
-resumeFromRunId. The model can write a JavaScript orchestration script for the
-task (dynamic), or rerun a saved one by name. This lesson is a small Python
-runtime that shows the same ideas line-by-line. The demo registers one saved
-workflow by name; we do not embed a JS interpreter.
+Idea: move orchestration from intelligence to structure. Subagents judge;
+the script owns topology (loops, fan-out, merge). Intermediate results live
+in variables + a journal, not in the host conversation.
+
+Claude Code accepts script / scriptPath / name / args / resumeFromRunId.
+Dynamic = model writes a JS harness for this task; Saved = rerun by name.
+This lesson is a small Python runtime with the same ideas, line-readable.
+Demo registers one saved workflow; we do not embed a JS interpreter.
+
+Fidelity notes baked into this file:
+  - parallel/pipeline failures isolate to null slots (fleet continues)
+  - resume = longest unchanged agent() call-order prefix
+  - real JS runtimes ban Date.now/Math.random so journals stay aligned
 
 Run:
   python s16_workflow_runtime/code.py

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" font-family="system-ui, -apple-system, sans-serif" role="img" aria-labelledby="title desc">
+  <title id="title">Static harness vs dynamic workflow</title>
+  <desc id="desc">Same question, two harnesses: a generic static pipeline versus a tailor-made dynamic workflow that reads local code and runs an adversarial check.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#888"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#22c55e"/></marker>
+  </defs>
+  <rect width="960" height="520" rx="8" fill="#fff"/>
+  <text x="480" y="28" text-anchor="middle" fill="#1a1a1a" font-size="18" font-weight="700">Same question, two harnesses</text>
+  <rect x="220" y="48" width="520" height="36" rx="6" fill="#fafafa" stroke="#1a1a1a" stroke-width="1.2"/>
+  <text x="480" y="71" text-anchor="middle" fill="#1a1a1a" font-size="12">Should we migrate our checkout service to a new provider?</text>
+  <line x1="350" y1="84" x2="200" y2="120" stroke="#888" stroke-width="1.3" marker-end="url(#a)"/>
+  <line x1="610" y1="84" x2="760" y2="120" stroke="#22c55e" stroke-width="1.5" marker-end="url(#ag)"/>
+
+  <!-- Static -->
+  <rect x="40" y="128" width="420" height="360" rx="8" fill="#fff" stroke="#d0d0d0" stroke-width="1.5"/>
+  <text x="250" y="154" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="700">Static harness</text>
+  <text x="250" y="172" text-anchor="middle" fill="#888" font-size="11">written ahead - must work for every edge case</text>
+  <rect x="120" y="190" width="260" height="36" rx="4" fill="#fafafa" stroke="#888"/>
+  <text x="250" y="212" text-anchor="middle" fill="#1a1a1a" font-size="12">turn into 5 web searches</text>
+  <line x1="250" y1="226" x2="250" y2="244" stroke="#888" marker-end="url(#a)"/>
+  <rect x="120" y="246" width="260" height="36" rx="4" fill="#fafafa" stroke="#888"/>
+  <text x="250" y="268" text-anchor="middle" fill="#1a1a1a" font-size="12">fetch top results</text>
+  <line x1="250" y1="282" x2="250" y2="300" stroke="#888" marker-end="url(#a)"/>
+  <rect x="120" y="302" width="260" height="36" rx="4" fill="#fafafa" stroke="#888"/>
+  <text x="250" y="324" text-anchor="middle" fill="#1a1a1a" font-size="12">verify</text>
+  <line x1="250" y1="338" x2="250" y2="356" stroke="#888" marker-end="url(#a)"/>
+  <rect x="120" y="358" width="260" height="36" rx="4" fill="#fafafa" stroke="#888"/>
+  <text x="250" y="380" text-anchor="middle" fill="#1a1a1a" font-size="12">summarize</text>
+  <line x1="250" y1="394" x2="250" y2="412" stroke="#888" marker-end="url(#a)"/>
+  <rect x="120" y="414" width="260" height="40" rx="4" fill="#1a1a1a"/>
+  <text x="250" y="439" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">a generic research report</text>
+
+  <!-- Dynamic -->
+  <rect x="500" y="128" width="420" height="360" rx="8" fill="#fff" stroke="#22c55e" stroke-width="1.8"/>
+  <text x="710" y="154" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="700">Dynamic workflow</text>
+  <text x="710" y="172" text-anchor="middle" fill="#888" font-size="11">written for THIS task - then optionally saved</text>
+  <rect x="560" y="190" width="300" height="36" rx="4" fill="#fafafa" stroke="#1a1a1a"/>
+  <text x="710" y="212" text-anchor="middle" fill="#1a1a1a" font-size="12">read our billing code</text>
+  <rect x="560" y="234" width="88" height="24" rx="3" fill="#fff" stroke="#22c55e" stroke-dasharray="3,2"/>
+  <text x="604" y="250" text-anchor="middle" fill="#1a1a1a" font-size="9">billing/</text>
+  <rect x="656" y="234" width="88" height="24" rx="3" fill="#fff" stroke="#22c55e" stroke-dasharray="3,2"/>
+  <text x="700" y="250" text-anchor="middle" fill="#1a1a1a" font-size="9">webhooks/</text>
+  <rect x="752" y="234" width="88" height="24" rx="3" fill="#fff" stroke="#22c55e" stroke-dasharray="3,2"/>
+  <text x="796" y="250" text-anchor="middle" fill="#1a1a1a" font-size="9">taxes/</text>
+  <line x1="640" y1="258" x2="600" y2="286" stroke="#888" marker-end="url(#a)"/>
+  <line x1="780" y1="258" x2="820" y2="286" stroke="#888" marker-end="url(#a)"/>
+  <rect x="520" y="288" width="180" height="52" rx="4" fill="#fafafa" stroke="#22c55e"/>
+  <text x="610" y="310" text-anchor="middle" fill="#1a1a1a" font-size="10">check features vs</text>
+  <text x="610" y="326" text-anchor="middle" fill="#1a1a1a" font-size="10">new provider docs</text>
+  <rect x="720" y="288" width="180" height="52" rx="4" fill="#fafafa" stroke="#22c55e"/>
+  <text x="810" y="310" text-anchor="middle" fill="#1a1a1a" font-size="10">price at our</text>
+  <text x="810" y="326" text-anchor="middle" fill="#1a1a1a" font-size="10">transaction volume</text>
+  <line x1="610" y1="340" x2="670" y2="368" stroke="#888" marker-end="url(#a)"/>
+  <line x1="810" y1="340" x2="750" y2="368" stroke="#888" marker-end="url(#a)"/>
+  <rect x="560" y="370" width="300" height="40" rx="4" fill="#fff" stroke="#22c55e" stroke-dasharray="4,2"/>
+  <text x="710" y="395" text-anchor="middle" fill="#1a1a1a" font-size="11">devil's advocate: strongest case against</text>
+  <line x1="710" y1="410" x2="710" y2="428" stroke="#22c55e" marker-end="url(#ag)"/>
+  <rect x="560" y="430" width="300" height="40" rx="4" fill="#1a1a1a"/>
+  <text x="710" y="455" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">a specific recommendation</text>
+
+  <text x="480" y="508" text-anchor="middle" fill="#888" font-size="10">Static aims to fit every case. Dynamic cuts cloth for this one - then save if the fit is good.</text>
+</svg>

@@ -8,29 +8,31 @@ s01 → ... → s14 → [s15](../s15_integrated_harness/) → `s16` → [s17](..
 >
 > **Harness layer**: Orchestration — a multi-agent script above the single-agent loop.
 >
-> Trust the model; engineer the harness. Workflows are that idea at the orchestration layer.
+> Trust the model. Engineer the harness. Workflows are that idea one floor up.
 
 ---
 
-Picture cooking with a friend over text. “Chop the onions.” Wait. “Done?” Then the pan, then the salt. One dish survives that rhythm. A feast with twenty plates does not: you forget steps, repeat yourself, and if the phone dies you start over cold.
+Picture cooking with a friend over text. “Chop the onions.” Wait. “Done yet?” Then the pan, then the salt. One dish survives that rhythm. A feast with twenty plates does not: you forget steps, repeat yourself, and if the phone dies you start over cold.
 
-That is what it feels like when the model is both chef and clipboard — planning and doing inside the same chat. A **workflow** is the written recipe. The kitchen (the runtime) follows it. Helpers (subagents) taste and judge. The bowls of half-finished work sit on the counter, not in the group thread.
+That is what it feels like when one model is both chef and clipboard — planning and doing inside the same chat. A **workflow** is the written recipe. The kitchen (a small runtime) follows it. Helpers (subagents) taste and judge. Half-finished bowls sit on the counter — in variables and a journal — not in the group thread.
 
-## Why bother with another harness?
+## Why another harness at all?
 
-The default Claude Code harness is already good at coding-shaped work: change something, run it, read the error, try again. One loop, one mind, a surprising amount of craft.
+The default Claude Code harness is already strong at coding-shaped work: change something, run it, read the error, try again. One loop. One mind. A surprising amount of craft.
 
-But some jobs are a different shape — deep research, security sweeps, agent teams, a review that fans out across a whole change set. For those, people have long built a second harness on top. You can still hand-write that layer in an SDK. Or — and this is the lively part — Claude can draft a harness **for this task**, run it, and keep the good ones.
+But some jobs want a **custom harness on top** — deep research, security sweeps, agent teams, a review that fans across a whole change set. You can hand-write that layer once in an SDK. Or — and this is the lively idea — Claude can draft a harness **for this task**, run it, and keep the good ones.
 
-Same course motto, one floor up: trust the model inside each step; decide the shape of the steps yourself.
+Claude Code’s designers put it simply: dynamic workflows let the model write its own multi-agent harness on the fly. Same course motto, raised one floor: trust the model inside each step; decide the shape of the steps yourself.
 
-## What goes wrong in a long chat
+## What a long chat quietly does wrong
 
 From s01 through s15, plan and action share one context window. That is wonderful when the next move depends on what you just found.
 
-It frays when the job is long, massively parallel, rigidly structured, or needs a skeptical second opinion. Watch a long chat carefully and you will see familiar habits. It gets tired and declares victory after thirty-five of fifty review items. Asked to check its own homework, it grades kindly — the fox scoring the henhouse. And across many turns and compressions, the quiet constraint (“don’t touch X”) fades until nobody remembers why it was there.
+It frays when the job is long, massively parallel, rigidly structured, or needs a skeptical second opinion. Watch a long chat carefully and you will meet familiar habits before you ever learn their names.
 
-Claude Code’s designers call these agentic laziness, self-preferential bias, and goal drift. The names matter less than the feeling: the same window that does the work is also trying to remember the plan. Chat history is a soft place to keep parallelism, stable result shapes, and a way to resume after a crash. Review-many-files, research-then-verify, migrate-N-modules — those jobs already know their shape. Soft memory is not enough.
+It gets tired and declares victory after thirty-five of fifty review items. Asked to check its own homework, it grades kindly — the fox scoring the henhouse. Across many turns and compressions, the quiet constraint (“don’t touch X”) fades until nobody remembers why it was there.
+
+Those are agentic laziness, self-preferential bias, and goal drift. The names matter less than the feeling: the same window that does the work is also trying to remember the plan. Chat history is a soft place to keep parallelism, stable result shapes, and a way to resume after a crash. Review-many-files, research-then-verify, migrate-N-modules — those jobs already know their shape. Soft memory is not enough.
 
 ## The idea, once it clicks
 
@@ -38,21 +40,25 @@ What if the plan lived in code?
 
 Helpers still think — each at a clean desk, with one focused job. The **script** owns the loops, the fan-out, the merge. Intermediate results live in variables and a journal, not in the conversation. Laziness has a harder time stopping the fleet early. Self-checking bias meets a second helper who was not the author. Drift loses its grip because the topology is not rewritten every turn by a tired narrator.
 
-In one line: workflows move orchestration from *intelligence* to *structure*. The model still judges inside each `agent()`; the script owns the map.
+In one line: **workflows move orchestration from intelligence to structure.** The model still judges inside each `agent()`; the script owns the map.
 
 ![Workflow Runtime Overview](images/workflow-runtime-overview.svg)
 
 One `Workflow` tool call starts that run. Progress ticks while it works; one tool result comes back with launch info, the outcome, and task state.
 
-## Two doors into the same kitchen
+## Two doors — and a cousin outside
 
-Claude Code is straightforward about how you enter.
+Claude Code is straightforward about how you enter the kitchen.
 
-Sometimes the model writes a JavaScript orchestration script for *this* task and hands it over as `script` (or later edits `scriptPath`). That is the **dynamic** door — a harness tailored while the problem is still warm.
+Sometimes the model writes a JavaScript orchestration script for *this* task and hands it over as `script` (or later edits `scriptPath`). That is the **dynamic** door — a harness cut while the problem is still warm.
 
 Sometimes a good script has already been saved under something like `.claude/workflows/`. You call it by `name` and `args`. That is the **saved** door — the reusable residue of a run that earned its keep.
 
-There is a cousin outside this lesson too: **static** harnesses you write ahead of time with the Agent SDK or `claude -p`. Those have to survive every edge case, so they stay generic. Dynamic ones are cut for *this* cloth; save them when the fit is right.
+There is also a cousin: **static** harnesses you write ahead of time with the Agent SDK or `claude -p`. Those must survive every edge case, so they stay generic. Dynamic ones are cut for *this* cloth; save them when the fit is right.
+
+![Static harness vs dynamic workflow](images/dynamic-vs-static.svg)
+
+*Same question. Left: a generic pipeline that always ends in a generic report. Right: a tailor-made workflow that reads your code, prices your volume, and invites a devil’s advocate.*
 
 **This chapter is a Python teaching runtime.** Same ideas, every line readable. Our demo registers one saved workflow by name; the concepts map one-to-one onto Claude Code’s script world. We will not pretend “the model cannot submit executable code” — that was never true of Claude Code. We simply do not embed a full JavaScript interpreter here.
 
@@ -74,13 +80,19 @@ WORKFLOW_TOOL = {
 }
 ```
 
-## A few kitchen verbs
+## Three verbs the script speaks
 
 Imagine a school bake sale. Every table needs mix → bake → box. Helpers taste; the recipe decides order.
 
-`agent(...)` is asking one helper to do one job. `pipeline(items, *stages)` is the default: each cake walks the stages on its own, so one can be boxing while another is still mixing. `parallel(...)` is the barrier — wait until every tray is back — and you only want that when the next step truly needs all of them together, like writing the scorecard after tasting the whole tray.
+![Workflow primitives](images/workflow-primitives.svg)
 
-Around those sit quieter verbs: `phase` to announce where you are on the board, `log` for a short shout, `workflow` to nest one smaller recipe, `args` for the ingredients list, `budget` for how many oven-minutes (tokens) you may burn.
+`agent(prompt, {schema, label, phase})` asks one helper to do one job. With a `schema`, the answer comes back as validated JSON — a socket the next stage can hold — with one retry if the first reply is messy.
+
+`pipeline(items, *stages)` is the default for multi-stage work. Each cake walks its stages alone, so one can be boxing while another is still mixing. No barrier between stages.
+
+`parallel(thunks)` is the barrier — wait until every tray is back. Reach for it only when the next step truly needs all results together, like writing the scorecard after tasting the whole tray.
+
+Around those sit quieter verbs: `phase` to announce where you are, `log` for a short shout, nested `workflow` one level deep, `args` for the ingredients list, `budget` for oven-minutes (tokens).
 
 ```python
 # Each review dimension walks audit → verify on its own.
@@ -88,27 +100,36 @@ results = await ctx.pipeline(DIMENSIONS, audit, verify)
 confirmed = [f for r in results if r for f in r["confirmed"]]
 ```
 
-## Once you can write the recipe
+When a helper fails, the fleet stays kind. A failing `parallel` thunk becomes `null` in that slot; the gather itself does not reject. A failing `pipeline` stage drops **that item** to null and skips its later stages; other items keep walking. Filter with care before you merge.
 
-The verbs above are flour and heat. What people keep reinventing are a handful of *shapes* — common patterns for dynamic agentic workflows. Think of them as a toolbox, not a mandatory menu. Reach for one when its pain shows up; leave the rest on the pegboard.
+And when the kitchen pauses? Every run has a `runId` and a journal on disk — a notebook ordered by the moment you *called* each helper. Resume walks the script from the top and replays the **longest unchanged prefix**. At the first changed or unfinished call, everything after runs live. That is why real JS runtimes ban `Date.now()` and `Math.random()`: clocks and dice make the notebook stop lining up. This Python demo does not fully sandbox that — write deterministic scripts anyway.
+
+```text
+journal:  [A ok] [B ok] [C ok] [D ok]
+resume:   A hit → B hit → C changed → D runs live
+```
+
+## Once you can write the recipe — the pattern toolbox
+
+The verbs are flour and heat. What people keep reinventing are a handful of *shapes*. Think of them as a toolbox, not a mandatory menu.
 
 ![Six Workflow Patterns](images/six-workflow-patterns.svg)
 
-*Six shapes people keep reinventing. The script owns the topology; `agent` / `parallel` / `pipeline` / `phase` / journal are how each shape is spoken in this lesson.*
+*Six shapes people keep reinventing. The script owns the topology; this lesson speaks them with `agent` / `parallel` / `pipeline` / `phase` / journal.*
 
-**Classify-And-Act.** Pain: one generic helper is mediocre at everything. Shape: a classifier looks at the task, then routes to specialist A, B, or C. In this lesson that is usually one `agent({schema})` that returns a label, then an `if`/`match` in the script that calls the right follow-up `agent` (or a nested `workflow`). Skip it when every item truly needs the same treatment — routing is just ceremony then.
+**Classify-And-Act.** Pain: one generic helper is mediocre at everything. Shape: a classifier looks, then routes to specialist A, B, or C. Here: one `agent({schema})` returns a label; the script branches to the right follow-up `agent` (or a nested `workflow`). Skip it when every item truly needs the same treatment.
 
-**Fanout-And-Synthesize.** Pain: fifty files will not fit one tired context, and they contaminate each other if they try. Shape: split the work, run many agents, wait at a barrier, merge. Map it with `pipeline` when each item has its own stages, or `parallel` when the next step needs every result together; put the merge in ordinary Python after the gather. Skip it for three related files a single pass can hold.
+**Fanout-And-Synthesize.** Pain: fifty files will not fit one tired context, and they contaminate each other if they try. Shape: split, run many, wait at a barrier, merge. Here: `pipeline` for per-item stages, or `parallel` when the next step needs every result; merge in ordinary Python after the gather. Skip it for three related files a single pass can hold.
 
-**Adversarial Verification.** Pain: the fox grades the henhouse. Shape: a worker produces; independent verifiers try to refute or stress-test; only survivors remain. Map it with a produce `agent`, then `parallel` of verifier `agent`s (ideally `schema`’d), then a filter. Phases help (“Review” then “Verify”). Skip it when the cost of a wrong answer is low — not every note needs a tribunal.
+**Adversarial Verification.** Pain: the fox grades the henhouse. Shape: a worker produces; independent verifiers try to refute; only survivors remain. Here: a produce `agent`, then `parallel` of verifier `agent`s (schema’d), then a filter. Phases help (“Review” then “Verify”). Skip it when a wrong answer is cheap.
 
-**Generate-And-Filter.** Pain: you need options, not the first idea that sounded clever. Shape: many generators spill ideas into a rubric + dedupe filter; best stay, rest go. Map it with `parallel` over generators, then script-side filter (or one judge `agent` with a schema). Journal/resume matter when generation is expensive. Skip it when the space of good answers is already tiny.
+**Generate-And-Filter.** Pain: you need options, not the first clever-sounding idea. Shape: many generators spill into a rubric + dedupe filter. Here: `parallel` over generators, then script-side filter (or one judge `agent`). Journal matters when generation is expensive. Skip it when the space of good answers is already tiny.
 
-**Tournament.** Pain: absolute scores are mushy for taste and ranking (“how good is this name?”). Shape: pairwise judges, a bracket, a winner — comparative judgment beats lonely scoring. Map it with rounds of `parallel` judge `agent`s over pairs, looping in the script until one remains. Skip it when a clear rubric already picks a winner in one pass.
+**Tournament.** Pain: absolute scores are mushy for taste and ranking. Shape: pairwise judges, a bracket, a winner — comparative judgment beats lonely scoring. Here: rounds of `parallel` judge `agent`s over pairs until one remains. Skip it when a clear rubric already picks a winner in one pass.
 
-**Loop Until Done.** Pain: you do not know how many passes the mine still holds. Shape: keep spawning while “new findings?” is yes; stop on dry rounds or a done condition. Map it with a `while` over `agent`/`parallel`, a schema’d stop check, and a hard `budget` so the loop cannot eat the house. Pair with journal resume when a long dig may pause. Skip it when the work has a known size — a fixed `pipeline` is simpler and safer.
+**Loop Until Done.** Pain: you do not know how many passes the mine still holds. Shape: keep spawning while “new findings?” is yes; stop on dry rounds. Here: a `while` over `agent`/`parallel`, a schema’d stop check, and a hard `budget`. Pair with journal resume on a long dig. Skip it when the work has a known size — a fixed `pipeline` is simpler.
 
-After a few of those have a face, the toolbox fits in one glance:
+After a few have faces, the toolbox fits in one glance:
 
 | Pattern | Primitive sketch | Reach for it when… |
 |---------|------------------|--------------------|
@@ -116,55 +137,14 @@ After a few of those have a face, the toolbox fits in one glance:
 | Fanout-And-Synthesize | `pipeline` / `parallel` → merge | Many clean desks, then one summary |
 | Adversarial Verification | produce → `parallel(verify)` → filter | Wrong answers are expensive |
 | Generate-And-Filter | `parallel(gens)` → rubric filter | You need options, then taste |
-| Tournament | pairwise judge `agent`s in a bracket | Ranking / taste without a sharp scale |
-| Loop Until Done | `while` + stop check + `budget` | Unknown amount of buried work |
+| Tournament | pairwise judge `agent`s | Ranking / taste without a sharp scale |
+| Loop Until Done | `while` + stop + `budget` | Unknown amount of buried work |
 
-Compositions are normal. Deep research often stacks fanout → filter → verify → synthesize. Our sample is already a small chord of two notes.
-
-## Answers the next stage can hold
-
-If a helper returns a poem, the next stage cannot zip findings to verdicts. Pass a `schema`. The runtime asks for JSON, checks it, and gives **one** retry. Fail again and that call errors — which brings us to how the fleet stays kind under failure.
-
-```python
-out = await ctx.agent(
-    f"Inspect this change for {dimension} issues:\n{changes}",
-    schema=FINDINGS_SCHEMA,
-    label=f"audit:{dimension}",
-)
-```
-
-Chat with you can stay prose. A pipeline needs sockets that fit.
-
-## When one tray burns
-
-The fleet should not stop because one helper had a bad oven.
-
-In `parallel`, a failing thunk becomes `null` / `None` in that slot; the gather itself does not reject. In `pipeline`, a failing stage drops **that item** to null and skips its later stages; the other items keep walking. Filter with care before you merge — `if r`, or `.filter(Boolean)` in the JS world.
-
-```python
-verdicts = await ctx.parallel([...])  # some slots may be None
-confirmed = [
-    f for f, v in zip(findings, verdicts)
-    if v and v.get("isReal")
-]
-```
-
-## A notebook you can reopen
-
-Every run gets a `runId`. As each `agent()` finishes, a line lands in a journal on disk — a notebook ordered by the moment you *called* the helper, not by who wandered back from the oven first.
-
-Resume (`resume_from_run_id` / `resumeFromRunId`) runs the script from the top again, but kindly. Call by call, in order, it matches the next journal line. The longest unchanged prefix replays from cache. At the first changed or unfinished call, the prefix breaks — and everything after runs live, even if an old key still sits further down the notebook. No silent leaps over a break.
-
-That is also why real JavaScript workflow runtimes ban `Date.now()`, `Math.random()`, and bare `new Date()`. Clocks and dice make prompts or call order wobble, and the notebook stops lining up. This Python demo does not fully sandbox that. Write deterministic scripts anyway.
-
-```text
-journal:  [A ✓] [B ✓] [C ✓] [D ✓]
-resume:   A hit → B hit → C changed → D runs live
-```
+Compositions are normal. Deep research often stacks fanout → filter → verify → synthesize. Triage sometimes adds a **quarantine**: readers of untrusted content stay read-only; only a trusted actor opens PRs. Our sample is a smaller chord of two notes.
 
 ## Walking `review-changes` — a composition
 
-The sample is not “one pattern.” It is **Fanout-And-Synthesize** with **Adversarial Verification** inside — and a light generate-and-filter at the end when only `isReal` findings survive.
+The sample is not “one pattern.” It is **Fanout-And-Synthesize** with **Adversarial Verification** inside — and a light generate-and-filter when only `isReal` findings survive.
 
 ```text
 correctness ── audit ── verify ──┐
@@ -175,7 +155,7 @@ style       ── audit ── verify ──┘
               └── each finding: skeptical verify ──┘
 ```
 
-`pipeline(DIMENSIONS, audit, verify)` gives each dimension its own desk so correctness talk does not bleed into security. Inside `verify`, `parallel` of verifier agents is the adversarial chord. Ordinary list filtering is the synthesize step. Phases mark Review then Verify; the journal remembers every `agent()` so a pause does not redo the audits.
+`pipeline(DIMENSIONS, audit, verify)` gives each dimension its own desk. Inside `verify`, `parallel` of verifier agents is the adversarial chord. Ordinary list filtering is the synthesize step. Phases mark Review then Verify; the journal remembers every `agent()` so a pause does not redo the audits.
 
 You can almost feel the three failure modes losing their favorite seats: the fleet cannot stop after two dimensions, the author is not the judge, and the topology does not drift mid-run.
 
@@ -188,13 +168,14 @@ async def sample_workflow(ctx, args):
     return {"confirmed": confirmed}
 ```
 
-## Hanging on s15 without replacing it
+<details>
+<summary>How this hangs on s15 without replacing it</summary>
 
 s15 is still the host loop. s16 only adds a tool named `Workflow`. You (or the model) ask for a saved name; the adapter finds the script and runs it.
 
-In the real product, that run can sit in the background with notifications while the session stays responsive. Our teaching CLI keeps `demo` and `resume` in the foreground so you can watch phases and cache hits without squinting. Same ideas; we say so when we simplify.
+In the real product, that run can sit in the background with notifications while the session stays responsive. Our teaching CLI keeps `demo` / `resume` in the foreground so you can watch phases and cache hits. Same ideas; we say so when we simplify. The main loop borrows one tool the way it borrows `bash` or `task`.
 
-The main loop does not become a workflow engine. It borrows one tool the way it borrows `bash` or `task`.
+</details>
 
 ## Turning the gem: who holds the plan?
 
@@ -230,4 +211,4 @@ Watch Review give way to Verify. Watch agents flip from `done` to `cached` on a 
 
 s16 is how a batch runs. [s17 Goal Loop](../s17_goal_loop/) asks a different question at the door: should we stop, or take another turn? Pair them when a repeatable recipe also needs a hard “done.”
 
-<!-- translation-sync: zh@v14, en@v14, ja@v14 -->
+<!-- translation-sync: zh@v15, en@v15, ja@v15 -->

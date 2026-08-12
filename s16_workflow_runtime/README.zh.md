@@ -8,29 +8,31 @@ s01 → ... → s14 → [s15](../s15_integrated_harness/) → `s16` → [s17](..
 >
 > **Harness 层**: 编排 — 单 agent 循环之上，再跑一套多 agent 脚本。
 >
-> 信任模型，工程化 harness。Workflow，就是把这句话落到编排层。
+> 信任模型，工程化 harness。Workflow，就是把这句话往上提一层。
 
 ---
 
 想象你跟朋友用微信一起做饭。“先切洋葱。”等回音。“切好了吗？”然后热锅、放盐。一道菜还能撑住这种节奏；二十桌宴席就不行了——步骤会丢，话会重复，手机一死还得从头来。
 
-模型既当厨师又当记事本时，感觉就是这样：计划与动手挤在同一段对话里。**Workflow** 则是写好的菜谱。厨房（runtime）按谱做，帮手（子 agent）负责尝和判断，半成品放在台面上的碗里，而不是塞进群聊记录。
+模型既当厨师又当记事本时，感觉就是这样：计划与动手挤在同一段对话里。**Workflow** 则是写好的菜谱。厨房（一个小 runtime）按谱做，帮手（子 agent）负责尝和判断，半成品放在台面上的碗里——变量和 journal——而不是塞进群聊。
 
 ## 为什么还要另一层 harness？
 
-默认的 Claude Code harness 已经很擅长“写代码那种形状”的活：改一点、跑一下、看报错、再试。一个循环、一颗脑袋，能做出不少工艺。
+默认的 Claude Code harness 已经很擅长“写代码那种形状”的活：改一点、跑一下、看报错、再试。一个循环。一颗脑袋。能做出不少工艺。
 
-可有些活是另一种形状——深度调研、安全排查、agent teams、要铺开审查一整片改动。这类事，人们早就习惯在上面再搭一层定制 harness。你当然可以事先用 SDK 手写；也可以——这才是有意思的地方——让 Claude **为这次任务**起草一个 harness，跑起来，好用的再留下来。
+可有些活需要**叠一层定制 harness**——深度调研、安全排查、agent teams、要铺开审查一整片改动。你可以事先用 SDK 手写那一层；也可以——这才是有意思的地方——让 Claude **为这次任务**起草一个 harness，跑起来，好用的再留下来。
 
-课程那句口号往上提一层：每一步里信任模型；步骤怎么排，由你来定结构。
+Claude Code 的设计者说得很直白：dynamic workflow 让模型当场为自己写下多 agent 的 harness。课程那句口号往上提一层：每一步里信任模型；步骤怎么排，由你来定结构。
 
 ## 长对话里你会看见的走偏
 
 从 s01 到 s15，计划与执行共享同一个上下文。下一步取决于刚才的发现时，这很舒服。
 
-可一旦任务变长、要大规模并行、结构又死板，或需要一个挑剔的第二意见，它就会发脆。你若耐心看一段很长的聊天，会撞见熟面孔：做到五十项里的三十五就宣布完工；让它批改自己的作业，分数总是偏甜——狐狸给鸡窝打分；多轮对话和压缩过后，那句轻轻的“别动 X”渐渐听不见了。
+可一旦任务变长、要大规模并行、结构又死板，或需要一个挑剔的第二意见，它就会发脆。你若耐心看一段很长的聊天，会在学会术语之前，先撞见熟面孔。
 
-Claude Code 的设计者把这些叫做 agentic laziness、self-preferential bias、goal drift。名字不如感觉重要：同一个窗口既要干活，又要记住计划。对话历史太软，扛不住并行、稳定的结果形状，以及崩了还能续上。审查很多文件、先调研再验证、按同一方式迁移 N 个模块——这些活的形状事先就清楚。软记忆不够用。
+做到五十项里的三十五就宣布完工。让它批改自己的作业，分数总是偏甜——狐狸给鸡窝打分。多轮对话和压缩过后，那句轻轻的“别动 X”渐渐听不见了。
+
+这些就是 agentic laziness、self-preferential bias、goal drift。名字不如感觉重要：同一个窗口既要干活，又要记住计划。对话历史太软，扛不住并行、稳定的结果形状，以及崩了还能续上。审查很多文件、先调研再验证、按同一方式迁移 N 个模块——这些活的形状事先就清楚。软记忆不够用。
 
 ## 点子落下的那一下
 
@@ -38,13 +40,13 @@ Claude Code 的设计者把这些叫做 agentic laziness、self-preferential bia
 
 帮手仍然负责想——每人一张干净桌子，一件专注的事。**脚本**掌管循环、分发和合并。中间结果待在变量和 journal 里，不进对话。想偷懒提前收工的习惯，更难叫停整支队伍；自我检查的偏心，会撞上一个不是作者本人的第二帮手；漂移也难下手，因为拓扑不再由一个疲倦的叙述者每轮改写。
 
-一句话：workflow 把编排从“靠聪明”挪到“靠结构”。模型仍在每次 `agent()` 里做判断；地图归脚本管。
+一句话：**workflow 把编排从「智力」挪到「结构」。** 模型仍在每次 `agent()` 里做判断；地图归脚本管。
 
 ![Workflow Runtime 总览](images/workflow-runtime-overview.svg)
 
 一次 `Workflow` 工具调用启动这次运行。进度在旁边轻轻响；最后一条工具结果带回启动信息、结果和任务状态。
 
-## 同一间厨房，两扇门
+## 两扇门——门外还有个表亲
 
 Claude Code 对入口说得很直白。
 
@@ -52,7 +54,11 @@ Claude Code 对入口说得很直白。
 
 有时好脚本已经进了例如 `.claude/workflows/`。你用 `name` 和 `args` 再请它出来。这是**已保存**那扇门——一次值得留下的运行，沉淀成可复用的卡片。
 
-本课之外还有表亲：**静态** harness，用 Agent SDK 或 `claude -p` 事先写好。它们得扛住所有边角，所以往往更泛。动态的是为这块布现裁的；合身了再存。
+门外还有表亲：**静态** harness，用 Agent SDK 或 `claude -p` 事先写好。它们得扛住所有边角，所以往往更泛。动态的是为这块布现裁的；合身了再存。
+
+![静态 harness 与动态 workflow](images/dynamic-vs-static.svg)
+
+*同一个问题。左边：永远通向一份泛泛研究报告的通用流水线。右边：读你的代码、按你的量计价、再请来魔鬼代言人的特制菜谱。*
 
 **这一章是 Python 教学运行时。** 同样的想法，每行都能读。演示按名字挂了一个已保存的 workflow；概念和 Claude Code 的脚本世界一一对应。我们不会再说“模型不能提交可执行代码”——那从来不是 Claude Code 的真相。这里只是不嵌入完整的 JS 解释器。
 
@@ -74,13 +80,19 @@ WORKFLOW_TOOL = {
 }
 ```
 
-## 厨房里的几个动词
+## 脚本会说的三个动词
 
 想象学校义卖要烤许多蛋糕。每张桌子都是搅拌 → 烘烤 → 装箱。帮手负责尝；菜谱决定先后。
 
-`agent(...)` 是请一个帮手做一件事。`pipeline(items, *stages)` 是默认：每块蛋糕自己走完各阶段，所以一块在装箱时，另一块可能还在搅拌。`parallel(...)` 是等齐——所有托盘都回来才往下——只有下一步真的需要全部结果时才值得，比如尝完再写评分表。
+![Workflow 原语](images/workflow-primitives.svg)
 
-旁边还有更轻的词：`phase` 在进度板上报站，`log` 喊一句短话，`workflow` 嵌一份更小的菜谱，`args` 是食材清单，`budget` 是还能烧多少烤箱分钟（token）。
+`agent(prompt, {schema, label, phase})` 是请一个帮手做一件事。带上 `schema`，答案会变成校验过的 JSON——下一阶段接得住的接口——第一次不对还给一次重试。
+
+`pipeline(items, *stages)` 是多阶段工作的默认：每块蛋糕自己走完各阶段，一块在装箱时，另一块可能还在搅拌。阶段之间没有等齐屏障。
+
+`parallel(thunks)` 是等齐——所有托盘都回来才往下。只有下一步真的需要全部结果时才值得，比如尝完再写评分表。
+
+旁边还有更轻的词：`phase` 报站，`log` 喊一句，嵌一层 `workflow`，`args` 是食材清单，`budget` 是烤箱分钟（token）。
 
 ```python
 # 每个审查维度自己走完 审计 → 验证。
@@ -88,25 +100,34 @@ results = await ctx.pipeline(DIMENSIONS, audit, verify)
 confirmed = [f for r in results if r for f in r["confirmed"]]
 ```
 
-## 会写菜谱之后
+帮手失手时，舰队仍然温和。`parallel` 里失败的 thunk 在该槽位变成 `null`，gather 本身不会拒绝；`pipeline` 里某个 stage 失败会把**那个 item** 置空并跳过后续 stage，别的 item 继续往前。合并前小心过滤。
 
-上面那些动词是面粉和火候。人们反复发明的，是少数几种*形状*——动态 agentic workflow 的常见模式。把它们想成工具箱，不是必点菜单。痛点出现再伸手；其余的留在挂板上。
+厨房暂停了呢？每次运行都有 `runId` 和磁盘上的 journal——按你**召唤**帮手的顺序记的笔记本。续跑从脚本开头走，回放**最长未改前缀**；碰到第一个改过或未完成的调用，之后全部实跑。所以真正的 JS 运行时禁止 `Date.now()` 和 `Math.random()`：时钟和骰子会让笔记本对不齐。这个 Python 演示不会完整沙箱那些——脚本仍写成确定性的吧。
+
+```text
+journal:  [A 好] [B 好] [C 好] [D 好]
+续跑:     A 命中 → B 命中 → C 改过 → D 实跑
+```
+
+## 会写菜谱之后——模式工具箱
+
+动词是面粉和火候。人们反复发明的，是少数几种*形状*。把它们想成工具箱，不是必点菜单。
 
 ![六种 Workflow 模式](images/six-workflow-patterns.svg)
 
-*人们反复发明的六种形状。脚本掌管拓扑；本课里用 `agent` / `parallel` / `pipeline` / `phase` / journal 把每种形状说出来。*
+*人们反复发明的六种形状。脚本掌管拓扑；本课用 `agent` / `parallel` / `pipeline` / `phase` / journal 把它们说出来。*
 
-**Classify-And-Act（分类再行动）。** 痛点：一个万金油帮手样样稀松。形状：分类器看一眼任务，再路由到专家 A、B 或 C。本课里多半是一次带 `schema` 的 `agent` 返回标签，脚本里 `if`/`match` 再叫对的后续 `agent`（或嵌一层 `workflow`）。每件东西其实都该同样处理时，就别用——路由只是仪式。
+**Classify-And-Act（分类再行动）。** 痛点：一个万金油帮手样样稀松。形状：分类器看一眼，再路由到专家 A、B 或 C。本课：一次带 `schema` 的 `agent` 返回标签，脚本分支到对的后续 `agent`（或嵌一层 `workflow`）。每件东西其实都该同样处理时，就别用。
 
-**Fanout-And-Synthesize（分发再汇总）。** 痛点：五十个文件塞不进一个疲倦的上下文，挤在一起还会串味。形状：拆开、多 agent 跑、在屏障处等齐、再合并。每件有自己阶段时用 `pipeline`；下一步必须凑齐全部结果时用 `parallel`；合并写在 gather 之后的普通 Python 里。三五个相关文件一趟就能看完时，就别用。
+**Fanout-And-Synthesize（分发再汇总）。** 痛点：五十个文件塞不进一个疲倦的上下文，挤在一起还会串味。形状：拆开、多跑、等齐、再合并。本课：每件有自己阶段用 `pipeline`；下一步必须凑齐全部结果用 `parallel`；合并写在 gather 之后的普通 Python。三五个相关文件一趟就能看完时，就别用。
 
-**Adversarial Verification（对抗验证）。** 痛点：狐狸给鸡窝打分。形状：工人产出；独立验证者来反驳或施压；只留下幸存者。映射：一次生产用的 `agent`，再 `parallel` 一组验证 `agent`（最好带 `schema`），然后过滤。`phase` 标出 “Review” 再 “Verify”。答错代价很低时就别用——不是每张便条都要法庭。
+**Adversarial Verification（对抗验证）。** 痛点：狐狸给鸡窝打分。形状：工人产出；独立验证者来反驳；只留下幸存者。本课：一次生产 `agent`，再 `parallel` 一组验证 `agent`（最好带 schema），然后过滤。`phase` 标出 Review 再 Verify。答错代价很低时就别用。
 
-**Generate-And-Filter（生成再过滤）。** 痛点：你要的是选项，不是第一个听起来机灵的念头。形状：许多生成器把想法倒进“量尺 + 去重”的过滤器；最好的留下，其余丢掉。映射：`parallel` 生成，再在脚本里过滤（或一个带 schema 的裁判 `agent`）。生成很贵时，journal/续跑特别有用。好答案空间本来就很小，就别用。
+**Generate-And-Filter（生成再过滤）。** 痛点：你要的是选项，不是第一个听起来机灵的念头。形状：许多生成器把想法倒进“量尺 + 去重”。本课：`parallel` 生成，再在脚本里过滤（或一个裁判 `agent`）。生成很贵时 journal 特别有用。好答案空间本来就很小，就别用。
 
-**Tournament（锦标赛）。** 痛点：品味和排序上，绝对分数糊成一团（“这个名字有多好？”）。形状：两两比较的裁判、淘汰支架、冠军——相对判断胜过孤独打分。映射：脚本里多轮 `parallel` 的 pairwise 裁判 `agent`，直到剩一个。清晰量尺一趟就能选出赢家时，就别用。
+**Tournament（锦标赛）。** 痛点：品味和排序上，绝对分数糊成一团。形状：两两比较、淘汰支架、冠军——相对判断胜过孤独打分。本课：脚本里多轮 pairwise 裁判 `agent`，直到剩一个。清晰量尺一趟就能选出赢家时，就别用。
 
-**Loop Until Done（接到完为止）。** 痛点：你不知道矿里还要挖几轮。形状：只要“还有新发现？”为是就继续派工；连续空轮或完成条件出现就停。映射：`while` 包着 `agent`/`parallel`，用带 schema 的停止检查，再加硬性 `budget`，免得循环把家吃空。长挖可能暂停时，配上 journal 续跑。工作量已知时，固定 `pipeline` 更简单也更安全。
+**Loop Until Done（接到完为止）。** 痛点：你不知道矿里还要挖几轮。形状：只要“还有新发现？”为是就继续派工；连续空轮就停。本课：`while` 包着 `agent`/`parallel`，带 schema 的停止检查，再加硬性 `budget`。长挖可能暂停时配上 journal。工作量已知时，固定 `pipeline` 更简单。
 
 几种有了面孔之后，工具箱一眼就能看清：
 
@@ -116,51 +137,10 @@ confirmed = [f for r in results if r for f in r["confirmed"]]
 | Fanout-And-Synthesize | `pipeline` / `parallel` → 合并 | 许多干净桌子，再一份摘要 |
 | Adversarial Verification | 产出 → `parallel(verify)` → 过滤 | 答错很贵 |
 | Generate-And-Filter | `parallel(gens)` → 量尺过滤 | 先要选项，再要品味 |
-| Tournament | 两两裁判 `agent` 搭支架 | 排序/品味却没有锋利刻度 |
-| Loop Until Done | `while` + 停止检查 + `budget` | 埋着不知多少活 |
+| Tournament | 两两裁判 `agent` | 排序/品味却没有锋利刻度 |
+| Loop Until Done | `while` + 停止 + `budget` | 埋着不知多少活 |
 
-组合是常态。深度调研常常叠成：分发 → 过滤 → 验证 → 汇总。我们的示例，已经是两个音符的一小段和弦。
-
-## 让下一阶段接得住的答案
-
-帮手若回来写散文，下一阶段很难把 finding 和 verdict 对齐。传入 `schema`。运行时要 JSON、做校验，并给**一次**重试。再不对，这次调用报错——而舰队在失败时怎样仍然温和，下一节就说到。
-
-```python
-out = await ctx.agent(
-    f"检查这段变更里有没有{dimension}相关的问题：\n{changes}",
-    schema=FINDINGS_SCHEMA,
-    label=f"audit:{dimension}",
-)
-```
-
-跟你聊天可以继续用自然语言。流水线需要接口对得上。
-
-## 一个托盘糊了的时候
-
-不能因为一个帮手烤箱失手，整支队伍停工。
-
-在 `parallel` 里，失败的 thunk 在该槽位变成 `null` / `None`，gather 本身不会拒绝。在 `pipeline` 里，某个 stage 失败会把**那个 item** 置成空，并跳过它后面的 stage；别的 item 继续往前走。合并前小心过滤——`if r`，在 JS 里常见 `.filter(Boolean)`。
-
-```python
-verdicts = await ctx.parallel([...])  # 有些格子可能是 None
-confirmed = [
-    f for f, v in zip(findings, verdicts)
-    if v and v.get("isReal")
-]
-```
-
-## 一本可以重开的笔记本
-
-每次运行都有一个 `runId`。每个 `agent()` 结束，磁盘上的 journal 就多一行——按你**召唤**帮手的顺序记，而不是按他们从烤箱回来的先后。
-
-续跑（`resume_from_run_id` / `resumeFromRunId`）仍从脚本开头走，只是更客气：按调用顺序，与下一条 journal 比对；最长未改前缀直接从缓存回放；碰到第一个改过或未完成的调用，前缀断开——之后全部实跑，即便笔记本更后面还躺着旧 key，也不能跳过裂缝偷懒命中。
-
-这也是真正的 JS workflow 运行时禁止 `Date.now()`、`Math.random()` 和裸 `new Date()` 的原因。时钟和骰子会让 prompt 或调用顺序晃一下，笔记本就对不齐了。这个 Python 演示不会完整沙箱那些东西。脚本仍写成确定性的吧。
-
-```text
-journal:  [A ✓] [B ✓] [C ✓] [D ✓]
-续跑:     A 命中 → B 命中 → C 改过 → D 实跑
-```
+组合是常态。深度调研常常叠成：分发 → 过滤 → 验证 → 汇总。分流有时会加一层 **quarantine（隔离区）**：读不可信内容的 agent 只读；只有受信任的 actor 才开 PR。我们的示例，是两个音符的一小段和弦。
 
 ## 跟着 `review-changes` 走一圈——一种组合
 
@@ -175,7 +155,7 @@ style       ── 审计 ── 验证 ──┘
               └── 每条 finding：怀疑式验证 ──┘
 ```
 
-`pipeline(DIMENSIONS, audit, verify)` 给每个维度自己的桌子，正确性的闲聊不至于淌进安全性。`verify` 里对验证 agent 做 `parallel`，就是对抗那一和弦。普通的列表过滤是汇总。`phase` 标出 Review 再 Verify；journal 记住每次 `agent()`，暂停也不会重做审计。
+`pipeline(DIMENSIONS, audit, verify)` 给每个维度自己的桌子。`verify` 里对验证 agent 做 `parallel`，就是对抗那一和弦。普通的列表过滤是汇总。`phase` 标出 Review 再 Verify；journal 记住每次 `agent()`，暂停也不会重做审计。
 
 那三种走偏，会感觉自己最爱的座位被撤了：舰队不能在两个维度后收工，作者不当裁判，拓扑也不会在中途漂移。
 
@@ -188,13 +168,14 @@ async def sample_workflow(ctx, args):
     return {"confirmed": confirmed}
 ```
 
-## 挂在 s15 上，并不取代它
+<details>
+<summary>怎样挂在 s15 上，却不取代它</summary>
 
 s15 仍是宿主循环。s16 只多了一个名叫 `Workflow` 的工具。你（或模型）报一个已保存的名字；适配器找到脚本再跑。
 
-在真正的产品里，这次运行可以待在后台、带着通知，会话照样能应你。教学 CLI 把 `demo` / `resume` 放在前台，好让你看清阶段和缓存命中。想法相同；简化之处我们会明说。
+在真正的产品里，这次运行可以待在后台、带着通知，会话照样能应你。教学 CLI 把 `demo` / `resume` 放在前台，好让你看清阶段和缓存命中。想法相同；简化之处我们会明说。主循环多借一把工具，就像借 `bash` 或 `task`。
 
-主循环不会变成 workflow 引擎。它只是多借一把工具，就像借 `bash` 或 `task`。
+</details>
 
 ## 转一转这颗宝石：谁握着计划？
 
@@ -230,4 +211,4 @@ python s16_workflow_runtime/code.py resume   # 同一 runId；期待缓存命中
 
 s16 讲一批活怎么跑。[s17 Goal Loop](../s17_goal_loop/) 在门口问另一个问题：该停，还是再来一轮？可重复的菜谱若还需要硬性的“做完”，可以和它一起用。
 
-<!-- translation-sync: zh@v14, en@v14, ja@v14 -->
+<!-- translation-sync: zh@v15, en@v15, ja@v15 -->

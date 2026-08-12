@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" font-family="system-ui, -apple-system, sans-serif" role="img" aria-labelledby="title desc">
+  <title id="title">Workflow primitives: agent, parallel, pipeline</title>
+  <desc id="desc">Three kitchen verbs of a workflow script: one helper, a barrier of many helpers, and per-item stages without a barrier.</desc>
+  <defs>
+    <marker id="p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#888"/></marker>
+    <marker id="pg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#22c55e"/></marker>
+  </defs>
+  <rect width="960" height="560" rx="8" fill="#fff"/>
+  <text x="480" y="28" text-anchor="middle" fill="#1a1a1a" font-size="18" font-weight="700">Three verbs the script speaks</text>
+  <text x="480" y="48" text-anchor="middle" fill="#888" font-size="12">agent asks a helper; parallel waits for every tray; pipeline lets each cake finish its own stages</text>
+
+  <!-- agent -->
+  <rect x="20" y="70" width="920" height="170" rx="8" fill="#fff" stroke="#d0d0d0" stroke-width="1.5"/>
+  <text x="40" y="98" fill="#1a1a1a" font-size="15" font-weight="700" font-family="monospace">agent(prompt, opts?)</text>
+  <text x="40" y="120" fill="#888" font-size="12">One helper. One job. Optional schema makes the answer machine-readable.</text>
+  <rect x="40" y="140" width="520" height="78" rx="4" fill="#111" />
+  <text x="56" y="164" fill="#86efac" font-size="12" font-family="monospace">const bugs = await agent("audit auth.ts", {</text>
+  <text x="56" y="184" fill="#e5e5e5" font-size="12" font-family="monospace">  schema: BugList, label: "audit:auth", phase: "Review"</text>
+  <text x="56" y="204" fill="#86efac" font-size="12" font-family="monospace">})</text>
+  <rect x="600" y="140" width="310" height="78" rx="4" fill="#fafafa" stroke="#22c55e"/>
+  <text x="755" y="170" text-anchor="middle" fill="#1a1a1a" font-size="12">returns text, or validated JSON</text>
+  <text x="755" y="192" text-anchor="middle" fill="#888" font-size="11">journal records each call in order</text>
+  <text x="755" y="210" text-anchor="middle" fill="#888" font-size="11">resume replays unchanged prefix</text>
+
+  <!-- parallel -->
+  <rect x="20" y="260" width="450" height="260" rx="8" fill="#fff" stroke="#d0d0d0" stroke-width="1.5"/>
+  <text x="40" y="288" fill="#1a1a1a" font-size="15" font-weight="700" font-family="monospace">parallel(thunks)</text>
+  <text x="40" y="310" fill="#888" font-size="12">Fan out. Barrier - wait for all.</text>
+  <circle cx="100" cy="360" r="18" fill="#fff" stroke="#1a1a1a"/>
+  <circle cx="170" cy="360" r="18" fill="#fff" stroke="#1a1a1a"/>
+  <circle cx="240" cy="360" r="18" fill="#fff" stroke="#1a1a1a"/>
+  <circle cx="310" cy="360" r="18" fill="#fff" stroke="#1a1a1a"/>
+  <line x1="100" y1="378" x2="100" y2="410" stroke="#888"/>
+  <line x1="170" y1="378" x2="170" y2="410" stroke="#888"/>
+  <line x1="240" y1="378" x2="240" y2="410" stroke="#888"/>
+  <line x1="310" y1="378" x2="310" y2="410" stroke="#888"/>
+  <line x1="100" y1="410" x2="310" y2="410" stroke="#22c55e" stroke-width="3"/>
+  <text x="205" y="432" text-anchor="middle" fill="#22c55e" font-size="11" font-weight="600">barrier</text>
+  <text x="245" y="470" text-anchor="middle" fill="#888" font-size="11" font-family="monospace">failing thunk -&gt; null slot</text>
+  <text x="245" y="492" text-anchor="middle" fill="#888" font-size="11">use when next step needs EVERY result</text>
+
+  <!-- pipeline -->
+  <rect x="490" y="260" width="450" height="260" rx="8" fill="#fff" stroke="#d0d0d0" stroke-width="1.5"/>
+  <text x="510" y="288" fill="#1a1a1a" font-size="15" font-weight="700" font-family="monospace">pipeline(items, *stages)</text>
+  <text x="510" y="310" fill="#888" font-size="12">Each item streams its own stages. No barrier.</text>
+  <!-- item A -->
+  <text x="530" y="348" fill="#1a1a1a" font-size="11">A</text>
+  <rect x="550" y="332" width="70" height="28" rx="3" fill="#fafafa" stroke="#1a1a1a"/>
+  <text x="585" y="350" text-anchor="middle" fill="#1a1a1a" font-size="10">audit</text>
+  <line x1="620" y1="346" x2="648" y2="346" stroke="#22c55e" marker-end="url(#pg)"/>
+  <rect x="650" y="332" width="70" height="28" rx="3" fill="#fafafa" stroke="#22c55e"/>
+  <text x="685" y="350" text-anchor="middle" fill="#1a1a1a" font-size="10">verify</text>
+  <line x1="720" y1="346" x2="748" y2="346" stroke="#22c55e" marker-end="url(#pg)"/>
+  <rect x="750" y="332" width="70" height="28" rx="3" fill="#fff" stroke="#22c55e"/>
+  <text x="785" y="350" text-anchor="middle" fill="#1a1a1a" font-size="10">done</text>
+  <!-- item B lagging -->
+  <text x="530" y="400" fill="#1a1a1a" font-size="11">B</text>
+  <rect x="550" y="384" width="70" height="28" rx="3" fill="#fafafa" stroke="#1a1a1a"/>
+  <text x="585" y="402" text-anchor="middle" fill="#1a1a1a" font-size="10">audit</text>
+  <line x1="620" y1="398" x2="648" y2="398" stroke="#888" marker-end="url(#p)"/>
+  <rect x="650" y="384" width="70" height="28" rx="3" fill="#fafafa" stroke="#d0d0d0" stroke-dasharray="3,2"/>
+  <text x="685" y="402" text-anchor="middle" fill="#888" font-size="10">verify</text>
+  <text x="715" y="450" text-anchor="middle" fill="#888" font-size="11" font-family="monospace">failing stage -&gt; null item</text>
+  <text x="715" y="472" text-anchor="middle" fill="#888" font-size="11">DEFAULT for multi-stage work</text>
+  <text x="715" y="494" text-anchor="middle" fill="#888" font-size="11">A can finish while B is still mixing</text>
+
+  <text x="480" y="545" text-anchor="middle" fill="#888" font-size="10">Script owns topology. Agents judge inside each call. Intermediate bowls stay in variables + journal.</text>
+</svg>
