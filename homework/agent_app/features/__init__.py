@@ -1,0 +1,1 @@
+"""Optional agent capabilities."""

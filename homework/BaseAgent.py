@@ -23,6 +23,16 @@ from homework.agent_app.core.compaction import (
     tool_result_budget as compaction_tool_result_budget,
     compact_history as compaction_compact_history,
 )
+from homework.agent_app.features.scheduler import (
+    SchedulerState,
+    cancel_job as scheduler_cancel_job,
+    consume_cron_queue as scheduler_consume_cron_queue,
+    cron_scheduler_loop as scheduler_cron_scheduler_loop,
+    has_cron_queue as scheduler_has_cron_queue,
+    list_jobs as scheduler_list_jobs,
+    load_durable_jobs as scheduler_load_durable_jobs,
+    schedule_job as scheduler_schedule_job,
+)
 from homework.agent_app.core.recovery import (
     PartialStreamError,
     RecoveryState,
@@ -77,203 +87,30 @@ def safe_path(path:str, cwd:str | Path | None = None) -> Path:
     return resolved
 
 #==================== CRON SCHEDULER ====================
-DURABLE_PATH = WORKDIR / ".scheduled_tasks.json"
-
-@dataclass
-class CronJob:
-    id: str
-    cron: str
-    prompt: str
-    recurring: bool
-    durable: bool
-
-scheduled_jobs: dict[str, CronJob] = {}
-cron_queue: list[CronJob] = []
-cron_lock = threading.Lock()
+SCHEDULER_STATE = SchedulerState()
 agent_lock = threading.Lock()
-_last_fired: dict[str, str] = {}
 
-def _cron_field_matches(field: str, value: int) -> bool:
-    if field == "*":
-        return True
-    if field.startswith("*/"):
-        step = int(field[2:])
-        return step > 0 and value % step == 0
-    if "," in field:
-        return any(
-            _cron_field_matches(f.strip(),value)
-            for f in field.split(",")
-        )
-    if "-" in field:
-        lo, hi = field.split("-",1)
-        return int(lo) <= value <= int(hi)
-    return value == int(field)
+def schedule_job(cron, prompt, recurring=True, durable=True):
+    return scheduler_schedule_job(
+        SCHEDULER_STATE, APP_CONFIG, cron, prompt, recurring, durable
+    )
 
-def cron_matches(cron_expr: str, dt: datetime) -> bool:
-    fields = cron_expr.strip().split()
-    if len(fields) != 5:
-        return False
-    minute, hour, dom, month, dow = fields
-    dow_val = (dt.weekday() + 1) % 7
+def cancel_job(job_id):
+    return scheduler_cancel_job(SCHEDULER_STATE, APP_CONFIG, job_id)
 
-    m = _cron_field_matches(minute, dt.minute)
-    h = _cron_field_matches(hour, dt.hour)
-    dom_ok = _cron_field_matches(dom, dt.day)
-    month_ok = _cron_field_matches(month, dt.month)
-    dow_ok = _cron_field_matches(dow, dow_val)
+def cron_scheduler_loop(stop_event=None):
+    return scheduler_cron_scheduler_loop(
+        SCHEDULER_STATE, APP_CONFIG, stop_event or threading.Event()
+    )
 
-    if not (m and h and month_ok):
-        return False
-    dom_unconstrained = dom == "*"
-    dow_unconstrained = dow == "*"
-    if dom_unconstrained and dow_unconstrained:
-        return True
-    if dom_unconstrained:
-        return dow_ok
-    if dow_unconstrained:
-        return dom_ok
+def consume_cron_queue():
+    return scheduler_consume_cron_queue(SCHEDULER_STATE)
 
-    return dom_ok or dow_ok
-
-def _validate_cron_field(field: str, lo: int, hi: int) -> str | None:
-    if field == "*":
-        return None
-    if field.startswith("*/"):
-        step_str = field[2:]
-        if not step_str.isdigit():
-            return f"Invalid step: {field}"
-        step = int(step_str)
-        if step <= 0:
-            return f"Step must be > 0: {field}"
-        return None
-    if "," in field:
-        for part in field.split(","):
-            err = _validate_cron_field(part.strip(), lo, hi)
-            if err: return err
-        return None
-    if "-" in field:
-        parts = field.split("-", 1)
-        if not parts[0].isdigit() or not parts[1].isdigit():
-            return f"Invalid range: {field}"
-        a, b = int(parts[0]), int(parts[1])
-        if a < lo or a > hi or b < lo or b > hi:
-            return f"Range {field} out of bounds [{lo}-{hi}]"
-        if a > b:
-            return f"Range start > end: {field}"
-        return None
-    if not field.isdigit():
-        return f"Invalid field: {field}"
-    val = int(field)
-    if val < lo or val > hi:
-        return f"Value {val} out of bounds [{lo}-{hi}]"
-    return None
-
-def validate_cron(cron_expr: str) -> str | None:
-    fields = cron_expr.strip().split()
-    if len(fields) != 5:
-        return f"Expected 5 fields, got {len(fields)}"
-    bounds = [(0, 59), (0, 23), (1, 31), (1, 12), (0, 6)]
-    names = ["minute", "hour", "day-of-month", "month", "day-of-week"]
-    for i, (field, (lo, hi), name) in enumerate(zip(fields, bounds, names)):
-        err = _validate_cron_field(field, lo, hi)
-        if err:
-            return f"{name}: {err}"
-    return None
-
-def save_durable_jobs():
-    with cron_lock:
-        durable = [asdict(j) for j in scheduled_jobs.values() if j.durable]
-        temp_path = DURABLE_PATH.with_suffix(".tmp")
-        temp_path.write_text(
-            json.dumps(durable, indent = 2, ensure_ascii = False),
-            encoding = 'utf-8'
-        )
-    temp_path.replace(DURABLE_PATH)
+def has_cron_queue():
+    return scheduler_has_cron_queue(SCHEDULER_STATE)
 
 def load_durable_jobs():
-    if not DURABLE_PATH.exists():
-        return
-    try:
-        jobs = json.loads(DURABLE_PATH.read_text())
-        for j in jobs:
-            job = CronJob(**j)
-            err = validate_cron(job.cron)
-            if err:
-                print(f"  \033[31m[cron] skipping invalid job {job.id}: {err}\033[0m")
-                continue
-            scheduled_jobs[job.id] = job
-        valid = [j for j in jobs if j["id"] in scheduled_jobs]
-        if valid:
-            print(f"  \033[35m[cron] loaded {len(valid)} durable job(s)\033[0m")
-    except Exception:
-        pass
-
-def schedule_job(cron: str, prompt: str, recurring: bool = True,
-                 durable: bool = True) -> CronJob | str:
-    err = validate_cron(cron)
-    if err:
-        return err
-    job = CronJob(
-        id = f"cron_{random.randint(0,999999):06d}",
-        cron = cron,
-        prompt = prompt,
-        recurring= recurring,
-        durable = durable,
-    )
-    with cron_lock:
-        scheduled_jobs[job.id] = job
-    if durable:
-        save_durable_jobs()
-    print(f"  \033[35m[cron register] {job.id} '{cron}' → {prompt[:40]}\033[0m")
-    return job
-
-def cancel_job(job_id: str) -> str:
-    with cron_lock:
-        job = scheduled_jobs.pop(job_id, None)
-    if not job:
-        return f"Job {job_id} not found"
-    if job.durable:
-        save_durable_jobs()
-    print(f"  \033[31m[cron cancel] {job_id}\033[0m")
-    return f"Cancelled {job_id}"
-
-def cron_scheduler_loop(stop_event = None):
-    stop_event = stop_event or threading.Event()
-
-    while not stop_event.wait(1):
-        now = datetime.now()
-        minute_marker = now.strftime("%Y-%m-%d %H:%M")
-        durable_changed = False
-
-        with cron_lock:
-            for job in list(scheduled_jobs.values()):
-                try:
-                    if cron_matches(job.cron, now):
-                        if _last_fired.get(job.id) != minute_marker:
-                            cron_queue.append(job)
-                            _last_fired[job.id] = minute_marker
-                            print(f"  \033[35m[cron fire] {job.id} → "
-                                  f"{job.prompt[:40]}\033[0m")
-                        if not job.recurring:
-                            scheduled_jobs.pop(job.id, None)
-                            _last_fired.pop(job.id, None)
-                            durable_changed = durable_changed or job.durable
-
-                except Exception as e:
-                    print(f"  \033[31m[cron error] {job.id}: {e}\033[0m")
-
-        if durable_changed:
-            save_durable_jobs()
-
-def consume_cron_queue() -> list[CronJob]:
-    with cron_lock:
-        fired = list(cron_queue)
-        cron_queue.clear()
-    return fired
-
-def has_cron_queue() -> bool:
-    with cron_lock:
-        return bool(cron_queue)
+    return scheduler_load_durable_jobs(SCHEDULER_STATE, APP_CONFIG)
 
 #==================== AGENT TEAMS ====================
 MAILBOX_DIR = WORKDIR / ".mailboxes"
@@ -2070,8 +1907,7 @@ def run_schedule_cron(cron: str, prompt: str,
     return f"Scheduled {result.id}: '{cron}' → '{prompt}'"
 
 def run_list_crons() -> str:
-    with cron_lock:
-        jobs = list(scheduled_jobs.values())
+    jobs = scheduler_list_jobs(SCHEDULER_STATE)
     if not jobs:
         return "No cron jobs. Use schedule_cron to add one."
     lines = []
