@@ -1,8 +1,7 @@
-import os,json,subprocess,time,re,copy,random,threading,uuid,hashlib
+import os,json,subprocess,time,re,copy,random,threading,uuid
 from pathlib import Path
 from dataclasses import dataclass,asdict,field,replace
 from types import SimpleNamespace
-from datetime import datetime
 
 try:
     import readline
@@ -14,6 +13,16 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from homework.agent_app.config import AppConfig
 from homework.agent_app.runtime import SessionState
+from homework.agent_app.adapters.anthropic import AnthropicAdapter
+from homework.agent_app.core.context import (
+    append_user_text_blocks as context_append_user_text_blocks,
+    build_context,
+)
+from homework.agent_app.core.prompt import (
+    PROMPT_SECTIONS,
+    PromptBuilder,
+    assemble_system_prompt as prompt_assemble_system_prompt,
+)
 from homework.agent_app.tools import builtin as builtin_tools
 from homework.agent_app.tools import executor as tool_executor
 from homework.agent_app.tools.registry import ToolRegistry
@@ -80,6 +89,12 @@ TOOL_RESULTS_DIR = TOOL_RESULT_DIR
 PERSIST_THRESHOLD = APP_CONFIG.persist_threshold
 
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+
+
+def _anthropic_adapter() -> AnthropicAdapter:
+    return AnthropicAdapter(client)
+
+
 SESSION_STATE = SessionState()
 SKILL_STATE = skills_feature.SkillState(root=APP_CONFIG.skills_dir)
 MEMORY_STORE = memory_feature.MemoryStore(
@@ -233,7 +248,9 @@ def spawn_teammate_thread(name: str, role: str, prompt: str) -> str:
 
     def llm(**kwargs):
         return with_retry(
-            lambda: client.messages.create(model=state.current_model, **kwargs),
+            lambda: _anthropic_adapter().create(
+                model=state.current_model, **kwargs
+            ),
             state,
             max_transient_retries=MAX_TRANSIENT_RETRIES,
             max_consecutive_529=MAX_CONSECUTIVE_529,
@@ -416,7 +433,11 @@ def connect_mcp(name: str) -> str:
     return mcp_feature.connect_mcp(MCP_STATE, name, TOOL_REGISTRY.snapshot)
 
 def assemble_tool_pool() -> tuple[list[dict], dict]:
-    return mcp_feature.snapshot_mcp_tools(MCP_STATE, *TOOL_REGISTRY.snapshot())
+    tools, handlers = mcp_feature.snapshot_mcp_tools(
+        MCP_STATE, *TOOL_REGISTRY.snapshot()
+    )
+    handlers.update(BUILTIN_HANDLERS)
+    return tools, handlers
 
 #==================== WORKTREE SYSTEM ====================
 def run_git(args):
@@ -466,10 +487,12 @@ CONTINUATION_PROMPT = (
 
  #==================== MEMORY SYSTEM ====================
 def memory_summarize(prompt, max_tokens):
-    response = client.messages.create(
+    response = _anthropic_adapter().create(
         model=MODEL,
+        system=None,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=max_tokens,
+        tools=None,
     )
     return extract_text(response.content)
 
@@ -650,7 +673,7 @@ def spawn_subagent(description: str) -> str:
 
     def llm(**kwargs):
         return with_retry(
-            lambda: client.messages.create(**kwargs), state,
+            lambda: _anthropic_adapter().create(**kwargs), state,
             max_transient_retries=MAX_TRANSIENT_RETRIES,
             max_consecutive_529=MAX_CONSECUTIVE_529,
             base_delay_ms=BASE_DELAY_MS,
@@ -728,7 +751,13 @@ def summarize(messages):
     prompt = ("Summarize this coding-agent conversation so work can continue.\n"
               "Preserve: 1. current goal, 2. key findings/decisions, 3. files read/changed, "
               "4. remaining work, 5. user constraints.\nBe compact but concrete.\n\n" + conversation)
-    response = client.messages.create(model=MODEL, messages=[{"role": "user", "content": prompt}], max_tokens=2000)
+    response = _anthropic_adapter().create(
+        model=MODEL,
+        system=None,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=2000,
+        tools=None,
+    )
     return "\n".join(
         getattr(block, "text", "")
         for block in response.content
@@ -763,107 +792,34 @@ register_hook("PostToolUse", make_large_output_hook(APP_CONFIG.workdir))
 register_hook("Stop", make_summary_hook(APP_CONFIG.workdir))
 
 #==================== SYSTEM PROMPT ASSEMBLY ====================
-PROMPT_SECTIONS = {
-    "identity": "You are a coding agent. Act, don't explain.",
-    "workspace": f"Working directory: {WORKDIR}",
-    "tools": f"Available tools: ",
-}
+PROMPT_BUILDER = PromptBuilder()
+
+
+def _with_workspace(context: dict) -> dict:
+    prompt_context = dict(context)
+    prompt_context.setdefault("workspace", str(WORKDIR))
+    return prompt_context
+
 
 def assemble_system_prompt(context:dict) -> str:
-    sections = []
-    sections.append(PROMPT_SECTIONS["identity"])
-    sections.append(PROMPT_SECTIONS["tools"] + ', '.join(context.get('enabled_tools', [])))
-    sections.append(PROMPT_SECTIONS["workspace"])
-    current_time = context.get("current_time")
-    if not current_time:
-        current_time = datetime.now().isoformat(timespec="seconds")
-    sections.append(f"Current time: {current_time}")
-
-    sections.append(
-        "Coordination rules:\n"
-        "- todo_write manages the temporary plan for the current session.\n"
-        "- create_task manages the durable shared task graph.\n"
-        "- task runs a synchronous one-shot subagent and waits for its result.\n"
-        "- spawn_teammate starts an asynchronous persistent teammate.\n"
-        "- A teammate that submits a plan must wait for Lead approval."
-    )
-
-    memories = context.get("memories","")
-    if memories:
-        sections.append(f"Memory index:\n{memories}")
-
-    skills = context.get("skills")
-    if skills:
-        sections.append(
-            "Skills catalog:\n"
-            f"{skills}\n"
-            "Use load_skill(name) when a skill is relevant."
-        )
-
-    todos = context.get("todos", "")
-    if todos:
-        sections.append(f"Current session todos:\n{todos}")
-
-    active_names = context.get("active_teammates", [])
-    if active_names:
-        sections.append(f"Active teammates:\n{', '.join(active_names)}")
-
-    connect_mcp = context.get("connect_mcp", [])
-    if connect_mcp:
-        sections.append(f"Connected MCP servers:\n{', '.join(connect_mcp)}")
-
-    return "\n\n".join(sections)
-
-_last_context_key = None
-_last_prompt = None
+    return prompt_assemble_system_prompt(_with_workspace(context))
 
 def get_system_prompt(context:dict) -> str:
-    global _last_context_key, _last_prompt
-    key = json.dumps(context, ensure_ascii=False, sort_keys=True, default=str)
-    if key == _last_context_key and _last_prompt:
-        print("  \033[90m[cache hit] system prompt unchanged\033[0m")
-        return _last_prompt
-    _last_context_key = key
-    _last_prompt = assemble_system_prompt(context)
-    
-    loaded = ["identity","tools","workspace"]
-    if context.get("memories"):
-        loaded.append("memory")
-    if context.get("todos"):
-        loaded.append("todos")
-    print(f"  \033[32m[assembled] sections: {', '.join(loaded)}\033[0m")
-    return _last_prompt
+    return PROMPT_BUILDER.build(_with_workspace(context))
 
 def update_context(context:dict,messages:list, tools: list[dict] | None = None) -> dict:
-    memories = ""
-    memories = memory_feature.read_memory_index(MEMORY_STORE)
-    skills = list_skills() if SKILL_STATE.registry else ""
-
     if tools is None:
         tools, _ = assemble_tool_pool()
-    tool_names = sorted(tool["name"] for tool in tools)
-    serialized_tools = json.dumps(tools, ensure_ascii=False, sort_keys=True)
-    tool_fingerprint = hashlib.sha256(serialized_tools.encode("utf-8")).hexdigest()
-
-    with mcp_lock:
-        connected_mcp = sorted(mcp_clients)
-
-    todos = format_current_todos()
-
-    with team_lock:
-        active_names = sorted(active_teammates)
-
-    return {
-        "enabled_tools": tool_names,
-        "workspace": str(WORKDIR),
-        "memories": memories,
-        "skills": skills,
-        "todos": todos,
-        "active_teammates": active_names,
-        "connect_mcp": connected_mcp,
-        "tool_fingerprint": tool_fingerprint,
-        "current_time": datetime.now().isoformat(timespec="seconds"),
-    }
+    format_current_todos()
+    runtime_view = SimpleNamespace(
+        config=replace(APP_CONFIG, workdir=Path(WORKDIR)),
+        session=SESSION_STATE,
+        skills=SKILL_STATE,
+        memory=MEMORY_STORE,
+        team=TEAM_STATE,
+        mcp=MCP_STATE,
+    )
+    return build_context(runtime_view, tools)
 
 #==================== AGENT LOOP ====================
 rounds_since_todo = 0
@@ -1129,49 +1085,16 @@ def run_agent_turn_locked(user_query: str | None = None):
 
 
 def create_message_streaming(system, request_messages, *, model, max_tokens, tools):
-    chunks = []
-    try:
-        with client.messages.stream(
-            model=model,
-            system=system,
-            messages=request_messages,
-            tools=tools,
-            max_tokens=max_tokens,
-        ) as stream:
-            for chunk in stream.text_stream:
-                if not chunk:
-                    continue
-                chunks.append(chunk)
-                print(chunk, end="", flush=True)
-            return stream.get_final_message()
-    except Exception as exc:
-        if chunks:
-            raise PartialStreamError("".join(chunks), exc) from exc
-        raise
-    finally:
-        if chunks and not chunks[-1].endswith("\n"):
-            print()
+    return _anthropic_adapter().create_streaming(
+        system=system,
+        messages=request_messages,
+        model=model,
+        max_tokens=max_tokens,
+        tools=tools,
+    )
 
 def append_user_text_blocks(messages: list, texts: list[str]):
-    if not texts:
-        return
-    
-    blocks = [
-        {"type": "text", "text": text} for text in texts
-    ]
-
-    if messages and messages[-1].get("role") == "user":
-        content = messages[-1].get("content")
-
-        if isinstance(content, list):
-            content.extend(blocks)
-        else:
-            messages[-1]["content"] = [
-                {"type": "text", "text": str(content)},
-                *blocks,
-            ]
-    else:
-        messages.append({"role": "user", "content": blocks})
+    return context_append_user_text_blocks(messages, texts)
 
 _runtime_start_lock = threading.Lock()
 _runtime_started = False
