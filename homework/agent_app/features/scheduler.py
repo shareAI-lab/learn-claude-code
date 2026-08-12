@@ -39,16 +39,19 @@ def register_scheduler_tools(registry, scheduler_state, config) -> None:
     if isinstance(scheduler_state, Mapping):
         handlers = scheduler_state
     else:
+        def current_state():
+            return scheduler_state() if callable(scheduler_state) else scheduler_state
+
         def run_schedule(cron, prompt, recurring=True, durable=True):
             result = schedule_job(
-                scheduler_state, config, cron, prompt, recurring, durable
+                current_state(), config, cron, prompt, recurring, durable
             )
             if isinstance(result, str):
                 return f"Error: {result}"
             return f"Scheduled {result.id}: '{cron}' → '{prompt}'"
 
         def run_list():
-            jobs = list_jobs(scheduler_state)
+            jobs = list_jobs(current_state())
             if not jobs:
                 return "No cron jobs. Use schedule_cron to add one."
             lines = []
@@ -65,7 +68,7 @@ def register_scheduler_tools(registry, scheduler_state, config) -> None:
             "schedule_cron": run_schedule,
             "list_crons": run_list,
             "cancel_cron": lambda job_id: cancel_job(
-                scheduler_state, config, job_id
+                current_state(), config, job_id
             ),
         }
     for schema in SCHEDULER_TOOL_SCHEMAS:

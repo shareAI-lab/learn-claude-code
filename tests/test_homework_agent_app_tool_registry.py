@@ -1,3 +1,8 @@
+import runpy
+import sys
+import types
+from pathlib import Path
+
 import pytest
 from homework.agent_app.tools.registry import ToolRegistry
 from homework.agent_app.tools import builtin as builtin_tools
@@ -107,3 +112,44 @@ def test_mcp_collision_rolls_back_connection_and_snapshots_are_independent():
     metadata = state.metadata["mcp__docs__search"]
     assert metadata["readOnly"] is True
     assert metadata["destructive"] is True
+
+
+def test_baseagent_registry_handlers_resolve_replaced_legacy_state(
+    monkeypatch, tmp_path
+):
+    fake_anthropic = types.ModuleType("anthropic")
+    fake_dotenv = types.ModuleType("dotenv")
+
+    class FakeAnthropic:
+        def __init__(self, *args, **kwargs):
+            self.messages = types.SimpleNamespace(create=None, stream=None)
+
+    fake_anthropic.Anthropic = FakeAnthropic
+    fake_dotenv.load_dotenv = lambda override=True: None
+    monkeypatch.setitem(sys.modules, "anthropic", fake_anthropic)
+    monkeypatch.setitem(sys.modules, "dotenv", fake_dotenv)
+    monkeypatch.setenv("MODEL_ID", "test-model")
+
+    namespace = runpy.run_path(
+        str(Path(__file__).parents[1] / "homework" / "BaseAgent.py"),
+        run_name="not_main",
+    )
+    globals_ = namespace["assemble_tool_pool"].__globals__
+    replacement_tasks = tasks_feature.TaskStore(tmp_path / ".tasks")
+    replacement_scheduler = scheduler_feature.SchedulerState()
+    replacement_scheduler.jobs["replacement"] = scheduler_feature.CronJob(
+        id="replacement",
+        cron="* * * * *",
+        prompt="new state",
+        recurring=True,
+        durable=False,
+    )
+    globals_["TASK_STORE"] = replacement_tasks
+    globals_["SCHEDULER_STATE"] = replacement_scheduler
+
+    _, handlers = globals_["assemble_tool_pool"]()
+    created = handlers["create_task"](subject="replacement task")
+
+    assert "Created" in created
+    assert list(replacement_tasks.root.glob("task_*.json"))
+    assert "new state" in handlers["list_crons"]()

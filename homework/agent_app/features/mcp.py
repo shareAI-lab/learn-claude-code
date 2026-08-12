@@ -47,9 +47,12 @@ MCP_CONNECTION_TOOL_SCHEMA = {
 
 def register_mcp_connection_tool(registry, mcp_state) -> None:
     """Register the explicit MCP connection entry point, not discovered tools."""
+    def current_state():
+        return mcp_state() if callable(mcp_state) else mcp_state
+
     registry.register(
         MCP_CONNECTION_TOOL_SCHEMA,
-        lambda name: connect_mcp(mcp_state, name, registry.snapshot),
+        lambda name: connect_mcp(current_state(), name, registry.snapshot),
     )
 
 

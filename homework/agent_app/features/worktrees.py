@@ -38,14 +38,22 @@ def register_worktree_tools(registry, worktree_state, task_store) -> None:
     if isinstance(worktree_state, Mapping):
         handlers = worktree_state
     else:
+        def current_worktree_state():
+            return worktree_state() if callable(worktree_state) else worktree_state
+
+        def current_task_store():
+            return task_store() if callable(task_store) else task_store
+
         handlers = {
             "create_worktree": lambda name, task_id="": create_worktree(
-                worktree_state, name, task_id, task_store
+                current_worktree_state(), name, task_id, current_task_store()
             ),
             "remove_worktree": lambda name, discard_changes=False: remove_worktree(
-                worktree_state, name, discard_changes
+                current_worktree_state(), name, discard_changes
             ),
-            "keep_worktree": lambda name: keep_worktree(worktree_state, name),
+            "keep_worktree": lambda name: keep_worktree(
+                current_worktree_state(), name
+            ),
         }
     for schema in WORKTREE_TOOL_SCHEMAS:
         registry.register(schema, handlers[schema["name"]])

@@ -38,19 +38,22 @@ def register_task_tools(registry, task_store) -> None:
     if isinstance(task_store, Mapping):
         handlers = task_store
     else:
+        def current_store():
+            return task_store() if callable(task_store) else task_store
+
         handlers = {
             "create_task": lambda **kwargs: _run_create_task_tool(
-                task_store, **kwargs
+                current_store(), **kwargs
             ),
-            "list_tasks": lambda: _run_list_tasks_tool(task_store),
+            "list_tasks": lambda: _run_list_tasks_tool(current_store()),
             "get_task": lambda task_id: _run_task_operation(
-                task_store, "read", task_id, get_task
+                current_store(), "read", task_id, get_task
             ),
             "claim_task": lambda task_id: _run_task_operation(
-                task_store, "claim", task_id, claim_task
+                current_store(), "claim", task_id, claim_task
             ),
             "complete_task": lambda task_id: _run_task_operation(
-                task_store, "complete", task_id, complete_task
+                current_store(), "complete", task_id, complete_task
             ),
         }
     for schema in TASK_TOOL_SCHEMAS:

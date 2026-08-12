@@ -684,18 +684,18 @@ builtin_tools.register_builtin_tools(TOOL_REGISTRY, _BUILTIN_DEPENDENCIES)
 todos_feature.register_todo_tools(
     TOOL_REGISTRY, {"state": SESSION_STATE, "todo_write": run_todo_write}
 )
-tasks_feature.register_task_tools(TOOL_REGISTRY, TASK_STORE)
+tasks_feature.register_task_tools(TOOL_REGISTRY, lambda: TASK_STORE)
 scheduler_feature.register_scheduler_tools(
-    TOOL_REGISTRY, SCHEDULER_STATE, APP_CONFIG
+    TOOL_REGISTRY, lambda: SCHEDULER_STATE, APP_CONFIG
 )
 teammate_runtime.register_team_tools(TOOL_REGISTRY, _TEAM_DEPENDENCIES)
 worktrees_feature.register_worktree_tools(
-    TOOL_REGISTRY, WORKTREE_STATE, TASK_STORE
+    TOOL_REGISTRY, lambda: WORKTREE_STATE, lambda: TASK_STORE
 )
 subagent_runtime.register_subagent_tool(
     TOOL_REGISTRY, {"task": spawn_subagent}
 )
-mcp_feature.register_mcp_connection_tool(TOOL_REGISTRY, MCP_STATE)
+mcp_feature.register_mcp_connection_tool(TOOL_REGISTRY, lambda: MCP_STATE)
 
 # Compatibility snapshots for existing callers; each loop uses TOOL_REGISTRY.
 BUILTIN_TOOLS, BUILTIN_HANDLERS = TOOL_REGISTRY.snapshot()
