@@ -114,6 +114,20 @@ def require_captured_thread(created):
     return created[0]
 
 
+def teammate_retry_with_current_policy(baseagent):
+    expected_kwargs = {
+        "max_transient_retries": baseagent["MAX_TRANSIENT_RETRIES"],
+        "max_consecutive_529": baseagent["MAX_CONSECUTIVE_529"],
+        "base_delay_ms": baseagent["BASE_DELAY_MS"],
+    }
+
+    def retry(fn, state, **kwargs):
+        assert kwargs == expected_kwargs
+        return fn()
+
+    return retry
+
+
 def isolate_agent_loop(baseagent, monkeypatch):
     def fake_update_context(context, messages, tools=None):
         return context
@@ -387,7 +401,7 @@ def test_teammate_history_is_independent_and_tools_are_nonrecursive(
         return text_response("investigation complete")
 
     baseagent["client"].messages.create = fake_create
-    monkeypatch.setitem(baseagent, "with_retry", lambda fn, state: fn())
+    monkeypatch.setitem(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
 
     baseagent["spawn_teammate_thread"](
         "researcher",
@@ -442,7 +456,7 @@ def test_teammate_collects_its_inbox_before_each_request(
         return text_response("done")
 
     baseagent["client"].messages.create = fake_create
-    monkeypatch.setitem(baseagent, "with_retry", lambda fn, state: fn())
+    monkeypatch.setitem(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
     baseagent["spawn_teammate_thread"](
         "researcher",
         "Repository investigator",
@@ -485,7 +499,7 @@ def test_teammate_worker_uses_noninteractive_write_policy(
         raise AssertionError("teammate worker called input()")
 
     baseagent["client"].messages.create = fake_create
-    monkeypatch.setitem(baseagent, "with_retry", lambda fn, state: fn())
+    monkeypatch.setitem(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
     monkeypatch.setitem(baseagent, "run_write", forbidden_write)
     monkeypatch.setattr(builtins, "input", forbidden_input)
 
@@ -509,7 +523,12 @@ def test_teammate_reuses_transient_retry_helper(baseagent, monkeypatch):
 
     baseagent["client"].messages.create = lambda **kwargs: text_response("done")
 
-    def recording_retry(fn, state):
+    def recording_retry(fn, state, **kwargs):
+        assert kwargs == {
+            "max_transient_retries": baseagent["MAX_TRANSIENT_RETRIES"],
+            "max_consecutive_529": baseagent["MAX_CONSECUTIVE_529"],
+            "base_delay_ms": baseagent["BASE_DELAY_MS"],
+        }
         retry_calls.append(state)
         return fn()
 
@@ -531,7 +550,7 @@ def test_teammate_normal_completion_sends_result_and_cleans_registry(
 ):
     created = capture_threads(baseagent, monkeypatch)
     baseagent["client"].messages.create = lambda **kwargs: text_response("final summary")
-    monkeypatch.setitem(baseagent, "with_retry", lambda fn, state: fn())
+    monkeypatch.setitem(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
 
     baseagent["spawn_teammate_thread"](
         "normal",
@@ -561,7 +580,12 @@ def test_teammate_exception_sends_error_and_cleans_registry(
 
     baseagent["client"].messages.create = fail_request
 
-    def fail_retry(fn, state):
+    def fail_retry(fn, state, **kwargs):
+        assert kwargs == {
+            "max_transient_retries": baseagent["MAX_TRANSIENT_RETRIES"],
+            "max_consecutive_529": baseagent["MAX_CONSECUTIVE_529"],
+            "base_delay_ms": baseagent["BASE_DELAY_MS"],
+        }
         return fn()
 
     monkeypatch.setitem(baseagent, "with_retry", fail_retry)
@@ -598,7 +622,7 @@ def test_teammate_round_limit_sends_result_and_cleans_registry(
         )
 
     baseagent["client"].messages.create = fake_create
-    monkeypatch.setitem(baseagent, "with_retry", lambda fn, state: fn())
+    monkeypatch.setitem(baseagent, "with_retry", teammate_retry_with_current_policy(baseagent))
     monkeypatch.setitem(
         baseagent,
         "run_read",
