@@ -7,6 +7,8 @@ s01 → ... → s14 → [s15](../s15_integrated_harness/) → `s16` → [s17](..
 > *「ターンごとのチャットは、10 秒ごとにシェフへメールするようなものです。Workflow は厨房が従えるレシピです。」*
 >
 > **Harness 層**: Orchestration — single-agent loop の上で multi-agent script を実行します。
+>
+> モデルを信頼し、harness をエンジニアリングする。Workflow は orchestration 層での harness 設計です。
 
 ---
 
@@ -14,38 +16,50 @@ s01 → ... → s14 → [s15](../s15_integrated_harness/) → `s16` → [s17](..
 
 ふつうの「モデルが指揮者」な会話も同じです。**Workflow** は書かれたレシピです。厨房（runtime）がそれに従い、助手（subagent）が判断し、途中の器はカウンターに置かれます —— グループチャットの中ではありません。
 
-## 問題
+## そもそも harness は何のため？
 
-s01 から s15 まで、各ラウンドでモデルが次の tool を選びます。直前の発見で次の道が変わるタスクには向いています。
+デフォルトの Claude Code harness は、コーディング型の仕事に強いです。直す、走らせる、エラーを読む、また試す —— すべて同じループの中です。
 
-一方、形が先に分かっている仕事もあります。
+ある種の仕事には、その上に**定制の harness** が要ります。深い調査、セキュリティ分析、agent teams、大規模な code review。SDK でその harness を先に手書きしてもよいです。あるいは —— ここが dynamic の発想ですが —— Claude に**このタスク用の harness をその場で書かせ**、走らせ、良いものを保存できます。
 
-- 複数の観点で多くのファイルを review する
-- 調査 → 検証 → 統合
-- N 個のモジュールを同じやり方で移行する
+コースのモットーを一段上げるとこうなります。各ステップの中ではモデルを信頼する。ステップ同士の構造はエンジニアリングで決める。
 
-計画を `messages[]` の中だけで「覚えている」と、三つのことが起きます。orchestration の雑音で context が埋まる、途中で計画がずれる、落ちたら完了済みの作業までやり直す。
+## 問題: ひとつの窓、三つの失敗
 
-必要なのは並行性、安定した結果の形、そして再開です。会話履歴だけにそれを預けるのは弱いです。
+s01 から s15 まで、モデルは**同じ** context の中で計画と実行をします。直前の発見で次が決まるタスクには向いています。長く、大規模に並行し、硬い構造が要り、あるいは敵対的な検証が要る仕事では脆くなります。
+
+Claude Code の設計者は、その単一ウィンドウで起きやすい三つの失敗に名前を付けています。平たい言葉では:
+
+| 失敗モード | どんな感じか |
+|------------|--------------|
+| **Agentic laziness（途中で切り上げ）** | 50 項目の review のうち 35 で「完了」と言う |
+| **Self-preferential bias（自己びいき）** | 自分の発見を自分で採点すると甘くなる —— 狐が鶏小屋を採点する |
+| **Goal drift（目標の漂流）** | もともとの「X には触るな」が多ターンと圧縮のあいだに薄れる |
+
+会話履歴は、並行性・安定した結果の形・再開の三つを同時に預ける場所としても弱いです。多くのファイルを review する、調査してから検証する、N 個のモジュールを同じやり方で移す —— こうした仕事は**形が先に分かっている**ので、なおさらその三つが要ります。
 
 ## 一息でいうアイデア
 
-**計画をコードへ移します。** Subagent は相変わらず判断します。script がループ、扇状の分配、マージを持ちます。中間結果は変数にあり、会話には入りません。
+**オーケストレーションを「賢さ」から「構造」へ移します。**
+
+Subagent は相変わらず判断します —— それぞれきれいな context と、焦点の定まった仕事で。**script** がループ、扇状の分配、マージを持ちます。中間結果は変数（と journal）にあり、会話には入りません。分かれた助手 + script が握る制御フローが、laziness・自己チェックの偏り・drift への対抗策です。
 
 ![Workflow Runtime Overview](images/workflow-runtime-overview.svg)
 
 1 回の `Workflow` tool call が、その script 実行を始めます。実行中に lifecycle / progress event が出て、最後に launch 情報・result・task state を含む tool result が返ります。
 
-## ふたつの入口
+## ふたつの入口 — dynamic と static
 
-Claude Code は、workflow の始め方について正直です。
+Claude Code は同じ厨房への入口を二つ開いています。
 
 | 入口 | 渡すもの | いつ使うか |
 |------|----------|------------|
 | **Dynamic** | オーケストレーション用の JavaScript（`script`、あとから `scriptPath`） | モデルが**このタスク用**にレシピを書く |
 | **Saved** | `name` + `args` | 良いレシピを例えば `.claude/workflows/` に保存し、名前で再実行する |
 
-厨房は同じです。Dynamic は「今レシピを書く」、Saved は「カード箱から引く」です。
+厨房は同じです。Dynamic は「今レシピを書く」、Saved は「カード箱から引く」—— 良い dynamic run の残した、再利用できる残りです。
+
+このレッスンの外にはいとこもあります。**static** harness（あらかじめ書く Agent SDK / `claude -p` の编排）です。static はあらゆるエッジケース向けなので、どうしても汎用になります。dynamic は*この*タスク向けの特注です。形が合ったら saved にします。
 
 **このレッスンは Python の teaching runtime です。** 同じアイデアを、1 行ずつ読める形で示します。デモは名前で saved workflow を登録します。概念は Claude Code の script 世界と 1:1 です。「モデルは実行可能コードを渡せない」と Claude Code について主張するのは誤りでした。ここでは単に、完全な JS インタプリタを埋め込まないだけです。
 
@@ -89,6 +103,18 @@ WORKFLOW_TOOL = {
 results = await ctx.pipeline(DIMENSIONS, audit, verify)
 confirmed = [f for r in results if r for f in r["confirmed"]]
 ```
+
+## 味のあるパターン（一覧の投げ売りではない）
+
+パターンはレシピのスタイルだと思ってください。サンプル `review-changes` が頼るのは主に三つです。
+
+| パターン | 平たい意味 | サンプルでは |
+|----------|------------|--------------|
+| **Fan-out-and-synthesize** | 仕事を分け、きれいな机で進め、あとでまとめる | 4 つの dimension が `pipeline` で audit し、確認リストへ |
+| **Adversarial verification** | 別の助手が前の成果をあえて疑う | 各 finding が verify agent を通ってから残る |
+| **Generate-and-filter** | 候補を出し、検査を通ったものだけ残す | findings 入り → `isReal` だけ出し |
+
+同じ道具箱には、あとで出会うスタイルもあります。**classify-and-act**（種類で振り分け）、**tournament**（競わせて勝者を選ぶ）、**loop-until-done**（新しいものがなくなるまで回す）。コストに見合う、より明確で安全な結果が取れるときだけ使います。
 
 ## 答えを機械が読める形に
 
@@ -142,7 +168,7 @@ resume:   A hit → B hit → C 変更 → D は live（古い D への silent h
 
 ## サンプルを歩く: `review-changes`
 
-4 つの review dimension が同じ 2 段階の道を通ります。
+4 つの review dimension が同じ 2 段階の道を通ります —— fan-out、敵対的 verify、filter。
 
 ```text
 correctness ── audit ── verify ──┐
@@ -151,8 +177,8 @@ performance ── audit ── verify ──┤
 style       ── audit ── verify ──┘
 ```
 
-1. **Review** — 各 dimension の auditor が構造化 findings を返します。
-2. **Verify** — 各 finding を敵対的チェッカーへ（verify stage 内で `parallel`）。
+1. **Review** — 各 dimension の auditor が構造化 findings を返します（きれいな机 → 混線が減る）。
+2. **Verify** — 各 finding を敵対的チェッカーへ（verify stage 内で `parallel`）。書いた本人が審判を兼ねない。
 3. 本物とされたものだけ残し、severity で並べます。
 
 ```python
@@ -176,6 +202,26 @@ s15 は依然として host loop です。s16 が足すのは一つの tool、`W
 | アイデア | 同じ primitives、journal、prefix resume | teaching model — 簡略化は明示する |
 
 main loop が workflow エンジンになるわけではありません。`bash` や `task` を借りるのと同じく、tool をひとつ借ります。
+
+## 近所: 計画を握っているのは誰か
+
+Workflow は「agent を増やす」ことではありません。**トポロジーを誰が持つか**を変えます。
+
+| 近所 | 計画を握るもの | 中間結果の置き場 | 向いている用途 |
+|------|----------------|------------------|----------------|
+| [s06 Subagent](../s06_subagent/) | モデル、一度きり | 最終 summary 以外は捨てる | 汚い子タスクを隔離 |
+| [s13 Agent Teams](../s13_agent_teams/) | Lead モデルがターンごと + mailbox | 共有タスク / メッセージ | 長時間の同僚、人間らしい協働 |
+| [s15 Integrated Harness](../s15_integrated_harness/) | 一つのループ内のモデル | 会話 `messages[]` | 積み上げ型の coding agent |
+| **s16 Workflow** | **Script** | **Script 変数 + journal** | 既知 / 大規模な構造化 fan-out + verify |
+| [s17 Goal Loop](../s17_goal_loop/) | 停止境界の evaluator | 会話を証拠にする | 「ゴール全体は終わったか？」 |
+
+より安い代替もしばしば勝ちます。skill / prompt を軟らかい計画にする、短い multi-agent チャット、手書きの static SDK orchestrator、あるいは単に大きな一回のモデルターン。単一 context より長く構造を保ちたいときに workflow へ手を伸ばします —— 審査員パネルが聞こえがいいからではありません。
+
+## Workflow を*使わない*とき
+
+Workflow は token と調整コストがかかります。ふつうのコーディングの大半は、5 人の reviewer パネルを**必要としません**。
+
+聞いてください。この仕事は本当にもっと計算と定制 harness が要るか？ ふつうの s15 の一ターン（や一つの s06 subagent）で足りるなら、そこで止めます。抑制も設計思想の一部です —— 並行と専門化は、そのコストを回収しなければなりません。
 
 ## 試してみる
 
@@ -202,6 +248,6 @@ python s16_workflow_runtime/code.py resume   # 同じ runId。prefix はすべ�
 
 **s16 = バッチの回し方。s17 = ゴール全体が終わったかどうか。**
 
-[s17 Goal Loop](../s17_goal_loop/) は独立した評価器に聞きます。止めるべきか、もう一ターンか。
+[s17 Goal Loop](../s17_goal_loop/) は独立した評価器に聞きます。止めるべきか、もう一ターンか。繰り返せる workflow に硬い完了条件も要るときは、そちらと組み合わせます。
 
-<!-- translation-sync: zh@v11, en@v11, ja@v11 -->
+<!-- translation-sync: zh@v12, en@v12, ja@v12 -->

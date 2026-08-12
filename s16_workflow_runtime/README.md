@@ -7,6 +7,8 @@ s01 → ... → s14 → [s15](../s15_integrated_harness/) → `s16` → [s17](..
 > *"Chatting turn-by-turn is like texting the chef every ten seconds. A workflow is a recipe the kitchen can follow."*
 >
 > **Harness layer**: Orchestration — run a multi-agent script above the single-agent loop.
+>
+> Trust the model; engineer the harness. Workflows are harness engineering at the orchestration layer.
 
 ---
 
@@ -14,40 +16,52 @@ Imagine you are cooking with a friend over text. You send “chop the onions,”
 
 That is ordinary model-as-orchestrator chatting. A **workflow** is the written recipe: the kitchen (runtime) follows it, helpers (subagents) do judgment, and intermediate bowls sit on the counter — not in the group chat.
 
-## The problem
+## Why a harness at all?
 
-From s01 through s15, the model picks the next tool each round. That shines when the path depends on what you just discovered.
+The default Claude Code harness is excellent at coding-shaped work: edit, run, read the error, try again — all in one loop.
 
-Some jobs already know their shape:
+Some jobs need a **custom harness on top**: deep research, security analysis, agent teams, large code review. You could hand-write that harness once in an SDK. Or — and this is the dynamic idea — Claude can **write a harness for this task on the fly**, run it, and optionally save the good ones.
 
-- review many files on several dimensions
-- research, then verify, then merge
-- migrate N modules the same way
+Course motto, one layer up: trust the model inside each step; engineer the structure around the steps.
 
-If the model keeps “remembering” the plan inside `messages[]`, three things go wrong: context fills with orchestration noise, the plan drifts mid-run, and a crash means redoing finished work.
+## The problem: one window, three ways to fail
 
-You want parallelism, stable result shapes, and a way to resume. Chat history is a weak place to store all three.
+From s01 through s15, the model plans and executes in the **same** context. Great when the next move depends on what you just found. Weak when the job is long, massively parallel, rigidly structured, or adversarial.
+
+Claude Code’s designers name three failure modes that show up in that single window. In plain language:
+
+| Failure mode | What it feels like |
+|--------------|--------------------|
+| **Agentic laziness** | Stops halfway through a fifty-item review and says “done” after thirty-five |
+| **Self-preferential bias** | Likes its own findings when asked to check itself — the fox grading the henhouse |
+| **Goal drift** | The original “don’t touch X” fades across many turns and compressions |
+
+Chat history is also a weak place to store parallelism, stable result shapes, and resume. You need those for review-many-files, research-then-verify, migrate-N-modules — jobs whose **shape** is already known.
 
 ## The idea in one breath
 
-**Move the plan into code.** Subagents still think. The script owns loops, fan-out, and merge. Intermediate results live in variables, not in the conversation.
+**Move orchestration from intelligence to structure.**
+
+Subagents still think — each in a clean context with a focused job. The **script** owns loops, fan-out, and merge. Intermediate results live in variables (and a journal), not in the conversation. Separate helpers + script-owned control flow is how you fight laziness, self-checking bias, and drift.
 
 ![Workflow Runtime Overview](images/workflow-runtime-overview.svg)
 
 One `Workflow` tool call starts that scripted run. Lifecycle and progress events fire while it works; one tool result comes back with launch info, the result, and task state.
 
-## Two doors into a workflow
+## Two doors — and dynamic vs static
 
-Claude Code is honest about how a workflow starts:
+Claude Code opens two doors into the same kitchen:
 
 | Door | What you pass | When |
 |------|----------------|------|
 | **Dynamic** | A JavaScript orchestration script (`script`, or later `scriptPath`) | The model writes a recipe for *this* task |
 | **Saved** | `name` + `args` | A good recipe lives under e.g. `.claude/workflows/` and you rerun it |
 
-Same kitchen either way. Dynamic is “write the recipe now.” Saved is “pull the card from the box.”
+Same kitchen. Dynamic is “write the recipe now.” Saved is “pull the card from the box” — the reusable residue of a good dynamic run.
 
-**This lesson is a Python teaching runtime.** It shows the same ideas so you can read every line. Our demo registers a saved workflow by name; the concepts map 1:1 to Claude Code’s script world. We do **not** claim “the model cannot submit executable code” — that was wrong for Claude Code. We simply skip embedding a full JS interpreter here.
+There is also a cousin outside this lesson: **static** harnesses (Agent SDK / `claude -p` orchestrations you write ahead of time). Static ones must work for every edge case, so they stay generic. Dynamic ones are tailor-made for *this* task; save them when the cut fits well.
+
+**This lesson is a Python teaching runtime.** Same ideas, every line readable. Our demo registers a saved workflow by name; concepts map 1:1 to Claude Code’s script world. We do **not** claim “the model cannot submit executable code” — that was wrong for Claude Code. We simply skip embedding a full JS interpreter here.
 
 ```python
 # Teaching adapter: saved door (name + args).
@@ -89,6 +103,18 @@ Default to `pipeline`. Reach for `parallel` only when the next step truly needs 
 results = await ctx.pipeline(DIMENSIONS, audit, verify)
 confirmed = [f for r in results if r for f in r["confirmed"]]
 ```
+
+## Patterns with taste (not a laundry list)
+
+Think of patterns as recipe styles. Our sample `review-changes` leans on three:
+
+| Pattern | Plain meaning | In the sample |
+|---------|---------------|---------------|
+| **Fan-out-and-synthesize** | Split the work, give each piece a clean desk, then merge | Four dimensions audit in a `pipeline`, then one confirmed list |
+| **Adversarial verification** | A second helper tries to knock the first one’s work down | Each finding faces a verify agent before it counts |
+| **Generate-and-filter** | Produce candidates, keep only what survives a test | Findings in → only `isReal` out |
+
+Same toolbox, other styles you will meet later: **classify-and-act** (route by type), **tournament** (compete, then pick a winner), **loop-until-done** (keep going until nothing new appears). Use a pattern only when its cost earns a clearer or safer result.
 
 ## Make answers machine-readable
 
@@ -142,7 +168,7 @@ resume:   A hit → B hit → C changed → D runs live (no silent hit on old D)
 
 ## Walk the sample: `review-changes`
 
-Four review dimensions walk the same two-stage path:
+Four review dimensions walk the same two-stage path — fan-out, then adversarial verify, then filter:
 
 ```text
 correctness ── audit ── verify ──┐
@@ -151,8 +177,8 @@ performance ── audit ── verify ──┤
 style       ── audit ── verify ──┘
 ```
 
-1. **Review** — each dimension’s auditor returns structured findings.
-2. **Verify** — each finding gets an adversarial checker (`parallel` inside the verify stage).
+1. **Review** — each dimension’s auditor returns structured findings (clean desks → less cross-contamination).
+2. **Verify** — each finding gets an adversarial checker (`parallel` inside the verify stage) so the author is not also the judge.
 3. Keep only findings marked real; sort by severity.
 
 ```python
@@ -176,6 +202,26 @@ s15 is still the host loop. s16 adds one tool: `Workflow`. The model (or you) as
 | Ideas | Same primitives, journal, prefix resume | Teaching model — precise where we simplify |
 
 The main loop does not become a workflow engine. It borrows one tool, the way it borrows `bash` or `task`.
+
+## Neighbors: who holds the plan?
+
+Workflows are not “more agents.” They change **who owns the topology**.
+
+| Neighbor | Who holds the plan | Where intermediate results live | Best for |
+|----------|--------------------|---------------------------------|----------|
+| [s06 Subagent](../s06_subagent/) | Model, one-shot | Discarded except final summary | Isolate one dirty subtask |
+| [s13 Agent Teams](../s13_agent_teams/) | Lead model turn-by-turn + mailbox | Shared tasks / messages | Long-running peers, human-like collaboration |
+| [s15 Integrated Harness](../s15_integrated_harness/) | Model in one loop | Conversation `messages[]` | Cumulative coding agent |
+| **s16 Workflow** | **Script** | **Script variables + journal** | Known / large structured fan-out + verify |
+| [s17 Goal Loop](../s17_goal_loop/) | Evaluator at the stop boundary | Conversation as evidence | “Is the whole goal done?” |
+
+Cheaper alternatives still win often: a skill or prompt as a soft plan, a short multi-agent chat, a hand-written static SDK orchestrator, or simply one bigger model turn. Reach for a workflow when structure must outlast a single context — not because panels sound impressive.
+
+## When *not* to use a workflow
+
+Workflows cost tokens and coordination. Most ordinary coding does **not** need a panel of five reviewers.
+
+Ask: does this job really need more compute and a custom harness? If a normal s15 turn (or one s06 subagent) is enough, stop there. Restraint is part of the design thought — parallelism and specialization have to earn their keep.
 
 ## Try it
 
@@ -202,6 +248,6 @@ What to watch for:
 
 **s16 = how a batch runs. s17 = whether the whole goal is done.**
 
-[s17 Goal Loop](../s17_goal_loop/) asks an independent evaluator: should we stop, or take another turn?
+[s17 Goal Loop](../s17_goal_loop/) asks an independent evaluator: should we stop, or take another turn? Pair them when a repeatable workflow also needs a hard completion check.
 
-<!-- translation-sync: zh@v11, en@v11, ja@v11 -->
+<!-- translation-sync: zh@v12, en@v12, ja@v12 -->
