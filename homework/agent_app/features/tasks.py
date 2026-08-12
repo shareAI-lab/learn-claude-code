@@ -9,6 +9,14 @@ from pathlib import Path
 TASK_ID_PATTERN = re.compile(r"^task_[A-Za-z0-9_-]+$")
 
 
+def register_task_tools(registry, schemas: dict, handlers: dict) -> None:
+    """Register task-board tools using the supplied task-store handlers."""
+    for name in (
+        "create_task", "list_tasks", "get_task", "claim_task", "complete_task",
+    ):
+        registry.register(schemas[name], handlers.get(name))
+
+
 @dataclass
 class Task:
     id: str

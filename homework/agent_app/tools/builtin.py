@@ -11,6 +11,17 @@ import subprocess
 from pathlib import Path
 
 
+def register_builtin_tools(
+    registry, schemas: dict, handlers: dict, names: tuple[str, ...] | None = None
+) -> None:
+    """Register the file and skill tools owned by this module."""
+    for name in names or (
+        "bash", "read_file", "write_file", "edit_file", "glob",
+        "load_skill", "compact",
+    ):
+        registry.register(schemas[name], handlers.get(name))
+
+
 def resolve_tool_cwd(workdir: Path, cwd: str | Path | None = None) -> Path:
     workspace_root = workdir.resolve()
     base = Path(cwd).resolve() if cwd else workspace_root

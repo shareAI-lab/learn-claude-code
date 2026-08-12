@@ -46,6 +46,7 @@ from homework.agent_app.features.scheduler import (
     load_durable_jobs as scheduler_load_durable_jobs,
     schedule_job as scheduler_schedule_job,
 )
+from homework.agent_app.features import scheduler as scheduler_feature
 from homework.agent_app.features import memory as memory_feature
 from homework.agent_app.features import background as background_feature
 from homework.agent_app.features.teams import bus as team_bus
@@ -406,185 +407,16 @@ def complete_task(task_id):
     return tasks_feature.complete_task(TASK_STORE, task_id)
 
 #==================== MCP PLUGIN =========================
-class MCPClient:
-    """Discovers and calls tools on an MCP server (mock for teaching)."""
-
-    def __init__(self, name: str):
-        self.name = name
-        self.tools: list[dict] = []
-        self._handlers: dict[str, callable] = {}
-
-    def register(self, tool_defs: list[dict],
-                 handlers: dict[str, callable]):
-        self.tools = tool_defs
-        self._handlers = handlers
-
-    def call_tool(self, tool_name: str, args: dict) -> str:
-        handler = self._handlers.get(tool_name)
-        if not handler:
-            return f"MCP error: unknown tool '{tool_name}'"
-        try:
-            return handler(**args)
-        except Exception as e:
-            return f"MCP error: {e}"
-
-
 MCP_STATE = mcp_feature.MCPState()
 mcp_clients = MCP_STATE.clients
 mcp_lock = MCP_STATE.lock
 MCP_TOOL_METADATA = MCP_STATE.metadata
 
-_DISALLOWED_CHARS = re.compile(r'[^a-zA-Z0-9_-]')
-
-
-def normalize_mcp_name(name: str) -> str:
-    """Replace non [a-zA-Z0-9_-] with underscore."""
-    return _DISALLOWED_CHARS.sub('_', name)
-
-
-def _mock_server_docs():
-    client = MCPClient("docs")
-    client.register(
-        tool_defs=[
-            {"name": "search", "description": "Search documentation. (readOnly)",
-             "inputSchema": {"type": "object",
-                             "properties": {"query": {"type": "string"}},
-                             "required": ["query"]},
-             "annotations": {
-                             "readOnly": True,
-                             "destructive": False,
-                            }
-            },
-            {"name": "get_version", "description": "Get API version. (readOnly)",
-             "inputSchema": {"type": "object", "properties": {},
-                             "required": []}},
-        ],
-        handlers={
-            "search": lambda query: f"[docs] Found 3 results for '{query}'",
-            "get_version": lambda: "[docs] API v2.1.0",
-        })
-    return client
-
-
-def _mock_server_deploy():
-    client = MCPClient("deploy")
-    client.register(
-        tool_defs=[
-            {"name": "trigger",
-             "description": "Trigger a deployment. (destructive — requires approval in real CC)",
-             "inputSchema": {"type": "object",
-                             "properties": {"service": {"type": "string"}},
-                             "required": ["service"]},
-             "annotations": {
-                             "readOnly": False,
-                             "destructive": True,
-                         }
-            },
-            {"name": "status", "description": "Check deployment status. (readOnly)",
-             "inputSchema": {"type": "object",
-                             "properties": {"service": {"type": "string"}},
-                             "required": ["service"]},
-             "annotations": {
-                             "readOnly": True,
-                             "destructive": False,
-                         }
-            },
-        ],
-        handlers={
-            "trigger": lambda service: f"[deploy] Triggered: {service}",
-            "status": lambda service: f"[deploy] {service}: running (v1.4.2)",
-        })
-    return client
-
-
-MOCK_SERVERS = {
-    "docs": _mock_server_docs,
-    "deploy": _mock_server_deploy,
-}
-
-
 def connect_mcp(name: str) -> str:
     return mcp_feature.connect_mcp(MCP_STATE, name)
 
-def _legacy_connect_mcp(name: str) -> str:
-    factory = MOCK_SERVERS.get(name)
-    if not factory:
-        available = ", ".join(MOCK_SERVERS.keys())
-        return f"Unknown server '{name}'. Available: {available}"
-    
-    with mcp_lock:
-        if name in mcp_clients:
-            return f"MCP server '{name}' already connected"
-    
-        mcp_client = factory()
-        mcp_clients[name] = mcp_client
-
-        try:
-            assemble_tool_pool()
-        except ValueError as e:
-            mcp_clients.pop(name, None)
-            return f"Error connecting to MCP server '{name}': {e}"
-        
-    tool_names = [t["name"] for t in mcp_client.tools]
-    print(f"  \033[31m[mcp] connected: {name} → {tool_names}\033[0m")
-    return (f"Connected to MCP server '{name}'. "
-            f"Discovered {len(mcp_client.tools)} tools: {', '.join(tool_names)}")
-
-
 def assemble_tool_pool() -> tuple[list[dict], dict]:
-    """Assemble builtin tools + all MCP tools into one pool."""
-    return mcp_feature.snapshot_mcp_tools(
-        MCP_STATE, *TOOL_REGISTRY.snapshot()
-    )
-
-def _legacy_assemble_tool_pool() -> tuple[list[dict], dict]:
-    builtin_tools, builtin_handlers = TOOL_REGISTRY.snapshot()
-    with mcp_lock:
-        tools = list(builtin_tools)
-        handlers = dict(builtin_handlers)
-        metadata: dict[str, dict] = {}
-
-        for server_name, mcp_client in sorted(mcp_clients.items()):
-            safe_server = normalize_mcp_name(server_name)
-
-            for tool_def in sorted(mcp_client.tools, key = lambda item: item["name"]):
-                original_tool_name = tool_def["name"]
-                safe_tool = normalize_mcp_name(original_tool_name)
-                prefixed = f"mcp__{safe_server}__{safe_tool}"
-
-                if prefixed in handlers:
-                    raise ValueError(f"MCP tool name collision: {prefixed}")
-
-                schema = tool_def.get("inputSchema") or {
-                    "type": "object",
-                    "properties": {},
-                }
-
-                tools.append({
-                    "name": prefixed,
-                    "description": tool_def.get("description", ""),
-                    "input_schema": schema,
-                })
-
-                handlers[prefixed] = (
-                    lambda *,
-                    client = mcp_client,
-                    tool_name = original_tool_name,
-                    **kwargs: client.call_tool(tool_name, kwargs)
-                )
-
-                annotations = tool_def.get("annotations", {})
-                metadata[prefixed] = {
-                    "server": server_name,
-                    "original_name": original_tool_name,
-                    "readOnly": bool(annotations.get("readOnly", False)),
-                    "destructive": bool(annotations.get("destructive", annotations.get("destructiveHint", False,))),
-                }
-
-        MCP_TOOL_METADATA.clear()
-        MCP_TOOL_METADATA.update(metadata)
-
-        return tools, handlers
+    return mcp_feature.snapshot_mcp_tools(MCP_STATE, *TOOL_REGISTRY.snapshot())
 
 #==================== WORKTREE SYSTEM ====================
 def run_git(args):
@@ -981,25 +813,56 @@ def spawn_subagent(description: str) -> str:
         description, llm, APP_CONFIG, SUB_SYSTEM, SUB_TOOLS, SUB_HANDLERS, HOOK_REGISTRY
     )
 
-BUILTIN_TOOLS.append({
-    "name": "task",
-    "description": "Launch a subagent to handle a complex subtask. Returns only the final conclusion.",
-    "strict": True,
-    "input_schema": {"type": "object", 
-                     "properties": {
-                         "description": {"type": "string", 
-                                         "description": "Complete instructions sent verbatim to the subagent. This is the only accepted parameter."}}, 
-                     "required": ["description"], 
-                     "additionalProperties": False},
-})
-BUILTIN_HANDLERS["task"] = spawn_subagent
-
 TOOL_REGISTRY = ToolRegistry()
-for _tool_schema in BUILTIN_TOOLS:
-    TOOL_REGISTRY.register(
-        _tool_schema,
-        BUILTIN_HANDLERS.get(_tool_schema["name"]),
-    )
+_REGISTRATION_SCHEMAS = {
+    **{tool["name"]: tool for tool in BUILTIN_TOOLS},
+    "task": subagent_runtime.TASK_TOOL_SCHEMA,
+}
+_REGISTRATION_HANDLERS = {**BUILTIN_HANDLERS, "task": spawn_subagent}
+
+# Temporary composition root: owners register their own schemas and callbacks.
+builtin_tools.register_builtin_tools(
+    TOOL_REGISTRY,
+    _REGISTRATION_SCHEMAS,
+    _REGISTRATION_HANDLERS,
+    ("bash", "read_file", "write_file", "edit_file", "glob"),
+)
+todos_feature.register_todo_tools(
+    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
+)
+builtin_tools.register_builtin_tools(
+    TOOL_REGISTRY,
+    _REGISTRATION_SCHEMAS,
+    _REGISTRATION_HANDLERS,
+    ("load_skill", "compact"),
+)
+tasks_feature.register_task_tools(
+    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
+)
+teammate_runtime.register_team_tools(
+    TOOL_REGISTRY,
+    _REGISTRATION_SCHEMAS,
+    _REGISTRATION_HANDLERS,
+    ("spawn_teammate", "send_message", "check_inbox"),
+)
+scheduler_feature.register_scheduler_tools(
+    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
+)
+teammate_runtime.register_team_tools(
+    TOOL_REGISTRY,
+    _REGISTRATION_SCHEMAS,
+    _REGISTRATION_HANDLERS,
+    ("request_shutdown", "request_plan", "review_plan"),
+)
+worktrees_feature.register_worktree_tools(
+    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
+)
+mcp_feature.register_mcp_connection_tool(
+    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
+)
+subagent_runtime.register_subagent_tool(
+    TOOL_REGISTRY, _REGISTRATION_SCHEMAS, _REGISTRATION_HANDLERS
+)
 
 # Compatibility snapshots for existing callers; each loop uses TOOL_REGISTRY.
 BUILTIN_TOOLS, BUILTIN_HANDLERS = TOOL_REGISTRY.snapshot()

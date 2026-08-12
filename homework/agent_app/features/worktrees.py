@@ -12,6 +12,12 @@ from homework.agent_app.features.tasks import TaskStore, _save_task_unlocked, lo
 VALID_WT_NAME = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
+def register_worktree_tools(registry, schemas: dict, handlers: dict) -> None:
+    """Register worktree lifecycle tools."""
+    for name in ("create_worktree", "remove_worktree", "keep_worktree"):
+        registry.register(schemas[name], handlers.get(name))
+
+
 @dataclass(slots=True)
 class WorktreeState:
     workdir: Path

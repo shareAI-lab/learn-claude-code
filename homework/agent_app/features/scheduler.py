@@ -7,6 +7,12 @@ from datetime import datetime
 from homework.agent_app.config import AppConfig
 
 
+def register_scheduler_tools(registry, schemas: dict, handlers: dict) -> None:
+    """Register cron tools using the supplied scheduler handlers."""
+    for name in ("schedule_cron", "list_crons", "cancel_cron"):
+        registry.register(schemas[name], handlers.get(name))
+
+
 @dataclass
 class CronJob:
     id: str

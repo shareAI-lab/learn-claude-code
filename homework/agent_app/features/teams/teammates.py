@@ -30,6 +30,17 @@ TEAM_TOOLS = [
 ]
 
 
+def register_team_tools(
+    registry, schemas: dict, handlers: dict, names: tuple[str, ...] | None = None
+) -> None:
+    """Register lead-team messaging and protocol tools."""
+    for name in names or (
+        "spawn_teammate", "send_message", "check_inbox", "request_shutdown",
+        "request_plan", "review_plan",
+    ):
+        registry.register(schemas[name], handlers.get(name))
+
+
 @dataclass(slots=True)
 class TeamState:
     active: dict[str, dict] = field(default_factory=dict)

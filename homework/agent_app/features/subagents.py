@@ -5,6 +5,29 @@ from __future__ import annotations
 from typing import Callable
 
 
+TASK_TOOL_SCHEMA = {
+    "name": "task",
+    "description": "Launch a subagent to handle a complex subtask. Returns only the final conclusion.",
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "description": {
+                "type": "string",
+                "description": "Complete instructions sent verbatim to the subagent. This is the only accepted parameter.",
+            }
+        },
+        "required": ["description"],
+        "additionalProperties": False,
+    },
+}
+
+
+def register_subagent_tool(registry, schemas: dict, handlers: dict) -> None:
+    """Register the non-recursive synchronous subagent tool."""
+    registry.register(schemas["task"], handlers.get("task"))
+
+
 def extract_text(content) -> str:
     if not isinstance(content, list):
         return str(content)

@@ -35,6 +35,11 @@ class MCPState:
     lock: threading.RLock = field(default_factory=threading.RLock)
 
 
+def register_mcp_connection_tool(registry, schemas: dict, handlers: dict) -> None:
+    """Register the explicit MCP connection entry point, not discovered tools."""
+    registry.register(schemas["connect_mcp"], handlers.get("connect_mcp"))
+
+
 _DISALLOWED_CHARS = re.compile(r"[^a-zA-Z0-9_-]")
 
 

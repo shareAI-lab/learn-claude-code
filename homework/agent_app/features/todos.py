@@ -4,6 +4,11 @@ import json
 from homework.agent_app.runtime import SessionState
 
 
+def register_todo_tools(registry, schemas: dict, handlers: dict) -> None:
+    """Register the session todo tool."""
+    registry.register(schemas["todo_write"], handlers.get("todo_write"))
+
+
 def _normalize_todos(todos):
     if isinstance(todos, str):
         try:
