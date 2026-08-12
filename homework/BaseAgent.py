@@ -1,4 +1,4 @@
-import os,json,subprocess,difflib,time,re,copy,random,threading,uuid,hashlib
+import os,json,subprocess,time,re,copy,random,threading,uuid,hashlib
 from pathlib import Path
 from dataclasses import dataclass,asdict,field,replace
 from types import SimpleNamespace
@@ -15,6 +15,16 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from homework.agent_app.config import AppConfig
 from homework.agent_app.runtime import SessionState
+from homework.agent_app.tools import builtin as builtin_tools
+from homework.agent_app.tools.hooks import (
+    HookRegistry,
+    make_context_inject_hook,
+    make_diff_preview_hook,
+    make_large_output_hook,
+    make_log_hook,
+    make_permission_hook,
+    make_summary_hook,
+)
 from homework.agent_app.core.compaction import (
     estimate_size as compaction_estimate_size,
     micro_compact as compaction_micro_compact,
@@ -75,30 +85,12 @@ Task = tasks_feature.Task
 CURRENT_TODOS = SESSION_STATE.todos
 SKILL_REGISTRY = SKILL_STATE.registry
 
-def resolve_tool_cwd(
-        cwd: str | Path | None= None
-):
-    workspace_root = WORKDIR.resolve()
-    base = Path(cwd).resolve() if cwd else workspace_root
+def resolve_tool_cwd(cwd: str | Path | None = None) -> Path:
+    return builtin_tools.resolve_tool_cwd(APP_CONFIG.workdir, cwd)
 
-    if not base.is_relative_to(workspace_root):
-        raise ValueError(
-            f"Tool cwd escapes workspace: {cwd}"
-        )
 
-    if not base.is_dir():
-        raise ValueError(f"Tool cwd does not exist: {base}")
-
-    return base
-
-def safe_path(path:str, cwd:str | Path | None = None) -> Path:
-    base = resolve_tool_cwd(cwd)
-    resolved = (base / path).resolve()
-
-    if not resolved.is_relative_to(base):
-        raise ValueError(f"Path escapes working directory: {path}")
-
-    return resolved
+def safe_path(path: str, cwd: str | Path | None = None) -> Path:
+    return builtin_tools.safe_path(APP_CONFIG.workdir, path, cwd)
 
 #==================== CRON SCHEDULER ====================
 SCHEDULER_STATE = SchedulerState()
@@ -1288,71 +1280,26 @@ skills_feature.scan_skills(SKILL_STATE)
 
 
 #==================== TOOL SYSTEM ====================
-def run_bash(command:str, run_in_background: bool = False, cwd: str | Path | None = None) -> str:
-    try:
-        base = resolve_tool_cwd(cwd)
-        r = subprocess.run(command, shell=True, cwd = base,
-                           capture_output=True, text=True, timeout = 120)
-        out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
-    except subprocess.TimeoutExpired:
-        return "Error: Timeout (120s)"
-    except Exception as e:
-        return f"Error: {e}"
-    
-def run_read(path:str, offset:int = 0, limit:int | None = None, cwd: str | Path | None = None) -> str:
-    try:
-        lines = safe_path(path, cwd=cwd).read_text().splitlines()
-        
-        offset = max(0, offset)
-        if limit is None:
-            limit = 1000
-        else:
-            limit = max(1, min(limit, 1000))
+def run_bash(command: str, run_in_background: bool = False, cwd=None) -> str:
+    return builtin_tools.run_bash(
+        APP_CONFIG.workdir, command, run_in_background=run_in_background, cwd=cwd
+    )
 
-        end = min(offset + limit, len(lines))
 
-        result = lines[offset: end]
-        if end < len(lines):
-            result.append(f"... ({len(lines) - end} more lines);"
-                          f"continue with offset={end}"
-                          )
-        return "\n".join(result)
-    except Exception as exc:
-        return f"Error: {exc}"
-    
-def run_write(path:str,content:str, cwd: str | Path | None = None) -> str:
-    try:
-        file_path = safe_path(path, cwd=cwd)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content)
-        return f"Wrote {len(content)} bytes to {path}"
-    except Exception as e:
-        return f"Error: {e}"
-    
-def run_edit(path:str,old_text:str,new_text:str, cwd: str | Path | None = None) -> str:
-    try:
-        file_path = safe_path(path, cwd=cwd)
-        text = file_path.read_text()
-        if old_text not in text:
-            return f"Error: text not found in {path}"
-        file_path.write_text(text.replace(old_text,new_text,1))
-        return f"Edited {path}"
-    except Exception as e:
-        return f"Error: {e}"
-    
-def run_glob(pattern:str, cwd: str | Path | None = None) -> str:
-    import glob as g
-    try:
-        base = resolve_tool_cwd(cwd)
-        results = []
-        for match in g.glob(pattern,root_dir=base):
-            path = (base / match).resolve()
-            if path.is_relative_to(base):
-                results.append(match)
-        return "\n".join(results) if results else "(no matches)"
-    except Exception as e:
-        return f"Error: {e}"
+def run_read(path: str, offset: int = 0, limit: int | None = None, cwd=None) -> str:
+    return builtin_tools.run_read(APP_CONFIG.workdir, path, offset, limit, cwd)
+
+
+def run_write(path: str, content: str, cwd=None) -> str:
+    return builtin_tools.run_write(APP_CONFIG.workdir, path, content, cwd)
+
+
+def run_edit(path: str, old_text: str, new_text: str, cwd=None) -> str:
+    return builtin_tools.run_edit(APP_CONFIG.workdir, path, old_text, new_text, cwd)
+
+
+def run_glob(pattern: str, cwd=None) -> str:
+    return builtin_tools.run_glob(APP_CONFIG.workdir, pattern, cwd)
     
 def run_todo_write(todos:list) -> str:
     global CURRENT_TODOS
@@ -1740,125 +1687,26 @@ def reactive_compact(messages):
     return compaction_reactive_compact(APP_CONFIG, summarize, messages)
 
 #==================== HOOK SYSTEM ====================
-HOOKS = {"UserPromptSubmit":[],"PreToolUse":[],"PostToolUse":[],"Stop":[]}
+HOOK_REGISTRY = HookRegistry()
 
 def register_hook(event:str,callback):
-    HOOKS[event].append(callback)
+    HOOK_REGISTRY.register(event, callback)
 
 def trigger_hook(event:str,*args):
-    for callback in HOOKS[event]:
-        result = callback(*args)
-        if result is not None:
-            return result
-    return None
+    return HOOK_REGISTRY.trigger(event, *args)
 
-DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
-DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777", "curl"]
 
-def permission_hook(block):
-    if block.name == "bash":
-        for pattern in DENY_LIST:
-            if pattern in block.input.get("command",""):
-                print(f"\n\033[31m⛔ Blocked: '{pattern}'\033[0m")
-                return "Permission denied by deny list"
-        for kw in DESTRUCTIVE:
-            if kw in block.input.get("command",""):
-                print(f"\n\033[33m⚠  Potentially destructive command\033[0m")
-                print(f"   Tool: {block.name}({block.input})")
-
-                agent = getattr(block, "agent", None)
-                if agent:
-                    prompt = f"  Allow teammate '{agent}' to apply this change? [y/N] "
-                else:
-                    prompt = "  Allow this change? [y/N] "
-                choice = input(prompt).strip().lower()
-                if choice not in ("y","yes"):
-                    return "Permission denied by user"
-
-    if block.name.startswith("mcp__"):
-        with mcp_lock:
-            metadata = dict(
-                MCP_TOOL_METADATA.get(block.name, {})
-            )
-
-        if not metadata:
-            return ("Permission denied: unknown MCP tool metadata")
-
-        if metadata.get("destructive"):
-            print(f"\n\033[33m⚠  Potentially destructive MCP tool\033[0m")
-            print(f"  Server: {metadata['server']}\n"
-                  f"  Tool: {metadata['original_name']}\n"
-                  f"  Input: {block.input}")
-
-            choice = input("  Allow this MCP action? [y/N] ").strip().lower()
-            if choice not in ("y","yes"):
-                return "Permission denied by user"
-        
-    return None
-
-def log_hook(block):
-    args_preview = str(list(block.input.values())[:2])[:60]
-    print(f"\033[90m[HOOK] {block.name}({args_preview})\033[0m")
-    return None
-
-def large_output_hook(block,output):
-    if len(str(output)) > 100000:
-        print(f"\033[33m[HOOK] ⚠ Large output from {block.name}: {len(str(output))} chars\033[0m")
-    return None
-
-def context_inject_hook(query:str):
-    print(f"\033[90m[HOOK] UserPromptSubmit: working in {WORKDIR}\033[0m")
-    return None
-
-def summary_hook(messages:list):
-    tool_count = sum(1 for m in messages
-                     for b in (m.get("content") if isinstance(m.get("content"),list) else [])
-                     if isinstance(b, dict) and b.get("type") == "tool_result")
-    print(f"\033[90m[HOOK] Stop: session used {tool_count} tool calls\033[0m")
-    return None
-
-def diff_preview_hook(block):
-    if block.name not in ("write_file","edit_file"):
-        return None
-    
-    path = block.input.get("path","")
-    try:
-        file_path = safe_path(path, getattr(block, "cwd", None))
-    except Exception as e:
-        return(f"[HOOK] Error: {e}")
-
-    old_text = file_path.read_text() if file_path.exists() else ""
-
-    if block.name == "write_file":
-        new_text = block.input.get("content","")
-    else:
-        old_price = block.input.get("old_text","")
-        new_price = block.input.get("new_text","")
-        if old_price not in old_text:
-            return None
-        new_text = old_text.replace(old_price,new_price,1)
-
-    diff = difflib.unified_diff(
-        old_text.splitlines(), 
-        new_text.splitlines(),
-        fromfile=f"{path}before",
-        tofile=f"{path}after",
-        lineterm="",
-        )
-    
-    print("\n".join(diff) or "(no diff)")
-    choice = input("  Apply change? [y/N] ").strip().lower()
-    if choice not in ("y","yes"):
-        return "File change rejected by user"
-    
-    return None
-
-register_hook("UserPromptSubmit", context_inject_hook)
-register_hook("PreToolUse", permission_hook)
-register_hook("PreToolUse", log_hook)
-register_hook("PreToolUse", diff_preview_hook)
-register_hook("PostToolUse", large_output_hook)
-register_hook("Stop", summary_hook)
+register_hook("UserPromptSubmit", make_context_inject_hook(APP_CONFIG.workdir))
+register_hook(
+    "PreToolUse",
+    make_permission_hook(
+        APP_CONFIG.workdir, input, MCP_TOOL_METADATA, mcp_lock
+    ),
+)
+register_hook("PreToolUse", make_log_hook(APP_CONFIG.workdir))
+register_hook("PreToolUse", make_diff_preview_hook(APP_CONFIG.workdir, input))
+register_hook("PostToolUse", make_large_output_hook(APP_CONFIG.workdir))
+register_hook("Stop", make_summary_hook(APP_CONFIG.workdir))
 
 #==================== SYSTEM PROMPT ASSEMBLY ====================
 PROMPT_SECTIONS = {
