@@ -88,17 +88,38 @@ results = await ctx.pipeline(DIMENSIONS, audit, verify)
 confirmed = [f for r in results if r for f in r["confirmed"]]
 ```
 
-## Patterns, when they earn their keep
+## Once you can write the recipe
 
-You do not need a catalog. Notice what our sample already does, and you have three styles in hand.
+The verbs above are flour and heat. What people keep reinventing are a handful of *shapes* — common patterns for dynamic agentic workflows. Think of them as a toolbox, not a mandatory menu. Reach for one when its pain shows up; leave the rest on the pegboard.
 
-It **fans out** the change across review dimensions, each on a clean desk, then **synthesizes** one confirmed list. That is fan-out-and-synthesize — useful when pieces would contaminate each other in one crowded context.
+![Six Workflow Patterns](images/six-workflow-patterns.svg)
 
-Inside verify, a second helper tries to knock each finding down. That is adversarial verification — the structural answer to grading your own homework.
+*Six shapes people keep reinventing. The script owns the topology; `agent` / `parallel` / `pipeline` / `phase` / journal are how each shape is spoken in this lesson.*
 
-What survives is a filter over what was generated. Generate-and-filter: candidates in, only the ones that pass out.
+**Classify-And-Act.** Pain: one generic helper is mediocre at everything. Shape: a classifier looks at the task, then routes to specialist A, B, or C. In this lesson that is usually one `agent({schema})` that returns a label, then an `if`/`match` in the script that calls the right follow-up `agent` (or a nested `workflow`). Skip it when every item truly needs the same treatment — routing is just ceremony then.
 
-The same toolbox holds other cuts you will meet later — classify-and-act, tournament, loop-until-done. Borrow a style only when the extra cost buys clarity or safety you could not get cheaper.
+**Fanout-And-Synthesize.** Pain: fifty files will not fit one tired context, and they contaminate each other if they try. Shape: split the work, run many agents, wait at a barrier, merge. Map it with `pipeline` when each item has its own stages, or `parallel` when the next step needs every result together; put the merge in ordinary Python after the gather. Skip it for three related files a single pass can hold.
+
+**Adversarial Verification.** Pain: the fox grades the henhouse. Shape: a worker produces; independent verifiers try to refute or stress-test; only survivors remain. Map it with a produce `agent`, then `parallel` of verifier `agent`s (ideally `schema`’d), then a filter. Phases help (“Review” then “Verify”). Skip it when the cost of a wrong answer is low — not every note needs a tribunal.
+
+**Generate-And-Filter.** Pain: you need options, not the first idea that sounded clever. Shape: many generators spill ideas into a rubric + dedupe filter; best stay, rest go. Map it with `parallel` over generators, then script-side filter (or one judge `agent` with a schema). Journal/resume matter when generation is expensive. Skip it when the space of good answers is already tiny.
+
+**Tournament.** Pain: absolute scores are mushy for taste and ranking (“how good is this name?”). Shape: pairwise judges, a bracket, a winner — comparative judgment beats lonely scoring. Map it with rounds of `parallel` judge `agent`s over pairs, looping in the script until one remains. Skip it when a clear rubric already picks a winner in one pass.
+
+**Loop Until Done.** Pain: you do not know how many passes the mine still holds. Shape: keep spawning while “new findings?” is yes; stop on dry rounds or a done condition. Map it with a `while` over `agent`/`parallel`, a schema’d stop check, and a hard `budget` so the loop cannot eat the house. Pair with journal resume when a long dig may pause. Skip it when the work has a known size — a fixed `pipeline` is simpler and safer.
+
+After a few of those have a face, the toolbox fits in one glance:
+
+| Pattern | Primitive sketch | Reach for it when… |
+|---------|------------------|--------------------|
+| Classify-And-Act | `agent` → branch → `agent` | Items need different specialists |
+| Fanout-And-Synthesize | `pipeline` / `parallel` → merge | Many clean desks, then one summary |
+| Adversarial Verification | produce → `parallel(verify)` → filter | Wrong answers are expensive |
+| Generate-And-Filter | `parallel(gens)` → rubric filter | You need options, then taste |
+| Tournament | pairwise judge `agent`s in a bracket | Ranking / taste without a sharp scale |
+| Loop Until Done | `while` + stop check + `budget` | Unknown amount of buried work |
+
+Compositions are normal. Deep research often stacks fanout → filter → verify → synthesize. Our sample is already a small chord of two notes.
 
 ## Answers the next stage can hold
 
@@ -141,18 +162,22 @@ journal:  [A ✓] [B ✓] [C ✓] [D ✓]
 resume:   A hit → B hit → C changed → D runs live
 ```
 
-## Walking `review-changes`
+## Walking `review-changes` — a composition
 
-Four dimensions share one two-stage path — fan out, verify adversarially, keep what survives:
+The sample is not “one pattern.” It is **Fanout-And-Synthesize** with **Adversarial Verification** inside — and a light generate-and-filter at the end when only `isReal` findings survive.
 
 ```text
 correctness ── audit ── verify ──┐
 security    ── audit ── verify ──┤── confirmed findings
 performance ── audit ── verify ──┤
 style       ── audit ── verify ──┘
+         fanout                         synthesize
+              └── each finding: skeptical verify ──┘
 ```
 
-Review puts each auditor at its own desk so correctness talk does not bleed into security talk. Verify hands every finding to a skeptic who was not the author. Only the real ones remain, sorted by severity. You can almost feel the three failure modes losing their favorite seats.
+`pipeline(DIMENSIONS, audit, verify)` gives each dimension its own desk so correctness talk does not bleed into security. Inside `verify`, `parallel` of verifier agents is the adversarial chord. Ordinary list filtering is the synthesize step. Phases mark Review then Verify; the journal remembers every `agent()` so a pause does not redo the audits.
+
+You can almost feel the three failure modes losing their favorite seats: the fleet cannot stop after two dimensions, the author is not the judge, and the topology does not drift mid-run.
 
 ```python
 async def sample_workflow(ctx, args):
@@ -205,4 +230,4 @@ Watch Review give way to Verify. Watch agents flip from `done` to `cached` on a 
 
 s16 is how a batch runs. [s17 Goal Loop](../s17_goal_loop/) asks a different question at the door: should we stop, or take another turn? Pair them when a repeatable recipe also needs a hard “done.”
 
-<!-- translation-sync: zh@v13, en@v13, ja@v13 -->
+<!-- translation-sync: zh@v14, en@v14, ja@v14 -->

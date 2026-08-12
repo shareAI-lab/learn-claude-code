@@ -88,17 +88,38 @@ results = await ctx.pipeline(DIMENSIONS, audit, verify)
 confirmed = [f for r in results if r for f in r["confirmed"]]
 ```
 
-## 模式：用得着才拿
+## 会写菜谱之后
 
-不必背目录。看清示例在干什么，手里就有三种风格。
+上面那些动词是面粉和火候。人们反复发明的，是少数几种*形状*——动态 agentic workflow 的常见模式。把它们想成工具箱，不是必点菜单。痛点出现再伸手；其余的留在挂板上。
 
-它把改动**分发**到各个审查维度，每人一张干净桌子，再**汇总**成一份确认列表——fan-out-and-synthesize。碎片若挤在同一个嘈杂上下文里会互相串味时，这一招值钱。
+![六种 Workflow 模式](images/six-workflow-patterns.svg)
 
-验证阶段里，第二个帮手专门来挑每条 finding 的刺——adversarial verification，结构上回答“别给自己的作业打高分”。
+*人们反复发明的六种形状。脚本掌管拓扑；本课里用 `agent` / `parallel` / `pipeline` / `phase` / journal 把每种形状说出来。*
 
-留下来的，是对生成物做过滤。Generate-and-filter：候选进来，过关的留下。
+**Classify-And-Act（分类再行动）。** 痛点：一个万金油帮手样样稀松。形状：分类器看一眼任务，再路由到专家 A、B 或 C。本课里多半是一次带 `schema` 的 `agent` 返回标签，脚本里 `if`/`match` 再叫对的后续 `agent`（或嵌一层 `workflow`）。每件东西其实都该同样处理时，就别用——路由只是仪式。
 
-同一工具箱里还有 classify-and-act、tournament、loop-until-done，以后都会遇见。只有额外成本能买到更清楚或更稳妥的结果时，才去借一种风格。
+**Fanout-And-Synthesize（分发再汇总）。** 痛点：五十个文件塞不进一个疲倦的上下文，挤在一起还会串味。形状：拆开、多 agent 跑、在屏障处等齐、再合并。每件有自己阶段时用 `pipeline`；下一步必须凑齐全部结果时用 `parallel`；合并写在 gather 之后的普通 Python 里。三五个相关文件一趟就能看完时，就别用。
+
+**Adversarial Verification（对抗验证）。** 痛点：狐狸给鸡窝打分。形状：工人产出；独立验证者来反驳或施压；只留下幸存者。映射：一次生产用的 `agent`，再 `parallel` 一组验证 `agent`（最好带 `schema`），然后过滤。`phase` 标出 “Review” 再 “Verify”。答错代价很低时就别用——不是每张便条都要法庭。
+
+**Generate-And-Filter（生成再过滤）。** 痛点：你要的是选项，不是第一个听起来机灵的念头。形状：许多生成器把想法倒进“量尺 + 去重”的过滤器；最好的留下，其余丢掉。映射：`parallel` 生成，再在脚本里过滤（或一个带 schema 的裁判 `agent`）。生成很贵时，journal/续跑特别有用。好答案空间本来就很小，就别用。
+
+**Tournament（锦标赛）。** 痛点：品味和排序上，绝对分数糊成一团（“这个名字有多好？”）。形状：两两比较的裁判、淘汰支架、冠军——相对判断胜过孤独打分。映射：脚本里多轮 `parallel` 的 pairwise 裁判 `agent`，直到剩一个。清晰量尺一趟就能选出赢家时，就别用。
+
+**Loop Until Done（接到完为止）。** 痛点：你不知道矿里还要挖几轮。形状：只要“还有新发现？”为是就继续派工；连续空轮或完成条件出现就停。映射：`while` 包着 `agent`/`parallel`，用带 schema 的停止检查，再加硬性 `budget`，免得循环把家吃空。长挖可能暂停时，配上 journal 续跑。工作量已知时，固定 `pipeline` 更简单也更安全。
+
+几种有了面孔之后，工具箱一眼就能看清：
+
+| 模式 | 原语速写 | 什么时候伸手 |
+|------|----------|--------------|
+| Classify-And-Act | `agent` → 分支 → `agent` | 条目需要不同专家 |
+| Fanout-And-Synthesize | `pipeline` / `parallel` → 合并 | 许多干净桌子，再一份摘要 |
+| Adversarial Verification | 产出 → `parallel(verify)` → 过滤 | 答错很贵 |
+| Generate-And-Filter | `parallel(gens)` → 量尺过滤 | 先要选项，再要品味 |
+| Tournament | 两两裁判 `agent` 搭支架 | 排序/品味却没有锋利刻度 |
+| Loop Until Done | `while` + 停止检查 + `budget` | 埋着不知多少活 |
+
+组合是常态。深度调研常常叠成：分发 → 过滤 → 验证 → 汇总。我们的示例，已经是两个音符的一小段和弦。
 
 ## 让下一阶段接得住的答案
 
@@ -141,18 +162,22 @@ journal:  [A ✓] [B ✓] [C ✓] [D ✓]
 续跑:     A 命中 → B 命中 → C 改过 → D 实跑
 ```
 
-## 跟着 `review-changes` 走一圈
+## 跟着 `review-changes` 走一圈——一种组合
 
-四个维度共用一条两阶段路径——先铺开，再对抗验证，留下活下来的：
+示例不是“一种模式”。它是 **Fanout-And-Synthesize**，里面嵌着 **Adversarial Verification**——结尾再轻轻做一层 generate-and-filter：只留下 `isReal` 的 finding。
 
 ```text
 correctness ── 审计 ── 验证 ──┐
 security    ── 审计 ── 验证 ──┤── 确认过的问题
 performance ── 审计 ── 验证 ──┤
 style       ── 审计 ── 验证 ──┘
+         分发（fanout）                    汇总（synthesize）
+              └── 每条 finding：怀疑式验证 ──┘
 ```
 
-Review 让每个审计员坐自己的桌子，正确性的闲聊不至于淌进安全性。Verify 把每条 finding 交给不是作者的怀疑者。只留下真的，再按严重程度排好。那三种走偏，会感觉自己最爱的座位被撤了。
+`pipeline(DIMENSIONS, audit, verify)` 给每个维度自己的桌子，正确性的闲聊不至于淌进安全性。`verify` 里对验证 agent 做 `parallel`，就是对抗那一和弦。普通的列表过滤是汇总。`phase` 标出 Review 再 Verify；journal 记住每次 `agent()`，暂停也不会重做审计。
+
+那三种走偏，会感觉自己最爱的座位被撤了：舰队不能在两个维度后收工，作者不当裁判，拓扑也不会在中途漂移。
 
 ```python
 async def sample_workflow(ctx, args):
@@ -205,4 +230,4 @@ python s16_workflow_runtime/code.py resume   # 同一 runId；期待缓存命中
 
 s16 讲一批活怎么跑。[s17 Goal Loop](../s17_goal_loop/) 在门口问另一个问题：该停，还是再来一轮？可重复的菜谱若还需要硬性的“做完”，可以和它一起用。
 
-<!-- translation-sync: zh@v13, en@v13, ja@v13 -->
+<!-- translation-sync: zh@v14, en@v14, ja@v14 -->

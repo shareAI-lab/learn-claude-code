@@ -88,17 +88,38 @@ results = await ctx.pipeline(DIMENSIONS, audit, verify)
 confirmed = [f for r in results if r for f in r["confirmed"]]
 ```
 
-## パターンは、元が取れるときだけ
+## レシピが書けるようになったら
 
-カタログを暗記する必要はありません。サンプルが何をしているかに気づけば、手元に三つのスタイルがあります。
+上の動詞は小麦粉と火加減です。人が何度も発明し直すのは、少数の*形*——dynamic agentic workflow のよくあるパターンです。道具箱だと思ってください。必点メニューではありません。痛みが出たときに手を伸ばし、残りは壁に掛けておきます。
 
-変更を review の各 dimension へ**広げ**、きれいな机で進め、一つの確認リストへ**まとめ**ます。fan-out-and-synthesize です。かけらが一つの騒がしい context で混線するときに効きます。
+![Six Workflow Patterns](images/six-workflow-patterns.svg)
 
-verify の内側では、第二の助手が各 finding をあえて疑います。adversarial verification——自分の宿題に甘くならないための、構造からの答えです。
+*人が何度も発明する六つの形。トポロジーは script が持ち、このレッスンでは `agent` / `parallel` / `pipeline` / `phase` / journal で各形を話します。*
 
-残るのは、生成したものへのフィルタです。Generate-and-filter。候補が入り、通ったものだけが出ます。
+**Classify-And-Act。** 痛み: 万能の助手は何でもそこそこ。形: classifier がタスクを見て、専門家 A / B / C へ振り分ける。このレッスンでは、だいたい `agent({schema})` がラベルを返し、script の `if`/`match` が続く `agent`（または入れ子の `workflow`）を呼びます。全部が本当に同じ扱いでよいなら、使わない——振り分けは儀式になります。
 
-同じ道具箱には classify-and-act、tournament、loop-until-done もあり、あとで出会います。余分なコストが、安くは手に入らない明瞭さや安全を買うときだけ、スタイルを借りてください。
+**Fanout-And-Synthesize。** 痛み: 五十ファイルは一つの疲れた context に入らず、押し込めば混線する。形: 仕事を分け、多くの agent を走らせ、barrier で待ち、まとめる。各 item に自分の stage があるなら `pipeline`、次が全結果を要すなら `parallel`。まとめは gather のあとのふつうの Python。関連ファイルが三つか五つで一通しで足りるなら、使わない。
+
+**Adversarial Verification。** 痛み: 狐が鶏小屋を採点する。形: worker が出す。独立した verifier が反証や負荷をかける。生き残ったものだけ残る。写し方は、生産の `agent`、それから verifier `agent` の `parallel`（できれば schema 付き）、そのあと filter。`phase` で “Review” と “Verify” を分ける。間違えても安いなら使わない——すべてのメモに法廷は要らない。
+
+**Generate-And-Filter。** 痛み: 欲しいのは選択肢であり、最初に賢く聞こえた案ではない。形: 多くの generator がアイデアを rubric + dedupe の filter に流し、best を残して残りを捨てる。写し方は generator の `parallel`、そのあと script 側の filter（または schema 付きの審判 `agent`）。生成が高いとき journal / resume が効く。良い答えの空間がもともと狭いなら使わない。
+
+**Tournament。** 痛み: 味や順位では絶対スコアがぼやける（「この名前はどれくらい良い？」）。形: ペアごとの審判、トーナメント表、勝者——比較判断は孤独な採点に勝る。写し方は、script 内で pairwise 審判 `agent` の `parallel` を回し、一つ残るまで続ける。鋭い rubric が一通しで勝者を決めるなら使わない。
+
+**Loop Until Done。** 痛み: 坑道にまだ何巡あるか分からない。形: 「新しい発見？」が yes のあいだ spawn し続け、空振りや完了条件で止まる。写し方は `while` で `agent`/`parallel` を包み、schema 付きの停止チェックと硬い `budget` を置く。長い掘りが止まるなら journal resume と組む。仕事量が分かっているなら、固定の `pipeline` の方が単純で安全。
+
+いくつか顔が付いたあと、道具箱は一目で収まります。
+
+| パターン | プリミティブの素描 | 手を伸ばすとき |
+|----------|--------------------|----------------|
+| Classify-And-Act | `agent` → 分岐 → `agent` | 項目ごとに違う専門家が要る |
+| Fanout-And-Synthesize | `pipeline` / `parallel` → 統合 | きれいな机がたくさん、そのあと一つの要約 |
+| Adversarial Verification | 生産 → `parallel(verify)` → filter | 間違えると高い |
+| Generate-And-Filter | `parallel(gens)` → rubric filter | まず選択肢、それから味 |
+| Tournament | pairwise 審判 `agent` の bracket | 順位/味に鋭い物差しがない |
+| Loop Until Done | `while` + 停止チェック + `budget` | どれだけ埋まっているか不明 |
+
+組み合わせはふつうです。深い調査はしばしば fanout → filter → verify → synthesize と重ねます。私たちのサンプルは、すでに二つの音の小さな和音です。
 
 ## 次の段が受け取れる答え
 
@@ -141,18 +162,22 @@ journal:  [A ✓] [B ✓] [C ✓] [D ✓]
 resume:   A hit → B hit → C 変更 → D は live
 ```
 
-## `review-changes` を歩く
+## `review-changes` を歩く — ひとつの composition
 
-四つの dimension が同じ二段の道を共有します——広げ、敵対的に確かめ、残ったものを残す。
+サンプルは「一つのパターン」ではありません。**Fanout-And-Synthesize** の中に **Adversarial Verification** が入り、終わりで軽く generate-and-filter がかかる——`isReal` の finding だけが残ります。
 
 ```text
 correctness ── audit ── verify ──┐
 security    ── audit ── verify ──┤── 確認済みの finding
 performance ── audit ── verify ──┤
 style       ── audit ── verify ──┘
+         fanout                              synthesize
+              └── 各 finding: 懐疑的 verify ──┘
 ```
 
-Review は各 auditor を自分の机に置き、correctness の雑談が security へ流れ込まないようにします。Verify は各 finding を、著者ではない懐疑者へ渡します。本物だけが残り、severity で並びます。三つの癖が、お気に入りの席を失う感触が、そこにあります。
+`pipeline(DIMENSIONS, audit, verify)` が各 dimension に机を渡し、correctness の雑談が security へ流れないようにします。`verify` 内の verifier agent の `parallel` が敵対の和音です。ふつうのリスト filter が synthesize。`phase` が Review と Verify を印し、journal が各 `agent()` を覚えるので、止まっても audit をやり直さない。
+
+三つの癖がお気に入りの席を失う感触があります。艦隊は二つの dimension で止められず、著者は審判ではなく、トポロジーは途中で漂いません。
 
 ```python
 async def sample_workflow(ctx, args):
@@ -205,4 +230,4 @@ Review が Verify に道を譲るのを見てください。完全な resume で
 
 s16 はバッチの回し方です。[s17 Goal Loop](../s17_goal_loop/) は戸口で別の問いをします。止めるべきか、もう一ターンか。繰り返せるレシピに硬い「完了」も要るときは、そちらと組んでください。
 
-<!-- translation-sync: zh@v13, en@v13, ja@v13 -->
+<!-- translation-sync: zh@v14, en@v14, ja@v14 -->
