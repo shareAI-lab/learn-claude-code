@@ -1,104 +1,65 @@
-# s16: Workflow Runtime — Put the Recipe in Code
+# s16: Workflow Runtime — put the plan in code
 
 [English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md)
 
-s01 → ... → s14 → [s15](../s15_integrated_harness/) → `s16` → [s17](../s17_goal_loop/)
+[s15](../s15_integrated_harness/) → `s16` → [s17](../s17_goal_loop/)
 
-> Workflow = orchestration written as code. Script owns topology; the model judges each step.
+> *Don't keep the plan only in chat.* The script owns order; the model owns each judgment.
 >
-> **Harness layer**: Orchestration — a multi-agent script above the single-agent loop.
->
-> Trust the model. Engineer the harness. Workflows take that one floor up.
-
----
+> **Harness layer**: orchestration — a multi-agent script on top of the single agent loop.
 
 ## Problem
 
-On long jobs, plan and action share one chat: stop early, grade your own homework kindly, lose quiet constraints after compressions. Soft chat memory is a weak place for parallelism, stable result shapes, and resume.
+You already know how to let a model read files, edit code, and read errors in one loop. Some jobs, though, have an order you **already know**: review by dimension, then adversarial checks, then merge. If that order lives only in chat, the model stops halfway and calls it done, grades its own homework too kindly, and after a few compressions even "don't touch X" disappears.
 
-Nudging turn-by-turn is like texting the chef every ten seconds. A **workflow** is a recipe the kitchen can follow.
+Soft conversation can't carry parallelism, stable result shapes, or crash-and-resume. You don't need a chattier model. You need **orchestration written down**.
 
-## Idea
-
-Helpers (subagents) still think. The **script** owns loops, fan-out, and merge. Intermediates live in variables and a journal — not the conversation.
-
-**Orchestration moves from intelligence to structure.**
+## Solution
 
 ```text
-  messages[] ──► Workflow(...) ──► tool_result
-                      │
-                      ▼
-              script owns: agent / parallel / pipeline
-                      │
-                      ▼
-                 variables + journal
+  your chat ──► Workflow(...) ──► one result back
+                    │
+                    ▼
+            script: agent / pipeline / parallel
+                    │
+                    ▼
+              vars + journal (keep intermediates here, not in the thread)
 ```
 
-One `Workflow` tool call starts the run; one result comes back when it finishes.
+Subagents still think; the **script** owns loops, fan-out, and merge. Intermediates live in variables and a journal, not the host dialogue.
 
-<details>
-<summary>Runtime overview diagram</summary>
+One line: **move orchestration from intelligence to structure.**
 
-![Workflow Runtime Overview](images/workflow-runtime-overview.svg)
+![static harness vs dynamic workflow](images/dynamic-vs-static.png)
 
-</details>
+*Left: a generic fixed pipeline. Right: a harness cut for this task.*
 
-## Two doors
+Claude Code has two doors: **dynamic** — the model writes JS for this task (`script` / `scriptPath`); **saved** — rerun a good script with `name` + `args`. Outside sits static SDK / `claude -p` orchestration. This lesson is a **Python teaching runtime** (no JS VM): same ideas, demo on the saved door. In the product the model can submit scripts — we just don't run JS here.
 
-- **Dynamic**: model writes a JS orchestration script for *this* task (`script` / `scriptPath`).
-- **Saved**: good script under `.claude/workflows/`; call by `name` + `args`.
-- **Static** (cousin outside): Agent SDK / `claude -p` written ahead — usually more generic.
+## How it works
 
-![Static vs dynamic](images/dynamic-vs-static.png)
-
-*Left: fixed pipeline → generic report. Right: cut for your code → a specific recommendation.*
-
-This chapter is a **Python teaching runtime** (no JS VM). Concepts map to Claude Code; the demo uses the Saved door. In the product the model can submit executable scripts — we just skip embedding a JS interpreter here.
-
-```python
-# teaching sketch — not the full schema
-Workflow({ "name": "review-changes", "args": { "changes": "..." } })
-# Claude Code also accepts: script | scriptPath | resumeFromRunId
-```
-
-## Three verbs
+**1. Three verbs**
 
 ```text
-  agent      one helper, one job (optional schema → validated JSON)
-  pipeline   each item walks stages alone (default — no barrier)
-  parallel   wait for every tray (barrier — use sparingly)
+  agent      one helper, one job (optional schema → JSON you can pass on)
+  pipeline   each item walks stages on its own (default; no barrier)
+  parallel   wait for every result (barrier; use sparingly)
 ```
 
-On failure the fleet continues: `parallel` → `null` in that slot; `pipeline` drops **that item** and its later stages. Filter before merge.
+On failure: a `parallel` slot becomes `null`; `pipeline` drops that item. The fleet does not sink. Filter before you merge.
 
-Resume: journal records calls in invocation order; replay the **longest unchanged prefix**, then run live. Real JS runtimes ban `Date.now()` / `Math.random()`. This demo does not fully sandbox that — write deterministic scripts anyway.
+**2. Resume from a notebook, not chat memory**
+
+The journal records `agent()` calls in **invocation order**. Resume replays the longest unchanged prefix; after the first change, everything runs live. Real JS runtimes ban `Date.now()` / `Math.random()` so the notebook can match — keep teaching scripts deterministic too.
 
 ```text
   journal  [A] [B] [C] [D]
-  resume    hit hit  ✂  live
+  resume    hit  hit  ✂ live
 ```
 
-<details>
-<summary>Official primitive card + quieter verbs</summary>
+**3. One sample: fan-out + adversarial**
 
-![Workflow primitives](images/workflow-primitives.png)
-
-*`agent`; `parallel` (barrier) vs `pipeline` (streaming stages). Claude Code also has `model` / `isolation` / `agentType`; teaching surface is smaller.*
-
-Quieter: `phase`, `log`, nested `workflow`, `args`, `budget`.
-
-</details>
-
-## Two shapes + one sample
-
-Feel two first (full six-pattern grid in the fold below):
-
-```text
-  Fanout          task ──► ● ● ● ● ══barrier══► synthesize
-  Adversarial     worker ──► verifier×N  → keep what still stands
-```
-
-Sample `review-changes` = **Fanout** with **Adversarial** inside: `pipeline(audit, verify)` per dimension; `parallel` verifiers; keep only `isReal`.
+`review-changes` is not "one pattern". It is **Fanout** with **Adversarial** inside: `pipeline(audit, verify)` per dimension, then `parallel` verifiers, keep only findings that still stand.
 
 ```text
   correctness ── audit ── verify ──┐
@@ -108,7 +69,7 @@ Sample `review-changes` = **Fanout** with **Adversarial** inside: `pipeline(audi
 ```
 
 ```python
-# from code.py (abbreviated)
+# from code.py — the shape is the point
 async def sample_workflow(ctx, args):
     ctx.phase("Review")
     results = await ctx.pipeline(DIMENSIONS, audit, verify)
@@ -116,71 +77,63 @@ async def sample_workflow(ctx, args):
     return {"confirmed": confirmed}
 ```
 
-The fleet cannot stop early, the author is not the judge, and topology is not rewritten every chat turn.
+The fleet can't stop early, authors don't referee themselves, and topology isn't rewritten by a tired chat turn.
 
 <details>
-<summary>Six-pattern grid + primitive map</summary>
+<summary>Six common shapes (pattern toolbox)</summary>
 
-![Six Workflow Patterns](images/six-workflow-patterns.png)
+![Six workflow patterns](images/six-workflow-patterns.png)
 
-| Pattern | Primitive sketch | Skip when… |
-|---------|------------------|------------|
-| Classify-And-Act | `agent` → branch → `agent` | Same treatment for every item |
-| Fanout-And-Synthesize | `pipeline` / `parallel` → merge | One pass already fits |
-| Adversarial Verification | produce → `parallel(verify)` → filter | A wrong answer is cheap |
-| Generate-And-Filter | `parallel(gens)` → filter | Answer space is already tiny |
-| Tournament | pairwise judge `agent`s | A clear rubric picks a winner |
-| Loop Until Done | `while` + stop + `budget` | Work size is known |
+| Pattern | In plain words | Primitives |
+|------|------|----------|
+| Classify-And-Act | Sort, then hand off | `agent` → branch → `agent` |
+| Fanout-And-Synthesize | Split, then merge | `pipeline` / `parallel` → synthesize |
+| Adversarial Verification | Don't let the fox grade the henhouse | produce → `parallel(verify)` → filter |
+| Generate-And-Filter | Many drafts, then a ruler | `parallel(gens)` → filter |
+| Tournament | Pairwise to a winner | judge `agent` |
+| Loop Until Done | Keep going while "anything new?" | `while` + stop + `budget` |
+
+`review-changes` ≈ Fanout + Adversarial. Research stacks often go fan-out → filter → verify → synthesize.
+
+</details>
+
+<details>
+<summary>Dynamic / saved / static & official primitives</summary>
 
 ```python
 # teaching sketch
-kind = await ctx.agent("classify this ticket", schema=KIND)
-if kind["type"] == "billing":
-    return await ctx.agent("handle billing…")
+Workflow({ "name": "review-changes", "args": { "changes": "..." } })
+# Claude Code also accepts: script | scriptPath | resumeFromRunId
 ```
+
+![Workflow primitives](images/workflow-primitives.png)
 
 </details>
 
 <details>
-<summary>Untrusted input: quarantine</summary>
+<summary>Untrusted input: quarantine reads</summary>
 
-The agent that *reads* tickets should not also hold PR keys. Readers stay read-only → structured summary; a trusted actor acts on the summary only.
+The agent that reads tickets should not also hold the keys to open a PR. Readers only read → summary; the trusted side acts on the summary.
 
 ```text
-  backlog (untrusted) → [quarantine: readers → dedupe → summary] → [trusted: actor]
+  backlog → [quarantine: read / dedupe / summarize] → [trusted: act]
 ```
 
-![Quarantine triage](images/quarantine-triage.png)
-
-*High-privilege tools stay on the trusted side. Pair with `/loop` if the backlog never sleeps.*
+![quarantine triage](images/quarantine-triage.png)
 
 </details>
 
-<details>
-<summary>How this hangs on s15</summary>
-
-s15 stays the host loop; s16 only adds a `Workflow` tool. Product runs can be background; the teaching CLI keeps `demo` / `resume` in the foreground for phases and cache hits.
-
-</details>
-
-## Neighbors & when not
-
-Who holds the plan? s06 one-shot delegate, s13 mailbox peers, s15 one loop, **s16 script + journal**, s17 asks “is the whole goal done?”
-
-Ordinary coding: one s15 turn or one honest s06 often wins. Workflows cost tokens and coordination — reach for them when structure must outlast a single context.
+Who owns the plan? s06 is one-shot dispatch, s13 is teammates with a mailbox, s15 is one chat loop, **s16 is script + journal**, s17 asks at the door whether the whole goal is done. For ordinary file edits, s15 or one s06 is often enough. Workflows cost tokens and coordination — reach for them when **structure must outlive a single conversation**.
 
 ## Try it
 
 ```bash
-python s16_workflow_runtime/code.py          # s15 host + Workflow (real API)
-python s16_workflow_runtime/code.py demo     # fixed fixture; watch phases
-python s16_workflow_runtime/code.py resume   # same runId; expect cache hits
+python s16_workflow_runtime/code.py demo
+python s16_workflow_runtime/code.py resume
 ```
 
-A full resume should show `agents=0 tokens=0`.
+First run: watch Review → Verify. Second run on the same id: expect mostly `cached` (ideally `agents=0 tokens=0`). For the full host loop, run `code.py` with no args.
 
-## Next
+s15 is still the loop; this chapter only adds a `Workflow` tool. [s17](../s17_goal_loop/) asks a different question: should we stop?
 
-s16 is how a batch runs. [s17 Goal Loop](../s17_goal_loop/) asks: stop, or take another turn?
-
-<!-- translation-sync: zh@v18, en@v18, ja@v18 -->
+<!-- translation-sync: zh@v19, en@v19, ja@v19 -->
