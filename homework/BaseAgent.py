@@ -3,7 +3,6 @@ from pathlib import Path
 from dataclasses import dataclass,asdict,field,replace
 from types import SimpleNamespace
 from datetime import datetime
-from xml.sax.saxutils import escape
 
 try:
     import readline
@@ -16,6 +15,7 @@ from dotenv import load_dotenv
 from homework.agent_app.config import AppConfig
 from homework.agent_app.runtime import SessionState
 from homework.agent_app.tools import builtin as builtin_tools
+from homework.agent_app.tools import executor as tool_executor
 from homework.agent_app.tools.hooks import (
     HookRegistry,
     make_context_inject_hook,
@@ -45,6 +45,7 @@ from homework.agent_app.features.scheduler import (
     schedule_job as scheduler_schedule_job,
 )
 from homework.agent_app.features import memory as memory_feature
+from homework.agent_app.features import background as background_feature
 from homework.agent_app.features import skills as skills_feature
 from homework.agent_app.features import todos as todos_feature
 from homework.agent_app.features import tasks as tasks_feature
@@ -899,103 +900,30 @@ def run_review_plan(request_id: str, approve: bool, feedback: str = "") -> str:
     return f"Plan {'approved' if approve else 'rejected'} ({request_id})"
 
 #==================== BACKGROUND TASKS ===============
-_bg_counter = 0
-background_tasks: dict[str,dict] = {}
-background_results: dict[str,str] = {}
-background_lock = threading.Lock()
+BACKGROUND_STATE = background_feature.BackgroundState()
 
 def is_slow_operation(tool_name: str, tool_input: dict) -> bool:
-    if tool_name != "bash":
-        return False
-    cmd = tool_input.get("command", "").lower()
-    slow_keywords = ["install", "build", "test", "deploy", "compile",
-                     "docker build", "pip install", "npm install",
-                     "cargo build", "pytest", "make"]
-    return any(kw in cmd for kw in slow_keywords)
+    return tool_executor.is_slow_operation(tool_name, tool_input)
 
 def should_run_background(tool_name: str, tool_input: dict) -> bool:
-    if tool_name != "bash":
-        return False
-    if tool_input.get("run_in_background"):
-        return True
-    return is_slow_operation(tool_name, tool_input)
+    return tool_executor.should_run_background(tool_name, tool_input)
 
-def execute_tool(block, handlers = None) -> str:
-    selected_handlers = (handlers if handlers is not None else BUILTIN_HANDLERS)
-    handler = selected_handlers.get(block.name)
-    if handler:
-        return handler(**block.input)
-    return f"Unknown tool: {block.name}"
+def execute_tool(block, handlers: dict) -> str:
+    return tool_executor.execute_tool(block, handlers)
 
 def start_background_task(block,handlers: dict) -> str:
-    global _bg_counter
-    handler_snapshot = dict(handlers)
-
-    with background_lock:
-        _bg_counter += 1
-        bg_id = f"bg_{_bg_counter:04d}"
-        background_tasks[bg_id] = {
-            "id": bg_id,
-            "tool_use_id": block.id,
-            "tool_name": block.name,
-            "command": block.input.get("command", ""),
-            "status": "running",
-            "error": None,
-        }
-
-    def worker():
-        status = "completed"
-        error = None
-        output = ""
-
-        try:
-            output = str(execute_tool(block, handler_snapshot))
-
-            trigger_hook("PostToolUse",block,output)
-
-            output = persist_large_output(block.id, output)
-        except Exception as e:
-            status = "failed"
-            error = f"{type(e).__name__}: {e}"
-            print(f"  \033[31m[background error] {bg_id}: {error}\033[0m")
-        finally:
-            with background_lock:
-                task = background_tasks.get(bg_id)
-                if task:
-                    task["status"] = status
-                    task["error"] = error
-                    background_results[bg_id] = output
-
-    threading.Thread(target=worker, daemon=True).start()
-    return bg_id
+    return background_feature.start_background_task(
+        BACKGROUND_STATE,
+        block,
+        handlers,
+        post_tool=lambda used_block, output: trigger_hook(
+            "PostToolUse", used_block, output
+        ),
+        persist_output=persist_large_output,
+    )
 
 def collect_background_results() -> list[str]:
-    with background_lock:
-        ready_ids = [bid for bid, task in background_tasks.items()
-                     if task["status"] == "completed" or task["status"] == "failed"]
-        
-    notifications = []
-    for bg_id in ready_ids:
-        with background_lock:
-            task = background_tasks.pop(bg_id)
-            output = background_results.pop(bg_id, "")
-        summary_source = task.get("error") or output
-        summary = (
-            summary_source[:200]
-            if len(summary_source) > 200
-            else summary_source
-        )
-        notifications.append(
-            f"<task_notification>\n"
-            f"  <task_id>{escape(str(bg_id))}</task_id>\n"
-            f"  <status>{escape(str(task['status']))}</status>\n"
-            f"  <command>{escape(str(task['command']))}</command>\n"
-            f"  <summary>{escape(str(summary))}</summary>\n"
-            f"</task_notification>"
-        )
-        print(f"  \033[32m[background done] {bg_id}: "
-            f"{task['command'][:40]} ({len(output)} chars)\033[0m")
-    return notifications
+    return background_feature.collect_background_results(BACKGROUND_STATE)
 
 
 #==================== TASK SYSTEM ====================
