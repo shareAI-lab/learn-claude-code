@@ -248,17 +248,16 @@ def extract_json_array(text: str) -> list:
             return value
     return []
 
-def recent_user_text(messages: list, max_turns: int = 3) -> str:
-    turns = []
-    for message in reversed(messages):
+def recent_user_text(messages: list, max_chars: int = 4000) -> str:
+    parts = []
+    for message in messages:
         if message.get("role") != "user":
             continue
         text = message_text(message).strip()
         if text:
-            turns.append(text)
-        if len(turns) == max_turns:
-            break
-    return "\n".join(reversed(turns))[:4000]
+            parts.append(text)
+    joined = "\n".join(parts)
+    return joined[-max_chars:] if len(joined) > max_chars else joined
 
 def keyword_memory_selection(
     records: list[dict], query: str, max_items: int
