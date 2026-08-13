@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -145,6 +146,8 @@ def spawn_teammate_thread(
     idle: Callable,
     max_tokens: int,
     thread_factory: Callable = threading.Thread,
+    sleep: Callable[[float], None] = time.sleep,
+    plan_poll_interval: float = 5.0,
 ) -> str:
     try:
         validate_name(name, allow_lead=False)
@@ -205,6 +208,7 @@ def spawn_teammate_thread(
                     if non_protocol:
                         messages.append({"role": "user", "content": f"<inbox>{json.dumps(non_protocol)}</inbox>"})
                     if waiting_plan:
+                        sleep(plan_poll_interval)
                         continue
                     try:
                         response = llm(system=system, messages=messages[-20:], tools=TEAM_TOOLS, max_tokens=max_tokens)

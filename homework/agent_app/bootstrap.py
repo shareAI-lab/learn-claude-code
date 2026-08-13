@@ -266,6 +266,8 @@ def build_runtime(config: AppConfig, sdk_client) -> RuntimeContext:
             idle=idle,
             max_tokens=config.default_max_tokens,
             thread_factory=threading.Thread,
+            sleep=time.sleep,
+            plan_poll_interval=config.idle_poll_interval,
         )
 
     team_handlers = {

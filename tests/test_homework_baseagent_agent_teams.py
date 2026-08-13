@@ -134,6 +134,58 @@ def test_teammate_owner_injects_inbox_and_post_hook_once(bus, tmp_path):
     assert bus.read_inbox("lead")[0]["content"] == "complete"
 
 
+def test_teammate_waiting_for_plan_approval_sleeps_between_polls(bus, tmp_path):
+    state = teammates.TeamState()
+    plan = types.SimpleNamespace(
+        type="tool_use",
+        id="plan",
+        name="submit_plan",
+        input={"plan": "inspect first"},
+    )
+    responses = iter([types.SimpleNamespace(content=[plan]), text_response("done")])
+    sleeps = []
+
+    class ImmediateThread:
+        def __init__(self, *, target, daemon):
+            self.target = target
+
+        def start(self):
+            self.target()
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        bus.send(
+            "lead",
+            "worker",
+            "approved",
+            "plan_approval_response",
+            {"request_id": "req_1", "approve": True},
+        )
+
+    teammates.spawn_teammate_thread(
+        state,
+        bus,
+        lambda **_kwargs: next(responses),
+        name="worker",
+        role="reviewer",
+        prompt="inspect",
+        workdir=tmp_path,
+        handlers={"submit_plan": lambda plan: "Plan submitted (req_1)"},
+        hooks=HookRegistry(),
+        validate_name=lambda name, **_kwargs: name,
+        guarded_tools=set(),
+        guarded_tool=lambda *_args: ("", False),
+        idle=lambda *_args: "timeout",
+        max_tokens=100,
+        thread_factory=ImmediateThread,
+        sleep=sleep,
+        plan_poll_interval=0.25,
+    )
+
+    assert sleeps == [0.25]
+    assert bus.read_inbox("lead")[0]["content"] == "done"
+
+
 def test_bootstrap_teammate_idle_adapter_drops_role_argument(
     runtime, monkeypatch
 ):
