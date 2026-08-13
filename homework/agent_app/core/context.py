@@ -6,9 +6,9 @@ import hashlib
 import json
 from datetime import datetime
 
-from homework.agent_app.features.memory import read_memory_index
-from homework.agent_app.features.skills import list_skills
-from homework.agent_app.features.todos import format_current_todos
+from ..features.memory import read_memory_index
+from ..features.skills import list_skills
+from ..features.todos import format_current_todos
 
 
 def build_context(runtime, tools: list[dict]) -> dict:

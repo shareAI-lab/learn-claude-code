@@ -12,21 +12,21 @@ class SessionState:
     rounds_since_todo: int = 0
 
 
-from homework.agent_app.adapters.anthropic import AnthropicAdapter
-from homework.agent_app.config import AppConfig
-from homework.agent_app.core.prompt import PromptBuilder
-from homework.agent_app.features.background import BackgroundState
-from homework.agent_app.features.mcp import MCPState
-from homework.agent_app.features.memory import MemoryStore
-from homework.agent_app.features.scheduler import SchedulerState
-from homework.agent_app.features.skills import SkillState
-from homework.agent_app.features.tasks import TaskStore
-from homework.agent_app.features.teams.bus import MessageBus
-from homework.agent_app.features.teams.protocol import ProtocolStore
-from homework.agent_app.features.teams.teammates import TeamState
-from homework.agent_app.features.worktrees import WorktreeState
-from homework.agent_app.tools.hooks import HookRegistry
-from homework.agent_app.tools.registry import ToolRegistry
+from .adapters.anthropic import AnthropicAdapter
+from .config import AppConfig
+from .core.prompt import PromptBuilder
+from .features.background import BackgroundState
+from .features.mcp import MCPState
+from .features.memory import MemoryStore
+from .features.scheduler import SchedulerState
+from .features.skills import SkillState
+from .features.tasks import TaskStore
+from .features.teams.bus import MessageBus
+from .features.teams.protocol import ProtocolStore
+from .features.teams.teammates import TeamState
+from .features.worktrees import WorktreeState
+from .tools.hooks import HookRegistry
+from .tools.registry import ToolRegistry
 
 
 @dataclass(slots=True)

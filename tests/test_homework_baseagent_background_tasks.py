@@ -77,6 +77,60 @@ def test_background_success_failure_and_consumption():
     assert "<status>failed</status>" in background.collect_background_results(state)[0]
 
 
+def test_multiple_background_workers_finish_without_state_corruption():
+    state = background.BackgroundState()
+    background_ids = [
+        background.start_background_task(
+            state,
+            tool_block(f"tool-{index}", f"pytest case-{index}"),
+            {"bash": lambda command: f"finished:{command}"},
+            post_tool=lambda *_args: None,
+            persist_output=lambda _id, output: output,
+        )
+        for index in range(8)
+    ]
+
+    for background_id in background_ids:
+        assert wait_for(state, background_id)["status"] == "completed"
+    notifications = background.collect_background_results(state)
+
+    assert len(set(background_ids)) == 8
+    assert len(notifications) == 8
+    assert state.tasks == {}
+    assert state.results == {}
+
+
+def test_background_worker_is_daemon_and_runs_only_post_hook(monkeypatch):
+    captured = []
+    events = []
+
+    class Thread:
+        def __init__(self, *, target, daemon):
+            self.target = target
+            self.daemon = daemon
+            captured.append(self)
+
+        def start(self):
+            self.target()
+
+    monkeypatch.setattr(background.threading, "Thread", Thread)
+    state = background.BackgroundState()
+
+    background_id = background.start_background_task(
+        state,
+        tool_block("daemon", "pytest"),
+        {"bash": lambda **_input: "ok"},
+        post_tool=lambda block, output: events.append(
+            ("PostToolUse", block.id, output)
+        ),
+        persist_output=lambda _id, output: output,
+    )
+
+    assert captured[0].daemon is True
+    assert events == [("PostToolUse", "daemon", "ok")]
+    assert wait_for(state, background_id)["status"] == "completed"
+
+
 def test_background_output_persistence_and_notification_escaping(tmp_path, monkeypatch):
     monkeypatch.setenv("MODEL_ID", "test-model")
     config = AppConfig.from_env(tmp_path)

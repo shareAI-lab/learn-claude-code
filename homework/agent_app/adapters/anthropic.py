@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from homework.agent_app.core.recovery import PartialStreamError
+from ..core.recovery import PartialStreamError
 
 
 @dataclass(frozen=True, slots=True)

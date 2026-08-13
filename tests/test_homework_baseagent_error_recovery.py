@@ -399,3 +399,22 @@ def test_subagent_routes_llm_request_through_with_retry(
         "base_delay_ms": runtime.config.base_delay_ms,
     }
     assert requested_models == ["primary-model"]
+
+
+def test_subagent_retry_uses_recovery_fallback_model(runtime, monkeypatch):
+    requested_models = []
+
+    def fake_create(**kwargs):
+        requested_models.append(kwargs["model"])
+        return fake_response("end_turn", "subagent done")
+
+    def switch_before_retry(call, state, **_kwargs):
+        state.current_model = state.fallback_model
+        return call()
+
+    runtime.llm.client.messages.create = fake_create
+    monkeypatch.setattr(bootstrap, "with_retry", switch_before_retry)
+    _, handlers = runtime.tools.snapshot()
+
+    assert handlers["task"]("review one file") == "subagent done"
+    assert requested_models == ["fallback-model"]

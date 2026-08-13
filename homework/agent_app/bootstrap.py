@@ -10,19 +10,19 @@ import uuid
 from dataclasses import asdict
 from pathlib import Path
 
-from homework.agent_app.adapters.anthropic import AnthropicAdapter
-from homework.agent_app.config import AppConfig
-from homework.agent_app.core.compaction import persist_large_output
-from homework.agent_app.core.prompt import PromptBuilder
-from homework.agent_app.core.recovery import RecoveryState, with_retry
-from homework.agent_app.features import background, mcp, memory, scheduler, skills
-from homework.agent_app.features import subagents, tasks, todos, worktrees
-from homework.agent_app.features.teams import bus as team_bus
-from homework.agent_app.features.teams import protocol as team_protocol
-from homework.agent_app.features.teams import teammates
-from homework.agent_app.runtime import RuntimeContext, SessionState
-from homework.agent_app.tools import builtin
-from homework.agent_app.tools.hooks import (
+from .adapters.anthropic import AnthropicAdapter
+from .config import AppConfig
+from .core.compaction import persist_large_output
+from .core.prompt import PromptBuilder
+from .core.recovery import RecoveryState, with_retry
+from .features import background, mcp, memory, scheduler, skills
+from .features import subagents, tasks, todos, worktrees
+from .features.teams import bus as team_bus
+from .features.teams import protocol as team_protocol
+from .features.teams import teammates
+from .runtime import RuntimeContext, SessionState
+from .tools import builtin
+from .tools.hooks import (
     HookRegistry,
     make_context_inject_hook,
     make_diff_preview_hook,
@@ -31,7 +31,7 @@ from homework.agent_app.tools.hooks import (
     make_permission_hook,
     make_summary_hook,
 )
-from homework.agent_app.tools.registry import ToolRegistry
+from .tools.registry import ToolRegistry
 
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -227,10 +227,19 @@ def build_runtime(config: AppConfig, sdk_client) -> RuntimeContext:
             ),
         }
 
-        def idle(*args):
+        def idle(
+            agent_name,
+            messages,
+            teammate_name,
+            _role,
+            worktree_context,
+        ):
             return teammates.idle_poll(
                 message_bus,
-                *args,
+                agent_name,
+                messages,
+                teammate_name,
+                worktree_context,
                 scan_unclaimed=scan_unclaimed,
                 claim_task=lambda task_id, owner: tasks.claim_task(
                     task_store, task_id, owner
@@ -298,7 +307,9 @@ def build_runtime(config: AppConfig, sdk_client) -> RuntimeContext:
 
         def subagent_llm(**kwargs):
             return with_retry(
-                lambda: llm.create(**kwargs),
+                lambda: llm.create(
+                    **{**kwargs, "model": recovery.current_model}
+                ),
                 recovery,
                 max_transient_retries=config.max_transient_retries,
                 max_consecutive_529=config.max_consecutive_529,

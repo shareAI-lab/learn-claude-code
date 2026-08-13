@@ -6,7 +6,7 @@ import copy
 import json
 import time
 
-from homework.agent_app.core.compaction import (
+from .compaction import (
     compact_history,
     estimate_size,
     micro_compact,
@@ -15,29 +15,29 @@ from homework.agent_app.core.compaction import (
     snip_compact,
     tool_result_budget,
 )
-from homework.agent_app.core.context import append_user_text_blocks, build_context
-from homework.agent_app.core.recovery import (
+from .context import append_user_text_blocks, build_context
+from .recovery import (
     PartialStreamError,
     RecoveryState,
     append_unrecoverable_error,
     is_prompt_too_long_error,
     with_retry,
 )
-from homework.agent_app.features.background import (
+from ..features.background import (
     collect_background_results,
     start_background_task,
 )
-from homework.agent_app.features.mcp import snapshot_mcp_tools
-from homework.agent_app.features.memory import (
+from ..features.mcp import snapshot_mcp_tools
+from ..features.memory import (
     build_request_messages_with_memories,
     consolidate_memories,
     extract_memories,
 )
-from homework.agent_app.features.scheduler import consume_cron_queue
-from homework.agent_app.features.teams.protocol import collect_lead_inbox
-from homework.agent_app.runtime import RuntimeContext
-from homework.agent_app.tools.builtin import resolve_tool_cwd
-from homework.agent_app.tools.executor import execute_tool, should_run_background
+from ..features.scheduler import consume_cron_queue
+from ..features.teams.protocol import collect_lead_inbox
+from ..runtime import RuntimeContext
+from ..tools.builtin import resolve_tool_cwd
+from ..tools.executor import execute_tool, should_run_background
 
 
 CONTINUATION_PROMPT = (

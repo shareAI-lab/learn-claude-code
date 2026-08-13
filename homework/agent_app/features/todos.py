@@ -2,7 +2,7 @@ import ast
 import json
 from collections.abc import Mapping
 
-from homework.agent_app.runtime import SessionState
+from ..runtime import SessionState
 
 
 TODO_TOOL_SCHEMA = {

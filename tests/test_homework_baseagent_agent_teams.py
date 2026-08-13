@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import homework.agent_app.bootstrap as bootstrap
 from homework.agent_app.bootstrap import build_runtime
 from homework.agent_app.config import AppConfig
 from homework.agent_app.features.teams import teammates
@@ -90,6 +91,17 @@ def test_concurrent_messages_and_lead_inbox_consumption(runtime):
     assert {item["content"] for item in runtime.bus.read_inbox("lead")} == {f"message-{index}" for index in range(40)}
 
 
+def test_corrupt_mailbox_line_does_not_hide_valid_messages(bus, capsys):
+    bus.bootstrap()
+    bus.mailbox_path("worker").write_text("not-json\n", encoding="utf-8")
+    bus.send("lead", "worker", "valid")
+
+    messages = bus.read_inbox("worker")
+
+    assert [message["content"] for message in messages] == ["valid"]
+    assert "ignored corrupt line" in capsys.readouterr().out
+
+
 def test_teammate_owner_validates_lifecycle_and_nonrecursive_tools(bus, tmp_path):
     state = teammates.TeamState()
     created = []
@@ -120,3 +132,104 @@ def test_teammate_owner_injects_inbox_and_post_hook_once(bus, tmp_path):
     assert "Focus parser tests" in json.dumps(calls[0]["messages"])
     assert events == [(block, "guarded output")]
     assert bus.read_inbox("lead")[0]["content"] == "complete"
+
+
+def test_bootstrap_teammate_idle_adapter_drops_role_argument(
+    runtime, monkeypatch
+):
+    class ImmediateThread:
+        def __init__(self, *, target, daemon):
+            self.target = target
+            self.daemon = daemon
+
+        def start(self):
+            self.target()
+
+    monkeypatch.setattr(bootstrap.threading, "Thread", ImmediateThread)
+    _, handlers = runtime.tools.snapshot()
+
+    result = handlers["spawn_teammate"]("worker", "reviewer", "inspect")
+    messages = runtime.bus.read_inbox("lead")
+
+    assert "spawned" in result
+    assert messages[-1]["content"] == "done"
+
+
+def test_bootstrap_teammate_uses_retry_policy(runtime, monkeypatch):
+    calls = []
+
+    class ImmediateThread:
+        def __init__(self, *, target, daemon):
+            self.target = target
+
+        def start(self):
+            self.target()
+
+    def retry(call, state, **kwargs):
+        calls.append((state, kwargs))
+        return call()
+
+    monkeypatch.setattr(bootstrap.threading, "Thread", ImmediateThread)
+    monkeypatch.setattr(bootstrap, "with_retry", retry)
+    _, handlers = runtime.tools.snapshot()
+
+    handlers["spawn_teammate"]("worker", "reviewer", "inspect")
+
+    assert len(calls) == 1
+    assert calls[0][1] == {
+        "max_transient_retries": runtime.config.max_transient_retries,
+        "max_consecutive_529": runtime.config.max_consecutive_529,
+        "base_delay_ms": runtime.config.base_delay_ms,
+    }
+
+
+def test_teammate_error_and_round_limit_send_result_and_cleanup(bus, tmp_path):
+    class ImmediateThread:
+        def __init__(self, *, target, daemon):
+            self.target = target
+
+        def start(self):
+            self.target()
+
+    common = dict(
+        role="reviewer",
+        prompt="inspect",
+        workdir=tmp_path,
+        handlers={},
+        hooks=HookRegistry(),
+        validate_name=lambda name, **_kwargs: name,
+        guarded_tools=set(),
+        guarded_tool=lambda *_args: ("", False),
+        idle=lambda *_args: "timeout",
+        max_tokens=100,
+        thread_factory=ImmediateThread,
+    )
+
+    error_state = teammates.TeamState()
+    teammates.spawn_teammate_thread(
+        error_state,
+        bus,
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+        name="error-worker",
+        **common,
+    )
+    assert error_state.active == {}
+    assert "Teammate error: RuntimeError: boom" in bus.read_inbox("lead")[0][
+        "content"
+    ]
+
+    block = types.SimpleNamespace(
+        type="tool_use", id="missing", name="missing", input={}
+    )
+    round_state = teammates.TeamState()
+    teammates.spawn_teammate_thread(
+        round_state,
+        bus,
+        lambda **_kwargs: types.SimpleNamespace(content=[block]),
+        name="round-worker",
+        **common,
+    )
+    assert round_state.active == {}
+    assert bus.read_inbox("lead")[0]["content"] == (
+        "Stopped after 10 teammate tool rounds."
+    )

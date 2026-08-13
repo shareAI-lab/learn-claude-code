@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 from xml.sax.saxutils import escape
 
-from homework.agent_app.tools.executor import execute_tool
+from ..tools.executor import execute_tool
 
 
 @dataclass(slots=True)

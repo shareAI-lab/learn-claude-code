@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
-from homework.agent_app.config import AppConfig
+from ..config import AppConfig
 
 
 SCHEDULER_TOOL_SCHEMAS = [

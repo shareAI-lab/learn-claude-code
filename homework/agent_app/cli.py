@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import threading
 
-from homework.agent_app.bootstrap import build_default_runtime
-from homework.agent_app.core.loop import run_agent_loop
-from homework.agent_app.features.scheduler import (
+from .bootstrap import build_default_runtime
+from .core.loop import run_agent_loop
+from .features.scheduler import (
     cron_scheduler_loop,
     has_cron_queue,
     load_durable_jobs,
@@ -49,8 +49,16 @@ def start_runtime_threads(runtime) -> list[threading.Thread]:
         name="cron-queue-processor",
     )
     threads = [scheduler, processor]
-    for thread in threads:
-        thread.start()
+    started = []
+    try:
+        for thread in threads:
+            thread.start()
+            started.append(thread)
+    except Exception:
+        runtime.stop_event.set()
+        for thread in started:
+            thread.join(timeout=1.0)
+        raise
     return threads
 
 
@@ -67,9 +75,10 @@ def main(
     stop_threads=stop_runtime_threads,
 ) -> None:
     runtime = runtime_factory()
-    threads = start_threads(runtime)
-    print("开拓者终于等到你了！欢迎使用Pamu帕！你可以输入 'q'，'exit'或 '空格符' 退出帕！。")
+    threads = []
     try:
+        threads = start_threads(runtime)
+        print("开拓者终于等到你了！欢迎使用Pamu帕！你可以输入 'q'，'exit'或 '空格符' 退出帕！。")
         while True:
             try:
                 query = input("\033[36m>> \033[0m")

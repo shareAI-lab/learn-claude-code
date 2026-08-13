@@ -1,8 +1,17 @@
+import os
+from pathlib import Path
+import subprocess
+import sys
 import threading
 from types import SimpleNamespace
 
+import pytest
+
 import homework.agent_app.cli as cli
 from homework.agent_app.cli import main
+
+
+BASE_AGENT = Path(__file__).resolve().parents[1] / "homework" / "BaseAgent.py"
 
 
 def test_cli_exits_without_agent_turn(monkeypatch):
@@ -25,6 +34,26 @@ def test_cli_exits_without_agent_turn(monkeypatch):
     assert calls == []
     assert runtime.stop_event.is_set()
     assert stopped == [[]]
+
+
+def test_cli_stops_started_threads_when_startup_raises():
+    runtime = SimpleNamespace(stop_event=threading.Event())
+    stopped = []
+
+    def fail_start(_runtime):
+        raise RuntimeError("second thread failed")
+
+    with pytest.raises(RuntimeError, match="second thread failed"):
+        main(
+            runtime_factory=lambda: runtime,
+            run_turn=lambda *_args: None,
+            start_threads=fail_start,
+            stop_threads=lambda seen_runtime, threads: stopped.append(
+                (seen_runtime, list(threads))
+            ),
+        )
+
+    assert stopped == [(runtime, [])]
 
 
 def test_cli_runs_user_turn_under_runtime_lock(monkeypatch):
@@ -145,3 +174,69 @@ def test_start_runtime_threads_loads_jobs_and_starts_both_workers(monkeypatch):
     ]
     assert all(item[2] is True for item in created)
     assert all(thread.started for thread in threads)
+
+
+def test_start_runtime_threads_cleans_up_partial_start(monkeypatch):
+    created = []
+
+    class Thread:
+        def __init__(self, **_kwargs):
+            self.index = len(created)
+            self.joined = []
+            created.append(self)
+
+        def start(self):
+            if self.index == 1:
+                raise RuntimeError("processor failed")
+
+        def join(self, timeout=None):
+            self.joined.append(timeout)
+
+    runtime = SimpleNamespace(
+        scheduler=object(),
+        config=object(),
+        stop_event=threading.Event(),
+    )
+    monkeypatch.setattr(cli, "load_durable_jobs", lambda *_args: None)
+    monkeypatch.setattr(cli.threading, "Thread", Thread)
+
+    with pytest.raises(RuntimeError, match="processor failed"):
+        cli.start_runtime_threads(runtime)
+
+    assert runtime.stop_event.is_set()
+    assert created[0].joined == [1.0]
+
+
+def test_baseagent_script_starts_without_repository_on_pythonpath(tmp_path):
+    (tmp_path / "anthropic.py").write_text(
+        "class Anthropic:\n"
+        "    def __init__(self, **kwargs):\n"
+        "        self.messages = object()\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "dotenv.py").write_text(
+        "def load_dotenv(**kwargs):\n"
+        "    return None\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "yaml.py").write_text(
+        "class YAMLError(Exception):\n"
+        "    pass\n"
+        "def safe_load(_text):\n"
+        "    return {}\n",
+        encoding="utf-8",
+    )
+    environment = dict(os.environ)
+    environment.update({"MODEL_ID": "test-model", "PYTHONPATH": str(tmp_path)})
+
+    result = subprocess.run(
+        [sys.executable, str(BASE_AGENT)],
+        input="q\n",
+        text=True,
+        capture_output=True,
+        cwd=BASE_AGENT.parents[1],
+        env=environment,
+        timeout=10,
+    )
+
+    assert result.returncode == 0, result.stderr

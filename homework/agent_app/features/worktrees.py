@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from homework.agent_app.features.tasks import TaskStore, _save_task_unlocked, load_task
+from .tasks import TaskStore, _save_task_unlocked, load_task
 
 
 VALID_WT_NAME = re.compile(r"^[A-Za-z0-9._-]{1,64}$")

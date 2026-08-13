@@ -2,7 +2,7 @@ import json
 import time
 from pathlib import Path
 
-from homework.agent_app.config import AppConfig
+from ..config import AppConfig
 
 
 def estimate_size(messages: list) -> int:
