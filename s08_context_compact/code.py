@@ -431,7 +431,7 @@ def trigger_hooks(event, *args):
         if r is not None: return r
     return None
 
-DENY_LIST = ["rm -rf /", "sudo", "shutdown"]
+DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
 def permission_hook(block):
     if block.name == "bash":
         for p in DENY_LIST:

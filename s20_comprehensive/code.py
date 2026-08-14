@@ -1285,11 +1285,17 @@ def start_background_task(block, handlers: dict) -> str:
     command = block.input.get("command", block.name)
 
     def worker():
-        handler = handlers.get(block.name)
-        result = call_tool_handler(handler, block.input, block.name)
-        trigger_hooks("PostToolUse", block, result)
+        # A thread that dies on an exception would leave the task stuck in
+        # "running" forever — the model would never hear back about it.
+        try:
+            handler = handlers.get(block.name)
+            result = call_tool_handler(handler, block.input, block.name)
+            trigger_hooks("PostToolUse", block, result)
+            status = "completed"
+        except Exception as e:
+            result, status = f"Error: {type(e).__name__}: {e}", "failed"
         with background_lock:
-            background_tasks[bg_id]["status"] = "completed"
+            background_tasks[bg_id]["status"] = status
             background_results[bg_id] = str(result)
 
     with background_lock:
@@ -1306,7 +1312,7 @@ def start_background_task(block, handlers: dict) -> str:
 def collect_background_results() -> list[str]:
     with background_lock:
         ready = [bg_id for bg_id, task in background_tasks.items()
-                 if task["status"] == "completed"]
+                 if task["status"] != "running"]
     notifications = []
     for bg_id in ready:
         with background_lock:
@@ -1316,7 +1322,7 @@ def collect_background_results() -> list[str]:
         notifications.append(
             f"<task_notification>\n"
             f"  <task_id>{bg_id}</task_id>\n"
-            f"  <status>completed</status>\n"
+            f"  <status>{task['status']}</status>\n"
             f"  <command>{task['command']}</command>\n"
             f"  <summary>{summary}</summary>\n"
             f"</task_notification>")

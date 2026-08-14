@@ -80,9 +80,12 @@ def start_background_task(block) -> str:
     bg_id = f"bg_{_bg_counter:04d}"
 
     def worker():
-        result = execute_tool(block)
+        try:
+            result, status = execute_tool(block), "completed"
+        except Exception as e:
+            result, status = f"Error: {type(e).__name__}: {e}", "failed"
         with background_lock:
-            background_tasks[bg_id]["status"] = "completed"
+            background_tasks[bg_id]["status"] = status
             background_results[bg_id] = result
 
     with background_lock:
@@ -107,7 +110,7 @@ def collect_background_results() -> list[str]:
     """Collect completed results as task_notification messages."""
     with background_lock:
         ready_ids = [bid for bid, task in background_tasks.items()
-                     if task["status"] == "completed"]
+                     if task["status"] != "running"]
     notifications = []
     for bg_id in ready_ids:
         with background_lock:
@@ -116,7 +119,7 @@ def collect_background_results() -> list[str]:
         notifications.append(
             f"<task_notification>\n"
             f"  <task_id>{bg_id}</task_id>\n"
-            f"  <status>completed</status>\n"
+            f"  <status>{task['status']}</status>\n"
             f"  <command>{task['command']}</command>\n"
             f"  <summary>{output[:200]}</summary>\n"
             f"</task_notification>")
