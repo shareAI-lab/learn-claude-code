@@ -634,7 +634,7 @@ def trigger_hooks(event: str, *args):
     return None
 
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
-DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+DESTRUCTIVE_PATTERN = r"(?:^|[;&|\n]|&&|\|\|)\s*(?:rm|del|rmdir|erase)(?:[\s/]|$)|> /etc/|chmod 777"
 
 def permission_hook(block):
     if block.name == "bash":
@@ -642,7 +642,7 @@ def permission_hook(block):
         for pattern in DENY_LIST:
             if pattern in command:
                 return f"Permission denied by deny list: {pattern}"
-        if any(keyword in command for keyword in DESTRUCTIVE):
+        if re.search(DESTRUCTIVE_PATTERN, command, re.IGNORECASE):
             print("\n\033[33m[permission] Potentially destructive command\033[0m")
             print(f"   Tool: {block.name}({block.input})")
             if input("   Allow? [y/N] ").strip().lower() not in ("y", "yes"):

@@ -1663,7 +1663,7 @@ TOOL_HANDLERS = {
 
 HOOKS = {"UserPromptSubmit": [], "PreToolUse": [], "PostToolUse": [], "Stop": []}
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
-DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+DESTRUCTIVE_PATTERN = r"(?:^|[;&|\n]|&&|\|\|)\s*(?:rm|del|rmdir|erase)(?:[\s/]|$)|> /etc/|chmod 777"
 
 
 def register_hook(event: str, callback):
@@ -1686,7 +1686,7 @@ def check_permission(block, prompt_user: bool = True) -> str | None:
         for pattern in DENY_LIST:
             if pattern in command:
                 return f"Permission denied by deny list: {pattern}"
-        if any(keyword in command for keyword in DESTRUCTIVE):
+        if re.search(DESTRUCTIVE_PATTERN, command, re.IGNORECASE):
             if not prompt_user:
                 return "Permission required: ask Lead to run this command."
             print(f"\n[permission] {block.name}({block.input})")

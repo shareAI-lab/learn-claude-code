@@ -32,6 +32,7 @@ Builds on s02 (multi-tool). Usage:
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -151,13 +152,15 @@ def check_deny_list(command: str) -> str | None:
     return None
 
 
+DESTRUCTIVE_PATTERN = r"(?:^|[;&|\n]|&&|\|\|)\s*(?:rm|del|rmdir|erase)(?:[\s/]|$)|> /etc/|chmod 777"
+
 # Gate 2: Rule matching - context-dependent checks
 PERMISSION_RULES = [
     {"tools": ["read_file", "write_file", "edit_file"],
      "check": lambda args: not (WORKDIR / args.get("path", "")).resolve().is_relative_to(WORKDIR),
      "message": "Writing outside workspace"},
     {"tools": ["bash"],
-     "check": lambda args: any(kw in args.get("command", "") for kw in ["rm ", "> /etc/", "chmod 777"]),
+     "check": lambda args: bool(re.search(DESTRUCTIVE_PATTERN, args.get("command", ""), re.IGNORECASE)),
      "message": "Potentially destructive command"},
 ]
 

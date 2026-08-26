@@ -21,6 +21,7 @@ Hooks run callbacks at fixed points in the agent loop:
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -139,22 +140,22 @@ def trigger_hooks(event: str, *args):
 
 # s03 permission check logic, now wrapped as a hook
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
-DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+DESTRUCTIVE_PATTERN = r"(?:^|[;&|\n]|&&|\|\|)\s*(?:rm|del|rmdir|erase)(?:[\s/]|$)|> /etc/|chmod 777"
 
 def permission_hook(block):
     """PreToolUse: s03 check_permission() logic moved here."""
     if block.name == "bash":
+        command = block.input.get("command", "")
         for pattern in DENY_LIST:
-            if pattern in block.input.get("command", ""):
+            if pattern in command:
                 print(f"\n\033[31m[blocked] '{pattern}'\033[0m")
                 return "Permission denied by deny list"
-        for kw in DESTRUCTIVE:
-            if kw in block.input.get("command", ""):
-                print(f"\n\033[33m[permission] Potentially destructive command\033[0m")
-                print(f"   Tool: {block.name}({block.input})")
-                choice = input("   Allow? [y/N] ").strip().lower()
-                if choice not in ("y", "yes"):
-                    return "Permission denied by user"
+        if re.search(DESTRUCTIVE_PATTERN, command, re.IGNORECASE):
+            print(f"\n\033[33m[permission] Potentially destructive command\033[0m")
+            print(f"   Tool: {block.name}({block.input})")
+            choice = input("   Allow? [y/N] ").strip().lower()
+            if choice not in ("y", "yes"):
+                return "Permission denied by user"
     if block.name in ("read_file", "write_file", "edit_file"):
         path = block.input.get("path", "")
         if not (WORKDIR / path).resolve().is_relative_to(WORKDIR):

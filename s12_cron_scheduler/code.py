@@ -16,6 +16,7 @@ s12_cron_scheduler.py - Cron Scheduler
 import glob
 import json
 import os
+import re
 import secrets
 import subprocess
 import threading
@@ -173,7 +174,7 @@ def trigger_hooks(event: str, *args):
 
 
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
-DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+DESTRUCTIVE_PATTERN = r"(?:^|[;&|\n]|&&|\|\|)\s*(?:rm|del|rmdir|erase)(?:[\s/]|$)|> /etc/|chmod 777"
 
 
 def request_permission(block, reason: str) -> str | None:
@@ -195,7 +196,7 @@ def permission_hook(block):
             if pattern in command:
                 print(f"\n\033[31m[blocked] '{pattern}'\033[0m")
                 return "Permission denied by deny list"
-        if any(keyword in command for keyword in DESTRUCTIVE):
+        if re.search(DESTRUCTIVE_PATTERN, command, re.IGNORECASE):
             return request_permission(block, "Potentially destructive command")
 
     if block.name in ("read_file", "write_file", "edit_file"):

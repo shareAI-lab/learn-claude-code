@@ -31,6 +31,7 @@ import asyncio
 import glob
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -45,7 +46,7 @@ DEFAULT_STOP_HOOK_BLOCK_CAP = 8
 MAX_GOAL_LENGTH = 4000
 CLEAR_ALIASES = {"clear", "stop", "off", "reset", "none", "cancel"}
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
-DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+DESTRUCTIVE_PATTERN = r"(?:^|[;&|\n]|&&|\|\|)\s*(?:rm|del|rmdir|erase)(?:[\s/]|$)|> /etc/|chmod 777"
 
 
 class GoalError(Exception):
@@ -598,7 +599,7 @@ class AgentSession:
             for pattern in DENY_LIST:
                 if pattern in command:
                     return f"Permission denied by deny list: {pattern}"
-            if any(keyword in command for keyword in DESTRUCTIVE):
+            if re.search(DESTRUCTIVE_PATTERN, command, re.IGNORECASE):
                 print(f"\n[permission] {name}({arguments})")
                 if input("Allow? [y/N] ").strip().lower() not in {"y", "yes"}:
                     return "Permission denied by user"

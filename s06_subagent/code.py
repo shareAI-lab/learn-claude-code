@@ -19,6 +19,7 @@ The subagent has no task tool, so it cannot delegate again.
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -154,7 +155,7 @@ def trigger_hooks(event: str, *args):
 
 
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
-DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+DESTRUCTIVE_PATTERN = r"(?:^|[;&|\n]|&&|\|\|)\s*(?:rm|del|rmdir|erase)(?:[\s/]|$)|> /etc/|chmod 777"
 
 
 def permission_hook(block):
@@ -165,13 +166,12 @@ def permission_hook(block):
             if pattern in command:
                 print(f"\n\033[31m[blocked] '{pattern}'\033[0m")
                 return "Permission denied by deny list"
-        for keyword in DESTRUCTIVE:
-            if keyword in command:
-                print("\n\033[33m[permission] Potentially destructive command\033[0m")
-                print(f"   Tool: {block.name}({block.input})")
-                choice = input("   Allow? [y/N] ").strip().lower()
-                if choice not in ("y", "yes"):
-                    return "Permission denied by user"
+        if re.search(DESTRUCTIVE_PATTERN, command, re.IGNORECASE):
+            print("\n\033[33m[permission] Potentially destructive command\033[0m")
+            print(f"   Tool: {block.name}({block.input})")
+            choice = input("   Allow? [y/N] ").strip().lower()
+            if choice not in ("y", "yes"):
+                return "Permission denied by user"
 
     if block.name in ("read_file", "write_file", "edit_file"):
         path = block.input.get("path", "")
