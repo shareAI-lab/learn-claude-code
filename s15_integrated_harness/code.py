@@ -18,6 +18,8 @@ Need: pip install anthropic python-dotenv pyyaml + .env with ANTHROPIC_API_KEY
     built-in tools      persistent teams      MCP tools
 """
 
+from __future__ import annotations
+
 import ast
 import atexit
 import fcntl
