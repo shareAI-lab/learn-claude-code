@@ -710,8 +710,172 @@ async def sample_workflow(ctx, args):
     return {"confirmed": confirmed}
 
 
-# Saved workflow registry
+# Saved workflow registry.
+#
+# Entries are (meta, script_fn). A script_fn is a Python coroutine; the
+# external plugin workflows below have no Python implementation, so they are
+# registered with a stub that fails loudly instead of silently running the
+# wrong thing. This keeps every discovered workflow discoverable via
+# Workflow(name="list") while making the "not runnable by this runtime" case
+# explicit rather than pretending we can execute a JS slash-command plugin.
+def _phase_strings(phases):
+    """Normalize JS plugin phases (list of {title, detail}) to plain strings."""
+    out = []
+    for phase in phases:
+        if isinstance(phase, str):
+            out.append(phase)
+        elif isinstance(phase, dict) and phase.get("title"):
+            detail = phase.get("detail")
+            out.append(phase["title"] if not detail else f"{phase['title']} — {detail}")
+        else:
+            out.append(str(phase))
+    return out
+
+
+def _external_meta(name, description, phases, source, when_to_use=None):
+    meta = {
+        "name": name,
+        "description": description,
+        "phases": _phase_strings(phases),
+        "source": source,
+        "external": True,
+    }
+    if when_to_use:
+        meta["whenToUse"] = when_to_use
+    return meta
+
+
+def _external_workflow_stub(ctx, args):
+    """Fail loudly: external JS plugin workflows cannot be run here.
+
+    The model-facing adapter intercepts external workflows before launch, so
+    this stub is a defensive backstop and must not assume anything about ctx.
+    """
+    raise WorkflowInputError(
+        "this workflow is an external plugin workflow and is not runnable by "
+        "this Python runtime. Invoke it as its native slash command instead."
+    )
+
+
+EXTERNAL_WORKFLOWS = {
+    # code-modernization plugin (JS slash-command workflows)
+    "modernize-extract-rules": _external_meta(
+        "modernize-extract-rules",
+        "Business-rule mining with loop-until-dry extraction, per-rule citation verification, and a P0 confirmation panel",
+        [
+            {"title": "Extract", "detail": "three lens-scoped extractors per round, rounds until two come up dry"},
+            {"title": "Verify", "detail": "one citation referee per fresh rule"},
+            {"title": "P0 panel", "detail": "two independent judges per surviving P0 rule"},
+            {"title": "Data objects", "detail": "DTO/entity catalog"},
+        ],
+        "plugin:code-modernization/workflows/extract-rules.js",
+        when_to_use="Invoked by /modernize-extract-rules when the Workflow tool is available. Requires args {system, modulePattern?, maxRounds?}. Returns structured rule cards — the calling session writes BUSINESS_RULES.md and DATA_OBJECTS.md from them.",
+    ),
+    "modernize-harden-scan": _external_meta(
+        "modernize-harden-scan",
+        "Security scan as class-scoped parallel finders with adversarial per-finding verification — false positives die before SECURITY_FINDINGS.md",
+        [
+            {"title": "Find", "detail": "one finder per vulnerability class"},
+            {"title": "Verify", "detail": "one refuter per finding; second judge for Critical/High"},
+        ],
+        "plugin:code-modernization/workflows/harden-scan.js",
+        when_to_use="Invoked by /modernize-harden when the Workflow tool is available. Requires args {system}. Covers the scan + triage input only — remediation patch drafting and the per-hunk review loop stay in the calling session (they write files and handle raw credentials).",
+    ),
+    "modernize-portfolio-assess": _external_meta(
+        "modernize-portfolio-assess",
+        "Per-system portfolio sweep as an independent pipeline — metrics, fingerprint, doc coverage per system; COCOMO computed deterministically",
+        [
+            {"title": "Survey", "detail": "one metrics agent per system, all independent"},
+        ],
+        "plugin:code-modernization/workflows/portfolio-assess.js",
+        when_to_use="Invoked by /modernize-assess --portfolio when the Workflow tool is available. Requires args {parentDir, systems: [\"dirname\", ...]} — the calling session enumerates the subdirectories (workflow scripts have no filesystem access) and renders analysis/portfolio.html from the returned rows.",
+    ),
+    "modernize-reimagine-scaffold": _external_meta(
+        "modernize-reimagine-scaffold",
+        "Phase E of /modernize-reimagine: scaffold every approved service in parallel — no cap; the runtime queues agents against its concurrency limit",
+        [
+            {"title": "Scaffold", "detail": "one agent per approved service"},
+        ],
+        "plugin:code-modernization/workflows/reimagine-scaffold.js",
+        when_to_use="Invoked by /modernize-reimagine AFTER the human approves the architecture (HITL checkpoint #2). Requires args {system, services: [{name, responsibilities}]}. Scaffolding agents write only under modernized/<system>-reimagined/<service>/ — disjoint directories, so no worktree isolation is needed.",
+    ),
+    "modernize-uplift-deltas": _external_meta(
+        "modernize-uplift-deltas",
+        "Same-stack uplift delta catalog: one finder per delta category (intersecting known version breaking-changes with this code), each verified against the cited source",
+        [
+            {"title": "Find", "detail": "one finder per delta category + ecosystem-tool report"},
+            {"title": "Verify", "detail": "one referee per delta — does this code really hit it?"},
+        ],
+        "plugin:code-modernization/workflows/uplift-deltas.js",
+        when_to_use="Invoked by /modernize-uplift when the Workflow tool is available. Requires args {system, source, target, projectPattern?}. Returns structured delta cards — the calling session writes DELTA_CATALOG.md and runs the migration (build/dual-run are HITL, not in this workflow).",
+    ),
+    "modernize-uplift-migrate": _external_meta(
+        "modernize-uplift-migrate",
+        "Batched fan-out of /modernize-uplift Step 5b: one migrator agent per project/module, in dependency-aware escalating batches behind a per-batch circuit breaker",
+        [
+            {"title": "Migrate", "detail": "dependency-aware escalating batches (~4, then larger); each batch must clear a 2/3 build-rate circuit breaker before the next launches"},
+        ],
+        "plugin:code-modernization/workflows/uplift-migrate.js",
+        when_to_use="Invoked by /modernize-uplift ONLY after the pilot unit is migrated in-session, analysis/<system>/PLAYBOOK.md is written, and the human has approved the fan-out. Requires args {system, source, target, units: [{name, path, deps?}], batchSize?}. Each unit's optional `deps` lists the sibling unit NAMES it depends on; a unit is only batched once every listed dep has BUILT, so a unit and its dependency never run in the same batch. Agents write only inside their own unit directory under modernized/<system>-uplifted/ — disjoint directories, so no worktree isolation is needed; solution/workspace-level shared files are owned by the calling session. Returns per-unit results plus three RE-PASSABLE unit lists ({name, path, deps}) — remainingUnits (never attempted), failedUnits (attempted, build failed), blockedUnits (skipped because a dependency failed) — any of which can be passed straight back as the next invocation's `units`. The calling session applies the returned sharedFileNeeds and folds playbookGaps into the playbook before re-invoking.",
+    ),
+    # claude-security plugin (JS slash-command workflow)
+    "scan": _external_meta(
+        "scan",
+        "Claude Security scan pipeline: inventory, threat-model, research, sweep, three-lens adversarial panel, code-computed tally",
+        [
+            {"title": "Inventory", "detail": "partition the repository into components; every top-level directory scanned or explicitly skipped"},
+            {"title": "Threat model", "detail": "one modeler per component"},
+            {"title": "Research", "detail": "one researcher per component x category cell"},
+            {"title": "Sweep", "detail": "gap-fill over what the matrix did not cover"},
+            {"title": "Panel", "detail": "three-lens adversarial verification, one voter per lens"},
+            {"title": "Adversarial", "detail": "max effort only: repanel marginal keeps, red-team every survivor"},
+        ],
+        "plugin:claude-security/workflows/scan.js",
+        when_to_use="Run by the Security Lead from the scan job. args carry scanRoot, runDir, mode, effort (low|medium|high|max), scope, range. If invoked with no args (a user typed the bare slash command), do not call Workflow: tell the user to run /claude-security to open the Claude Security menu, which collects the scan settings.",
+    ),
+    # ecc plugin (cached workflow artifacts)
+    "orch-review": _external_meta(
+        "orch-review",
+        "ECC Review phase as a native Claude Code workflow: multi-dimension review (quality + language + conditional security) then adversarial verification of every CRITICAL/HIGH finding. Returns blocking + advisory findings for Gate 2.",
+        [
+            {"title": "Review", "detail": "one reviewer agent per dimension, in parallel"},
+            {"title": "Verify", "detail": "adversarially refute each CRITICAL/HIGH finding"},
+        ],
+        "plugin:ecc/workflows/orch-review.workflow.js",
+    ),
+    "ecc-pro-security-roadmap": _external_meta(
+        "ecc-pro-security-roadmap",
+        "Survey + web-research + triage both ECC and AgentShield, then synthesize a prioritized ECC Pro security roadmap",
+        [
+            {"title": "Survey", "detail": "map current AgentShield + ECC Pro capability, triage open PRs/issues on both repos"},
+            {"title": "Research", "detail": "recent agentic-security CVEs, competitor gaps, unbuilt ideas, Sentry/code-review feature demand"},
+            {"title": "Synthesize", "detail": "merge everything into a prioritized, MRR-biased roadmap"},
+        ],
+        "plugin:ecc/.claude/workflows/ecc-pro-security-roadmap.js",
+        when_to_use="Quarterly product/security planning for ECC Pro and AgentShield",
+    ),
+}
+
 WORKFLOWS = {SAMPLE_META["name"]: (SAMPLE_META, sample_workflow)}
+WORKFLOWS.update({
+    meta["name"]: (meta, _external_workflow_stub)
+    for meta in EXTERNAL_WORKFLOWS.values()
+})
+
+
+def list_workflows():
+    """Return a summary of every saved workflow in the registry."""
+    return [
+        {
+            "name": meta["name"],
+            "description": meta.get("description"),
+            "phases": meta.get("phases"),
+            "source": meta.get("source"),
+            "external": meta.get("external", False),
+            "whenToUse": meta.get("whenToUse"),
+        }
+        for meta, _fn in WORKFLOWS.values()
+    ]
 
 WORKFLOW_TOOL = {
     "name": "Workflow",
@@ -745,11 +909,19 @@ async def run_workflow(name, args=None, resume_from_run_id=None):
     """Model-facing adapter: resolve trusted code from the host registry."""
     if not isinstance(name, str):
         raise WorkflowInputError("workflow name must be a string")
+    if name == "list":
+        return {"workflows": list_workflows()}
     if name not in WORKFLOWS:
         raise WorkflowInputError(f"unknown workflow '{name}'")
     if args is not None and not isinstance(args, dict):
         raise WorkflowInputError("workflow args must be an object")
     meta, script_fn = WORKFLOWS[name]
+    if meta.get("external"):
+        raise WorkflowInputError(
+            f"workflow '{name}' is an external plugin workflow "
+            f"(source: {meta.get('source')}) and is not runnable by this "
+            "Python runtime. Invoke it as its native slash command instead."
+        )
     out = await WorkflowTool().call(
         meta,
         script_fn,
@@ -868,7 +1040,12 @@ def run_cli():
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] and sys.argv[1] in {"demo", "resume"}:
+    if sys.argv[1:] and sys.argv[1] == "list":
+        for wf in list_workflows():
+            print(f"{wf['name']}: {wf['description'] or ''}")
+            for phase in wf.get("phases") or []:
+                print(f"    - {phase}")
+    elif sys.argv[1:] and sys.argv[1] in {"demo", "resume"}:
         asyncio.run(run_demo(sys.argv[1:]))
     else:
         run_cli()
