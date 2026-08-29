@@ -65,6 +65,15 @@ TASKS_DIR = WORKDIR / ".tasks"
 TASK_ID_PATTERN = re.compile(r"^task_[0-9a-f]{8}$")
 
 
+def _validate_priority(priority: int) -> int:
+    """Priority must be an integer between 0 (lowest) and 10 (highest)."""
+    if isinstance(priority, bool) or not isinstance(priority, int):
+        raise ValueError("priority must be an integer between 0 and 10")
+    if not 0 <= priority <= 10:
+        raise ValueError("priority must be an integer between 0 and 10")
+    return priority
+
+
 @dataclass
 class Task:
     id: str
@@ -73,6 +82,7 @@ class Task:
     status: str
     owner: str | None
     blockedBy: list[str]
+    priority: int = 5             # 0-10, higher runs first
 
 
 class TaskStore:
@@ -99,10 +109,12 @@ class TaskStore:
     def exists(self, task_id: str) -> bool:
         return self._path(task_id).is_file()
 
-    def create(self, subject: str, description: str = "") -> Task:
+    def create(self, subject: str, description: str = "",
+               priority: int = 5) -> Task:
         subject = subject.strip()
         if not subject:
             raise ValueError("Task subject cannot be empty")
+        priority = _validate_priority(priority)
 
         self._root(create=True)
         for _ in range(100):
@@ -113,6 +125,7 @@ class TaskStore:
                 status="pending",
                 owner=None,
                 blockedBy=[],
+                priority=priority,
             )
             try:
                 with self._path(task.id, create_root=True).open(
@@ -183,6 +196,7 @@ class TaskStore:
             raise ValueError(f"Task file ID does not match {task_id}")
         if task.status not in ("pending", "in_progress", "completed"):
             raise ValueError(f"Invalid task status: {task.status}")
+        _validate_priority(task.priority)
         return task
 
     def list(self) -> list[Task]:
@@ -196,8 +210,9 @@ class TaskStore:
 TASKS = TaskStore(TASKS_DIR)
 
 
-def create_task(subject: str, description: str = "") -> Task:
-    return TASKS.create(subject, description)
+def create_task(subject: str, description: str = "",
+                priority: int = 5) -> Task:
+    return TASKS.create(subject, description, priority)
 
 
 def update_task(task_id: str, addBlockedBy: list[str]) -> Task:
@@ -338,10 +353,11 @@ def run_glob(pattern: str) -> str:
         return f"Error: {error}"
 
 
-def run_create_task(subject: str, description: str = "") -> str:
-    task = create_task(subject, description)
+def run_create_task(subject: str, description: str = "",
+                    priority: int = 5) -> str:
+    task = create_task(subject, description, priority)
     print(f"  [create] {task.subject}")
-    return f"Created {task.id}: {task.subject}"
+    return f"Created {task.id}: {task.subject} (p{task.priority})"
 
 
 def run_update_task(task_id: str, addBlockedBy: list[str]) -> str:
@@ -368,7 +384,7 @@ def run_list_tasks() -> str:
         )
         owner = f" [{task.owner}]" if task.owner else ""
         lines.append(
-            f"{marker} {task.id}: {task.subject} "
+            f"{marker} {task.id} (p{task.priority}): {task.subject} "
             f"[{task.status}]{owner}{dependencies}"
         )
     return "\n".join(lines)
@@ -397,8 +413,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
     {"name": "glob", "description": "Find files matching a glob pattern; ** matches recursively.",
      "input_schema": {"type": "object", "properties": {"pattern": {"type": "string"}}, "required": ["pattern"]}},
-    {"name": "create_task", "description": "Create a task and return its runtime-generated ID.",
-     "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}, "description": {"type": "string"}}, "required": ["subject"], "additionalProperties": False}},
+    {"name": "create_task", "description": "Create a task (priority 0-10, 5 default) and return its runtime-generated ID.",
+     "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}, "description": {"type": "string"}, "priority": {"type": "integer", "minimum": 0, "maximum": 10}}, "required": ["subject"], "additionalProperties": False}},
     {"name": "update_task", "description": "Add dependencies using IDs returned by create_task.",
      "input_schema": {"type": "object", "properties": {"task_id": {"type": "string", "pattern": "^task_[0-9a-f]{8}$"}, "addBlockedBy": {"type": "array", "items": {"type": "string", "pattern": "^task_[0-9a-f]{8}$"}, "minItems": 1}}, "required": ["task_id", "addBlockedBy"], "additionalProperties": False}},
     {"name": "list_tasks", "description": "List tasks with status, owner, and dependencies.",

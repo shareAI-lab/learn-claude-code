@@ -147,6 +147,54 @@ class AgentTeamsRuntimeTests(unittest.TestCase):
                     self.assertTrue(lesson.release_completed_assignment("alice"))
                     self.assertNotIn("alice", lesson.teammate_assignments)
 
+    def test_scan_unclaimed_tasks_orders_by_priority_desc_then_id(self):
+        import secrets as std_secrets
+
+        for lesson_path in RUNTIME_LESSONS:
+            with self.subTest(lesson=lesson_path.parent.name):
+                with tempfile.TemporaryDirectory() as tmp:
+                    lesson = load_lesson(Path(tmp), lesson_path)
+                    original = std_secrets.token_hex
+                    try:
+                        fixed = iter(["11111111", "22222222", "33333333"])
+                        std_secrets.token_hex = lambda _size: next(fixed)
+                        low = lesson.create_task("refactor low", priority=3)
+                        high = lesson.create_task("refactor high", priority=9)
+                        mid = lesson.create_task("refactor mid", priority=5)
+                    finally:
+                        std_secrets.token_hex = original
+
+                    self.assertEqual(
+                        [task.id for task in lesson.scan_unclaimed_tasks()],
+                        [high.id, mid.id, low.id],
+                    )
+                    claimed = lesson.claim_next_task("agent")
+                    self.assertIsNotNone(claimed)
+                    self.assertEqual(claimed.id, high.id)
+
+    def test_ready_selection_tie_breaks_by_task_id(self):
+        import secrets as std_secrets
+
+        for lesson_path in RUNTIME_LESSONS:
+            with self.subTest(lesson=lesson_path.parent.name):
+                with tempfile.TemporaryDirectory() as tmp:
+                    lesson = load_lesson(Path(tmp), lesson_path)
+                    original = std_secrets.token_hex
+                    try:
+                        fixed = iter(["00000001", "00000002"])
+                        std_secrets.token_hex = lambda _size: next(fixed)
+                        first = lesson.create_task("first", priority=5)
+                        second = lesson.create_task("second", priority=5)
+                    finally:
+                        std_secrets.token_hex = original
+
+                    self.assertEqual(
+                        [task.id for task in lesson.scan_unclaimed_tasks()],
+                        [first.id, second.id],
+                    )
+                    claimed = lesson.claim_next_task("agent")
+                    self.assertEqual(claimed.id, first.id)
+
     def test_task_dependencies_use_runtime_ids_and_are_lead_only(self):
         for lesson_path in RUNTIME_LESSONS:
             with self.subTest(lesson=lesson_path.parent.name):
