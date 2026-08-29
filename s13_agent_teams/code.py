@@ -109,6 +109,15 @@ def advance_assignment_version(owner: str):
                 team.release()
 
 
+def _validate_priority(priority: int) -> int:
+    """Priority must be an integer between 0 (lowest) and 10 (highest)."""
+    if isinstance(priority, bool) or not isinstance(priority, int):
+        raise ValueError("priority must be an integer between 0 and 10")
+    if not 0 <= priority <= 10:
+        raise ValueError("priority must be an integer between 0 and 10")
+    return priority
+
+
 @dataclass
 class Task:
     id: str
@@ -118,6 +127,7 @@ class Task:
     owner: str | None
     blockedBy: list[str]
     worktree: str | None = None
+    priority: int = 5    # 0-10, higher runs first
 
 
 def _task_path(task_id: str) -> Path:
@@ -130,10 +140,12 @@ def _task_path(task_id: str) -> Path:
     return path
 
 
-def create_task(subject: str, description: str = "") -> Task:
+def create_task(subject: str, description: str = "",
+                priority: int = 5) -> Task:
     subject = subject.strip()
     if not subject:
         raise ValueError("Task subject cannot be empty")
+    priority = _validate_priority(priority)
     with task_store_lock():
         for _ in range(100):
             task = Task(
@@ -143,6 +155,7 @@ def create_task(subject: str, description: str = "") -> Task:
                 status="pending",
                 owner=None,
                 blockedBy=[],
+                priority=priority,
             )
             try:
                 with _task_path(task.id).open("x", encoding="utf-8") as handle:
@@ -225,6 +238,7 @@ def load_task(task_id: str) -> Task:
             raise ValueError(f"Task file ID does not match {task_id}")
         if task.status not in {"pending", "in_progress", "completed"}:
             raise ValueError(f"Invalid task status: {task.status}")
+        _validate_priority(task.priority)
         return task
 
 
@@ -769,8 +783,9 @@ def run_agent_glob(pattern: str) -> str:
 
 # -- Task Tools --
 
-def run_create_task(subject: str, description: str = "") -> str:
-    task = create_task(subject, description)
+def run_create_task(subject: str, description: str = "",
+                    priority: int = 5) -> str:
+    task = create_task(subject, description, priority)
     print(f"  \033[34m[create] {task.subject}\033[0m")
     return f"Created {task.id}: {task.subject}"
 
@@ -798,7 +813,7 @@ def run_list_tasks() -> str:
         deps = f" (blockedBy: {', '.join(t.blockedBy)})" if t.blockedBy else ""
         owner = f" [{t.owner}]" if t.owner else ""
         worktree = f" (worktree: {t.worktree})" if t.worktree else ""
-        lines.append(f"  {icon} {t.id}: {t.subject} "
+        lines.append(f"  {icon} {t.id} (p{t.priority}): {t.subject} "
                      f"[{t.status}]{owner}{deps}{worktree}")
     return "\n".join(lines)
 
@@ -1116,8 +1131,14 @@ def _teammate_send_message(from_name: str, to: str, content: str) -> str:
 IDLE_SCAN_INTERVAL = 2.0
 
 
+def _ready_task_key(task: Task) -> tuple[int, str]:
+    """Deterministic order: highest priority first, then smallest task_id."""
+    return (-task.priority, task.id)
+
+
 def scan_unclaimed_tasks() -> list[Task]:
-    """Return ready tasks whose optional worktree binding is usable."""
+    """Return ready tasks whose optional worktree binding is usable, ordered
+    by priority (highest first) with task_id as the deterministic tie-break."""
     with task_lock:
         ready = []
         for task in list_tasks():
@@ -1127,6 +1148,7 @@ def scan_unclaimed_tasks() -> list[Task]:
             _, error = task_worktree_cwd(task)
             if not error:
                 ready.append(task)
+        ready.sort(key=_ready_task_key)
         return ready
 
 
@@ -1530,11 +1552,13 @@ BASE_TOOLS = [
 
 TASK_TOOLS = [
     {"name": "create_task",
-     "description": "Create a task and return its runtime-generated ID.",
+     "description": "Create a task (priority 0-10, 5 default) and return its runtime-generated ID.",
      "input_schema": {"type": "object",
                       "properties": {
                           "subject": {"type": "string"},
-                          "description": {"type": "string"}},
+                          "description": {"type": "string"},
+                          "priority": {"type": "integer",
+                                       "minimum": 0, "maximum": 10}},
                       "required": ["subject"],
                       "additionalProperties": False}},
     {"name": "update_task",

@@ -60,6 +60,7 @@ class Task:
     status: str          # pending | in_progress | completed
     owner: str | None    # Agent responsible for this task
     blockedBy: list[str] # List of dependency task IDs
+    priority: int = 5    # 0-10, higher runs first
 ```
 
 IDs use the `task_` prefix followed by 8 random hexadecimal characters. Files are created exclusively; an existing ID is discarded and regenerated.
@@ -69,11 +70,13 @@ IDs use the `task_` prefix followed by 8 random hexadecimal characters. Files ar
 ### create_task: Create Tasks
 
 ```python
-def create_task(subject: str, description: str = "") -> Task:
-    return TASKS.create(subject, description)
+def create_task(subject: str, description: str = "", priority: int = 5) -> Task:
+    return TASKS.create(subject, description, priority)
 ```
 
 `TaskStore.create` checks the subject, allocates a random ID, and writes `.tasks/{id}.json`. A new task always starts with an empty `blockedBy` list. The tool result returns the runtime-generated ID to the model.
+
+A task's `priority` is an integer from 0 (lowest) to 10 (highest); the default is 5. `create_task` rejects anything else, so every stored record is safe to compare. This chapter only records and validates the field -- later chapters use it to decide which ready task runs first.
 
 ### update_task: Add Dependencies with Returned IDs
 
