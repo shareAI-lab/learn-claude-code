@@ -1130,6 +1130,12 @@ def scan_unclaimed_tasks() -> list[Task]:
         return ready
 
 
+def resumable_task(owner: str) -> Task | None:
+    """Return the owner's unfinished Task before looking for new work."""
+    with task_lock:
+        return _owner_in_progress(owner)
+
+
 def claim_next_task(name: str) -> Task | None:
     """Claim the first still-available task, never a second assignment."""
     with task_lock:
@@ -1314,7 +1320,7 @@ class TeammateRuntime:
         return "idle"
 
     def wait_for_work(self) -> bool:
-        """Wait for a message or atomically claim the next ready Task."""
+        """Wait for a message, resume owned work, or claim a ready Task."""
         while True:
             inbox = BUS.wait_for_messages(self.name, IDLE_SCAN_INTERVAL)
             if inbox:
@@ -1325,18 +1331,23 @@ class TeammateRuntime:
                     return True
                 continue
 
-            task = claim_next_task(self.name)
+            task = resumable_task(self.name)
+            resuming = task is not None
+            if not task:
+                task = claim_next_task(self.name)
             if not task:
                 continue
             cwd = assignment_cwd(self.name)
             self.messages.append({
                 "role": "user",
                 "content": (
-                    f"[Auto-claimed task {task.id}] {task.subject}\n"
+                    f"[{'Resume' if resuming else 'Auto-claimed'} task "
+                    f"{task.id}] {task.subject}\n"
                     f"{task.description}\nWork directory: {cwd}"
                 ),
             })
-            print(f"  [idle] {self.name} claimed {task.id}: {task.subject}")
+            action = "resuming" if resuming else "claimed"
+            print(f"  [idle] {self.name} {action} {task.id}: {task.subject}")
             return True
 
     def run(self):
