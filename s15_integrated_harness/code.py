@@ -1237,6 +1237,12 @@ def scan_unclaimed_tasks() -> list[Task]:
         return ready
 
 
+def resumable_task(owner: str) -> Task | None:
+    """Return the owner's unfinished Task before looking for new work."""
+    with task_lock:
+        return _owner_in_progress(owner)
+
+
 def claim_next_task(name: str) -> Task | None:
     """Claim the first still-available task, never a second assignment."""
     with task_lock:
@@ -1601,7 +1607,10 @@ def spawn_teammate_thread(name: str, role: str, prompt: str,
                         break
                     continue
 
-                task = claim_next_task(name)
+                task = resumable_task(name)
+                resuming = task is not None
+                if not task:
+                    task = claim_next_task(name)
                 if not task:
                     continue
                 try:
@@ -1611,12 +1620,14 @@ def spawn_teammate_thread(name: str, role: str, prompt: str,
                 messages.append({
                     "role": "user",
                     "content": (
-                        f"[Auto-claimed task {task.id}] "
+                        f"[{'Resume' if resuming else 'Auto-claimed'} task "
+                        f"{task.id}] "
                         f"{task.subject}\n{task.description}\n"
                         f"Work directory: {workdir}"
                     ),
                 })
-                print(f"  \033[32m[idle] {name} claimed "
+                action = "resuming" if resuming else "claimed"
+                print(f"  \033[32m[idle] {name} {action} "
                       f"{task.id}: {task.subject}\033[0m")
                 break
 
