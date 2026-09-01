@@ -190,6 +190,37 @@ if cached is not MISS:
 
 On resume, the runtime must match each current `agent()` call with its earlier journal record. A stable hash gives unchanged workflow code and arguments the same call key. Real model output may vary; when the call content has not changed, resume uses the result already saved in the journal.
 
+## Workflow Topology in the Structured Trace
+
+S16 reuses s15's session recorder rather than adding a second logging system. An interactive `Workflow` tool call appears inside the root tool span and creates a `workflow-orchestrator` child. Each `ctx.agent()` creates a `workflow-agent` child and a paired `workflow_node_start/workflow_node_end` span. The deterministic `demo` and `resume` commands also create a standalone trace, using `MockAgentRunner` as the recorded provider.
+
+```text
+tool_start: Workflow
+└─ agent_create/start: workflow-orchestrator
+   ├─ workflow_node_queued
+   ├─ agent_create/start: audit:correctness
+   │  └─ model_request/response
+   ├─ workflow_dependency: audit:correctness → verify:correctness:...
+   └─ agent_create/start: verify:correctness:...
+      └─ model_request/response
+```
+
+Pipeline context records `item_index`, `stage_index`, and every prior node on which the next stage depends. `parallel()` gathers the completed node identities from its independent asyncio tasks, so a later stage can depend on the entire fan-out rather than whichever task happened to finish last. A journal hit emits a paired cached node span with `executed=false` and no model request. This makes an original run and a resumed run directly distinguishable.
+
+Concurrency remains the workflow's existing mechanism: `asyncio.gather` schedules pipeline items and parallel thunks, an `asyncio.Semaphore` caps active `agent()` calls at eight, and `asyncio.to_thread` moves each blocking provider request off the event-loop thread. The trace records semaphore `queue_wait_ms`, model latency in the worker's inherited agent context, and workflow-node duration. It does not serialize or reorder the work.
+
+The root model explicitly chooses the `Workflow` tool, but trusted workflow code deterministically decides which `ctx.agent()` calls exist and their dependency shape. A run permits at most 1,000 `agent()` calls, nested `workflow()` is limited to one level, and workflow agents receive only their prompt/schema—no harness tools—so they cannot delegate recursively. In the trace this produces Root → workflow-orchestrator → workflow-agent, with a maximum agent-tree depth of two.
+
+Render the resulting topology and overlap with:
+
+```sh
+python s16_workflow_runtime/code.py demo
+python s15_integrated_harness/trace_view.py --view tree
+python s15_integrated_harness/trace_view.py --view timeline --width 120
+```
+
+The mock demo produces workflow-node timing but no `model_request`: it intentionally performs no provider call. Interactive s16 records both workflow nodes and the real LLM calls made by their `AnthropicAgentRunner`.
+
 ## See It Run
 
 The sample `review-changes` workflow uses `pipeline` to send each review dimension independently through audit → verify. Interactive mode uses the real API and reads the material to review from `args.changes`. `demo` uses fixed runner data to show pipeline, validation, journal, and resume behavior.
@@ -242,4 +273,4 @@ In the default command, ask the model to read the changes, place that text in `a
 
 [s17 Goal Loop](../s17_goal_loop/) uses a smaller, independent loop to check whether a stated goal has been reached and decide whether another turn is needed.
 
-<!-- translation-sync: zh@v10, en@v10, ja@v10 -->
+<!-- translation-sync: zh@v11, en@v11, ja@v11 -->

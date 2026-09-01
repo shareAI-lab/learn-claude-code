@@ -140,6 +140,8 @@ Lead は teammate を起動した後、model loop 内で status を繰り返し�
 
 one-shot subagent は context isolation を解決する。persistent teammate は長期並列協作を解決する。
 
+どちらの child tool pool にも `task` と `spawn_teammate` は含まれないため、s15 child は child を再帰的に生成できず、topology は Root → one-shot または teammate となる。s15 に teammate 総数の数値 cap はなく、unique name と host resource が制約になる。one-shot は parent tool call 内で同期実行され、teammate daemon thread は相互にも Lead とも overlap できる。child は Lead conversation を継承しない。one-shot は assigned description と `SUB_SYSTEM` だけを受け取り、teammate は assignment と private message history を持つ。model client、hooks、task/message store、workspace policy は共有し、one-shot は `task` tool result、teammate は `MessageBus` event で結果を返す。
+
 ### Memory、Skills、Prompt
 
 S15 は s09 の Memory runtime をそのまま再利用する。model call の前に `.memory/MEMORY.md` catalog を読み、現在の request に関係する record を選び、その本文を `assemble_system_prompt(context)` へ渡す。turn の終了後は `extract_memories()` が後の session でも使える情報を保存し、新しい record が増えた場合は `consolidate_memories()` を続けて実行する。
@@ -199,6 +201,62 @@ MCP は external capability を担当する：
 
 ---
 
+## 構造化 execution trace
+
+s15 と s16 の CLI は process ごとに 1 つの JSONL trace を生成する。module を import するだけでは file を作らない。既定で有効で、environment variable で設定できる：
+
+```sh
+HARNESS_TRACE=1
+HARNESS_TRACE_DIR=traces
+HARNESS_TRACE_OUTPUT=summary       # summary または full
+HARNESS_TRACE_PREVIEW_CHARS=500
+python s15_integrated_harness/code.py
+```
+
+各 record は wall-clock/monotonic time、run/turn/agent ID、parent agent、span/causal ID、thread、event name、data を持つ。`model_request → model_response`、outer `tool_start → tool_end`、inner `tool_execution_start → tool_execution_end`、`agent_start → agent_end`、context、background task、permission wait、workflow node の境界は同じ `span_id` で対応する。tool arguments の credential は再帰的に redaction される。result、prompt、task、message は既定では上限付き preview、文字数、SHA-256 のみを保存する。model event は action type、tool name、stop reason、latency、provider が返した token usage を記録するが、hidden reasoning content は保存しない。
+
+```sh
+python s15_integrated_harness/trace_view.py traces/run_....jsonl
+python s15_integrated_harness/trace_view.py --view tree
+python s15_integrated_harness/trace_view.py --view timeline --width 120
+python s15_integrated_harness/trace_view.py --view metrics
+```
+
+viewer は agent tree、parallel timeline、model/tool call 数、tool 別集計、subagent/cache 数、最大 depth、最大同時 active agent 数、token、model/tool time、workflow semaphore と agent-launch wait、human wait、概算 orchestration overhead を表示する。`tool_time_ms` は handler execution だけを測定し、permission wait と内部 child work の重複を除外する。`model_time_ms` は client が観測した provider latency であり、network、server queue、inference を含む。pure GPU inference を分離するには vLLM server metrics が必要である。並列実行では合計時間が wall time を超え得るため、重複を merge した `*_wall_time_ms` も出力する。
+
+trace が示すのは実際に実行された plan であり、chain-of-thought ではない。model は text か `tool_use` か、tool/arguments、delegation を決める。deterministic harness code は permission、dispatch、thread scheduling、task/message state、context compaction、retry、stopping condition を決める。
+
+## Remote vLLM で Qwen/Qwen3.8-27B を使う
+
+`Qwen/Qwen3.8-27B` は公式 Hugging Face model ID である。最小変更は Anthropic SDK を維持し、vLLM 0.17.0 以降の Anthropic-compatible `/v1/messages` endpoint に向けること：
+
+```sh
+vllm serve Qwen/Qwen3.8-27B \
+  --host 0.0.0.0 --port 8000 \
+  --served-model-name Qwen/Qwen3.8-27B \
+  --reasoning-parser qwen3 \
+  --enable-auto-tool-choice \
+  --tool-call-parser qwen3_coder
+```
+
+Harness host の `.env`：
+
+```dotenv
+ANTHROPIC_API_KEY=EMPTY
+ANTHROPIC_BASE_URL=http://your-vllm-host:8000
+MODEL_ID=Qwen/Qwen3.8-27B
+```
+
+vLLM server を `--api-key YOUR_TOKEN` 付きで起動する場合は、`ANTHROPIC_API_KEY` を空にして `ANTHROPIC_AUTH_TOKEN=YOUR_TOKEN` を設定する。Anthropic SDK は vLLM の保護された `/v1/messages` endpoint が要求する `Authorization: Bearer YOUR_TOKEN` を送信する。
+
+agent loop に Qwen 専用 branch は不要で、現在の runtime は streaming も使わない。s16 の structured output は prompt で JSON を要求し local validation と 1 回の retry を行う方式で、provider-enforced schema ではないため実測が必要。tool parser がなければ Qwen の tool syntax は Anthropic `tool_use` にならず、reasoning parser がなければ default thinking が output budget を消費し得る。最初に plain response と安全な tool call を検証し、unauthenticated な `EMPTY` endpoint は trusted private network だけで使う。[公式 model card](https://huggingface.co/Qwen/Qwen3.8-27B)、[vLLM Qwen3.8 recipe](https://recipes.vllm.ai/Qwen/Qwen3.8-27B)、[vLLM serving docs](https://docs.vllm.ai/en/latest/serving/openai_compatible_server/)を参照。
+
+## Trace experiment
+
+prompt ごとに新しい CLI process を使い、remote model を warm up し、各 experiment を 3 回以上繰り返して vLLM version と hardware も記録する。期待する形は検証対象の仮説である。A は「tool を使わず baseline complete とだけ返す」で 1 model call の baseline、B は delegation なしで s15 dispatch boundary を検索・read する tool-heavy run、C は 3 task を作成して teammate に渡す decomposition、D は s15/s16/tracer の独立集計を 3 teammate に明示的に並列実行させる run、E は s01–s17 の README 全体を読む long-context run とする。Qwen と Claude の比較では prompt、revision、permission answer、server parameter、warm state を固定し、成功率、tool choice、retry、depth、parallelism も比較する。
+
+---
+
 ## s14 からの変化
 
 | Scope | s14 MCP | s15 Integrated Harness |
@@ -242,4 +300,4 @@ python s15_integrated_harness/code.py
 
 [s16 Workflow Runtime](../s16_workflow_runtime/) は、この host に `Workflow` tool を追加する。Workflow は固定された orchestration path を code に置き、進行状況を記録して同じ run を再開できるようにする。
 
-<!-- translation-sync: zh@v14, en@v14, ja@v14 -->
+<!-- translation-sync: zh@v15, en@v15, ja@v15 -->

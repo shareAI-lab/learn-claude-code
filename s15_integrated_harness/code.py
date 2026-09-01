@@ -21,6 +21,7 @@ Need: pip install anthropic python-dotenv pyyaml + .env with ANTHROPIC_API_KEY
 import ast
 import atexit
 import fcntl
+import hashlib
 import importlib.util
 import json
 import os
@@ -29,6 +30,7 @@ import re
 import secrets
 import signal
 import subprocess
+import sys
 import threading
 import time
 from contextlib import contextmanager
@@ -47,9 +49,32 @@ except ImportError:
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
+
+def load_trace_runtime():
+    """Load the sibling tracer even when this lesson is imported by file path."""
+    module_name = "integrated_harness_trace_runtime"
+    existing = sys.modules.get(module_name)
+    if existing is not None:
+        return existing
+    path = Path(__file__).resolve().with_name("trace_runtime.py")
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load trace runtime from {path}")
+    runtime = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = runtime
+    try:
+        spec.loader.exec_module(runtime)
+    except Exception:
+        sys.modules.pop(module_name, None)
+        raise
+    return runtime
+
+
+TRACE_RUNTIME = load_trace_runtime()
+TRACE = TRACE_RUNTIME.NullTraceRecorder()
+_trace_initialized = False
+
 load_dotenv(override=True)
-if os.getenv("ANTHROPIC_BASE_URL"):
-    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
 
 WORKDIR = Path.cwd()
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
@@ -96,6 +121,45 @@ def load_memory_runtime():
 
 
 MEMORY_RUNTIME = load_memory_runtime()
+
+
+def initialize_tracing(runtime_name: str = "s15"):
+    """Create one trace for this CLI process and share its wrapped client."""
+    global TRACE, client, _trace_initialized
+    if _trace_initialized:
+        return TRACE
+    TRACE = TRACE_RUNTIME.create_recorder(
+        WORKDIR,
+        runtime_name,
+        run_data={
+            "model": MODEL,
+            "fallback_model": FALLBACK_MODEL,
+            "provider": "anthropic_messages",
+            "base_url": os.getenv("ANTHROPIC_BASE_URL") or "https://api.anthropic.com",
+        },
+    )
+    client = TRACE_RUNTIME.wrap_client(client, TRACE)
+    MEMORY_RUNTIME.client = client
+    _trace_initialized = True
+    if TRACE.enabled:
+        TRACE.emit(
+            "agent_start",
+            {"role": "lead", "task": "interactive session", "status": "running"},
+            agent_id="agent-root",
+        )
+        terminal_print(f"  \033[90m[trace] {TRACE.path}\033[0m")
+    return TRACE
+
+
+def close_tracing(status: str = "completed"):
+    if not TRACE.enabled:
+        return
+    TRACE.emit(
+        "agent_end",
+        {"role": "lead", "status": status},
+        agent_id="agent-root",
+    )
+    TRACE.finish_run(status)
 
 
 class ConsoleBroker:
@@ -231,6 +295,7 @@ def create_task(subject: str, description: str = "") -> Task:
             try:
                 with _task_path(task.id).open("x", encoding="utf-8") as handle:
                     json.dump(asdict(task), handle, indent=2)
+                TRACE.emit("task_create", asdict(task))
                 return task
             except FileExistsError:
                 continue
@@ -283,6 +348,10 @@ def update_task(task_id: str, addBlockedBy: list[str]) -> Task:
             if dependency not in task.blockedBy
         )
         save_task(task)
+        TRACE.emit(
+            "task_update",
+            {"task_id": task.id, "blocked_by_task_ids": list(task.blockedBy)},
+        )
         return task
 
 
@@ -387,6 +456,15 @@ def claim_task(task_id: str, owner: str = "agent") -> str:
         teammate_assignments[owner] = {"task_id": task.id, "cwd": cwd}
         advance_assignment_version(owner)
     print(f"  \033[36m[claim] {task.subject} -> in_progress (owner: {owner})\033[0m")
+    TRACE.emit(
+        "task_claim",
+        {
+            "task_id": task.id,
+            "subject": task.subject,
+            "owner": owner,
+            "blocked_by_task_ids": list(task.blockedBy),
+        },
+    )
     return f"Claimed {task.id} ({task.subject})"
 
 
@@ -417,6 +495,15 @@ def complete_task(task_id: str, owner: str = "agent") -> str:
     if unblocked:
         msg += f"\nUnblocked: {', '.join(unblocked)}"
         print(f"  \033[33m[unblocked] {', '.join(unblocked)}\033[0m")
+    TRACE.emit(
+        "task_complete",
+        {
+            "task_id": task.id,
+            "subject": task.subject,
+            "owner": owner,
+            "unblocked": unblocked,
+        },
+    )
     return msg
 
 
@@ -1028,12 +1115,22 @@ def run_agent_glob(pattern: str) -> str:
 
 
 def call_tool_handler(handler, args: dict, name: str) -> str:
-    if not handler:
-        return f"Unknown tool: {name}"
-    try:
-        return str(handler(**(args or {})))
-    except Exception as exc:
-        return f"Error: {type(exc).__name__}: {exc}"
+    with TRACE.span(
+        "tool_execution_start", "tool_execution_end", {"tool": name}
+    ) as execution_span:
+        if not handler:
+            output = f"Unknown tool: {name}"
+            execution_span.finish(status="error", tool=name)
+            return output
+        try:
+            output = str(handler(**(args or {})))
+        except Exception as exc:
+            output = f"Error: {type(exc).__name__}: {exc}"
+        execution_span.finish(
+            status="error" if output.startswith("Error:") else "ok",
+            tool=name,
+        )
+        return output
 
 
 def _normalize_todos(todos):
@@ -1078,6 +1175,11 @@ def is_valid_agent_name(name: str) -> bool:
     return bool(VALID_AGENT_NAME.fullmatch(name))
 
 
+def _trace_message_id(msg: dict) -> str:
+    canonical = json.dumps(msg, ensure_ascii=True, sort_keys=True)
+    return "msg_" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+
+
 class MessageBus:
     def __init__(self):
         self._lock = threading.RLock()
@@ -1098,6 +1200,22 @@ class MessageBus:
         msgs = [json.loads(line) for line in inbox.read_text(encoding="utf-8").splitlines()
                 if line.strip()]
         inbox.unlink()
+        for msg in msgs:
+            trace_agent_id = (
+                "agent-root" if agent == "lead"
+                else teammate_trace_ids.get(agent, agent)
+            )
+            TRACE.emit(
+                "message_deliver",
+                {
+                    "message_id": _trace_message_id(msg),
+                    "from": msg.get("from"),
+                    "to": msg.get("to"),
+                    "message_type": msg.get("type", "message"),
+                    "content": TRACE.summarize_output(msg.get("content", "")),
+                },
+                agent_id=trace_agent_id,
+            )
         return msgs
 
     def send(self, from_agent: str, to_agent: str, content: str,
@@ -1110,6 +1228,17 @@ class MessageBus:
             with self._path(to_agent).open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(msg, ensure_ascii=True) + "\n")
             self._changed.notify_all()
+        TRACE.emit(
+            "message_send",
+            {
+                "message_id": _trace_message_id(msg),
+                "from": from_agent,
+                "to": to_agent,
+                "message_type": msg_type,
+                "content": TRACE.summarize_output(content),
+                "metadata": metadata or {},
+            },
+        )
         print(f"  \033[33m[bus] {from_agent} -> {to_agent}: "
               f"({msg_type}) {content[:50]}\033[0m")
 
@@ -1137,6 +1266,7 @@ class MessageBus:
 
 BUS = MessageBus()
 active_teammates: dict[str, str] = {}
+teammate_trace_ids: dict[str, str] = {}
 plan_gates: dict[str, str] = {}
 plan_request_ids: dict[str, str] = {}
 team_lock = threading.RLock()
@@ -1266,17 +1396,36 @@ def current_work_identity(owner: str) -> tuple[int, str | None]:
 
 
 def _run_teammate_tool(name: str, block, handlers: dict) -> str:
-    gate = plan_gates.get(name, "not_required")
-    if (block.name in {"bash", "write_file", "edit_file"}
-            and gate not in {"not_required", "approved"}):
-        return f"Blocked: plan status is {gate}."
-    blocked = trigger_hooks("PreToolUse", block)
-    if blocked is not None:
-        return str(blocked)
-    handler = handlers.get(block.name)
-    output = call_tool_handler(handler, block.input, block.name)
-    trigger_hooks("PostToolUse", block, output)
-    return str(output)
+    with TRACE.span("tool_start", "tool_end", trace_tool_data(block)) as tool_span:
+        tool_call_id = getattr(block, "id", None)
+        gate = plan_gates.get(name, "not_required")
+        if (block.name in {"bash", "write_file", "edit_file"}
+                and gate not in {"not_required", "approved"}):
+            output = f"Blocked: plan status is {gate}."
+            tool_span.finish(
+                status="denied", tool_call_id=tool_call_id, tool=block.name,
+                result=TRACE.summarize_output(output),
+            )
+            return output
+        blocked = trigger_hooks("PreToolUse", block)
+        if blocked is not None:
+            output = str(blocked)
+            tool_span.finish(
+                status="denied", tool_call_id=tool_call_id, tool=block.name,
+                result=TRACE.summarize_output(output),
+            )
+            return output
+        handler = handlers.get(block.name)
+        output = call_tool_handler(handler, block.input, block.name)
+        trigger_hooks("PostToolUse", block, output)
+        output = str(output)
+        tool_span.finish(
+            status="error" if output.startswith("Error:") else "ok",
+            tool_call_id=tool_call_id,
+            tool=block.name,
+            result=TRACE.summarize_output(output),
+        )
+        return output
 
 
 def apply_plan_response(name: str, msg: dict) -> tuple[bool, str]:
@@ -1368,6 +1517,26 @@ def spawn_teammate_thread(name: str, role: str, prompt: str,
                 plan_gates.pop(name, None)
                 assignment_versions.pop(name, None)
             return f"Cannot spawn teammate '{name}': {claimed}"
+
+    parent_agent_id = TRACE.current_agent_id() or "agent-root"
+    child_agent_id = TRACE.new_id("agent-team")
+    trace_context = TRACE.capture_context()
+    create_event = TRACE.emit(
+        "agent_create",
+        {
+            "name": name,
+            "role": role,
+            "task": prompt,
+            "task_id": task_id,
+            "require_plan": require_plan,
+            "execution": "thread",
+        },
+        agent_id=child_agent_id,
+        parent_agent_id=parent_agent_id,
+        agent_kind="teammate",
+    )
+    with team_lock:
+        teammate_trace_ids[name] = child_agent_id
 
     system = (f"You are '{name}', a {role}. "
               "Use tools to complete tasks. "
@@ -1555,9 +1724,14 @@ def spawn_teammate_thread(name: str, role: str, prompt: str,
             with team_lock:
                 active_teammates[name] = "working"
             try:
-                response = client.messages.create(
-                    model=MODEL, system=system, messages=messages,
-                    tools=sub_tools, max_tokens=8000)
+                with TRACE.span(
+                    "agent_active_start", "agent_active_end",
+                    {"reason": "model_cycle", "name": name},
+                ):
+                    with TRACE.model_scope("teammate"):
+                        response = client.messages.create(
+                            model=MODEL, system=system, messages=messages,
+                            tools=sub_tools, max_tokens=8000)
             except Exception as exc:
                 BUS.send(name, "lead",
                          f"{type(exc).__name__}: {exc}", "error")
@@ -1621,32 +1795,45 @@ def spawn_teammate_thread(name: str, role: str, prompt: str,
                 break
 
     def run():
-        try:
-            run_loop()
-        except Exception as exc:
-            try:
-                BUS.send(name, "lead", f"{type(exc).__name__}: {exc}", "error")
-            except Exception:
-                pass
-        finally:
-            try:
-                release_teammate_assignment(name)
-            except Exception as exc:
-                try:
-                    BUS.send(
-                        name, "lead",
-                        f"Assignment cleanup failed: {type(exc).__name__}: {exc}",
-                        "error",
-                    )
-                except Exception:
-                    pass
-            with team_lock:
-                active_teammates.pop(name, None)
-                plan_gates.pop(name, None)
-                plan_request_ids.pop(name, None)
-            print(f"  \033[32m[teammate] {name} finished\033[0m")
+        final_status = "completed"
+        with TRACE.restore_context(trace_context):
+            with TRACE.agent_scope(child_agent_id, parent_agent_id, "teammate"):
+                with TRACE.span(
+                    "agent_start", "agent_end",
+                    {"name": name, "role": role, "task": prompt,
+                     "task_id": task_id},
+                    caused_by_event_id=create_event,
+                ) as agent_span:
+                    try:
+                        run_loop()
+                    except Exception as exc:
+                        final_status = "error"
+                        try:
+                            BUS.send(name, "lead", f"{type(exc).__name__}: {exc}", "error")
+                        except Exception:
+                            pass
+                    finally:
+                        try:
+                            release_teammate_assignment(name)
+                        except Exception as exc:
+                            final_status = "error"
+                            try:
+                                BUS.send(
+                                    name, "lead",
+                                    f"Assignment cleanup failed: {type(exc).__name__}: {exc}",
+                                    "error",
+                                )
+                            except Exception:
+                                pass
+                        with team_lock:
+                            active_teammates.pop(name, None)
+                            teammate_trace_ids.pop(name, None)
+                            plan_gates.pop(name, None)
+                            plan_request_ids.pop(name, None)
+                        agent_span.finish(status=final_status, name=name, role=role)
+                        print(f"  \033[32m[teammate] {name} finished\033[0m")
 
-    threading.Thread(target=run, daemon=True).start()
+    threading.Thread(target=run, daemon=True, name=f"teammate-{name}").start()
     print(f"  \033[36m[teammate] {name} spawned as {role}\033[0m")
     assigned = f" for {task_id}" if task_id else " without an initial Task"
     return (
@@ -1774,7 +1961,11 @@ def permission_hook(block):
                     "during an asynchronous turn")
         terminal_print("\n\033[33m[permission] shell command\033[0m")
         terminal_print(f"  {command}")
-        choice = CONSOLE.ask("  Allow? [y/N] ").strip().lower()
+        with TRACE.span(
+            "permission_wait_start", "permission_wait_end",
+            {"tool": block.name, "tool_call_id": getattr(block, "id", None)},
+        ):
+            choice = CONSOLE.ask("  Allow? [y/N] ").strip().lower()
         if choice not in ("y", "yes"):
             return "Permission denied by user"
     if block.name in ("read_file", "write_file", "edit_file"):
@@ -1789,7 +1980,11 @@ def permission_hook(block):
             return ("Permission denied: interactive MCP approval is unavailable "
                     "during an asynchronous turn")
         terminal_print(f"\n\033[33m[permission] MCP tool: {block.name}\033[0m")
-        choice = CONSOLE.ask("  Allow? [y/N] ").strip().lower()
+        with TRACE.span(
+            "permission_wait_start", "permission_wait_end",
+            {"tool": block.name, "tool_call_id": getattr(block, "id", None)},
+        ):
+            choice = CONSOLE.ask("  Allow? [y/N] ").strip().lower()
         if choice not in ("y", "yes"):
             return "Permission denied by user"
     return None
@@ -1892,30 +2087,73 @@ def has_tool_use(content) -> bool:
                for block in content)
 
 
+def trace_tool_data(block) -> dict:
+    return {
+        "tool_call_id": getattr(block, "id", None),
+        "tool": getattr(block, "name", "unknown"),
+        "arguments": TRACE.safe_value(getattr(block, "input", {})),
+    }
+
+
 def spawn_subagent(description: str) -> str:
+    parent_agent_id = TRACE.current_agent_id() or "agent-root"
+    child_agent_id = TRACE.new_id("agent-task")
+    create_event = TRACE.emit(
+        "agent_create",
+        {"role": "one-shot", "task": description, "execution": "synchronous"},
+        agent_id=child_agent_id,
+        parent_agent_id=parent_agent_id,
+        agent_kind="one_shot",
+    )
     messages = [{"role": "user", "content": description}]
-    for _ in range(30):
-        response = client.messages.create(
-            model=MODEL, system=SUB_SYSTEM, messages=messages,
-            tools=SUB_TOOLS, max_tokens=8000)
-        messages.append({"role": "assistant", "content": response.content})
-        if not has_tool_use(response.content):
-            break
-        results = []
-        for block in response.content:
-            if block.type != "tool_use":
-                continue
-            blocked = trigger_hooks("PreToolUse", block)
-            if blocked:
-                output = str(blocked)
-            else:
-                handler = SUB_HANDLERS.get(block.name)
-                output = call_tool_handler(handler, block.input, block.name)
-                trigger_hooks("PostToolUse", block, output)
-            results.append({"type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": str(output)})
-        messages.append({"role": "user", "content": results})
+    rounds = 0
+    stop_reason = "round_limit"
+    with TRACE.agent_scope(child_agent_id, parent_agent_id, "one_shot"):
+        with TRACE.span(
+            "agent_start", "agent_end",
+            {"role": "one-shot", "task": description},
+            caused_by_event_id=create_event,
+        ) as agent_span:
+            for _ in range(30):
+                rounds += 1
+                with TRACE.model_scope("one_shot"):
+                    response = client.messages.create(
+                        model=MODEL, system=SUB_SYSTEM, messages=messages,
+                        tools=SUB_TOOLS, max_tokens=8000)
+                messages.append({"role": "assistant", "content": response.content})
+                if not has_tool_use(response.content):
+                    stop_reason = "no_tool_use"
+                    break
+                results = []
+                for block in response.content:
+                    if block.type != "tool_use":
+                        continue
+                    with TRACE.span(
+                        "tool_start", "tool_end", trace_tool_data(block)
+                    ) as tool_span:
+                        blocked = trigger_hooks("PreToolUse", block)
+                        if blocked:
+                            output = str(blocked)
+                            status = "denied"
+                        else:
+                            handler = SUB_HANDLERS.get(block.name)
+                            output = call_tool_handler(handler, block.input, block.name)
+                            trigger_hooks("PostToolUse", block, output)
+                            status = "error" if str(output).startswith("Error:") else "ok"
+                        tool_span.finish(
+                            status=status,
+                            tool_call_id=block.id,
+                            tool=block.name,
+                            result=TRACE.summarize_output(output),
+                        )
+                    results.append({"type": "tool_result",
+                                    "tool_use_id": block.id,
+                                    "content": str(output)})
+                messages.append({"role": "user", "content": results})
+            agent_span.finish(
+                rounds=rounds, status="completed", stop_reason=stop_reason
+            )
+
     for msg in reversed(messages):
         if msg["role"] == "assistant":
             text = extract_text(msg["content"])
@@ -2147,11 +2385,12 @@ def summarize_history(messages: list) -> str:
         "Return descriptive facts only. Do not propose or instruct an action. "
         "Preserve the current goal, key findings, changed files, remaining work, "
         "and user constraints.")
-    response = client.messages.create(
-        model=MODEL,
-        system=handoff_system,
-        messages=[{"role": "user", "content": conversation}],
-        max_tokens=2000)
+    with TRACE.model_scope("compaction_summary"):
+        response = client.messages.create(
+            model=MODEL,
+            system=handoff_system,
+            messages=[{"role": "user", "content": conversation}],
+            max_tokens=2000)
     return extract_text(response.content) or "(empty summary)"
 
 
@@ -2215,6 +2454,12 @@ def with_retry(fn, state: RecoveryState):
             msg = str(e).lower()
             if "ratelimit" in name or "429" in msg:
                 delay = retry_delay(attempt)
+                TRACE.emit(
+                    "model_retry",
+                    {"reason": "429", "attempt": attempt + 1,
+                     "max_attempts": MAX_RETRIES, "delay_ms": round(delay * 1000, 3),
+                     "model": state.current_model},
+                )
                 print(f"  \033[33m[429] retry {attempt + 1}/{MAX_RETRIES} "
                       f"after {delay:.1f}s\033[0m")
                 time.sleep(delay)
@@ -2226,6 +2471,12 @@ def with_retry(fn, state: RecoveryState):
                     state.consecutive_529 = 0
                     print(f"  \033[31m[529] switching to {FALLBACK_MODEL}\033[0m")
                 delay = retry_delay(attempt)
+                TRACE.emit(
+                    "model_retry",
+                    {"reason": "529", "attempt": attempt + 1,
+                     "max_attempts": MAX_RETRIES, "delay_ms": round(delay * 1000, 3),
+                     "model": state.current_model},
+                )
                 print(f"  \033[33m[529] retry {attempt + 1}/{MAX_RETRIES} "
                       f"after {delay:.1f}s\033[0m")
                 time.sleep(delay)
@@ -2262,32 +2513,45 @@ def start_background_task(block, handlers: dict) -> str:
     global _bg_counter
     command = block.input.get("command", block.name)
     cwd, cwd_error = _agent_cwd()
+    trace_context = TRACE.capture_context()
 
     def worker():
-        try:
-            if block.name != "bash":
-                raise ValueError("only bash can run in the background")
-            if cwd_error:
-                raise ValueError(cwd_error.removeprefix("Error: "))
-            output, exit_code = _run_bash_process(
-                str(block.input["command"]), cwd)
-            result = _format_bash_result(output, exit_code)
-            status = "completed" if exit_code == 0 else "failed"
-        except Exception as exc:
-            result = f"Error: {type(exc).__name__}: {exc}"
-            status = "failed"
-        try:
-            trigger_hooks("PostToolUse", block, result)
-        except Exception as exc:
-            result = (f"Error: PostToolUse hook failed: "
-                      f"{type(exc).__name__}: {exc}\n{result}")
-            status = "failed"
-        with background_lock:
-            task = background_tasks.get(bg_id)
-            if task is None:
-                return
-            task["status"] = status
-            background_results[bg_id] = str(result)
+        with TRACE.restore_context(trace_context):
+            with TRACE.span(
+                "background_start", "background_end",
+                {"background_id": bg_id, "tool_call_id": block.id,
+                 "tool": block.name, "command": command,
+                 "cwd": str(cwd) if cwd else None},
+            ) as background_span:
+                try:
+                    if block.name != "bash":
+                        raise ValueError("only bash can run in the background")
+                    if cwd_error:
+                        raise ValueError(cwd_error.removeprefix("Error: "))
+                    output, exit_code = _run_bash_process(
+                        str(block.input["command"]), cwd)
+                    result = _format_bash_result(output, exit_code)
+                    status = "completed" if exit_code == 0 else "failed"
+                except Exception as exc:
+                    result = f"Error: {type(exc).__name__}: {exc}"
+                    status = "failed"
+                try:
+                    trigger_hooks("PostToolUse", block, result)
+                except Exception as exc:
+                    result = (f"Error: PostToolUse hook failed: "
+                              f"{type(exc).__name__}: {exc}\n{result}")
+                    status = "failed"
+                background_span.finish(
+                    status=status,
+                    background_id=bg_id,
+                    result=TRACE.summarize_output(result),
+                )
+                with background_lock:
+                    task = background_tasks.get(bg_id)
+                    if task is None:
+                        return
+                    task["status"] = status
+                    background_results[bg_id] = str(result)
 
     with background_lock:
         _bg_counter += 1
@@ -2298,7 +2562,12 @@ def start_background_task(block, handlers: dict) -> str:
             "status": "running",
             "cwd": str(cwd) if cwd else None,
         }
-    thread = threading.Thread(target=worker, daemon=True)
+    TRACE.emit(
+        "background_queued",
+        {"background_id": bg_id, "tool_call_id": block.id,
+         "tool": block.name, "command": command},
+    )
+    thread = threading.Thread(target=worker, daemon=True, name=f"background-{bg_id}")
     try:
         thread.start()
     except Exception:
@@ -2329,6 +2598,11 @@ def collect_background_results() -> list[str]:
             f"  <command>{task['command']}</command>\n"
             f"  <summary>{summary}</summary>\n"
             f"</task_notification>")
+        TRACE.emit(
+            "background_notification",
+            {"background_id": bg_id, "tool_call_id": task["tool_use_id"],
+             "status": task["status"], "result": TRACE.summarize_output(output)},
+        )
     return notifications
 
 
@@ -2479,6 +2753,7 @@ def schedule_job(cron: str, prompt: str,
         scheduled_jobs[job.id] = job
         if durable:
             save_durable_jobs()
+    TRACE.emit("cron_schedule", asdict(job))
     return job
 
 
@@ -2490,6 +2765,7 @@ def cancel_job(job_id: str) -> str:
             save_durable_jobs()
     if not job:
         return f"Job {job_id} not found"
+    TRACE.emit("cron_cancel", {"job_id": job_id})
     return f"Cancelled {job_id}"
 
 
@@ -2504,6 +2780,7 @@ def _enqueue_due_job(job: CronJob):
             job.pending_delivery = False
             raise
     cron_queue.append(job)
+    TRACE.emit("cron_enqueue", asdict(job))
 
 
 def cron_scheduler_loop():
@@ -2527,6 +2804,8 @@ def consume_cron_queue() -> list[CronJob]:
     with cron_lock:
         fired = list(cron_queue)
         cron_queue.clear()
+    for job in fired:
+        TRACE.emit("cron_deliver", asdict(job))
     return fired
 
 
@@ -2541,6 +2820,8 @@ def acknowledge_cron_jobs(jobs: list[CronJob]):
                 durable_changed = durable_changed or current.durable
         if durable_changed:
             save_durable_jobs()
+    for job in jobs:
+        TRACE.emit("cron_ack", {"job_id": job.id})
 
 
 def restore_cron_jobs(jobs: list[CronJob]):
@@ -2552,6 +2833,7 @@ def restore_cron_jobs(jobs: list[CronJob]):
             if current and current.id not in queued_ids:
                 cron_queue.append(current)
                 queued_ids.add(current.id)
+                TRACE.emit("cron_restore", {"job_id": current.id})
 
 
 def run_schedule_cron(cron: str, prompt: str,
@@ -3037,17 +3319,22 @@ BUILTIN_HANDLERS = {
 
 
 def update_context(context: dict, messages: list) -> dict:
+    with TRACE.model_scope("memory_recall"):
+        memories = MEMORY_RUNTIME.load_memories(messages)
     return {
         "memory_catalog": MEMORY_RUNTIME.read_memory_index(),
-        "memories": MEMORY_RUNTIME.load_memories(messages),
+        "memories": memories,
         "connected_mcp": list(mcp_clients.keys()),
         "active_teammates": list(active_teammates.keys()),
     }
 
 
 def remember_after_turn(messages: list) -> None:
-    if MEMORY_RUNTIME.extract_memories(messages):
-        MEMORY_RUNTIME.consolidate_memories()
+    with TRACE.model_scope("memory_extract"):
+        stored = MEMORY_RUNTIME.extract_memories(messages)
+    if stored:
+        with TRACE.model_scope("memory_consolidate"):
+            MEMORY_RUNTIME.consolidate_memories()
 
 
 # -- Agent Loop --
@@ -3058,15 +3345,30 @@ agent_lock = threading.Lock()
 
 def prepare_context(messages: list, active_request: str) -> list:
     # Every LLM turn enters through the same context budget pipeline.
-    messages[:] = tool_result_budget(messages)
-    messages[:] = snip_compact(messages)
-    if estimate_size(messages) > CONTEXT_LIMIT:
-        target = int(CONTEXT_LIMIT * 0.8)
-        messages[:] = micro_compact(messages, target)
+    before_chars = estimate_size(messages)
+    with TRACE.span(
+        "context_prepare", "context_prepared",
+        {"characters_before": before_chars,
+         "active_request_characters": len(active_request)},
+    ) as context_span:
+        messages[:] = tool_result_budget(messages)
+        messages[:] = snip_compact(messages)
         if estimate_size(messages) > CONTEXT_LIMIT:
-            messages[:] = fit_tool_results(messages, target)
-    if estimate_size(messages) > CONTEXT_LIMIT:
-        messages[:] = compact_history(messages, active_request)
+            target = int(CONTEXT_LIMIT * 0.8)
+            messages[:] = micro_compact(messages, target)
+            if estimate_size(messages) > CONTEXT_LIMIT:
+                messages[:] = fit_tool_results(messages, target)
+        if estimate_size(messages) > CONTEXT_LIMIT:
+            TRACE.emit(
+                "context_compact",
+                {"strategy": "summary",
+                 "characters_before": estimate_size(messages)},
+            )
+            messages[:] = compact_history(messages, active_request)
+        context_span.finish(
+            characters_after=estimate_size(messages),
+            message_count=len(messages),
+        )
     return messages
 
 
@@ -3089,14 +3391,15 @@ def inject_background_notifications(messages: list):
 def call_llm(messages: list, context: dict, tools: list,
              state: RecoveryState, max_tokens: int):
     system = assemble_system_prompt(context)
-    return with_retry(
-        lambda: client.messages.create(
-            model=state.current_model,
-            system=system,
-            messages=messages,
-            tools=tools,
-            max_tokens=max_tokens),
-        state)
+    with TRACE.model_scope("lead"):
+        return with_retry(
+            lambda: client.messages.create(
+                model=state.current_model,
+                system=system,
+                messages=messages,
+                tools=tools,
+                max_tokens=max_tokens),
+            state)
 
 
 def agent_loop(messages: list, context: dict, active_request: str):
@@ -3135,9 +3438,19 @@ def agent_loop(messages: list, context: dict, active_request: str):
             response = call_llm(messages, context, tools, state, max_tokens)
         except Exception as e:
             if is_prompt_too_long_error(e) and not state.has_attempted_reactive_compact:
+                TRACE.emit(
+                    "harness_decision",
+                    {"decision": "continue", "reason": "prompt_too_long",
+                     "action": "reactive_compact"},
+                )
                 messages[:] = reactive_compact(messages, active_request)
                 state.has_attempted_reactive_compact = True
                 continue
+            TRACE.emit(
+                "harness_decision",
+                {"decision": "stop", "reason": "model_error",
+                 "error_type": type(e).__name__, "error": str(e)},
+            )
             restore_cron_jobs(unacknowledged_cron_jobs)
             messages.append({"role": "assistant", "content": [
                 {"type": "text", "text": f"[Error] {type(e).__name__}: {e}"}]})
@@ -3151,13 +3464,28 @@ def agent_loop(messages: list, context: dict, active_request: str):
             if not state.has_escalated:
                 max_tokens = ESCALATED_MAX_TOKENS
                 state.has_escalated = True
+                TRACE.emit(
+                    "harness_decision",
+                    {"decision": "continue", "reason": "max_tokens",
+                     "action": "increase_max_tokens", "max_tokens": max_tokens},
+                )
                 print(f"  \033[33m[max_tokens] retry with {max_tokens}\033[0m")
                 continue
             messages.append({"role": "assistant", "content": response.content})
             if state.recovery_count < MAX_RECOVERY_RETRIES:
                 messages.append({"role": "user", "content": CONTINUATION_PROMPT})
                 state.recovery_count += 1
+                TRACE.emit(
+                    "harness_decision",
+                    {"decision": "continue", "reason": "max_tokens",
+                     "action": "continuation_prompt",
+                     "attempt": state.recovery_count},
+                )
                 continue
+            TRACE.emit(
+                "harness_decision",
+                {"decision": "stop", "reason": "max_token_recovery_exhausted"},
+            )
             release_completed_assignment("agent")
             return
 
@@ -3165,62 +3493,106 @@ def agent_loop(messages: list, context: dict, active_request: str):
         state.has_escalated = False
         messages.append({"role": "assistant", "content": response.content})
         if not has_tool_use(response.content):
+            TRACE.emit(
+                "harness_decision",
+                {"decision": "stop", "reason": "no_tool_use"},
+            )
             trigger_hooks("Stop", messages)
             remember_after_turn(messages)
             release_completed_assignment("agent")
             return
 
+        requested_tools = [
+            block.name for block in response.content if block.type == "tool_use"
+        ]
+        TRACE.emit(
+            "harness_decision",
+            {"decision": "dispatch_tools", "reason": "tool_use",
+             "tool_count": len(requested_tools), "tools": requested_tools},
+        )
         results = []
         compact_requested = False
         for block in response.content:
             if block.type != "tool_use":
                 continue
             print(f"\033[36m> {block.name}\033[0m")
+            with TRACE.span(
+                "tool_start", "tool_end", trace_tool_data(block)
+            ) as tool_span:
+                if block.name == "compact":
+                    output = (
+                        "[Compaction requested. This completed turn will be summarized.]"
+                    )
+                    tool_span.finish(
+                        status="ok", tool_call_id=block.id, tool=block.name,
+                        result=TRACE.summarize_output(output), special="compact",
+                    )
+                    results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": output,
+                    })
+                    compact_requested = True
+                    continue
 
-            if block.name == "compact":
-                results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": "[Compaction requested. This completed turn will be summarized.]",
-                })
-                compact_requested = True
-                continue
+                blocked = trigger_hooks("PreToolUse", block)
+                if blocked:
+                    output = str(blocked)
+                    tool_span.finish(
+                        status="denied", tool_call_id=block.id, tool=block.name,
+                        result=TRACE.summarize_output(output),
+                    )
+                    results.append({"type": "tool_result",
+                                    "tool_use_id": block.id,
+                                    "content": output})
+                    continue
 
-            blocked = trigger_hooks("PreToolUse", block)
-            if blocked:
+                if should_run_background(block.name, block.input):
+                    try:
+                        bg_id = start_background_task(block, handlers)
+                        output = (f"[Background task {bg_id} started] "
+                                  "Result will arrive as a task_notification.")
+                        status = "scheduled"
+                    except Exception as exc:
+                        bg_id = None
+                        output = (f"Error: Failed to start background task: "
+                                  f"{type(exc).__name__}: {exc}")
+                        status = "error"
+                    tool_span.finish(
+                        status=status, tool_call_id=block.id, tool=block.name,
+                        background_id=bg_id,
+                        result=TRACE.summarize_output(output),
+                    )
+                    results.append({"type": "tool_result",
+                                    "tool_use_id": block.id,
+                                    "content": output})
+                    continue
+
+                handler = handlers.get(block.name)
+                output = call_tool_handler(handler, block.input, block.name)
+                trigger_hooks("PostToolUse", block, output)
+                print(str(output)[:300])
+
+                if block.name == "todo_write":
+                    rounds_since_todo = 0
+                else:
+                    rounds_since_todo += 1
+
+                tool_span.finish(
+                    status="error" if str(output).startswith("Error:") else "ok",
+                    tool_call_id=block.id, tool=block.name,
+                    result=TRACE.summarize_output(output),
+                )
                 results.append({"type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": str(blocked)})
-                continue
-
-            if should_run_background(block.name, block.input):
-                try:
-                    bg_id = start_background_task(block, handlers)
-                    output = (f"[Background task {bg_id} started] "
-                              "Result will arrive as a task_notification.")
-                except Exception as exc:
-                    output = (f"Error: Failed to start background task: "
-                              f"{type(exc).__name__}: {exc}")
-                results.append({"type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": output})
-                continue
-
-            handler = handlers.get(block.name)
-            output = call_tool_handler(handler, block.input, block.name)
-            trigger_hooks("PostToolUse", block, output)
-            print(str(output)[:300])
-
-            if block.name == "todo_write":
-                rounds_since_todo = 0
-            else:
-                rounds_since_todo += 1
-
-            results.append({"type": "tool_result",
-                            "tool_use_id": block.id, "content": output})
+                                "tool_use_id": block.id, "content": output})
 
         messages.append({"role": "user", "content": build_user_content(results)})
         if compact_requested:
+            TRACE.emit(
+                "harness_decision",
+                {"decision": "continue", "reason": "compact_tool",
+                 "action": "compact_history"},
+            )
             messages[:] = compact_history(messages, active_request)
 
 
@@ -3231,6 +3603,30 @@ def print_turn_assistants(messages: list, turn_start: int):
         for block in msg.get("content", []):
             if block_type(block) == "text":
                 terminal_print(block["text"] if isinstance(block, dict) else block.text)
+
+
+@contextmanager
+def traced_lead_turn(trigger: str, active_request: str):
+    turn_id = TRACE.new_id("turn")
+    status = "completed"
+    with TRACE.turn_scope(turn_id):
+        with TRACE.agent_scope("agent-root", None, "lead"):
+            TRACE.emit(
+                "turn_start",
+                {"trigger": trigger,
+                 "request": TRACE.summarize_output(active_request)},
+            )
+            try:
+                with TRACE.span(
+                    "agent_active_start", "agent_active_end",
+                    {"reason": trigger},
+                ):
+                    yield turn_id
+            except BaseException:
+                status = "error"
+                raise
+            finally:
+                TRACE.emit("turn_end", {"trigger": trigger, "status": status})
 
 
 def async_event_loop(history: list, context: dict, session_state: dict):
@@ -3258,34 +3654,57 @@ def async_event_loop(history: list, context: dict, session_state: dict):
                 if scheduled_requests
                 else session_state["active_user_request"]
             )
-            agent_loop(history, context, active_request)
-            context.update(update_context(context, history))
-            print_turn_assistants(history, turn_start)
+            trigger_parts = []
+            if fired:
+                trigger_parts.append("cron")
+            if inbox:
+                trigger_parts.append("team")
+            if has_pending_background():
+                trigger_parts.append("background")
+            trigger = "+".join(trigger_parts) or "automatic"
+            with traced_lead_turn(trigger, active_request):
+                agent_loop(history, context, active_request)
+                context.update(update_context(context, history))
+                print_turn_assistants(history, turn_start)
 
 
 if __name__ == "__main__":
     CLI_ACTIVE = True
-    start_runtime_services()
-    print("s15: integrated harness")
-    print("Enter a question, press Enter to send. Type q to quit.\n")
-    history = []
-    context = update_context({}, [])
-    session_state = {"active_user_request": "(no active user request)"}
-    threading.Thread(target=async_event_loop,
-                     args=(history, context, session_state), daemon=True).start()
-    while True:
-        try:
-            query = CONSOLE.ask()
-        except (EOFError, KeyboardInterrupt):
-            break
-        if query.strip().lower() in ("q", "exit", ""):
-            break
-        with agent_lock:
-            trigger_hooks("UserPromptSubmit", query)
-            turn_start = len(history)
-            session_state["active_user_request"] = query
-            history.append({"role": "user", "content": query})
-            agent_loop(history, context, query)
-            context = update_context(context, history)
-            print_turn_assistants(history, turn_start)
-        print()
+    initialize_tracing("s15")
+    trace_status = "completed"
+    try:
+        start_runtime_services()
+        print("s15: integrated harness")
+        print("Enter a question, press Enter to send. Type q to quit.\n")
+        history = []
+        with TRACE.agent_scope("agent-root", None, "lead"):
+            context = update_context({}, [])
+        session_state = {"active_user_request": "(no active user request)"}
+        threading.Thread(target=async_event_loop,
+                         args=(history, context, session_state), daemon=True,
+                         name="lead-events").start()
+        while True:
+            try:
+                with TRACE.span(
+                    "input_wait_start", "input_wait_end", {"source": "console"}
+                ):
+                    query = CONSOLE.ask()
+            except (EOFError, KeyboardInterrupt):
+                break
+            if query.strip().lower() in ("q", "exit", ""):
+                break
+            with agent_lock:
+                with traced_lead_turn("user", query):
+                    trigger_hooks("UserPromptSubmit", query)
+                    turn_start = len(history)
+                    session_state["active_user_request"] = query
+                    history.append({"role": "user", "content": query})
+                    agent_loop(history, context, query)
+                    context = update_context(context, history)
+                    print_turn_assistants(history, turn_start)
+            print()
+    except BaseException:
+        trace_status = "error"
+        raise
+    finally:
+        close_tracing(trace_status)

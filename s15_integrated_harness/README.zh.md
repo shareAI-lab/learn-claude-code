@@ -140,6 +140,8 @@ Lead 启动队友后结束当前轮次，不在模型循环里反复查询状态
 
 一次性 subagent 解决“上下文隔离”；持久队友解决“长期并行协作”。
 
+两种 child tool pool 都不包含 `task` 或 `spawn_teammate`，所以 s15 child 不能递归创建 child；topology 是 Root → one-shot 或 teammate。s15 没有数值化 teammate 总数上限，只有名称唯一性和 host resource 约束。one-shot 在 parent tool call 内同步运行；teammate daemon thread 可以彼此重叠，也可以与 Lead 重叠。child 不继承 Lead conversation：one-shot 只收到 assigned description 与 `SUB_SYSTEM`，teammate 收到 assignment 并维护 private message history。它们共享 model client、hooks、task/message store 与 workspace policy；one-shot 通过 `task` tool result 返回，teammate 通过 `MessageBus` event 返回。
+
 ### 记忆、技能和 prompt
 
 S15 直接复用 s09 的 Memory runtime。每轮调用模型前，它读取 `.memory/MEMORY.md` 目录，根据当前请求选择相关记录，再把选中的正文交给 `assemble_system_prompt(context)`。本轮结束后，`extract_memories()` 提取可跨会话使用的信息；有新增记录时再运行 `consolidate_memories()`。
@@ -199,6 +201,62 @@ MCP 负责外部能力：
 
 ---
 
+## 结构化执行追踪
+
+s15 和 s16 的 CLI 每个进程生成一个 JSONL trace；仅导入模块不会写文件。默认开启，也可以通过环境变量配置：
+
+```sh
+HARNESS_TRACE=1
+HARNESS_TRACE_DIR=traces
+HARNESS_TRACE_OUTPUT=summary       # summary 或 full
+HARNESS_TRACE_PREVIEW_CHARS=500
+python s15_integrated_harness/code.py
+```
+
+每条记录都有 wall-clock 和 monotonic 时间、run/turn/agent ID、parent agent、span/因果 ID、线程、事件名和数据。成对边界共享 `span_id`，包括 `model_request → model_response`、外层 `tool_start → tool_end`、内层 `tool_execution_start → tool_execution_end`、`agent_start → agent_end`、context、后台任务、权限等待和 workflow node。工具参数会递归隐藏 credential；结果、prompt、task 和消息默认只保存有长度限制的 preview、字符数和 SHA-256。模型事件保存动作类型、工具名、stop reason、耗时和 provider 提供的 token usage，不保存隐藏推理内容。
+
+```sh
+python s15_integrated_harness/trace_view.py traces/run_....jsonl
+python s15_integrated_harness/trace_view.py --view tree
+python s15_integrated_harness/trace_view.py --view timeline --width 120
+python s15_integrated_harness/trace_view.py --view metrics
+```
+
+viewer 会生成 agent tree、并行 timeline，以及 model/tool 调用数、工具分布、subagent/cache 数、最大深度、最大同时活动 agent 数、token、model/tool 时间、workflow semaphore 与 agent-launch 等待、人工等待和近似 orchestration overhead。`tool_time_ms` 只计算 handler execution，不包含 permission wait，也不重复计算内部 child work。`model_time_ms` 是 client 观察到的 provider latency，包含 network、server queue 和 inference；要拆出纯 GPU inference，需结合 vLLM server metrics。累计时间在并行时可能大于 wall time，因此同时报告合并重叠后的 `*_wall_time_ms`。
+
+trace 展示的是实际执行的计划，不是 chain-of-thought。模型决定返回文本还是 `tool_use`、选择工具和参数、是否委派；确定性的 harness 代码负责权限、dispatch、线程调度、task/message 状态、context compaction、重试和停止条件。
+
+## 通过远程 vLLM 使用 Qwen/Qwen3.8-27B
+
+`Qwen/Qwen3.8-27B` 是官方 Hugging Face model ID。最小改动路径是保留 Anthropic SDK，把它指向 vLLM 0.17.0 或更新版本的 Anthropic-compatible `/v1/messages` endpoint：
+
+```sh
+vllm serve Qwen/Qwen3.8-27B \
+  --host 0.0.0.0 --port 8000 \
+  --served-model-name Qwen/Qwen3.8-27B \
+  --reasoning-parser qwen3 \
+  --enable-auto-tool-choice \
+  --tool-call-parser qwen3_coder
+```
+
+Harness 主机的 `.env`：
+
+```dotenv
+ANTHROPIC_API_KEY=EMPTY
+ANTHROPIC_BASE_URL=http://your-vllm-host:8000
+MODEL_ID=Qwen/Qwen3.8-27B
+```
+
+如果 vLLM 以 `--api-key YOUR_TOKEN` 启动，请将 `ANTHROPIC_API_KEY` 留空并设置 `ANTHROPIC_AUTH_TOKEN=YOUR_TOKEN`。Anthropic SDK 随后会发送 vLLM 受保护 `/v1/messages` endpoint 所要求的 `Authorization: Bearer YOUR_TOKEN`。
+
+agent loop 不需要 Qwen 专用分支，当前 runtime 也不使用 streaming。s16 的 structured output 是 prompt 要求 JSON 后再本地校验并重试一次，不是 provider 强制 schema，因此必须实测。tool parser 缺失时，Qwen 的工具语法不会变成 Anthropic `tool_use`；reasoning parser 缺失时，默认 thinking 可能消耗输出预算。先验证一个纯文本请求和一个无害工具请求，并且只在可信私网使用未鉴权的 `EMPTY` endpoint。参考[官方 model card](https://huggingface.co/Qwen/Qwen3.8-27B)、[vLLM Qwen3.8 recipe](https://recipes.vllm.ai/Qwen/Qwen3.8-27B)和[vLLM serving 文档](https://docs.vllm.ai/en/latest/serving/openai_compatible_server/)。
+
+## Trace 实验
+
+每个 prompt 用新的 CLI 进程运行，远程模型先 warm up，每项至少重复三次，并记录 vLLM 版本和硬件。预期形状只是待验证的假设：A 用“不要调用工具，只回复 baseline complete”建立单次 model call 基线；B 要求不委派地搜索并读取 s15 dispatch 边界，观察 tool-heavy 顺序；C 创建三个 task 并交给 teammate，观察 agent tree 和 mailbox join；D 明确要求三个独立 teammate 并行统计 s15、s16 和 tracer，期待 timeline 重叠；E 读取 s01–s17 的全部 README，观察 context budget、archived result 和可能的 compaction。比较 Qwen 与 Claude 时固定 prompt、revision、权限回答、server 参数和 warm state，并同时比较成功率、工具选择、重试、深度和并行度。
+
+---
+
 ## 相对 s14 的变化
 
 | 范围 | s14 MCP | s15 Integrated Harness |
@@ -242,4 +300,4 @@ python s15_integrated_harness/code.py
 
 [s16 Workflow Runtime](../s16_workflow_runtime/) 会在这个 host 中加入 `Workflow` 工具。Workflow 把固定的编排路径写在代码中，并记录运行进度，使同一次运行可以继续执行。
 
-<!-- translation-sync: zh@v14, en@v14, ja@v14 -->
+<!-- translation-sync: zh@v15, en@v15, ja@v15 -->

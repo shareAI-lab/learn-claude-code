@@ -190,6 +190,24 @@ if cached is not MISS:
 
 续跑时，运行时需要把当前 `agent()` 与 journal 中的旧调用对应起来。稳定哈希让同一份 workflow 和同样的参数产生相同的调用 key。真实模型的回答可以变化；只要调用内容没有变化，resume 就直接使用 journal 中已经保存的结果。
 
+## Structured trace 中的 workflow topology
+
+S16 复用 s15 的 session recorder。交互式 `Workflow` tool span 会创建一个 `workflow-orchestrator` child；每个 `ctx.agent()` 再创建 `workflow-agent` child 和配对的 `workflow_node_start/workflow_node_end`。`demo` 与 `resume` 命令也会生成独立 trace，并把 provider 标记为 deterministic `MockAgentRunner`。
+
+Pipeline 事件包含 `item_index`、`stage_index` 和前一阶段的全部 dependency node。`parallel()` 从各个独立 asyncio task 收集已完成 node ID，因此后续阶段依赖整个 fan-out，而不是最后完成的一个 task。journal cache hit 会发出成对的 cached node span，标记 `executed=false`，并且不会有 model request。
+
+并发机制没有改变：`asyncio.gather` 调度 pipeline item 和 parallel thunk，`asyncio.Semaphore` 把活动 `agent()` 限制为 8 个，`asyncio.to_thread` 把 blocking provider request 移出 event-loop thread。trace 记录 semaphore `queue_wait_ms`、worker 继承的 agent context 下的 model latency 和 workflow-node duration，不会串行化或重排工作。
+
+root model 会显式选择 `Workflow` tool，但 trusted workflow code 会确定性地决定有哪些 `ctx.agent()` call 以及它们的 dependency shape。每个 run 最多允许 1,000 次 `agent()` call，nested `workflow()` 只允许一层；workflow agent 只收到 prompt/schema，不拥有 harness tool，因此不能递归委派。trace topology 是 Root → workflow-orchestrator → workflow-agent，最大 agent-tree depth 为 2。
+
+```sh
+python s16_workflow_runtime/code.py demo
+python s15_integrated_harness/trace_view.py --view tree
+python s15_integrated_harness/trace_view.py --view timeline --width 120
+```
+
+Mock demo 没有真实 provider call，因此有 workflow-node timing 而没有 `model_request`；交互式 s16 会同时记录 node 和 `AnthropicAgentRunner` 的真实 LLM call。
+
 ## 跑起来看看
 
 示例 workflow `review-changes` 用 `pipeline` 让每个审查维度独立走“审计 → 验证”。默认交互模式使用真实 API，并从 `args.changes` 读取待审查内容；`demo` 使用固定 runner 数据来展示 pipeline、结构校验、journal 和续跑。
@@ -242,4 +260,4 @@ python s16_workflow_runtime/code.py resume   # 用上次的 runId 续跑，每�
 
 [s17 Goal Loop](../s17_goal_loop/) 会使用一个更小、独立的循环检查既定目标是否已经达成，并据此决定是否还需要下一轮。
 
-<!-- translation-sync: zh@v10, en@v10, ja@v10 -->
+<!-- translation-sync: zh@v11, en@v11, ja@v11 -->

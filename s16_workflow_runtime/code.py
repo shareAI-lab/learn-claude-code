@@ -19,6 +19,7 @@ Run:
 """
 
 import asyncio
+import contextvars
 import fcntl
 import hashlib
 import importlib.util
@@ -28,7 +29,8 @@ import re
 import secrets
 import sys
 import threading
-from contextlib import contextmanager
+import time
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -39,6 +41,47 @@ STORE = Path(__file__).parent / ".runtime"   # snapshots + journals live here
 MISS = object()                        # journal cache miss sentinel
 WORKFLOW_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 RUN_ID_RE = re.compile(r"^wf_[A-Za-z0-9][A-Za-z0-9._-]{0,63}_[0-9a-f]{16}$")
+TRACE_OBSERVER = None                   # injected by the cumulative s15 host
+_PIPELINE_TRACE_META = contextvars.ContextVar(
+    "workflow_pipeline_trace_meta", default={}
+)
+_LAST_WORKFLOW_NODES = contextvars.ContextVar(
+    "workflow_last_trace_nodes", default=()
+)
+
+
+def _trace_emit(event, data=None, **kwargs):
+    if TRACE_OBSERVER is None or not TRACE_OBSERVER.enabled:
+        return None
+    return TRACE_OBSERVER.emit(event, data or {}, **kwargs)
+
+
+def initialize_demo_tracing():
+    """Create a standalone trace only for the deterministic demo CLI."""
+    global TRACE_OBSERVER
+    module_name = "integrated_harness_trace_runtime"
+    runtime = sys.modules.get(module_name)
+    if runtime is None:
+        path = Path(__file__).resolve().parents[1] / "s15_integrated_harness" / "trace_runtime.py"
+        if not path.is_file():
+            TRACE_OBSERVER = None
+            return None
+        spec = importlib.util.spec_from_file_location(module_name, path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"unable to load trace runtime from {path}")
+        runtime = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = runtime
+        try:
+            spec.loader.exec_module(runtime)
+        except Exception:
+            sys.modules.pop(module_name, None)
+            raise
+    TRACE_OBSERVER = runtime.create_recorder(
+        Path.cwd(),
+        "s16-demo",
+        run_data={"model": "MockAgentRunner", "provider": "deterministic_fixture"},
+    )
+    return TRACE_OBSERVER
 
 
 def _stable_hash(s: str) -> int:
@@ -288,16 +331,21 @@ class AnthropicAgentRunner:
                 "\n\nReturn only one JSON object matching this schema:\n"
                 + json.dumps(schema, ensure_ascii=True, sort_keys=True)
             )
-        response = self.client.messages.create(
-            model=self.model,
-            system=(
-                "You are a focused workflow agent. Complete only the supplied "
-                "step. Do not claim access to files or results not included in "
-                "the prompt."
-            ),
-            messages=[{"role": "user", "content": request}],
-            max_tokens=2000,
+        scope = (
+            TRACE_OBSERVER.model_scope("workflow_agent")
+            if TRACE_OBSERVER is not None else nullcontext()
         )
+        with scope:
+            response = self.client.messages.create(
+                model=self.model,
+                system=(
+                    "You are a focused workflow agent. Complete only the supplied "
+                    "step. Do not claim access to files or results not included in "
+                    "the prompt."
+                ),
+                messages=[{"role": "user", "content": request}],
+                max_tokens=2000,
+            )
         text = _response_text(response)
         if schema is None:
             value = text
@@ -447,10 +495,18 @@ class ExecutionState:
         if title not in self._phases_seen:
             self._phases_seen.add(title)
             self.task.progress_event("workflow_phase", title=title)
+            _trace_emit(
+                "workflow_phase",
+                {"workflow_run_id": self.task.run_id, "title": title},
+            )
 
     def log(self, message):
         """Emit a workflow_log progress line."""
         self.task.progress_event("workflow_log", message=message)
+        _trace_emit(
+            "workflow_log",
+            {"workflow_run_id": self.task.run_id, "message": message},
+        )
 
     async def agent(self, prompt, schema=None, label=None, phase=None):
         """Spawn one subagent. With a schema, force StructuredOutput + validate
@@ -461,51 +517,211 @@ class ExecutionState:
             raise WorkflowInputError("token budget exceeded")
 
         key = self.journal.key("agent", label, prompt, schema)
+        observer = TRACE_OBSERVER
+        parent_agent_id = (
+            observer.current_agent_id() if observer is not None else None
+        )
+        agent_id = (
+            observer.new_id("agent-wf") if observer is not None else key
+        )
+        node_id = f"workflow-node-{agent_id}"
         cached = self.journal.cached(key)
+        executed = cached is MISS
+        trace_meta = dict(_PIPELINE_TRACE_META.get() or {})
+        declared_dependencies = list(trace_meta.pop("depends_on_node_ids", []))
+        depends_on_node_ids = list(dict.fromkeys(
+            (*declared_dependencies, *_LAST_WORKFLOW_NODES.get())
+        ))
+        create_event = _trace_emit(
+            "agent_create",
+            {"role": "workflow-agent", "task": prompt, "label": label,
+             "workflow_run_id": self.task.run_id, "workflow_node_id": node_id,
+             "journal_key": key, "executed": executed},
+            agent_id=agent_id,
+            parent_agent_id=parent_agent_id,
+            agent_kind="workflow_agent",
+        )
+        _trace_emit(
+            "workflow_node_queued",
+            {"workflow_run_id": self.task.run_id, "workflow_node_id": node_id,
+             "label": label, "phase": phase or self._phase,
+             "journal_key": key, "depends_on_node_ids": depends_on_node_ids,
+             **trace_meta},
+            agent_id=agent_id,
+            parent_agent_id=parent_agent_id,
+        )
+        for dependency in depends_on_node_ids:
+            _trace_emit(
+                "workflow_dependency",
+                {"workflow_run_id": self.task.run_id,
+                 "from_node_id": dependency, "to_node_id": node_id},
+                agent_id=agent_id,
+                parent_agent_id=parent_agent_id,
+            )
+
         if cached is not MISS:
-            if schema is not None:
-                ok, err = SimpleJsonSchema(schema).validate(cached)
-                if not ok:
-                    raise WorkflowInputError(
-                        f"cached agent output failed schema validation: {err}"
+            agent_scope = (
+                observer.agent_scope(agent_id, parent_agent_id, "workflow_agent")
+                if observer is not None else nullcontext()
+            )
+            with agent_scope:
+                _trace_emit(
+                    "agent_start",
+                    {"role": "workflow-agent", "label": label,
+                     "workflow_run_id": self.task.run_id,
+                     "workflow_node_id": node_id, "queue_wait_ms": 0.0,
+                     "executed": False},
+                    caused_by_event_id=create_event,
+                )
+                node_scope = (
+                    observer.span(
+                        "workflow_node_start", "workflow_node_end",
+                        {"workflow_run_id": self.task.run_id,
+                         "workflow_node_id": node_id, "label": label,
+                         "phase": phase or self._phase, "journal_key": key,
+                         "queue_wait_ms": 0.0, "executed": False, **trace_meta},
+                    ) if observer is not None else nullcontext(None)
+                )
+                node_status = "cached"
+                try:
+                    with node_scope as node_span:
+                        if schema is not None:
+                            ok, err = SimpleJsonSchema(schema).validate(cached)
+                            if not ok:
+                                raise WorkflowInputError(
+                                    "cached agent output failed schema "
+                                    f"validation: {err}"
+                                )
+                        self.task.progress_event(
+                            "workflow_agent", label=label,
+                            phase=phase or self._phase, status="cached"
+                        )
+                        if node_span is not None:
+                            node_span.finish(
+                                status="cached", executed=False, label=label,
+                                workflow_node_id=node_id,
+                                result=(observer.summarize_output(cached)
+                                        if observer else None),
+                            )
+                except Exception:
+                    node_status = "error"
+                    raise
+                finally:
+                    _trace_emit(
+                        "agent_end",
+                        {"role": "workflow-agent", "label": label,
+                         "status": node_status, "executed": False,
+                         "workflow_node_id": node_id},
                     )
-            self.task.progress_event("workflow_agent", label=label,
-                                     phase=phase or self._phase, status="cached")
+            _LAST_WORKFLOW_NODES.set(tuple(dict.fromkeys(
+                (*_LAST_WORKFLOW_NODES.get(), node_id)
+            )))
             return cached
 
+        queued_at = time.perf_counter_ns()
         async with self._limits.semaphore:
-            run = await asyncio.to_thread(
-                self.runner.run, prompt, schema, label
+            queue_wait_ms = (time.perf_counter_ns() - queued_at) / 1_000_000
+            agent_scope = (
+                observer.agent_scope(agent_id, parent_agent_id, "workflow_agent")
+                if observer is not None else nullcontext()
             )
-            result = run.value
-            tokens = run.tokens
-
-        if schema is not None:
-            ok, err = SimpleJsonSchema(schema).validate(result)
-            if not ok:
-                retry = await asyncio.to_thread(
-                    self.runner.run,
-                    prompt + "\n\nReturn valid JSON.",
-                    schema,
-                    label,
+            with agent_scope:
+                _trace_emit(
+                    "agent_start",
+                    {"role": "workflow-agent", "label": label,
+                     "workflow_run_id": self.task.run_id,
+                     "workflow_node_id": node_id, "queue_wait_ms": queue_wait_ms},
+                    caused_by_event_id=create_event,
                 )
-                result = retry.value
-                tokens += retry.tokens
-                ok, err = SimpleJsonSchema(schema).validate(result)
-                if not ok:
-                    raise WorkflowInputError(f"agent({{schema}}) invalid output: {err}")
+                node_scope = (
+                    observer.span(
+                        "workflow_node_start", "workflow_node_end",
+                        {"workflow_run_id": self.task.run_id,
+                         "workflow_node_id": node_id, "label": label,
+                         "phase": phase or self._phase, "journal_key": key,
+                         "queue_wait_ms": queue_wait_ms, "executed": True,
+                         **trace_meta},
+                    ) if observer is not None else nullcontext(None)
+                )
+                node_status = "completed"
+                try:
+                    with node_scope as node_span:
+                        run = await asyncio.to_thread(
+                            self.runner.run, prompt, schema, label
+                        )
+                        result = run.value
+                        tokens = run.tokens
 
-        self.budget.add(tokens)
-        self.task.usage["agents"] += 1
-        self.task.usage["tokens"] += tokens
-        self.journal.record(key, result)
-        self.task.progress_event("workflow_agent", label=label,
-                                 phase=phase or self._phase, status="done")
+                        if schema is not None:
+                            ok, err = SimpleJsonSchema(schema).validate(result)
+                            if not ok:
+                                _trace_emit(
+                                    "workflow_schema_retry",
+                                    {"workflow_run_id": self.task.run_id,
+                                     "workflow_node_id": node_id, "label": label,
+                                     "error": err},
+                                )
+                                retry = await asyncio.to_thread(
+                                    self.runner.run,
+                                    prompt + "\n\nReturn valid JSON.",
+                                    schema,
+                                    label,
+                                )
+                                result = retry.value
+                                tokens += retry.tokens
+                                ok, err = SimpleJsonSchema(schema).validate(result)
+                                if not ok:
+                                    raise WorkflowInputError(
+                                        f"agent({{schema}}) invalid output: {err}"
+                                    )
+
+                        self.budget.add(tokens)
+                        self.task.usage["agents"] += 1
+                        self.task.usage["tokens"] += tokens
+                        self.journal.record(key, result)
+                        self.task.progress_event(
+                            "workflow_agent", label=label,
+                            phase=phase or self._phase, status="done"
+                        )
+                        if node_span is not None:
+                            node_span.finish(
+                                status="completed", label=label, tokens=tokens,
+                                workflow_node_id=node_id,
+                                result=observer.summarize_output(result),
+                            )
+                except Exception:
+                    node_status = "error"
+                    raise
+                finally:
+                    _trace_emit(
+                        "agent_end",
+                        {"role": "workflow-agent", "label": label,
+                         "status": node_status, "executed": True,
+                         "workflow_node_id": node_id},
+                    )
+        _LAST_WORKFLOW_NODES.set(tuple(dict.fromkeys(
+            (*_LAST_WORKFLOW_NODES.get(), node_id)
+        )))
         return result
 
     async def parallel(self, thunks):
         """BARRIER: run all thunks concurrently and fail if any thunk fails."""
-        return await asyncio.gather(*[thunk() for thunk in thunks])
+        async def run_one(thunk):
+            token = _LAST_WORKFLOW_NODES.set(())
+            try:
+                value = await thunk()
+                return value, tuple(_LAST_WORKFLOW_NODES.get())
+            finally:
+                _LAST_WORKFLOW_NODES.reset(token)
+
+        pairs = await asyncio.gather(*[run_one(thunk) for thunk in thunks])
+        nodes = tuple(dict.fromkeys(
+            node for _value, completed in pairs for node in completed
+        ))
+        _LAST_WORKFLOW_NODES.set(tuple(dict.fromkeys(
+            (*_LAST_WORKFLOW_NODES.get(), *nodes)
+        )))
+        return [value for value, _completed in pairs]
 
     async def pipeline(self, items, *stages):
         """Per-item staged flow, NO barrier between stages: item A can be in
@@ -513,10 +729,34 @@ class ExecutionState:
         (prev_result, original_item, index). A throwing stage fails the workflow."""
         async def run_item(item, idx):
             value = item
-            for stage in stages:
-                value = await stage(value, item, idx)
-            return value
-        return await asyncio.gather(*[run_item(it, i) for i, it in enumerate(items)])
+            previous_nodes = []
+            for stage_index, stage in enumerate(stages):
+                meta_token = _PIPELINE_TRACE_META.set({
+                    "item_index": idx,
+                    "stage_index": stage_index,
+                    "depends_on_node_ids": list(previous_nodes),
+                })
+                last_token = _LAST_WORKFLOW_NODES.set(())
+                try:
+                    value = await stage(value, item, idx)
+                    stage_nodes = list(_LAST_WORKFLOW_NODES.get())
+                finally:
+                    _LAST_WORKFLOW_NODES.reset(last_token)
+                    _PIPELINE_TRACE_META.reset(meta_token)
+                if stage_nodes:
+                    previous_nodes = stage_nodes
+            return value, tuple(previous_nodes)
+
+        pairs = await asyncio.gather(
+            *[run_item(it, i) for i, it in enumerate(items)]
+        )
+        terminal_nodes = tuple(dict.fromkeys(
+            node for _value, completed in pairs for node in completed
+        ))
+        _LAST_WORKFLOW_NODES.set(tuple(dict.fromkeys(
+            (*_LAST_WORKFLOW_NODES.get(), *terminal_nodes)
+        )))
+        return [value for value, _completed in pairs]
 
     async def workflow(self, name, args=None):
         """Run a saved workflow inline as a child (one level), sharing this run's
@@ -567,6 +807,23 @@ class WorkflowTool:
             args = args or {}
             journal = WorkflowJournal(run_id, resume=False)
         task_id = create_task_id(run_id)
+        observer = TRACE_OBSERVER
+        parent_agent_id = (
+            observer.current_agent_id() if observer is not None else None
+        )
+        workflow_agent_id = (
+            observer.new_id("agent-workflow") if observer is not None
+            else f"workflow-{run_id}"
+        )
+        create_event = _trace_emit(
+            "agent_create",
+            {"role": "workflow-orchestrator", "task": meta["description"],
+             "workflow_run_id": run_id, "workflow_name": meta["name"],
+             "resume": resuming, "execution": "asyncio"},
+            agent_id=workflow_agent_id,
+            parent_agent_id=parent_agent_id,
+            agent_kind="workflow_orchestrator",
+        )
 
         task = LocalWorkflowTask(task_id, run_id, meta)
         # Record the launch envelope before workflow execution starts.
@@ -584,17 +841,55 @@ class WorkflowTool:
             "task": serialize_task(task),
         })
 
-        try:
-            ctx = ExecutionState(
-                task, journal, RUNNER_FACTORY(), Budget(args.get("budget")), args
+        workflow_scope = (
+            observer.agent_scope(
+                workflow_agent_id, parent_agent_id, "workflow_orchestrator"
+            ) if observer is not None else nullcontext()
+        )
+        workflow_started = time.perf_counter_ns()
+        with workflow_scope:
+            _trace_emit(
+                "agent_start",
+                {"role": "workflow-orchestrator", "workflow_run_id": run_id,
+                 "workflow_name": meta["name"], "resume": resuming},
+                caused_by_event_id=create_event,
             )
-            result = await script_fn(ctx, args)
-            task.status = "completed"
-        except Exception as e:                          # failed / stopped close the loop too
-            task.status = "failed"
-            result = {"error": str(e)}
-        finally:
-            journal.close()
+            _trace_emit(
+                "workflow_start",
+                {"workflow_run_id": run_id, "workflow_name": meta["name"],
+                 "task_id": task_id, "resume": resuming, "args": args},
+            )
+            pipeline_token = _PIPELINE_TRACE_META.set({})
+            last_nodes_token = _LAST_WORKFLOW_NODES.set(())
+            try:
+                ctx = ExecutionState(
+                    task, journal, RUNNER_FACTORY(), Budget(args.get("budget")), args
+                )
+                result = await script_fn(ctx, args)
+                task.status = "completed"
+            except Exception as e:                      # failed closes the loop too
+                task.status = "failed"
+                result = {"error": str(e)}
+            finally:
+                journal.close()
+                _LAST_WORKFLOW_NODES.reset(last_nodes_token)
+                _PIPELINE_TRACE_META.reset(pipeline_token)
+            workflow_duration_ms = (
+                time.perf_counter_ns() - workflow_started
+            ) / 1_000_000
+            _trace_emit(
+                "workflow_end",
+                {"workflow_run_id": run_id, "workflow_name": meta["name"],
+                 "task_id": task_id, "status": task.status,
+                 "duration_ms": round(workflow_duration_ms, 3),
+                 "agents": task.usage["agents"], "tokens": task.usage["tokens"],
+                 "result": observer.summarize_output(result) if observer else None},
+            )
+            _trace_emit(
+                "agent_end",
+                {"role": "workflow-orchestrator", "workflow_run_id": run_id,
+                 "workflow_name": meta["name"], "status": task.status},
+            )
 
         _write_json(STORE / f"{run_id}.output.json", result)
         _write_json(STORE / f"{run_id}.json", {
@@ -777,7 +1072,8 @@ def run_workflow_sync(**tool_input):
 
 def install_workflow_tool(host):
     """Extend the s15 host tool pool without changing its dispatch loop."""
-    global RUNNER_FACTORY
+    global RUNNER_FACTORY, TRACE_OBSERVER
+    TRACE_OBSERVER = getattr(host, "TRACE", None)
     RUNNER_FACTORY = lambda: AnthropicAgentRunner(host.client, host.MODEL)
     if getattr(host, "_workflow_tool_installed", False):
         return
@@ -841,40 +1137,85 @@ READLINE_PROMPT = "\001\033[36m\002s16 >> \001\033[0m\002"
 def run_cli():
     """Run the cumulative s15 host with Workflow added to its tool pool."""
     host = load_integrated_host()
+    host.initialize_tracing("s16")
     install_workflow_tool(host)
     host.CONSOLE.set_prompt(PROMPT, READLINE_PROMPT)
     host.CLI_ACTIVE = True
-    host.start_runtime_services()
-    print("s16: workflow runtime")
-    print("Enter a question, press Enter to send. Type q to quit.\n")
-    history = []
-    context = host.update_context({}, history)
-    session_state = {"active_user_request": "(no active user request)"}
-    threading.Thread(
-        target=host.async_event_loop,
-        args=(history, context, session_state),
-        daemon=True,
-    ).start()
-    while True:
+    trace_status = "completed"
+    try:
+        host.start_runtime_services()
+        print("s16: workflow runtime")
+        print("Enter a question, press Enter to send. Type q to quit.\n")
+        history = []
+        with host.TRACE.agent_scope("agent-root", None, "lead"):
+            context = host.update_context({}, history)
+        session_state = {"active_user_request": "(no active user request)"}
+        threading.Thread(
+            target=host.async_event_loop,
+            args=(history, context, session_state),
+            daemon=True,
+            name="lead-events",
+        ).start()
+        while True:
+            try:
+                with host.TRACE.span(
+                    "input_wait_start", "input_wait_end", {"source": "console"}
+                ):
+                    query = host.CONSOLE.ask()
+            except (EOFError, KeyboardInterrupt):
+                break
+            if query.strip().lower() in ("q", "exit", ""):
+                break
+            with host.agent_lock:
+                with host.traced_lead_turn("user", query):
+                    host.trigger_hooks("UserPromptSubmit", query)
+                    turn_start = len(history)
+                    session_state["active_user_request"] = query
+                    history.append({"role": "user", "content": query})
+                    host.agent_loop(history, context, query)
+                    context = host.update_context(context, history)
+                    host.print_turn_assistants(history, turn_start)
+            print()
+    except BaseException:
+        trace_status = "error"
+        raise
+    finally:
+        host.close_tracing(trace_status)
+
+
+def run_demo_cli(argv):
+    """Run the deterministic demo with the same JSONL observer as s15."""
+    observer = initialize_demo_tracing()
+    status = "completed"
+    scope = (
+        observer.agent_scope("agent-root", None, "lead")
+        if observer is not None else nullcontext()
+    )
+    with scope:
+        if observer is not None and observer.enabled:
+            observer.emit(
+                "agent_start",
+                {"role": "lead", "task": "deterministic workflow demo"},
+                agent_id="agent-root",
+            )
+            print(f"  \033[90m[trace] {observer.path}\033[0m")
         try:
-            query = host.CONSOLE.ask()
-        except (EOFError, KeyboardInterrupt):
-            break
-        if query.strip().lower() in ("q", "exit", ""):
-            break
-        with host.agent_lock:
-            host.trigger_hooks("UserPromptSubmit", query)
-            turn_start = len(history)
-            session_state["active_user_request"] = query
-            history.append({"role": "user", "content": query})
-            host.agent_loop(history, context, query)
-            context = host.update_context(context, history)
-            host.print_turn_assistants(history, turn_start)
-        print()
+            asyncio.run(run_demo(argv))
+        except BaseException:
+            status = "error"
+            raise
+        finally:
+            if observer is not None and observer.enabled:
+                observer.emit(
+                    "agent_end",
+                    {"role": "lead", "status": status},
+                    agent_id="agent-root",
+                )
+                observer.finish_run(status)
 
 
 if __name__ == "__main__":
     if sys.argv[1:] and sys.argv[1] in {"demo", "resume"}:
-        asyncio.run(run_demo(sys.argv[1:]))
+        run_demo_cli(sys.argv[1:])
     else:
         run_cli()

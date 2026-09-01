@@ -190,6 +190,24 @@ if cached is not MISS:
 
 resume では、現在の各 `agent()` call を以前の journal record と対応付ける必要があります。stable hash は変更されていない workflow code と arguments に同じ call key を与えます。real model の出力は変化しても、call 内容が同じなら journal に保存済みの result を使います。
 
+## Structured trace の workflow topology
+
+S16 は s15 の session recorder を再利用する。interactive な `Workflow` tool span は `workflow-orchestrator` child を作り、各 `ctx.agent()` は `workflow-agent` child と対応する `workflow_node_start/workflow_node_end` を作る。`demo` と `resume` command も standalone trace を生成し、provider は deterministic な `MockAgentRunner` と記録される。
+
+Pipeline event は `item_index`、`stage_index`、前 stage のすべての dependency node を持つ。`parallel()` は独立した asyncio task から completed node ID を集めるため、次の stage は最後に完了した 1 task ではなく fan-out 全体に依存できる。journal cache hit は `executed=false` の paired cached node span を emit し、model request は行わない。
+
+Concurrency mechanism は変更しない。`asyncio.gather` が pipeline item と parallel thunk を schedule し、`asyncio.Semaphore` が active `agent()` を 8 に制限し、`asyncio.to_thread` が blocking provider request を event-loop thread の外へ移す。trace は semaphore `queue_wait_ms`、worker に継承された agent context 上の model latency、workflow-node duration を記録し、work を serialize も reorder もしない。
+
+root model は `Workflow` tool を明示的に選ぶが、どの `ctx.agent()` call が存在しどの dependency shape になるかは trusted workflow code が決定的に決める。1 run は最大 1,000 回の `agent()` call を許可し、nested `workflow()` は 1 階層だけである。workflow agent は prompt/schema だけを受け取り harness tool を持たないため、再帰的に delegate できない。trace topology は Root → workflow-orchestrator → workflow-agent で、最大 agent-tree depth は 2 となる。
+
+```sh
+python s16_workflow_runtime/code.py demo
+python s15_integrated_harness/trace_view.py --view tree
+python s15_integrated_harness/trace_view.py --view timeline --width 120
+```
+
+Mock demo は real provider call を行わないため workflow-node timing はあるが `model_request` はない。interactive s16 は node と `AnthropicAgentRunner` による real LLM call の両方を記録する。
+
 ## 実際に動かす
 
 sample workflow `review-changes` は `pipeline` を使い、各 review dimension を独立して audit → verify へ通します。interactive mode は real API を使い、`args.changes` から review 対象を読みます。`demo` は固定 runner data で pipeline、validation、journal、resume を示します。
@@ -242,4 +260,4 @@ default command では、model に changes を読ませ、その text を `args.
 
 [s17 Goal Loop](../s17_goal_loop/) は、より小さな独立 loop で goal が達成されたかを確認し、次の round が必要かを判断します。
 
-<!-- translation-sync: zh@v10, en@v10, ja@v10 -->
+<!-- translation-sync: zh@v11, en@v11, ja@v11 -->

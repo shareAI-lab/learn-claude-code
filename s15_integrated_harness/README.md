@@ -140,6 +140,8 @@ After spawning a teammate, Lead ends the current turn instead of repeatedly quer
 
 One-shot subagents solve context isolation. Persistent teammates solve long-running parallel collaboration.
 
+Neither child tool pool contains `task` or `spawn_teammate`, so an s15 child cannot recursively create another child; the topology is Root → one-shot or teammate. There is no numeric teammate-count cap in s15 beyond unique-name and host-resource constraints. A one-shot runs synchronously inside its parent's tool call, while teammate daemon threads can overlap each other and the Lead. Children do not inherit the Lead's conversation: a one-shot receives only its assigned description plus `SUB_SYSTEM`, and a teammate receives its assignment plus a private message history. They share the model client, hooks, task/message stores, and workspace policy; a one-shot returns through its `task` tool result, while a teammate returns through `MessageBus` events.
+
 ### Memory, Skills, and Prompt
 
 S15 reuses the s09 memory runtime directly. Before each model call, it reads the `.memory/MEMORY.md` catalog, selects records relevant to the current request, and passes their contents to `assemble_system_prompt(context)`. At the end of the turn, `extract_memories()` keeps information that can help in later sessions; when new records are stored, `consolidate_memories()` runs next.
@@ -199,6 +201,103 @@ MCP owns external capability:
 
 ---
 
+## Structured Execution Traces
+
+The s15 and s16 CLI entry points create one JSONL trace per interactive process. Importing either lesson does not create a trace, which keeps unit tests and library-style use free of side effects. Tracing is enabled by default and can be configured without changing the harness:
+
+```sh
+HARNESS_TRACE=1                         # set to 0 to disable
+HARNESS_TRACE_DIR=traces                # relative to the process working directory
+HARNESS_TRACE_OUTPUT=summary            # summary (safe default) or full
+HARNESS_TRACE_PREVIEW_CHARS=500
+python s15_integrated_harness/code.py
+```
+
+The CLI prints the selected `traces/run_<timestamp>_<id>.jsonl` path. Every record has a wall-clock timestamp, monotonic time, run/turn/agent identity, parent agent, span and causal IDs, thread identity, event name, and event-specific data. Paired boundary events share a `span_id`:
+
+```text
+run_start
+turn_start
+agent_active_start
+model_request → model_response | model_error
+harness_decision: dispatch_tools | continue | stop
+tool_start → [tool_execution_start → tool_execution_end] → tool_end
+agent_create → agent_start ... agent_end
+background_queued → background_start ... background_end → background_notification
+context_prepare → context_prepared
+agent_active_end
+turn_end
+run_end
+```
+
+Tool arguments are recorded after recursive credential redaction. Tool results, prompts, assigned tasks, and messages use bounded previews plus character counts and SHA-256 hashes; set `HARNESS_TRACE_OUTPUT=full` only for a controlled experiment. Model response metadata records requested action types, tool names, stop reason, latency, and token usage when the provider reports it. It deliberately does not record hidden or natural-language reasoning content.
+
+Use the standard-library viewer on a specific trace, or omit the path to select the newest trace in `traces/`:
+
+```sh
+python s15_integrated_harness/trace_view.py traces/run_....jsonl
+python s15_integrated_harness/trace_view.py --view tree
+python s15_integrated_harness/trace_view.py --view timeline --width 120
+python s15_integrated_harness/trace_view.py --view metrics
+```
+
+The tree interleaves each agent's model calls and tools with child creation. The timeline uses `M`, `T`, `B`, `W`, `A`, `L`, and `P` for model, tool, background tool, workflow node, active cycle, agent lifecycle, and user/permission-wait spans. Derived metrics include model/tool counts, tool types, subagent and cache counts, maximum depth, maximum simultaneous active agents, provider token usage, summed and wall-clock model/tool time, workflow semaphore and agent-launch wait, human wait, and approximate orchestration overhead. `tool_time_ms` measures the nested handler-execution boundary, excluding permission waits and wrapper tools whose child work is measured separately. `model_time_ms` is client-observed provider latency—network plus server queue and inference—not pure GPU inference; use vLLM server metrics to split those components. Model/tool sums can exceed wall time when calls overlap, so their `*_wall_time_ms` variants merge overlaps. Orchestration overhead is residual wall time after model work, leaf tool execution, and human-only waits, so it is an estimate rather than a profiler sample.
+
+The trace exposes the plan that actually executed, not private chain-of-thought. The model chooses whether to return text or `tool_use`, which tool and arguments to request, and whether to delegate. Deterministic code applies permissions, dispatches handlers, schedules threads, updates task and message state, compacts context, retries providers, and stops when the response has no tool use (or a recovery limit is reached). The event order lets those two layers be compared directly.
+
+## Qwen/Qwen3.8-27B through Remote vLLM
+
+`Qwen/Qwen3.8-27B` is the exact official Hugging Face model identifier. The clean integration path keeps the existing Anthropic SDK and points it at a current vLLM server, whose Anthropic-compatible `/v1/messages` endpoint translates system, assistant, `tool_use`, and `tool_result` blocks. The harness model path therefore remains:
+
+```text
+.env MODEL_ID
+  → code.py MODEL
+  → Anthropic.messages.create
+  → ANTHROPIC_BASE_URL/v1/messages
+  → vLLM
+  → Qwen/Qwen3.8-27B
+```
+
+On the remote GPU host, use vLLM 0.17.0 or newer (prefer a current release) and enable both reasoning and automatic tool parsing:
+
+```sh
+vllm serve Qwen/Qwen3.8-27B \
+  --host 0.0.0.0 --port 8000 \
+  --served-model-name Qwen/Qwen3.8-27B \
+  --reasoning-parser qwen3 \
+  --enable-auto-tool-choice \
+  --tool-call-parser qwen3_coder \
+  --max-num-seqs 512
+```
+
+On the harness host:
+
+```dotenv
+ANTHROPIC_API_KEY=EMPTY
+ANTHROPIC_BASE_URL=http://your-vllm-host:8000
+MODEL_ID=Qwen/Qwen3.8-27B
+```
+
+For a vLLM server launched with `--api-key YOUR_TOKEN`, leave `ANTHROPIC_API_KEY` empty and set `ANTHROPIC_AUTH_TOKEN=YOUR_TOKEN`. The Anthropic SDK then sends `Authorization: Bearer YOUR_TOKEN`, which is the authentication form vLLM's protected `/v1/messages` endpoint expects.
+
+No Qwen-specific branch is added to the agent loop. This runtime is non-streaming, so no streaming adapter is required. S16 structured output is prompt-requested JSON followed by local validation and one retry, rather than provider-enforced JSON schema, so it remains usable but should be tested empirically. Keep the vLLM tool parser enabled: without it, Qwen's generated tool syntax will not arrive as Anthropic `tool_use` blocks and the harness will stop as though it received an ordinary answer. Keep the reasoning parser enabled because Qwen3.8 thinks by default. Validate the endpoint with one plain response and one harmless tool call before a full experiment, and expose an unauthenticated `EMPTY` endpoint only on a trusted private network. See the [official model card](https://huggingface.co/Qwen/Qwen3.8-27B), [vLLM Qwen3.8 recipe](https://recipes.vllm.ai/Qwen/Qwen3.8-27B), and [vLLM serving interfaces](https://docs.vllm.ai/en/latest/serving/openai_compatible_server/).
+
+## Trace Experiments
+
+Run each prompt in a fresh CLI process so every JSONL file is one comparable sample. Warm the remote model first, repeat each experiment at least three times, retain server version and hardware beside the traces, and compare medians as well as individual timelines. Model choice is probabilistic, so the expected shape is a hypothesis, not an assertion.
+
+| Experiment | Prompt | Expected trace |
+|---|---|---|
+| A — single-agent baseline | `Without using tools, reply with exactly: baseline complete` | One root turn and usually one model call, no tools or subagents. This estimates request plus harness overhead. |
+| B — tool-heavy inspection | `Inspect s15_integrated_harness/code.py and trace_runtime.py. Find every model and tool-dispatch boundary, citing function names. Use filesystem search and reads; do not delegate.` | Several ordered `glob`/`read_file`/`bash` calls, repeated model calls, no `agent_create`. Tool latency dominates more of the active timeline. |
+| C — decomposition | `Create three independent task-board items to analyze model calls, tool dispatch, and context compaction. Delegate each to a teammate, then synthesize their messages. Do not edit files.` | Three teammate `agent_create` events with root parent, task claims, mailbox events, independent model/tool spans, then a root synthesis call. |
+| D — explicit parallel work | `In parallel, have separate teammates count tools in s15, workflow primitives in s16, and trace event types in trace_runtime.py. Report the three results as a table; do not edit files.` | Overlapping teammate spans on distinct threads and `maximum_parallel_agents > 1` if the model follows the request. Message delivery creates the join before root synthesis. |
+| E — long context | `Read all chapter README files from s01 through s17 and compare how context, delegation, and stopping evolve. Quote no more than one sentence from any file.` | Many large tool results, repeated `context_prepare/context_prepared`, archived or truncated result summaries, and possibly `context_compact` plus a compaction-summary model call. |
+
+For Qwen/Claude comparisons, use identical prompts, repository revision, permission answers, temperature/server settings, and warmed provider state. Compare not just total latency but tool choice, retries, depth, parallelism, failed calls, and whether the final task was actually completed.
+
+---
+
 ## Changes from s14
 
 | Scope | s14 MCP | s15 Integrated Harness |
@@ -242,4 +341,4 @@ Watch for:
 
 [s16 Workflow Runtime](../s16_workflow_runtime/) adds a `Workflow` tool to this host. A workflow keeps a fixed orchestration path in code and records progress so the same run can resume.
 
-<!-- translation-sync: zh@v14, en@v14, ja@v14 -->
+<!-- translation-sync: zh@v15, en@v15, ja@v15 -->
