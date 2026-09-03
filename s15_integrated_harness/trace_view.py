@@ -336,6 +336,44 @@ def calculate_metrics(events: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def build_summary(path: Path, events: list[dict[str, Any]]) -> dict[str, Any]:
+    trace_files = sorted(path.parent.glob("run_*.jsonl"), key=lambda item: item.name)
+    summary: dict[str, Any] = {
+        "trace_file": str(path),
+        "trace_files": [str(item) for item in trace_files],
+        "trace_count": len(trace_files),
+        "event_count": len(events),
+        "events_by_type": dict(sorted(Counter(event.get("event") for event in events).items())),
+    }
+    stamped = [event for event in events if event.get("monotonic_ns") is not None]
+    if stamped:
+        first_ns = min(int(event["monotonic_ns"]) for event in stamped)
+        last_ns = max(int(event["monotonic_ns"]) for event in stamped)
+        summary["duration_ms"] = round((last_ns - first_ns) / 1_000_000, 3)
+    input_tokens = output_tokens = cache_tokens = 0
+    has_usage = False
+    for event in events:
+        if event.get("event") != "model_response":
+            continue
+        data = event.get("data", {})
+        usage = data.get("usage") if isinstance(data, dict) else None
+        if not isinstance(usage, dict):
+            continue
+        has_usage = True
+        input_tokens += int(usage.get("input_tokens") or 0)
+        output_tokens += int(usage.get("output_tokens") or 0)
+        cache_tokens += int(usage.get("cache_creation_input_tokens") or 0)
+        cache_tokens += int(usage.get("cache_read_input_tokens") or 0)
+    if has_usage:
+        summary["total_tokens"] = input_tokens + output_tokens + cache_tokens
+        summary["tokens"] = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cache_tokens": cache_tokens,
+        }
+    return summary
+
+
 def _short(value: Any, limit: int = 100) -> str:
     if isinstance(value, dict) and "preview" in value:
         value = value.get("preview", "")
@@ -580,12 +618,18 @@ def main(argv: list[str] | None = None) -> int:
                         default="both")
     parser.add_argument("--width", type=int, default=90,
                         help="timeline chart width (default: 90)")
+    parser.add_argument("--summary", action="store_true",
+                        help="print a machine-readable JSON summary to stdout")
     args = parser.parse_args(argv)
     try:
         path = args.trace or _latest_trace(Path("traces"))
         events = load_trace(path)
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
+
+    if args.summary:
+        print(json.dumps(build_summary(path, events), indent=2))
+        return 0
 
     sections = []
     if args.view in {"both", "metrics"}:
