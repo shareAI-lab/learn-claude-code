@@ -77,7 +77,11 @@ _trace_initialized = False
 load_dotenv(override=True)
 
 WORKDIR = Path.cwd()
-client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+# GLM (Z.ai) exposes an Anthropic-compatible API: same SDK, Bearer-token auth.
+client = Anthropic(
+    base_url=os.getenv("ANTHROPIC_BASE_URL"),
+    auth_token=os.getenv("ANTHROPIC_AUTH_TOKEN"),
+)
 MODEL = os.environ["MODEL_ID"]
 PRIMARY_MODEL = MODEL
 FALLBACK_MODEL = os.getenv("FALLBACK_MODEL_ID")
@@ -1945,6 +1949,57 @@ def trigger_hooks(event: str, *args):
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
 mcp_tool_policies: dict[str, str] = {}
 
+# Display-only commands run without asking. The list is deliberately small:
+# anything that can execute, write, or reconfigure is left out even if it is
+# "usually" safe (sed, awk, sort -o, env CMD, xargs, ...).
+READ_ONLY_COMMANDS = {
+    "cat", "cmp", "column", "comm", "cut", "date", "df", "diff", "du",
+    "echo", "file", "find", "grep", "head", "hostname", "id", "ls",
+    "od", "printenv", "pwd", "rg", "stat", "tail", "tree", "uname",
+    "uniq", "wc", "whereis", "which", "whoami", "xxd", "zcat",
+}
+READ_ONLY_GIT_SUBCOMMANDS = {
+    "blame", "describe", "diff", "grep", "log", "ls-files", "ls-remote",
+    "rev-parse", "shortlog", "show", "status",
+}
+FIND_WRITE_FLAGS = {"-delete", "-exec", "-execdir", "-ok", "-okdir",
+                    "-fls", "-fprint", "-fprintf"}
+
+
+def _strip_quoted_text(command: str) -> str:
+    # Only single quotes can hide shell specials. Double quotes do not hide
+    # redirection or $(...) in a real shell, so leaving them in place only
+    # makes the classifier stricter (it asks instead of silently allowing).
+    return re.sub(r"'[^']*'", "", command)
+
+
+def _is_read_only_command(command: str) -> bool:
+    # True only when every segment of a compound command is display-only.
+    # Redirection, command substitution, and any unknown word fail closed
+    # and fall back to the interactive prompt.
+    plain = _strip_quoted_text(command)
+    if ">" in plain or "`" in plain or "$(" in plain:
+        return False
+    segments = re.split(r"\|\||&&|[;&|\n]", plain)
+    for segment in segments:
+        words = segment.split()
+        while words and re.fullmatch(r"[A-Za-z_]\w*=\S*", words[0]):
+            words.pop(0)  # VAR=value prefixes do not change the command
+        if words and words[0] in ("command", "builtin"):
+            words.pop(0)
+        if not words:
+            return False
+        name = Path(words[0]).name
+        if name == "git":
+            if len(words) < 2 or words[1] not in READ_ONLY_GIT_SUBCOMMANDS:
+                return False
+        elif name == "find":
+            if any(flag in FIND_WRITE_FLAGS for flag in words[1:]):
+                return False
+        elif name not in READ_ONLY_COMMANDS:
+            return False
+    return True
+
 
 def permission_hook(block):
     # The permission layer sees the raw tool_use before dispatch. It can deny,
@@ -1956,6 +2011,10 @@ def permission_hook(block):
         for pattern in DENY_LIST:
             if pattern in command:
                 return f"Permission denied: '{pattern}' is on the deny list"
+        if _is_read_only_command(command):
+            # Display-only commands cannot mutate anything and never read
+            # stdin, so they are safe in asynchronous turns too.
+            return None
         if threading.current_thread() is not threading.main_thread():
             return ("Permission denied: interactive shell approval is unavailable "
                     "during an asynchronous turn")

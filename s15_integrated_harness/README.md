@@ -114,7 +114,7 @@ if blocked:
 
 That means permission, logging, and audit logic all attach to the same hook point. Lead tools, one-shot subagent tools, and teammate tools all pass through `PreToolUse`; an allowed call then runs `PostToolUse` after its handler.
 
-The policy does not trust an MCP server's own description as authorization. The host owns a small exact allowlist for known read-only calls; every other MCP tool asks the user. File tools are denied outside `WORKDIR`, and every bash command asks before execution. Only the foreground user turn may open an interactive approval prompt; asynchronous turns fail closed instead of competing with the main CLI for stdin.
+The policy does not trust an MCP server's own description as authorization. The host owns a small exact allowlist for known read-only calls; every other MCP tool asks the user. File tools are denied outside `WORKDIR`. Bash commands whose every segment is display-only—`READ_ONLY_COMMANDS`, plus allowlisted `git` subcommands and a guarded `find`—run without asking, even from asynchronous turns; redirection, command substitution, and any unknown word fail closed to the prompt. Only the foreground user turn may open an interactive approval prompt; asynchronous turns fail closed instead of competing with the main CLI for stdin.
 
 ### Planning and Tasks
 
