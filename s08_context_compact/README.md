@@ -20,7 +20,7 @@ This lesson adds a four-step compaction pipeline. It first reduces recoverable t
 
 Think of the context window as the model's current scratchpad. User messages, model responses, `tool_use`, and `tool_result` blocks are written onto it in order. The model reads that material again whenever it continues the task.
 
-The scratchpad has a fixed size. When a request exceeds it, the API rejects the call with `prompt_too_long`. Tool results usually consume most of the space in coding tasks:
+The scratchpad has a fixed size. When a request exceeds it, the API rejects the call with `prompt is too long`. Tool results usually consume most of the space in coding tasks:
 
 - Reading a long file puts its contents into the context.
 - Test and build logs can add tens of kilobytes at once.
@@ -202,7 +202,7 @@ Each round therefore starts with the lowest-cost operation whose information is 
 
 ## Recovering From an API Rejection
 
-A character count can only estimate the tokens used by a model. The API may still return `prompt_too_long`. `reactive_compact` saves a transcript, summarizes older history, and retains the latest 5 messages:
+A character count can only estimate the tokens used by a model. The API may still return `prompt is too long`. `reactive_compact` saves a transcript, summarizes older history, and retains the latest 5 messages:
 
 ```python
 tail_start = max(0, len(messages) - self.KEEP_RECENT_MESSAGES)
@@ -236,6 +236,7 @@ def agent_loop(messages, active_request):
         except Exception as error:
             message = str(error).lower()
             too_long = ("prompt_too_long" in message
+                        or "prompt is too long" in message
                         or "too many tokens" in message)
             if too_long and reactive_retries < MAX_REACTIVE_RETRIES:
                 messages[:] = COMPACTOR.reactive_compact(
