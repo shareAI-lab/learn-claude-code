@@ -17,6 +17,14 @@ The model thinks "read this file" but has to spell out `cat path/to/file`. An ex
 
 ---
 
+## Why Add Tools If Bash Can Already Do It?
+
+These tools do not give the Agent new raw capabilities — Bash can perform the same operations. They improve the interface between the model and the Harness. A `read_file` call with a `path` argument avoids translating intent into shell syntax, reducing quoting and escaping mistakes.
+
+The Harness also sees a named operation and structured inputs instead of an opaque command string. That makes later policies more precise: s03 can approve or reject operations per tool and path, while s04 can log them at a shared hook point. s02 establishes the dispatch structure those chapters build on.
+
+---
+
 ## Overview: Tool Dispatch
 
 ![Tool Dispatch](images/tool-dispatch.en.svg)
