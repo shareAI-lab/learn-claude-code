@@ -44,7 +44,13 @@ MODEL = os.environ["MODEL_ID"]
 
 SYSTEM = (
     f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. "
-    "Set run_in_background to true only for independent Bash commands."
+    "Set run_in_background to true only for independent shell commands."
+    + (
+        " On Windows, the bash tool uses cmd.exe; use cmd-compatible or "
+        "cross-platform commands."
+        if os.name == "nt"
+        else ""
+    )
 )
 
 
@@ -56,6 +62,23 @@ _shell_process_lock = threading.RLock()
 
 def _stop_process_group(process: subprocess.Popen):
     """Stop processes that remain in the command's original process group."""
+    if os.name == "nt":
+        # Windows has no os.killpg or SIGKILL. Use Popen's native methods
+        # without changing the background-task protocol demonstrated here.
+        if process.poll() is not None:
+            return
+        try:
+            process.terminate()
+            process.wait(timeout=0.2)
+        except subprocess.TimeoutExpired:
+            try:
+                process.kill()
+            except OSError:
+                pass
+        except OSError:
+            pass
+        return
+
     for sig in (signal.SIGTERM, signal.SIGKILL):
         try:
             os.killpg(process.pid, sig)
@@ -383,7 +406,7 @@ class BackgroundManager:
 
         notifications = []
         for task_id, task, result in ready:
-            notifications.append(
+            notification = (
                 f"<task_notification>\n"
                 f"  <task_id>{task_id}</task_id>\n"
                 f"  <status>{task['status']}</status>\n"
@@ -391,7 +414,11 @@ class BackgroundManager:
                 f"  <summary>{result[:500]}</summary>\n"
                 f"</task_notification>"
             )
-            print(f"  [background] collected {task_id}: {task['status']}")
+            notifications.append(notification)
+            print(
+                f"  [background] collected {task_id} "
+                f"as <task_notification>: {task['status']}"
+            )
         return notifications
 
 

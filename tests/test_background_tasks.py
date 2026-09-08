@@ -1,8 +1,10 @@
 import copy
 import importlib.util
 import os
+import subprocess
 import sys
 import tempfile
+import threading
 import time
 import types
 from pathlib import Path
@@ -61,6 +63,50 @@ def wait_until(predicate, timeout: float = 2.0) -> bool:
             return True
         time.sleep(0.01)
     return False
+
+
+def test_windows_process_cleanup_avoids_posix_only_signals():
+    with tempfile.TemporaryDirectory() as tmp:
+        lesson = load_lesson(Path(tmp))
+        calls = []
+
+        class RunningProcess:
+            def poll(self):
+                return None
+
+            def terminate(self):
+                calls.append("terminate")
+
+            def wait(self, timeout):
+                calls.append(("wait", timeout))
+                return 0
+
+            def kill(self):
+                calls.append("kill")
+
+        original_os_name = lesson.os.name
+        try:
+            lesson.os.name = "nt"
+            lesson._stop_process_group(RunningProcess())
+        finally:
+            lesson.os.name = original_os_name
+
+        assert calls == ["terminate", ("wait", 0.2)]
+
+        calls.clear()
+
+        class StubbornProcess(RunningProcess):
+            def wait(self, timeout):
+                calls.append(("wait", timeout))
+                raise subprocess.TimeoutExpired("test", timeout)
+
+        try:
+            lesson.os.name = "nt"
+            lesson._stop_process_group(StubbornProcess())
+        finally:
+            lesson.os.name = original_os_name
+
+        assert calls == ["terminate", ("wait", 0.2), "kill"]
 
 
 def test_s11_keeps_the_s04_kernel_and_adds_one_bash_option():
@@ -122,12 +168,30 @@ def test_background_bash_passes_permission_before_dispatch():
 def test_completed_result_is_collected_once_before_a_later_llm_call():
     with tempfile.TemporaryDirectory() as tmp:
         lesson = load_lesson(Path(tmp))
+        worker_started = threading.Event()
+        release_worker = threading.Event()
+
+        def controlled_command(command):
+            assert command == "controlled command"
+            worker_started.set()
+            assert release_worker.wait(timeout=2)
+            return "ready", 0
+
+        lesson._run_bash_process = controlled_command
         block = types.SimpleNamespace(
             id="tool_ready",
             name="bash",
-            input={"command": "printf ready", "run_in_background": True},
+            input={"command": "controlled command", "run_in_background": True},
         )
-        task_id = lesson.start_background_task(block)
+        start_result = lesson.execute_tool(block)
+        task_id = next(iter(lesson.background_tasks))
+
+        assert worker_started.wait(timeout=2)
+        assert task_id == "bg_0001"
+        assert task_id in start_result
+        assert lesson.background_tasks[task_id]["status"] == "running"
+
+        release_worker.set()
         assert wait_until(
             lambda: lesson.background_tasks[task_id]["status"] == "completed"
         )
