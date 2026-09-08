@@ -78,7 +78,7 @@ class BackgroundManager:
             self._ready.append(task_id)
 ```
 
-A non-zero exit code or worker exception becomes `failed`. The shell starts in its own process group. When the command finishes, times out, or the Agent exits through the normal or `SIGTERM` path, the runtime stops that original group. This is lifecycle cleanup, not a sandbox: a process that creates another session can leave the group.
+A non-zero exit code or worker exception becomes `failed`. On POSIX, the shell starts in its own process group, which the runtime stops when the command finishes, times out, or the Agent exits through the normal or `SIGTERM` path. Windows has no POSIX process-group signals, so the runtime uses `Popen.terminate()` and `Popen.kill()` for a still-running shell process. This is lifecycle cleanup, not a sandbox: a process that escapes the managed shell or creates another session may survive it.
 
 ### collect_background_results: Notification Collection
 
@@ -160,9 +160,9 @@ python s11_background_tasks/code.py
 
 Try these prompts:
 
-1. `Run pip list in the background and find all Python files in this directory`
-2. `Run npm install (use run_in_background) and while waiting, read package.json`
-3. `Run a short sleep in the background, then list all Markdown files`
+1. `Run python -m pip list in the background and find all Python files in this directory`
+2. `Run npm --prefix web install (use run_in_background) and while waiting, read web/package.json`
+3. `Run python -c "import time; time.sleep(3); print('done')" in the background, then list all Markdown files`
 
 What to observe: After explicitly setting `run_in_background`, is the command dispatched to the background? Is a `bg_id` returned? Are completed results collected in `<task_notification>` format on a later turn?
 

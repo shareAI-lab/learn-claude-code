@@ -78,7 +78,7 @@ class BackgroundManager:
             self._ready.append(task_id)
 ```
 
-command が非ゼロで終了した場合や worker で例外が起きた場合は `failed` となる。Shell は独立した process group で起動し、command の完了、timeout、または Agent が通常経路や `SIGTERM` で終了する時に元の group を停止する。これは lifecycle cleanup であって sandbox ではなく、別の session を作った process は group から離れられる。
+command が非ゼロで終了した場合や worker で例外が起きた場合は `failed` となる。POSIX では Shell を独立した process group で起動し、command の完了、timeout、または Agent が通常経路や `SIGTERM` で終了する時に元の group を停止する。Windows には POSIX の process-group signal がないため、実行中の Shell process に `Popen.terminate()` と `Popen.kill()` を使う。これは lifecycle cleanup であって sandbox ではなく、管理対象の Shell から離れたり別の session を作ったりした process は残る場合がある。
 
 ### collect_background_results: 通知収集
 
@@ -160,9 +160,9 @@ python s11_background_tasks/code.py
 
 以下のプロンプトを試してください：
 
-1. `Run pip list in the background and find all Python files in this directory`
-2. `Run npm install (use run_in_background) and while waiting, read package.json`
-3. `Run a short sleep in the background, then list all Markdown files`
+1. `Run python -m pip list in the background and find all Python files in this directory`
+2. `Run npm --prefix web install (use run_in_background) and while waiting, read web/package.json`
+3. `Run python -c "import time; time.sleep(3); print('done')" in the background, then list all Markdown files`
 
 観察ポイント：`run_in_background` を明示的に設定すると、コマンドがバックグラウンドに送られるか？`bg_id` は返されるか？後続のターンで完了結果が `<task_notification>` 形式で収集されるか？
 

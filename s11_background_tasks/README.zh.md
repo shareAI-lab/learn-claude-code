@@ -78,7 +78,7 @@ class BackgroundManager:
             self._ready.append(task_id)
 ```
 
-命令以非零状态退出或 worker 抛出异常时，任务会进入 `failed`。Shell 会在独立的进程组中启动；命令完成、超时，或 Agent 经正常路径、`SIGTERM` 退出时，运行时会停止原进程组。这只是生命周期清理，并不是沙箱；另建 session 的进程仍可能离开该进程组。
+命令以非零状态退出或 worker 抛出异常时，任务会进入 `failed`。在 POSIX 上，Shell 会在独立的进程组中启动；命令完成、超时，或 Agent 经正常路径、`SIGTERM` 退出时，运行时会停止原进程组。Windows 没有 POSIX 进程组信号，因此运行时会对仍在运行的 Shell 进程调用 `Popen.terminate()` 和 `Popen.kill()`。这只是生命周期清理，并不是沙箱；脱离受管 Shell 或另建 session 的进程仍可能存活。
 
 ### collect_background_results: 通知收集
 
@@ -160,9 +160,9 @@ python s11_background_tasks/code.py
 
 试试这些 prompt：
 
-1. `Run pip list in the background and find all Python files in this directory`
-2. `Run npm install (use run_in_background) and while waiting, read package.json`
-3. `Run a short sleep in the background, then list all Markdown files`
+1. `Run python -m pip list in the background and find all Python files in this directory`
+2. `Run npm --prefix web install (use run_in_background) and while waiting, read web/package.json`
+3. `Run python -c "import time; time.sleep(3); print('done')" in the background, then list all Markdown files`
 
 观察重点：显式设置 `run_in_background` 后，命令有没有被送到后台？`bg_id` 是否返回？后续轮次有没有以 `<task_notification>` 格式收集完成结果？
 
