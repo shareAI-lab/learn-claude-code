@@ -459,6 +459,79 @@ def test_parallel_agent_calls_do_not_block_the_event_loop(tmp_path: Path) -> Non
     assert task.usage == {"agents": 2, "tokens": 2}
 
 
+@pytest.mark.parametrize("primitive", ["parallel", "pipeline"])
+def test_workflow_failure_waits_for_agents_and_preserves_resume_results(
+    primitive: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workflow = load_lesson(
+        "workflow_failure_drain_test",
+        ROOT / "s16_workflow_runtime" / "code.py",
+    )
+    monkeypatch.setattr(workflow, "STORE", tmp_path)
+    slow_started = threading.Event()
+    failure_raised = threading.Event()
+    release_slow = threading.Event()
+    calls = {"slow": 0, "fail": 0}
+
+    class ControlledRunner:
+        def run(self, prompt, schema=None, label=None):
+            calls[label] += 1
+            if label == "slow":
+                slow_started.set()
+                assert release_slow.wait(timeout=5)
+            elif calls[label] == 1:
+                assert slow_started.wait(timeout=5)
+                failure_raised.set()
+                raise RuntimeError("agent failed")
+            return workflow.RunnerOutput(label, 1)
+
+    monkeypatch.setattr(workflow, "RUNNER_FACTORY", ControlledRunner)
+
+    async def script(ctx, _args):
+        if primitive == "parallel":
+            return await ctx.parallel([
+                lambda: ctx.agent("slow", label="slow"),
+                lambda: ctx.agent("fail", label="fail"),
+            ])
+
+        async def stage(_value, item, _index):
+            return await ctx.agent(item, label=item)
+
+        return await ctx.pipeline(["slow", "fail"], stage)
+
+    async def run():
+        meta = {"name": "failure-drain", "description": "test"}
+        pending = asyncio.create_task(workflow.WorkflowTool().call(meta, script))
+        try:
+            assert await asyncio.to_thread(failure_raised.wait, 5)
+            done, _ = await asyncio.wait({pending}, timeout=0.05)
+            assert not done, "workflow finalized while an agent was still running"
+        finally:
+            release_slow.set()
+            first = await pending
+            # Drain any orphaned children as well when checking the unfixed code.
+            children = asyncio.all_tasks() - {asyncio.current_task()}
+            await asyncio.gather(*children, return_exceptions=True)
+
+        assert first["task"].status == "failed"
+        assert first["result"] == {"error": "agent failed"}
+        run_id = first["task"].run_id
+        snapshot = json.loads((tmp_path / f"{run_id}.json").read_text())
+        assert snapshot["task"]["usage"] == {"agents": 1, "tokens": 1}
+        records = [json.loads(line) for line in
+                   (tmp_path / f"{run_id}.journal.jsonl").read_text().splitlines()]
+        assert [record["value"] for record in records] == ["slow"]
+
+        resumed = await workflow.WorkflowTool().call(
+            meta, script, resume_from_run_id=run_id
+        )
+        assert resumed["task"].status == "completed"
+        assert resumed["result"] == ["slow", "fail"]
+        assert calls == {"slow": 1, "fail": 2}
+
+    asyncio.run(run())
+
+
 def test_workflow_default_entry_extends_the_real_s15_host(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
