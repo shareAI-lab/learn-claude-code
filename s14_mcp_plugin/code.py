@@ -529,7 +529,9 @@ if __name__ == "__main__":
             query = input("s14 >> ")
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in {"q", "exit", ""}:
+        if not query.strip():
+            continue
+        if query.strip().lower() in {"q", "exit"}:
             break
         trigger_hooks("UserPromptSubmit", query)
         history.append({"role": "user", "content": query})

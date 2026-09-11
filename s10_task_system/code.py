@@ -583,7 +583,9 @@ if __name__ == "__main__":
             query = input("\001\033[36m\002s10 >> \001\033[0m\002")
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         trigger_hooks("UserPromptSubmit", query)
         history.append({"role": "user", "content": query})

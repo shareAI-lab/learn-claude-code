@@ -860,7 +860,9 @@ def run_cli():
             query = host.CONSOLE.ask()
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         with host.agent_lock:
             host.trigger_hooks("UserPromptSubmit", query)

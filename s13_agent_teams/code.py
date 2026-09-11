@@ -1856,7 +1856,11 @@ if __name__ == "__main__":
         if kind == "quit":
             break
         if kind == "user":
-            if payload is None or payload.strip().lower() in {"q", "exit", ""}:
+            if payload is None:
+                break
+            if not payload.strip():
+                continue
+            if payload.strip().lower() in {"q", "exit"}:
                 break
             trigger_hooks("UserPromptSubmit", payload)
             history.append({"role": "user", "content": payload})
