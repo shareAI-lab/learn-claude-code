@@ -136,3 +136,81 @@ def test_prepare_persists_oversized_unseen_result_before_full_compact(
     saved_line = next(line for line in content.splitlines()
                       if line.startswith("Full output: "))
     assert Path(saved_line.removeprefix("Full output: ")).read_text() == output
+
+
+def test_prepare_leaves_short_task_unchanged(tmp_path, monkeypatch):
+    lesson = load_lesson(monkeypatch, tmp_path)
+    active_request = "inspect the repository"
+    messages = [
+        {"role": "user", "content": active_request},
+        {"role": "assistant", "content": [
+            {"type": "text", "text": "done"}
+        ]},
+    ]
+
+    prepared = lesson["COMPACTOR"].prepare(messages, active_request)
+
+    assert prepared is messages
+
+
+def test_prepare_keeps_active_request_after_repeated_snip_compact(
+        tmp_path, monkeypatch):
+    lesson = load_lesson(monkeypatch, tmp_path)
+    active_request = "compare s08_context_compact/code.py and s09_memory/code.py"
+    messages = [
+        {"role": "user", "content": "read the first five lesson READMEs"},
+        {"role": "assistant", "content": [
+            {"type": "text", "text": "first answer"}
+        ]},
+        {"role": "user", "content": "analyze docs.json"},
+        {"role": "assistant", "content": [
+            {"type": "text", "text": "second answer"}
+        ]},
+        {"role": "user", "content": active_request},
+    ]
+    for index in range(23):
+        tool_id = f"current-tool-{index}"
+        messages.extend([
+            {"role": "assistant", "content": [
+                {"type": "tool_use", "id": tool_id,
+                 "name": "read_file", "input": {}}
+            ]},
+            {"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": tool_id,
+                 "content": f"result-{index}"}
+            ]},
+        ])
+
+    compactor = lesson["COMPACTOR"]
+    compactor.summarize_history = lambda _messages: (_ for _ in ()).throw(
+        AssertionError("snip compact should be enough"))
+
+    prepared = compactor.prepare(messages, active_request)
+    extra_tool_id = "current-tool-after-first-snip"
+    prepared.extend([
+        {"role": "assistant", "content": [
+            {"type": "tool_use", "id": extra_tool_id,
+             "name": "read_file", "input": {}}
+        ]},
+        {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": extra_tool_id,
+             "content": "more-current-work"}
+        ]},
+    ])
+    prepared = compactor.prepare(prepared, active_request)
+
+    request_marker = f"Current user request:\n{active_request}"
+    visible_requests = [
+        message["content"]
+        for message in prepared
+        if message["role"] == "user"
+        and isinstance(message["content"], str)
+        and (message["content"] == active_request
+             or request_marker in message["content"])
+    ]
+    assert len(visible_requests) == 1
+    assert any(compactor.is_archive_marker(message) for message in prepared)
+    for index, message in enumerate(prepared):
+        if compactor.is_tool_result(message):
+            assert index > 0
+            assert compactor.has_tool_use(prepared[index - 1])

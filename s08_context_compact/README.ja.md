@@ -112,6 +112,8 @@ messages = [*messages[:head_end], marker, *messages[tail_start:]]
 
 切断位置では、`assistant(tool_use)` と `user(tool_result)` の組を保護します。対応するツール呼び出しがない孤立した結果を含むと、次の API リクエストは無効になります。
 
+ツール呼び出しが繰り返されると、現在の要求がアーカイブ対象の中間領域へ移ることがあります。実際に切り詰めた後、`prepare` は元のユーザーメッセージまたは既存の `Current user request` マーカーがまだ見えるかを確認します。どちらも残っていなければ、処理を続ける前に `active_request` を一度だけ追加します。
+
 このステップはメッセージ数を抑えます。保持されたメッセージ内のツール結果は、まだ長い可能性があります。
 
 
@@ -182,7 +184,17 @@ def compact_history(messages, active_request):
 
 ```python
 messages = self.tool_result_budget(messages)
+before_snip = messages
 messages = self.snip_compact(messages)
+active_request_marker = f"Current user request:\n{active_request}"
+if (messages is not before_snip
+        and not any(
+            message.get("role") == "user"
+            and isinstance(message.get("content"), str)
+            and (message["content"] == active_request
+                 or active_request_marker in message["content"])
+            for message in messages)):
+    messages.append({"role": "user", "content": active_request})
 if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
     target = int(self.CONTEXT_CHAR_LIMIT * 0.8)
     messages = self.micro_compact(messages, target)
@@ -245,7 +257,7 @@ def agent_loop(messages, active_request):
             raise
 ```
 
-すべてのモデル呼び出しが同じパイプラインを通ります。CLI は `query` を追加した後に `agent_loop(history, query)` を呼ぶため、圧縮を繰り返しても現在の要求は失われません。`micro_compact` の後も上限を超える場合、または API が拒否した場合にだけ、コードはモデルへ要約を依頼します。
+すべてのモデル呼び出しが同じパイプラインを通ります。CLI は `query` を追加した後に `agent_loop(history, query)` を呼びます。実際に切り詰められ、見えるコピーがすべて削除された場合にだけ、`prepare` は `active_request` を追加し直します。そのため、圧縮を繰り返しても現在の要求は失われません。`micro_compact` の後も上限を超える場合、または API が拒否した場合にだけ、コードはモデルへ要約を依頼します。
 
 
 ## compact ツール
@@ -339,4 +351,4 @@ s08_context_compact/code.py と s09_memory/code.py を比較し、
 
 s09 Memory では、メモリの書き込み、検索、整理を実装します。
 
-<!-- translation-sync: zh@v8, en@v8, ja@v8 -->
+<!-- translation-sync: zh@v9, en@v9, ja@v9 -->

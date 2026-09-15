@@ -508,7 +508,17 @@ class ContextCompactor:
 
     def prepare(self, messages: list, active_request: str) -> list:
         messages = self.tool_result_budget(messages)
+        before_snip = messages
         messages = self.snip_compact(messages)
+        active_request_marker = f"Current user request:\n{active_request}"
+        if (messages is not before_snip
+                and not any(
+                    message.get("role") == "user"
+                    and isinstance(message.get("content"), str)
+                    and (message["content"] == active_request
+                         or active_request_marker in message["content"])
+                    for message in messages)):
+            messages.append({"role": "user", "content": active_request})
         if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
             target = int(self.CONTEXT_CHAR_LIMIT * 0.8)
             messages = self.micro_compact(messages, target)
