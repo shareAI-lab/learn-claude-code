@@ -88,11 +88,15 @@ This step examines only the latest batch of tool results. The complete output re
 
 ## Step 2: snip_compact
 
-Once the history exceeds 50 messages, `snip_compact` writes the complete history to `.transcripts/`, then keeps the first 3 and latest 46 messages. The archive marker occupies the remaining slot, records how many messages were removed, and points to the complete transcript.
+Once the history reaches `trigger_messages` (50 by default), `snip_compact` writes the complete history to `.transcripts/`, then trims toward `target_messages` (30 by default): the first 3 messages, an archive marker, and the latest 26 messages. The marker records how many messages were removed and points to the complete transcript. Separate trigger and target counts leave room for new messages, avoiding another archive write on every subsequent model call. The tradeoff is keeping fewer recent messages directly in context; older content remains available in the transcript.
+
+Require `5 <= target_messages < trigger_messages`: the target includes the marker and leaves at least one recent message after the initial three.
 
 ```python
+if len(messages) < trigger_messages:
+    return messages
 head_end = 3
-tail_start = len(messages) - (max_messages - head_end - 1)
+tail_start = len(messages) - (target_messages - head_end - 1)
 
 if self.has_tool_use(messages[head_end - 1]):
     while (head_end < tail_start
@@ -110,7 +114,7 @@ marker = {"role": "user", "content":
 messages = [*messages[:head_end], marker, *messages[tail_start:]]
 ```
 
-The cut points protect every `assistant(tool_use)` and `user(tool_result)` pair. An orphaned result has no matching tool call, so the next API request would be invalid.
+The cut points protect every `assistant(tool_use)` and `user(tool_result)` pair, so the retained count may slightly exceed the target. An orphaned result has no matching tool call, so the next API request would be invalid.
 
 This step controls the number of messages. Tool results inside the retained messages may still be long.
 
@@ -339,4 +343,4 @@ Context compaction lets an Agent continue a long task within a limited window. I
 
 s09 Memory adds memory writing, retrieval, and consolidation.
 
-<!-- translation-sync: zh@v8, en@v8, ja@v8 -->
+<!-- translation-sync: zh@v9, en@v9, ja@v9 -->
