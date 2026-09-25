@@ -431,6 +431,9 @@ def inject_background_results(messages: list) -> int:
                 *blocks,
             ]
     else:
+        # Currently unreachable: agent_loop always leaves messages[-1] as a
+        # user message, so this branch is never hit in the teaching code.
+        # Kept for independent reuse or future wake-up from background tasks.
         messages.append({"role": "user", "content": blocks})
     return len(notifications)
 
