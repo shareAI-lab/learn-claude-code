@@ -786,8 +786,14 @@ def load_skill(name: str) -> str:
 
 # -- Prompt Assembly --
 
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 PROMPT_SECTIONS = {
-    "identity": "You are a coding agent. Act, don't explain.",
+    "identity": f"You are a coding agent. Act, don't explain. Environment: {ENVIRONMENT_PROMPT}.",
     "tools": "Available tools: bash, read_file, write_file, edit_file, glob, "
              "todo_write, task, load_skill, compact, "
              "create_task, update_task, list_tasks, get_task, claim_task, "
@@ -1834,7 +1840,7 @@ register_hook("Stop", stop_hook)
 # -- Subagent Tool --
 
 SUB_SYSTEM = (
-    f"You are a coding subagent at {WORKDIR}. "
+    f"You are a coding subagent at {WORKDIR}. Environment: {ENVIRONMENT_PROMPT}. "
     "Complete the task, then return a concise final summary. "
     "Do not spawn more agents."
 )

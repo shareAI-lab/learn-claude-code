@@ -38,6 +38,12 @@ MEMORY_DIR = WORKDIR / ".memory"
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 
 # -- Memory store --
 
@@ -332,7 +338,7 @@ def build_system(relevant_memories: str = "") -> str:
     index = read_memory_index()
     sections = [
         (
-            f"You are a coding agent at {WORKDIR}. "
+            f"You are a coding agent at {WORKDIR}. Environment: {ENVIRONMENT_PROMPT}. "
             "Use tools to solve tasks. Act, don't explain."
         ),
         (

@@ -46,6 +46,12 @@ WORKDIR = Path.cwd()
 SKILLS_DIR = WORKDIR / "skills"
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 
 
 # -- Skill catalog --
@@ -127,7 +133,8 @@ SKILL_LOADER = SkillLoader(SKILLS_DIR)
 
 def build_system_prompt() -> str:
     return (
-        f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. "
+        f"You are a coding agent at {WORKDIR}. Environment: {ENVIRONMENT_PROMPT}. "
+        "Use tools to solve tasks. "
         "Act, don't explain.\n\n"
         f"Skills available:\n{SKILL_LOADER.catalog()}\n\n"
         "Use load_skill to read the full instructions when a skill applies."

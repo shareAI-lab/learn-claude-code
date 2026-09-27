@@ -32,6 +32,14 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+WORKFLOW_AGENT_ENVIRONMENT = (
+    "Host OS: Windows. This workflow agent only responds to its supplied step; "
+    "it has no direct shell or file tools."
+    if os.name == "nt"
+    else "Host OS: Unix-like. This workflow agent only responds to its supplied "
+         "step; it has no direct shell or file tools."
+)
+
 # -- Runtime Guards --
 AGENT_CAP = 1000                       # hard cap on agent() calls per run
 CONCURRENCY = 8                        # parallelism cap (semaphore)
@@ -291,9 +299,9 @@ class AnthropicAgentRunner:
         response = self.client.messages.create(
             model=self.model,
             system=(
-                "You are a focused workflow agent. Complete only the supplied "
-                "step. Do not claim access to files or results not included in "
-                "the prompt."
+                "You are a focused workflow agent. Complete only the supplied step. "
+                + f"{WORKFLOW_AGENT_ENVIRONMENT} "
+                + "Do not claim access to files or results not included in the prompt."
             ),
             messages=[{"role": "user", "content": request}],
             max_tokens=2000,

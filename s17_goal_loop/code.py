@@ -43,6 +43,12 @@ from typing import Any
 DEFAULT_MAX_TOKENS = 8000
 DEFAULT_EVALUATOR_MAX_TOKENS = 512
 DEFAULT_STOP_HOOK_BLOCK_CAP = 8
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 MAX_GOAL_LENGTH = 4000
 CLEAR_ALIASES = {"clear", "stop", "off", "reset", "none", "cancel"}
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
@@ -688,7 +694,8 @@ class AgentSession:
                 model=self.model,
                 system=(
                     "You are a coding agent. Use tools to inspect and modify the "
-                    "current repository. Report concrete command results so an "
+                    + f"current repository. Environment: {ENVIRONMENT_PROMPT}. "
+                    + "Report concrete command results so an "
                     "independent evaluator can judge completion."
                 ),
                 messages=self.messages,

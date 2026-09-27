@@ -620,8 +620,14 @@ def remove_worktree(name: str, discard_changes: bool = False) -> str:
 
 # -- System Prompt --
 
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 PROMPT_SECTIONS = {
-    "identity": "You are a coding agent. Act, don't explain.",
+    "identity": f"You are a coding agent. Act, don't explain. Environment: {ENVIRONMENT_PROMPT}.",
     "tools": "Available tools: bash, read_file, write_file, edit_file, glob, "
              "create_task, update_task, list_tasks, get_task, claim_task, "
              "complete_task, "
