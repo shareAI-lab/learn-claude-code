@@ -55,7 +55,7 @@ MODEL = os.environ["MODEL_ID"]
 
 ENVIRONMENT_PROMPT = (
     "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
-    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    "Bash or PowerShell syntax"
     if os.name == "nt"
     else "Unix-like: the bash tool runs the system shell"
 )
