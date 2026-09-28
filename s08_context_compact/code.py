@@ -516,6 +516,25 @@ class ContextCompactor:
     def prepare(self, messages: list, active_request: str) -> list:
         messages = self.tool_result_budget(messages)
         messages = self.snip_compact(messages)
+        if active_request and any(
+            self.is_archive_marker(message) for message in messages
+        ) and not any(
+            isinstance(message.get("content"), str)
+            and (message["content"] == active_request
+                 or message["content"].startswith("Current user request:"))
+            for message in messages
+            if message.get("role") == "user"
+        ):
+            # snip_compact archives the middle section, which may contain the
+            # current user request once a task accumulates many tool calls.
+            # Reinsert it in the same format used by compact_history /
+            # reactive_compact so the model never loses the active task.
+            messages.insert(0, {"role": "user", "content":
+                                f"Current user request:\n{active_request}"})
+            # The extra message can push the list back over the snip limit;
+            # archive again now so the next prepare() call in the agent loop
+            # stays stable instead of re-archiving on every iteration.
+            messages = self.snip_compact(messages)
         if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
             target = int(self.CONTEXT_CHAR_LIMIT * 0.8)
             messages = self.micro_compact(messages, target)
