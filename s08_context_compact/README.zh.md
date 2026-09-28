@@ -236,7 +236,7 @@ def agent_loop(messages, active_request):
         except Exception as error:
             message = str(error).lower()
             too_long = ("prompt_too_long" in message
-                        or "too many tokens" in message)
+                        or "too many tokens / `prompt is too long`" in message)
             if too_long and reactive_retries < MAX_REACTIVE_RETRIES:
                 messages[:] = COMPACTOR.reactive_compact(
                     messages, active_request)
