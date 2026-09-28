@@ -20,7 +20,7 @@ Agent 持续工作时，读过的文件、执行过的命令和模型回复都�
 
 可以把上下文窗口看作模型当前使用的一张草稿纸。用户消息、模型回复、`tool_use` 和 `tool_result` 都会按顺序写在这张纸上。模型每次继续工作时，都要重新读取这些内容。
 
-草稿纸的大小固定。内容超过上限后，API 会拒绝请求并返回 `prompt_too_long`。在代码任务里，工具结果通常占据最多空间：
+草稿纸的大小固定。内容超过上限后，API 会拒绝请求并返回 `prompt is too long`。在代码任务里，工具结果通常占据最多空间：
 
 - 读取一个长文件会把文件内容放进上下文；
 - 测试和构建日志可能一次产生几十 KB 文本；
@@ -202,7 +202,7 @@ if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
 
 ## API 拒绝后的补救
 
-字符数只能估算模型实际使用的 token。API 仍可能返回 `prompt_too_long`。`reactive_compact` 会保存 transcript，总结较早历史，并保留最近 5 条消息：
+字符数只能估算模型实际使用的 token。API 仍可能返回 `prompt is too long`。`reactive_compact` 会保存 transcript，总结较早历史，并保留最近 5 条消息：
 
 ```python
 tail_start = max(0, len(messages) - self.KEEP_RECENT_MESSAGES)
@@ -236,6 +236,7 @@ def agent_loop(messages, active_request):
         except Exception as error:
             message = str(error).lower()
             too_long = ("prompt_too_long" in message
+                        or "prompt is too long" in message
                         or "too many tokens" in message)
             if too_long and reactive_retries < MAX_REACTIVE_RETRIES:
                 messages[:] = COMPACTOR.reactive_compact(

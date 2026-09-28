@@ -20,7 +20,7 @@ Agent が作業を続けると、読み込んだファイル、コマンド結�
 
 コンテキストウィンドウは、モデルが現在使っている下書き用紙と考えられます。ユーザーメッセージ、モデルの応答、`tool_use`、`tool_result` が順番に書き込まれます。モデルはタスクを続けるたびに、その内容を読み直します。
 
-下書き用紙の大きさは固定です。上限を超えると API はリクエストを拒否し、`prompt_too_long` を返します。コーディングタスクでは、ツール結果が多くの領域を占めます。
+下書き用紙の大きさは固定です。上限を超えると API はリクエストを拒否し、`prompt is too long` を返します。コーディングタスクでは、ツール結果が多くの領域を占めます。
 
 - 長いファイルを読むと、その内容がコンテキストに入ります。
 - テストやビルドのログは、一度に数十 KB 追加されることがあります。
@@ -202,7 +202,7 @@ if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
 
 ## API に拒否された後の回復
 
-文字数はモデルが使う token 数の推定値です。そのため API が `prompt_too_long` を返す可能性は残ります。`reactive_compact` は transcript を保存し、古い履歴を要約して、最新 5 メッセージを保持します。
+文字数はモデルが使う token 数の推定値です。そのため API が `prompt is too long` を返す可能性は残ります。`reactive_compact` は transcript を保存し、古い履歴を要約して、最新 5 メッセージを保持します。
 
 ```python
 tail_start = max(0, len(messages) - self.KEEP_RECENT_MESSAGES)
@@ -236,6 +236,7 @@ def agent_loop(messages, active_request):
         except Exception as error:
             message = str(error).lower()
             too_long = ("prompt_too_long" in message
+                        or "prompt is too long" in message
                         or "too many tokens" in message)
             if too_long and reactive_retries < MAX_REACTIVE_RETRIES:
                 messages[:] = COMPACTOR.reactive_compact(

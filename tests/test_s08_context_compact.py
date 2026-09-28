@@ -2,6 +2,9 @@ import runpy
 import sys
 import types
 from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -136,3 +139,71 @@ def test_prepare_persists_oversized_unseen_result_before_full_compact(
     saved_line = next(line for line in content.splitlines()
                       if line.startswith("Full output: "))
     assert Path(saved_line.removeprefix("Full output: ")).read_text() == output
+
+
+@pytest.mark.parametrize("error_message", [
+    "prompt is too long: 210445 tokens > 200000 maximum",
+    "prompt_too_long",
+    "too many tokens",
+])
+def test_agent_loop_compacts_and_retries_context_overflow(
+        tmp_path, monkeypatch, error_message):
+    lesson = load_lesson(monkeypatch, tmp_path)
+    messages = [{"role": "user", "content": "continue"}]
+    compacted = [{"role": "user", "content": "compacted history"}]
+    requests = []
+    response = types.SimpleNamespace(
+        content=[types.SimpleNamespace(type="text", text="Recovered")])
+
+    def create(**kwargs):
+        requests.append(list(kwargs["messages"]))
+        if len(requests) == 1:
+            raise RuntimeError(error_message)
+        return response
+
+    compact = Mock(return_value=compacted)
+    monkeypatch.setattr(lesson["client"].messages, "create", create)
+    monkeypatch.setattr(lesson["COMPACTOR"], "reactive_compact", compact)
+
+    lesson["agent_loop"](messages, "continue")
+
+    assert len(requests) == 2
+    assert requests[1] == compacted
+    compact.assert_called_once()
+    assert compact.call_args.args[1] == "continue"
+    assert messages == [*compacted,
+                        {"role": "assistant", "content": response.content}]
+
+
+def test_agent_loop_stops_after_one_reactive_retry(tmp_path, monkeypatch):
+    lesson = load_lesson(monkeypatch, tmp_path)
+    messages = [{"role": "user", "content": "continue"}]
+    first_error = RuntimeError("prompt is too long: first request")
+    retry_error = RuntimeError("prompt is too long: retry")
+    create = Mock(side_effect=[first_error, retry_error])
+    compact = Mock(return_value=list(messages))
+    monkeypatch.setattr(lesson["client"].messages, "create", create)
+    monkeypatch.setattr(lesson["COMPACTOR"], "reactive_compact", compact)
+
+    with pytest.raises(RuntimeError) as caught:
+        lesson["agent_loop"](messages, "continue")
+
+    assert caught.value is retry_error
+    assert create.call_count == 2
+    compact.assert_called_once()
+
+
+def test_agent_loop_propagates_unrelated_errors(tmp_path, monkeypatch):
+    lesson = load_lesson(monkeypatch, tmp_path)
+    error = RuntimeError("invalid API key")
+    create = Mock(side_effect=error)
+    compact = Mock()
+    monkeypatch.setattr(lesson["client"].messages, "create", create)
+    monkeypatch.setattr(lesson["COMPACTOR"], "reactive_compact", compact)
+
+    with pytest.raises(RuntimeError) as caught:
+        lesson["agent_loop"]([{"role": "user", "content": "continue"}], "continue")
+
+    assert caught.value is error
+    create.assert_called_once()
+    compact.assert_not_called()
