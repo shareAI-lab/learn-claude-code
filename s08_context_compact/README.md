@@ -112,6 +112,8 @@ messages = [*messages[:head_end], marker, *messages[tail_start:]]
 
 The cut points protect every `assistant(tool_use)` and `user(tool_result)` pair. An orphaned result has no matching tool call, so the next API request would be invalid.
 
+Repeated tool calls can move the active request into the archived middle. After a real snip, `prepare` checks whether the original user message or an existing `Current user request` marker is still visible. If neither remains, it appends `active_request` once before continuing.
+
 This step controls the number of messages. Tool results inside the retained messages may still be long.
 
 
@@ -182,7 +184,17 @@ The pipeline uses this order and only enters the lossy summary step when necessa
 
 ```python
 messages = self.tool_result_budget(messages)
+before_snip = messages
 messages = self.snip_compact(messages)
+active_request_marker = f"Current user request:\n{active_request}"
+if (messages is not before_snip
+        and not any(
+            message.get("role") == "user"
+            and isinstance(message.get("content"), str)
+            and (message["content"] == active_request
+                 or active_request_marker in message["content"])
+            for message in messages)):
+    messages.append({"role": "user", "content": active_request})
 if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
     target = int(self.CONTEXT_CHAR_LIMIT * 0.8)
     messages = self.micro_compact(messages, target)
@@ -245,7 +257,7 @@ def agent_loop(messages, active_request):
             raise
 ```
 
-Every model call enters through the same pipeline. After appending `query`, the CLI calls `agent_loop(history, query)`, so repeated compaction cannot lose the current request. The code asks for a summary only when `micro_compact` still leaves the context above the limit or when the API rejects it.
+Every model call enters through the same pipeline. After appending `query`, the CLI calls `agent_loop(history, query)`, and `prepare` restores `active_request` only if a real snip removed every visible copy. Repeated compaction therefore cannot lose the current request. The code asks for a summary only when `micro_compact` still leaves the context above the limit or when the API rejects it.
 
 
 ## The compact Tool
@@ -339,4 +351,4 @@ Context compaction lets an Agent continue a long task within a limited window. I
 
 s09 Memory adds memory writing, retrieval, and consolidation.
 
-<!-- translation-sync: zh@v8, en@v8, ja@v8 -->
+<!-- translation-sync: zh@v9, en@v9, ja@v9 -->

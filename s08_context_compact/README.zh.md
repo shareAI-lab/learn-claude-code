@@ -112,6 +112,8 @@ messages = [*messages[:head_end], marker, *messages[tail_start:]]
 
 切点需要保护 `assistant(tool_use)` 和 `user(tool_result)` 的配对关系。孤立的工具结果缺少对应调用，下一次 API 请求会被判定为无效。
 
+重复的工具调用可能让当前请求进入被归档的中间区域。真正发生裁剪后，`prepare` 会检查原始用户消息或已有的 `Current user request` 标记是否仍然可见；如果两者都不存在，就在继续处理前补回一次 `active_request`。
+
 这一步控制消息数量，但保留下来的旧消息仍可能包含很长的工具结果。
 
 
@@ -182,7 +184,17 @@ def compact_history(messages, active_request):
 
 ```python
 messages = self.tool_result_budget(messages)
+before_snip = messages
 messages = self.snip_compact(messages)
+active_request_marker = f"Current user request:\n{active_request}"
+if (messages is not before_snip
+        and not any(
+            message.get("role") == "user"
+            and isinstance(message.get("content"), str)
+            and (message["content"] == active_request
+                 or active_request_marker in message["content"])
+            for message in messages)):
+    messages.append({"role": "user", "content": active_request})
 if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
     target = int(self.CONTEXT_CHAR_LIMIT * 0.8)
     messages = self.micro_compact(messages, target)
@@ -245,7 +257,7 @@ def agent_loop(messages, active_request):
             raise
 ```
 
-每次调用模型前都会经过同一条管线。CLI 在追加 `query` 后调用 `agent_loop(history, query)`，所以压缩多少次都不会丢失本轮请求。只有 `micro_compact` 处理后仍超过阈值，或者 API 明确拒绝上下文时，代码才会请求模型生成摘要。
+每次调用模型前都会经过同一条管线。CLI 在追加 `query` 后调用 `agent_loop(history, query)`；只有真正发生裁剪并移除了所有可见副本时，`prepare` 才会补回 `active_request`。因此压缩多少次都不会丢失本轮请求。只有 `micro_compact` 处理后仍超过阈值，或者 API 明确拒绝上下文时，代码才会请求模型生成摘要。
 
 
 ## compact 工具
@@ -339,4 +351,4 @@ python s08_context_compact/code.py
 
 s09 Memory 将实现记忆写入、检索与整理。
 
-<!-- translation-sync: zh@v8, en@v8, ja@v8 -->
+<!-- translation-sync: zh@v9, en@v9, ja@v9 -->
