@@ -169,9 +169,9 @@ idle_notification: "Waiting for more work."
 
 IDLE のチームメイトは終了しない。直接メッセージか ready task を受けると WORK に戻り、`shutdown_request` を受けると段階的な shutdown handshake を始める。
 
-### 6. IDLE は受信箱を先に確認し、その後 ready task を探す
+### 6. IDLE は受信箱を確認し、自分の作業を再開してから ready task を探す
 
-IDLE ではメッセージを優先し、その後に共有タスクボードを確認する：
+IDLE ではメッセージを優先する。メッセージがなければ、自分の未完了 assignment を再開してから、共有タスクボードで新しい作業を探す：
 
 ```python
 while True:
@@ -182,16 +182,20 @@ while True:
             break
         continue
 
-    task = claim_next_task(name)
+    task = resumable_task(name)
+    resuming = task is not None
+    if not task:
+        task = claim_next_task(name)
     if task:
+        label = "Resume" if resuming else "Auto-claimed"
         messages.append({
             "role": "user",
-            "content": f"[Auto-claimed task {task.id}] {task.subject}",
+            "content": f"[{label} task {task.id}] {task.subject}",
         })
         break
 ```
 
-shutdown、計画承認、Lead からの直接指示は、空き時間に見つけた仕事より先に扱う。メッセージも ready task もなければ、チームメイトは IDLE を続ける。別のチームメイトが前提タスクを完了すると、blocked task が ready になることもある。
+shutdown、計画承認、Lead からの直接指示は task work より先に扱う。未完了 assignment も空き時間に見つけた仕事より優先し、IDLE のチームメイトが自分の進行中 task を取り残さないようにする。メッセージ、未完了 assignment、ready task のいずれもなければ、チームメイトは IDLE を続ける。別のチームメイトが前提タスクを完了すると、blocked task が ready になることもある。
 
 ### 7. 発見と Claim を分け、Claim はアトミックに行う
 
