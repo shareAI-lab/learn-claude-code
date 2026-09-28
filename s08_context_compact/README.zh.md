@@ -88,11 +88,15 @@ for block in ranked:
 
 ## 第二步：snip_compact
 
-消息数量超过 50 条后，`snip_compact` 先把完整历史写入 `.transcripts/`，再保留最初 3 条和最近 46 条。剩余一个位置用于归档标记，其中写明删去了多少条消息，以及完整记录保存在哪里。
+消息数量达到 `trigger_messages`（默认 50 条）后，`snip_compact` 先把完整历史写入 `.transcripts/`，再向 `target_messages`（默认 30 条）裁剪：保留最初 3 条、1 条归档标记和最近 26 条。标记写明删去了多少条消息，以及完整记录保存在哪里。触发阈值与目标数量分离，为新增消息留出空间，避免后续每次模型调用都再次写入归档。代价是直接保留在上下文中的近期消息更少；较早的内容仍可从归档中取回。
+
+参数需满足 `5 <= target_messages < trigger_messages`：目标数量包含归档标记，并在最初 3 条之外至少保留 1 条最近消息。
 
 ```python
+if len(messages) < trigger_messages:
+    return messages
 head_end = 3
-tail_start = len(messages) - (max_messages - head_end - 1)
+tail_start = len(messages) - (target_messages - head_end - 1)
 
 if self.has_tool_use(messages[head_end - 1]):
     while (head_end < tail_start
@@ -110,7 +114,7 @@ marker = {"role": "user", "content":
 messages = [*messages[:head_end], marker, *messages[tail_start:]]
 ```
 
-切点需要保护 `assistant(tool_use)` 和 `user(tool_result)` 的配对关系。孤立的工具结果缺少对应调用，下一次 API 请求会被判定为无效。
+切点需要保护 `assistant(tool_use)` 和 `user(tool_result)` 的配对关系，因此保留的消息数可能略高于目标数量。孤立的工具结果缺少对应调用，下一次 API 请求会被判定为无效。
 
 这一步控制消息数量，但保留下来的旧消息仍可能包含很长的工具结果。
 
@@ -339,4 +343,4 @@ python s08_context_compact/code.py
 
 s09 Memory 将实现记忆写入、检索与整理。
 
-<!-- translation-sync: zh@v8, en@v8, ja@v8 -->
+<!-- translation-sync: zh@v9, en@v9, ja@v9 -->

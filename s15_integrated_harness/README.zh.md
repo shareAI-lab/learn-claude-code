@@ -154,7 +154,7 @@ LLM 前先跑压缩管线：
 tool_result_budget → snip_compact → micro_compact → compact_history
 ```
 
-`snip_compact` 会先归档完整历史，再裁掉中段消息。`micro_compact` 只在上下文超限时运行：它先保存较早且已读取的结果，再用恢复路径替换；最近 3 条保持完整，并在接近阈值 80% 时停止。如果未读取的新结果本身过大，S15 会先保留预览和完整输出路径，再考虑总结历史。
+`snip_compact` 在消息数量达到 50 条时归档完整历史，再裁掉中段消息，目标为包含归档标记在内的 30 条。这样为新增消息留出空间，避免立即再次归档，代价是直接保留在上下文中的近期消息更少。工具调用与结果保持配对，因此保留数量可能略高于目标。`micro_compact` 只在上下文超限时运行：它先保存较早且已读取的结果，再用恢复路径替换；最近 3 条保持完整，并在接近阈值 80% 时停止。如果未读取的新结果本身过大，S15 会先保留预览和完整输出路径，再考虑总结历史。
 
 调用模型时再包一层恢复：
 
@@ -242,4 +242,4 @@ python s15_integrated_harness/code.py
 
 [s16 Workflow Runtime](../s16_workflow_runtime/) 会在这个 host 中加入 `Workflow` 工具。Workflow 把固定的编排路径写在代码中，并记录运行进度，使同一次运行可以继续执行。
 
-<!-- translation-sync: zh@v14, en@v14, ja@v14 -->
+<!-- translation-sync: zh@v15, en@v15, ja@v15 -->

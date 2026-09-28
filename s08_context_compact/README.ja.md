@@ -88,11 +88,15 @@ for block in ranked:
 
 ## ステップ 2：snip_compact
 
-履歴が 50 メッセージを超えると、`snip_compact` は完全な履歴を `.transcripts/` に保存してから、先頭 3 件と最新 46 件を保持します。残り 1 件は archive marker に使い、削除した件数と完全な transcript の保存先を記録します。
+履歴が `trigger_messages`（デフォルト 50 件）に達すると、`snip_compact` は完全な履歴を `.transcripts/` に保存してから、`target_messages`（デフォルト 30 件）を目標に切り詰めます。先頭 3 件、archive marker 1 件、最新 26 件を保持します。marker は削除した件数と完全な transcript の保存先を記録します。発動閾値と目標件数を分けることで、新しいメッセージを追加する余裕が生まれ、その後の model call ごとに再び履歴を書き出すことを避けます。その代わり、context に直接残る最近のメッセージは少なくなります。古い内容は transcript から取得できます。
+
+パラメータは `5 <= target_messages < trigger_messages` を満たす必要があります。目標件数には marker を含め、先頭 3 件に加えて最新のメッセージを少なくとも 1 件保持します。
 
 ```python
+if len(messages) < trigger_messages:
+    return messages
 head_end = 3
-tail_start = len(messages) - (max_messages - head_end - 1)
+tail_start = len(messages) - (target_messages - head_end - 1)
 
 if self.has_tool_use(messages[head_end - 1]):
     while (head_end < tail_start
@@ -110,7 +114,7 @@ marker = {"role": "user", "content":
 messages = [*messages[:head_end], marker, *messages[tail_start:]]
 ```
 
-切断位置では、`assistant(tool_use)` と `user(tool_result)` の組を保護します。対応するツール呼び出しがない孤立した結果を含むと、次の API リクエストは無効になります。
+切断位置では、`assistant(tool_use)` と `user(tool_result)` の組を保護するため、保持件数が目標を少し上回る場合があります。対応するツール呼び出しがない孤立した結果を含むと、次の API リクエストは無効になります。
 
 このステップはメッセージ数を抑えます。保持されたメッセージ内のツール結果は、まだ長い可能性があります。
 
@@ -339,4 +343,4 @@ s08_context_compact/code.py と s09_memory/code.py を比較し、
 
 s09 Memory では、メモリの書き込み、検索、整理を実装します。
 
-<!-- translation-sync: zh@v8, en@v8, ja@v8 -->
+<!-- translation-sync: zh@v9, en@v9, ja@v9 -->

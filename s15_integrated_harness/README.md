@@ -154,7 +154,7 @@ Before the LLM call, S15 runs the compaction pipeline:
 tool_result_budget → snip_compact → micro_compact → compact_history
 ```
 
-`snip_compact` archives the complete history before trimming its middle. `micro_compact` runs only above the context limit: it saves older consumed results before replacing them with recovery paths, keeps the latest 3 complete, and stops near 80% of the limit. If a new unseen result is itself too large, S15 keeps a preview and the full-output path before considering history summarization.
+`snip_compact` archives the complete history when the message count reaches 50, then trims its middle toward a target of 30 messages, including the archive marker. This leaves room for new messages before the next archive write, at the cost of retaining fewer recent messages directly in context. Tool-call/result pairs remain intact, so the retained count may slightly exceed the target. `micro_compact` runs only above the context limit: it saves older consumed results before replacing them with recovery paths, keeps the latest 3 complete, and stops near 80% of the limit. If a new unseen result is itself too large, S15 keeps a preview and the full-output path before considering history summarization.
 
 The model call is wrapped with recovery:
 
@@ -242,4 +242,4 @@ Watch for:
 
 [s16 Workflow Runtime](../s16_workflow_runtime/) adds a `Workflow` tool to this host. A workflow keeps a fixed orchestration path in code and records progress so the same run can resume.
 
-<!-- translation-sync: zh@v14, en@v14, ja@v14 -->
+<!-- translation-sync: zh@v15, en@v15, ja@v15 -->
