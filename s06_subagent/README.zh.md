@@ -31,7 +31,7 @@ Agent 在修一个 bug。为了追踪调用链，它读取了许多文件；每�
 **run_subagent** 创建新的消息列表，运行嵌套循环，并返回最终文本：
 
 ```python
-SUB_TOOLS = list(BASE_TOOLS)  # no task tool
+SUB_TOOLS = list(BASE_TOOLS)  # 不含 task 工具
 
 def run_subagent(prompt: str) -> str:
     messages = [{"role": "user", "content": prompt}]
