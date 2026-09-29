@@ -34,5 +34,10 @@
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": {
+      "nanoid": "5.1.16"
+    }
   }
 }
