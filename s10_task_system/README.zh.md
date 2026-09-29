@@ -60,6 +60,7 @@ class Task:
     status: str          # pending | in_progress | completed
     owner: str | None    # 负责当前任务的 Agent
     blockedBy: list[str] # 依赖的任务 ID 列表
+    priority: int = 5    # 0-10，数值越高越先执行
 ```
 
 ID 使用 `task_` 加 8 位随机十六进制字符生成。创建文件时使用排他写入；如果 ID 已存在，就重新生成。
@@ -69,11 +70,13 @@ ID 使用 `task_` 加 8 位随机十六进制字符生成。创建文件时使�
 ### create_task: 创建任务
 
 ```python
-def create_task(subject: str, description: str = "") -> Task:
-    return TASKS.create(subject, description)
+def create_task(subject: str, description: str = "", priority: int = 5) -> Task:
+    return TASKS.create(subject, description, priority)
 ```
 
 `TaskStore.create` 检查 subject，分配随机 ID，再把任务写入 `.tasks/{id}.json`。新任务的 `blockedBy` 固定为空，工具结果会把运行时生成的 ID 返回给模型。
+
+任务的 `priority` 是 0（最低）到 10（最高）之间的整数，默认值是 5。`create_task` 会拒绝任何非法取值，因此存下来的每条记录都可以安全比较。本章只负责记录和校验该字段——后面的章节会用它在多个就绪任务中决定先执行哪一个。
 
 ### update_task: 使用返回的 ID 添加依赖
 

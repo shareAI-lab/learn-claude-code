@@ -198,14 +198,23 @@ Shutdown, plan approval, and direct instructions from Lead should arrive before 
 Scanning only finds candidates:
 
 ```python
+def _ready_task_key(task: Task) -> tuple[int, str]:
+    """Deterministic order: highest priority first, then smallest task_id."""
+    return (-task.priority, task.id)
+
 def scan_unclaimed_tasks() -> list[Task]:
-    return [
-        task for task in list_tasks()
-        if task.status == "pending"
-        and task.owner is None
-        and can_start(task.id)
-    ]
+    return sorted(
+        [
+            task for task in list_tasks()
+            if task.status == "pending"
+            and task.owner is None
+            and can_start(task.id)
+        ],
+        key=_ready_task_key,
+    )
 ```
+
+When several candidates are ready at once, `priority` decides. Each task carries a `priority` from 0 (lowest) to 10 (highest), default 5. Ready tasks run in priority order -- highest first; equal priorities are broken by `task.id` ascending, so the ordering is deterministic. Every teammate inspecting the same task directory sees the same next task, and `claim_next_task` always tries the first entry in the ordered list.
 
 The list is a snapshot. Another teammate, or another harness process using the same task directory, may see the same task. Ownership changes therefore happen inside `claim_task()` under `task_store_lock()`, which combines the in-process lock with a file lock:
 
@@ -262,6 +271,7 @@ class Task:
     owner: str | None
     blockedBy: list[str]
     worktree: str | None = None
+    priority: int = 5    # 0-10, higher runs first
 ```
 
 Lead can create and bind a worktree when separate directories will help:

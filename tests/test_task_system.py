@@ -176,6 +176,30 @@ def test_create_retries_instead_of_overwriting_an_existing_id(
         assert [task.subject for task in lesson.list_tasks()] == ["second", "first"]
 
 
+def test_create_task_priority_default_and_range() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        lesson = load_lesson(Path(tmp))
+
+        default = lesson.create_task("default priority")
+        assert lesson.load_task(default.id).priority == 5
+
+        for priority in (0, 10):
+            result = lesson.execute_tool(tool_call(
+                "create_task", subject=f"priority {priority}",
+                priority=priority,
+            ))
+            task_id = result.split()[1].rstrip(":")
+            assert lesson.load_task(task_id).priority == priority
+
+        for bad in (-1, 11, True, "high"):
+            with pytest.raises(ValueError):
+                lesson.create_task("invalid", priority=bad)
+        bad_tool = lesson.execute_tool(tool_call(
+            "create_task", subject="invalid", priority=11
+        ))
+        assert bad_tool == "Error: priority must be an integer between 0 and 10"
+
+
 def test_update_rejects_invalid_graph_changes_without_partial_mutation() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         lesson = load_lesson(Path(tmp))

@@ -197,14 +197,23 @@ while True:
 扫描只负责找候选任务：
 
 ```python
+def _ready_task_key(task: Task) -> tuple[int, str]:
+    """Deterministic order: highest priority first, then smallest task_id."""
+    return (-task.priority, task.id)
+
 def scan_unclaimed_tasks() -> list[Task]:
-    return [
-        task for task in list_tasks()
-        if task.status == "pending"
-        and task.owner is None
-        and can_start(task.id)
-    ]
+    return sorted(
+        [
+            task for task in list_tasks()
+            if task.status == "pending"
+            and task.owner is None
+            and can_start(task.id)
+        ],
+        key=_ready_task_key,
+    )
 ```
+
+当多个候选同时就绪时，由 `priority` 决定先后。每个任务带有一个 `priority`，取值 0（最低）到 10（最高），默认 5。就绪任务按 priority 排序——数值高的先执行；优先级相同时按 `task.id` 升序打破平局，因此顺序是确定性的。任何队友查看同一任务目录，看到的都是同一个"下一个任务"，`claim_next_task` 总是先尝试有序列表的第一项。
 
 候选列表只是某一时刻的快照。其他队友，甚至另一个使用同一任务目录的 Harness 进程，也可能看到同一任务。因此所有权变更必须放进 `claim_task()`，并由 `task_store_lock()` 同时取得进程内锁和文件锁：
 
@@ -261,6 +270,7 @@ class Task:
     owner: str | None
     blockedBy: list[str]
     worktree: str | None = None
+    priority: int = 5    # 0-10，数值越高越先执行
 ```
 
 并行修改需要分开目录时，Lead 可以创建并绑定 worktree：

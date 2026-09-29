@@ -198,14 +198,23 @@ shutdown、計画承認、Lead からの直接指示は、空き時間に見つ�
 走査は候補を探すだけで、状態を変更しない：
 
 ```python
+def _ready_task_key(task: Task) -> tuple[int, str]:
+    """Deterministic order: highest priority first, then smallest task_id."""
+    return (-task.priority, task.id)
+
 def scan_unclaimed_tasks() -> list[Task]:
-    return [
-        task for task in list_tasks()
-        if task.status == "pending"
-        and task.owner is None
-        and can_start(task.id)
-    ]
+    return sorted(
+        [
+            task for task in list_tasks()
+            if task.status == "pending"
+            and task.owner is None
+            and can_start(task.id)
+        ],
+        key=_ready_task_key,
+    )
 ```
+
+複数の候補が同時に ready になった時は `priority` が順番を決める。各タスクは 0（最低）から 10（最高）、デフォルト 5 の `priority` を持つ。ready なタスクは priority 順に実行する——高い方が先で、同じ priority 同士は `task.id` の昇順で決めるため、順序は決定的である。同じ task directory を見るどのチームメイトも同じ「次のタスク」を目にし、`claim_next_task` は常に並べ替えたリストの先頭を試みる。
 
 候補一覧は一時点の snapshot にすぎない。別のチームメイトだけでなく、同じ task directory を使う別の Harness process も同じ task を見る可能性がある。そのため、所有権の変更は process 内 lock と file lock を組み合わせた `task_store_lock()` の下で `claim_task()` が行う：
 
@@ -262,6 +271,7 @@ class Task:
     owner: str | None
     blockedBy: list[str]
     worktree: str | None = None
+    priority: int = 5    # 0-10、大きいほど先に実行
 ```
 
 並列編集を別ディレクトリに分けたい時、Lead は worktree を作成してタスクへ紐付けられる：

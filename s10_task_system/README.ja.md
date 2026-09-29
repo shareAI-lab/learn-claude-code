@@ -60,6 +60,7 @@ class Task:
     status: str          # pending | in_progress | completed
     owner: str | None    # このタスクを担当する Agent
     blockedBy: list[str] # 依存タスク ID のリスト
+    priority: int = 5    # 0-10、大きいほど先に実行
 ```
 
 ID は `task_` と 8 桁のランダムな 16 進文字で生成する。ファイルは排他的に作成し、同じ ID が存在する場合は生成し直す。
@@ -69,11 +70,13 @@ ID は `task_` と 8 桁のランダムな 16 進文字で生成する。ファ�
 ### create_task: タスク作成
 
 ```python
-def create_task(subject: str, description: str = "") -> Task:
-    return TASKS.create(subject, description)
+def create_task(subject: str, description: str = "", priority: int = 5) -> Task:
+    return TASKS.create(subject, description, priority)
 ```
 
 `TaskStore.create` は subject を確認し、ランダム ID を割り当てて `.tasks/{id}.json` に書き込む。新しいタスクの `blockedBy` は常に空で、ツール結果が実行時に生成された ID をモデルへ返す。
+
+`priority` は 0（最低）から 10（最高）までの整数で、デフォルトは 5 である。`create_task` はそれ以外の値を拒否するため、保存されたすべてのレコードを安全に比較できる。この章ではフィールドの記録と検証だけを行い、後続の章で複数の実行可能タスクのうちどれを先に実行するかを決めるために使う。
 
 ### update_task: 返された ID で依存を追加
 
