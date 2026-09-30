@@ -782,7 +782,9 @@ if __name__ == "__main__":
                 query = input("\001\033[36m\002s12 >> \001\033[0m\002")
             except (EOFError, KeyboardInterrupt):
                 break
-            if query.strip().lower() in ("q", "exit", ""):
+            if not query.strip():
+                continue
+            if query.strip().lower() in ("q", "exit"):
                 break
             with agent_lock:
                 run_agent_turn_locked(query)

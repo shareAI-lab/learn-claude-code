@@ -3313,7 +3313,9 @@ if __name__ == "__main__":
             query = CONSOLE.ask()
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         with agent_lock:
             trigger_hooks("UserPromptSubmit", query)
