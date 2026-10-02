@@ -110,14 +110,32 @@ def validate_meta(meta):
 
 每个 item 都要独立经过相同步骤时，可以使用 `pipeline`。item A 跑到第 3 阶段时，item B 可能还在第 1 阶段；下一步必须同时使用上一阶段全部结果时，再使用 `parallel` 等待所有调用完成。
 
+某个分支失败时，两种原语都会先等待其他已启动的分支结束，再抛出错误。
+通过 `asyncio.to_thread()` 发出的模型请求，不会因为等待它的协程被取消就停止。
+等各分支结束后再关闭 journal，成功调用的结果才能保存并用于 resume，
+最终任务通知也才能出现在最后一条进度事件之后。
+
+```python
+async def parallel(self, thunks):
+    results = await asyncio.gather(
+        *[thunk() for thunk in thunks], return_exceptions=True
+    )
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+    return results
+```
+
 ```python
 async def pipeline(self, items, *stages):
     async def run_item(item, idx):
         value = item
-        for stage in stages:                       # 每个 item 独立跑完所有 stage
+        for stage in stages:
             value = await stage(value, item, idx)
         return value
-    return await asyncio.gather(*[run_item(it, i) for i, it in enumerate(items)])
+    return await self.parallel([
+        lambda it=it, i=i: run_item(it, i) for i, it in enumerate(items)
+    ])
 ```
 
 ## 结构化输出：别让子 agent 回来写散文
