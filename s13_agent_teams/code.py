@@ -25,6 +25,7 @@ import json
 import os
 import random
 import re
+import shlex
 import secrets
 import select
 import subprocess
@@ -1668,15 +1669,139 @@ TOOL_HANDLERS = {
 # -- Hooks and Permission Checks --
 
 HOOKS = {"UserPromptSubmit": [], "PreToolUse": [], "PostToolUse": [], "Stop": []}
-DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
-DESTRUCTIVE_COMMAND_WORD = re.compile(
-    r"(?i)(?:^|[;&|()\n])\s*(?:rm|del)(?=\s|$|[;&|()])"
-)
+# -- Hardened permission gate: parse into shell words before matching --
+# The previous gate matched raw substrings, so quote splicing (`r''m`),
+# `${IFS}`, `$'...'`, backslash escapes, `find -delete`, and pipe-to-shell all
+# slipped past the deny list and the destructive-command rule and executed for
+# real. The helpers below tokenize the command into shell words and inspect the
+# resolved argv segments, so those obfuscations are normalised before matching.
+
+DENY_LIST = ["sudo", "shutdown", "reboot", "mkfs", "dd if=", "> /dev/sda"]
 DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+
+_OPERATORS = {";", ";;", "&&", "||", "|", "&", "(", ")", "<", ">", ">>", "<<", "<&", ">&"}
+_REDIRECT_OPERATORS = {">", ">>", ">&", "<&"}
+_INLINE_FLAGS = {"-c", "--eval", "-command", "/c"}
+_SHELL_INTERPRETERS = {
+    "sh", "bash", "dash", "zsh", "ksh", "csh", "tcsh", "fish",
+    "python", "python2", "python3", "perl", "ruby", "node", "nodejs",
+    "php", "lua", "osascript", "powershell", "pwsh", "cmd",
+}
+_DELEGATING_COMMANDS = {"xargs", "env", "nice", "nohup", "time", "command", "exec", "stdbuf", "setsid"}
+_DESTRUCTIVE_COMMANDS = {"rm", "del", "rmdir", "shred", "unlink", "truncate", "dd", "tee"}
+_SENSITIVE_PREFIXES = ("/etc/", "/dev/", "/boot/", "/sys/", "/proc/", "/usr/", "/bin/", "/sbin/", "/lib/")
+
+
+def _normalize_shell_command(command: str) -> str:
+    """Collapse the shell-level obfuscations a substring gate misses."""
+    text = command.replace("${IFS}", " ").replace("$IFS", " ")
+    text = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", r"\1", text)
+    text = re.sub(r"\$'", "'", text)
+    return re.sub(r"\$([A-Za-z_])", r"\1", text)
+
+
+def _tokenize_shell_command(command: str) -> list:
+    lexer = shlex.shlex(_normalize_shell_command(command), posix=True,
+                        punctuation_chars=";&|()<>")
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    return list(lexer)
+
+
+def _command_segments(tokens: list):
+    segments, current, redirects, piped = [], [], [], False
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if token in _REDIRECT_OPERATORS and index + 1 < len(tokens):
+            redirects.append(tokens[index + 1])
+            current.extend([token, tokens[index + 1]])
+            index += 2
+            continue
+        if token in _OPERATORS:
+            if current:
+                segments.append((current, piped, redirects))
+                current, redirects = [], []
+            piped = token == "|"
+        else:
+            current.append(token)
+        index += 1
+    if current:
+        segments.append((current, piped, redirects))
+    return segments
+
+
+def _argv_basename(word: str) -> str:
+    return os.path.basename(word).lower()
+
+
+def _is_sensitive_path(path: str) -> bool:
+    stripped = path.strip("\"'")
+    return stripped == "/" or stripped.startswith(_SENSITIVE_PREFIXES)
+
+
+def _destructive_argv(argv: list, depth: int = 0) -> bool:
+    args = [arg for arg in argv if arg not in _OPERATORS]
+    if not args or depth > 6:
+        return False
+    name = _argv_basename(args[0])
+    rest = args[1:]
+    if name in DENY_LIST or name.startswith("mkfs"):
+        return True
+    if name in _DESTRUCTIVE_COMMANDS:
+        return True
+    if name == "dd":
+        return any(arg.startswith(("if=", "of=")) for arg in rest)
+    if name == "find":
+        return any(arg in ("-delete", "-exec", "-execdir") for arg in rest)
+    if name in _SHELL_INTERPRETERS:
+        for position, arg in enumerate(rest):
+            if arg in _INLINE_FLAGS and position + 1 < len(rest):
+                return _destructive_argv(
+                    _tokenize_shell_command(rest[position + 1]), depth + 1) or True
+        return True
+    if name in _DELEGATING_COMMANDS:
+        inner = [arg for arg in rest if not arg.startswith("-")]
+        return _destructive_argv(inner, depth + 1) if inner else False
+    return False
+
+
+def check_deny_list(command: str) -> str | None:
+    if not isinstance(command, str):
+        return "Blocked: shell command must be a string"
+    try:
+        tokens = _tokenize_shell_command(command)
+    except ValueError:
+        return "Blocked: unparseable shell command"
+    for argv, _piped, _redirects in _command_segments(tokens):
+        args = [arg for arg in argv if arg not in _OPERATORS]
+        if not args:
+            continue
+        name = _argv_basename(args[0])
+        if name in DENY_LIST or name.startswith("mkfs"):
+            return f"Blocked: '{name}' is on the deny list"
+        if name in {"rm", "rmdir", "del", "shred", "truncate"} and any(
+                arg.strip("\"'") == "/" for arg in args[1:]):
+            return "Blocked: recursive delete of the filesystem root"
+    return None
 
 
 def contains_destructive_command(command: str) -> bool:
-    return bool(DESTRUCTIVE_COMMAND_WORD.search(command))
+    if not isinstance(command, str):
+        return False
+    try:
+        tokens = _tokenize_shell_command(command)
+    except ValueError:
+        return True  # unparseable quoting fails closed
+    for argv, piped, redirects in _command_segments(tokens):
+        if _destructive_argv(argv):
+            return True
+        if any(_is_sensitive_path(path) for path in redirects):
+            return True
+        if piped and argv and _argv_basename(argv[0]) in _SHELL_INTERPRETERS:
+            return True
+    return False
+
 
 
 def register_hook(event: str, callback):
@@ -1696,12 +1821,10 @@ def trigger_hooks(event: str, *args, skip_permission: bool = False):
 def check_permission(block, prompt_user: bool = True) -> str | None:
     if block.name == "bash":
         command = block.input.get("command", "")
-        for pattern in DENY_LIST:
-            if pattern in command:
-                return f"Permission denied by deny list: {pattern}"
-        if contains_destructive_command(command) or any(
-            keyword in command for keyword in DESTRUCTIVE
-        ):
+        reason = check_deny_list(command)
+        if reason:
+            return f"Permission denied by deny list: {reason}"
+        if contains_destructive_command(command):
             if not prompt_user:
                 return "Permission required: ask Lead to run this command."
             print(f"\n[permission] {block.name}({block.input})")
