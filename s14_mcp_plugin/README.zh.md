@@ -119,13 +119,10 @@ tools.append({
     "description": tool_def.get("description", ""),
     "input_schema": schema,
 })
-handlers[prefixed] = (
-    lambda *, client=server, tool=raw_name, **kwargs:
-    client.call_tool(tool, kwargs)
-)
+handlers[prefixed] = make_mcp_handler(server, raw_name)
 ```
 
-模型看到带前缀的名字；handler 仍使用 server 原始工具名调用 `MCPClient`。默认参数保存当前 client 和 tool，避免循环里的 lambda 全部指向最后一个工具。
+模型看到带前缀的名字；handler 仍使用 server 原始工具名调用 `MCPClient`。`make_mcp_handler()` 用闭包保存当前 client 和 tool，避免循环里的 lambda 全部指向最后一个工具。默认参数也能做到这一点，但它们仍是普通关键字参数：工具输入里的 `tool` 键会覆盖默认值，把已放行的调用改派到另一个 server 工具。
 
 ### 6. 权限由宿主配置决定
 

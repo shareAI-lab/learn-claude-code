@@ -119,13 +119,10 @@ tools.append({
     "description": tool_def.get("description", ""),
     "input_schema": schema,
 })
-handlers[prefixed] = (
-    lambda *, client=server, tool=raw_name, **kwargs:
-    client.call_tool(tool, kwargs)
-)
+handlers[prefixed] = make_mcp_handler(server, raw_name)
 ```
 
-The model sees the prefixed name. The handler calls `MCPClient` with the server's original tool name. Default arguments capture the current client and tool so every lambda does not point to the last item in the loop.
+The model sees the prefixed name. The handler calls `MCPClient` with the server's original tool name. `make_mcp_handler()` captures the current client and tool in a closure so every lambda does not point to the last item in the loop. Default arguments fix that too, but they stay ordinary keyword parameters: a `tool` key in the tool input would replace them and send an approved call to a different server tool.
 
 ### 6. The host decides permissions
 
