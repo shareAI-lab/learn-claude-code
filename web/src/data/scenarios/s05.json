@@ -17,8 +17,8 @@
     {
       "type": "tool_result",
       "toolName": "todo_write",
-      "content": "Todos updated.",
-      "annotation": "The current todo list is kept by the harness."
+      "content": "[>] Inspect parser\n[ ] Refactor parsing branch\n[ ] Add regression test\n\n(0/3 completed)",
+      "annotation": "The harness returns the current list to the model."
     },
     {
       "type": "tool_call",
@@ -28,8 +28,8 @@
     },
     {
       "type": "system_event",
-      "content": "<reminder>Update todo status after 3 rounds without todo_write.</reminder>",
-      "annotation": "The nag reminder keeps the plan fresh during long work."
+      "content": "<reminder>Update your todos.</reminder>",
+      "annotation": "After three rounds without todo_write, the harness appends a reminder."
     },
     {
       "type": "assistant_text",

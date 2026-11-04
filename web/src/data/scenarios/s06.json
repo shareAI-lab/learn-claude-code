@@ -1,7 +1,7 @@
 {
   "version": "s06",
   "title": "Subagent",
-  "description": "The task tool spawns a fresh subagent context and returns only a final summary to the parent.",
+  "description": "The task tool runs a nested agent loop with fresh messages and returns its final text to the parent.",
   "steps": [
     {
       "type": "user_message",
@@ -16,20 +16,20 @@
     },
     {
       "type": "system_event",
-      "content": "spawn_subagent: messages=[{role:\"user\", content: prompt}], tools=bash/read/write/edit/glob",
-      "annotation": "The child receives a fresh message history and no recursive task tool."
+      "content": "run_subagent: messages=[{role:\"user\", content: prompt}], tools=bash/read/write/edit/glob",
+      "annotation": "The subagent receives fresh messages and no task tool."
     },
     {
       "type": "tool_call",
       "toolName": "read_file",
       "content": "{\"path\":\"cli.py\"}",
-      "annotation": "Inside the child loop, intermediate tool calls stay private."
+      "annotation": "The tool call stays in the subagent's local message list."
     },
     {
       "type": "tool_result",
       "toolName": "task",
       "content": "Summary: cli.py parses args, selects a command handler, then dispatches.",
-      "annotation": "Only the subagent's final summary returns to the parent."
+      "annotation": "The subagent's final text becomes the parent's task result."
     },
     {
       "type": "assistant_text",

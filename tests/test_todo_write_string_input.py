@@ -10,11 +10,14 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 COURSE_MODULES = [
     ("s05", REPO_ROOT / "s05_todo_write" / "code.py"),
-    ("s06", REPO_ROOT / "s06_subagent" / "code.py"),
-    ("s07", REPO_ROOT / "s07_skill_loading" / "code.py"),
-    ("s08", REPO_ROOT / "s08_context_compact" / "code.py"),
-    ("s20", REPO_ROOT / "s20_comprehensive" / "code.py"),
+    ("s15", REPO_ROOT / "s15_integrated_harness" / "code.py"),
 ]
+
+
+def todo_items(module):
+    if hasattr(module, "TODO"):
+        return module.TODO.items
+    return module.CURRENT_TODOS
 
 
 def load_course_module(module_name: str, module_path: Path, temp_cwd: Path):
@@ -75,9 +78,9 @@ class TodoWriteStringInputTests(unittest.TestCase):
                     '[{"content": "inspect repo", "status": "pending"}]'
                 )
 
-                self.assertIn("Updated 1", result)
+                self.assertTrue("Updated 1" in result or "[ ] inspect repo" in result)
                 self.assertEqual(
-                    module.CURRENT_TODOS,
+                    todo_items(module),
                     [{"content": "inspect repo", "status": "pending"}],
                 )
 
@@ -90,9 +93,9 @@ class TodoWriteStringInputTests(unittest.TestCase):
                     "[{'content': 'write tests', 'status': 'in_progress'}]"
                 )
 
-                self.assertIn("Updated 1", result)
+                self.assertTrue("Updated 1" in result or "[>] write tests" in result)
                 self.assertEqual(
-                    module.CURRENT_TODOS,
+                    todo_items(module),
                     [{"content": "write tests", "status": "in_progress"}],
                 )
 
@@ -109,6 +112,84 @@ class TodoWriteStringInputTests(unittest.TestCase):
 
                 self.assertIn("Error:", result)
                 self.assertFalse(marker.exists())
+
+
+class S05TodoManagerTests(unittest.TestCase):
+    def load_s05(self, temp_cwd: Path):
+        return load_course_module("s05", COURSE_MODULES[0][1], temp_cwd)
+
+    def test_returns_rendered_progress(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.load_s05(Path(tmp))
+
+            result = module.run_todo_write([
+                {"content": "inspect repo", "status": "completed"},
+                {"content": "write tests", "status": "in_progress"},
+            ])
+
+            self.assertIn("[x] inspect repo", result)
+            self.assertIn("[>] write tests", result)
+            self.assertIn("(1/2 completed)", result)
+
+    def test_rejects_invalid_updates_without_replacing_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.load_s05(Path(tmp))
+            module.run_todo_write([
+                {"content": "keep this", "status": "pending"},
+            ])
+
+            invalid_updates = [
+                [{"content": "", "status": "pending"}],
+                [
+                    {"content": "first", "status": "in_progress"},
+                    {"content": "second", "status": "in_progress"},
+                ],
+                [
+                    {"content": f"task {index}", "status": "pending"}
+                    for index in range(21)
+                ],
+            ]
+            for update in invalid_updates:
+                with self.subTest(update=update):
+                    result = module.run_todo_write(update)
+                    self.assertIn("Error:", result)
+                    self.assertEqual(
+                        module.TODO.items,
+                        [{"content": "keep this", "status": "pending"}],
+                    )
+
+    def test_appends_one_reminder_to_the_third_tool_result_batch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.load_s05(Path(tmp))
+            responses = [
+                types.SimpleNamespace(
+                    stop_reason="tool_use",
+                    content=[types.SimpleNamespace(
+                        type="tool_use",
+                        id=f"tool_{index}",
+                        name="glob",
+                        input={"pattern": "*.py"},
+                    )],
+                )
+                for index in range(3)
+            ]
+            responses.append(types.SimpleNamespace(stop_reason="end_turn", content=[]))
+            module.client.messages.create = lambda **kwargs: responses.pop(0)
+
+            messages = []
+            module.agent_loop(messages)
+
+            result_batches = [
+                message["content"] for message in messages
+                if message["role"] == "user" and isinstance(message["content"], list)
+            ]
+            self.assertEqual(len(result_batches), 3)
+            self.assertFalse(any(item["type"] == "text" for item in result_batches[0]))
+            self.assertFalse(any(item["type"] == "text" for item in result_batches[1]))
+            self.assertEqual(
+                [item for item in result_batches[2] if item["type"] == "text"],
+                [{"type": "text", "text": "<reminder>Update your todos.</reminder>"}],
+            )
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 const FLOW_STEPS = [
   { role: "user", label: "user", color: "bg-blue-500" },
@@ -16,20 +16,22 @@ const FLOW_STEPS = [
 
 export function MessageFlow() {
   const [count, setCount] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      setCount((prev) => {
-        if (prev >= FLOW_STEPS.length) {
-          setTimeout(() => setCount(0), 1500);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 800);
+    // Single self-scheduling timer: only ever one timeout is pending, so a
+    // completed cycle can't queue multiple resets that snap the count back.
+    const step = (current: number) => {
+      const next = current >= FLOW_STEPS.length ? 0 : current + 1;
+      setCount(next);
+      // Hold on the full array before restarting the cycle.
+      const delay = next >= FLOW_STEPS.length ? 1500 : 800;
+      timeoutRef.current = setTimeout(() => step(next), delay);
+    };
+
+    timeoutRef.current = setTimeout(() => step(0), 800);
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
 
@@ -43,22 +45,21 @@ export function MessageFlow() {
           len={count}
         </span>
       </div>
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
-        <AnimatePresence>
-          {FLOW_STEPS.slice(0, count).map((step, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, scale: 0.7, width: 0 }}
-              animate={{ opacity: 1, scale: 1, width: "auto" }}
-              transition={{ duration: 0.25 }}
-              className={`flex shrink-0 items-center rounded-md px-2.5 py-1.5 ${step.color}`}
-            >
-              <span className="whitespace-nowrap font-mono text-[10px] font-medium text-white">
-                {step.label}
-              </span>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+      <div className="flex flex-wrap gap-1 pb-1">
+        {FLOW_STEPS.slice(0, count).map((step, i) => (
+          <motion.div
+            key={i}
+            layout
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.25 }}
+            className={`flex shrink-0 items-center rounded-md px-1.5 py-1.5 ${step.color}`}
+          >
+            <span className="whitespace-nowrap font-mono text-[10px] font-medium text-white">
+              {step.label}
+            </span>
+          </motion.div>
+        ))}
         {count === 0 && (
           <div className="flex h-7 items-center text-xs text-[var(--color-text-secondary)]">
             []

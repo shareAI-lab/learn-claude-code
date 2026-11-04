@@ -34,7 +34,7 @@ const MEMORY_FILES: MemoryFile[] = [
     title: "LCC web paths",
     filename: "lcc_web_paths.md",
     description: "Web app reads root lesson folders and generated JSON.",
-    body: "Build from web/, extract content from s01-s20 lesson directories.",
+    body: "Build from web/, extract content from the root lesson directories.",
   },
   {
     id: "test-command",
@@ -42,7 +42,7 @@ const MEMORY_FILES: MemoryFile[] = [
     title: "Verification commands",
     filename: "lcc_test_commands.md",
     description: "Useful smoke checks for the course website.",
-    body: "Run npm run build, then browser-check /zh/s09 and /zh/s20.",
+    body: "Run npm run build, then browser-check /zh/s09 and /zh/s17.",
   },
 ];
 
@@ -340,7 +340,7 @@ export default function MemoryVisualization({ title }: { title?: string }) {
                 Memory file preview
               </div>
               {step >= 2 ? (
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(220px,0.85fr)]">
+                <div className="grid gap-3">
                   <MemoryDetail file={selectedFile} selected={selected} />
                   <div className="space-y-2">
                     {MEMORY_FILES.slice(1).map((file) => (

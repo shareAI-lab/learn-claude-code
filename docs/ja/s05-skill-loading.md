@@ -52,7 +52,7 @@ class SkillLoader:
     def __init__(self, skills_dir: Path):
         self.skills = {}
         for f in sorted(skills_dir.rglob("SKILL.md")):
-            text = f.read_text()
+            text = f.read_text(encoding="utf-8")
             meta, body = self._parse_frontmatter(text)
             name = meta.get("name", f.parent.name)
             self.skills[name] = {"meta": meta, "body": body}

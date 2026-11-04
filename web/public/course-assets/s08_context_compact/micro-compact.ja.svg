@@ -11,7 +11,7 @@
   <rect width="720" height="300" fill="#fafbfc" rx="8"/>
   <rect x="0" y="0" width="720" height="38" fill="url(#header)" rx="8"/>
   <rect x="0" y="30" width="720" height="8" fill="url(#header)"/>
-  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">L2: microCompact — 旧結果のプレースホルダー置換</text>
+  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Step 3: micro_compact、古い結果を置換</text>
 
   <!-- ペインポイント -->
   <rect x="20" y="54" width="680" height="36" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
@@ -39,20 +39,20 @@
   <text x="535" y="114" fill="#ca8a04" font-size="12" font-weight="600" text-anchor="middle">圧縮後（最新 3 件のみ完全保持）</text>
   <rect x="390" y="122" width="310" height="95" rx="6" fill="#fefce8" stroke="#ca8a04" stroke-width="1"/>
   <rect x="400" y="130" width="290" height="10" rx="2" fill="#fef3c7"/>
-  <text x="408" y="138" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <text x="408" y="138" fill="#92400e" font-size="8" font-family="monospace">[Earlier tool result saved at .task_outputs/...]</text>
   <rect x="400" y="145" width="290" height="10" rx="2" fill="#fef3c7"/>
-  <text x="408" y="153" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <text x="408" y="153" fill="#92400e" font-size="8" font-family="monospace">[Earlier tool result saved at .task_outputs/...]</text>
   <rect x="400" y="160" width="290" height="10" rx="2" fill="#fef3c7"/>
-  <text x="408" y="168" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <text x="408" y="168" fill="#92400e" font-size="8" font-family="monospace">[Earlier tool result saved at .task_outputs/...]</text>
   <rect x="400" y="175" width="290" height="10" rx="2" fill="#fef3c7"/>
   <text x="408" y="183" fill="#92400e" font-size="8" font-family="monospace">Read file J: (完全な内容, 2800 文字)</text>
-  <text x="545" y="212" fill="#ca8a04" font-size="9" font-weight="600" text-anchor="middle">最新 3 件を保持、前 7 件は置換</text>
+  <text x="545" y="212" fill="#ca8a04" font-size="9" font-weight="600" text-anchor="middle">最新 3 件を保持、前 7 件は復元パスへ置換</text>
 
   <!-- 原理 -->
   <rect x="20" y="228" width="680" height="62" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
-  <text x="35" y="248" fill="#1e3a5f" font-size="11" font-weight="600">方法（教学版）</text>
-  <text x="130" y="248" fill="#475569" font-size="10">tool_result を走査し、最新 3 件のみ完全保持、古いものはプレースホルダーに置換。</text>
-  <text x="35" y="264" fill="#1e3a5f" font-size="11" font-weight="600">実際の CC</text>
-  <text x="110" y="264" fill="#475569" font-size="10">API cache_edits で旧結果をクリア（prompt cache プレフィックスを破壊しない）、COMPACTABLE_TOOLS のみ対象：</text>
-  <text x="110" y="280" fill="#94a3b8" font-size="9">Read, Bash, Grep, Glob, WebSearch, WebFetch, Edit, Write。教学版はテキストプレースホルダーで同様の効果を模擬。</text>
+  <text x="35" y="248" fill="#1e3a5f" font-size="11" font-weight="600">処理規則</text>
+  <text x="95" y="248" fill="#475569" font-size="10">最新 3 件を保持し、古い結果を保存して上限の 80% まで短縮。</text>
+  <text x="35" y="264" fill="#1e3a5f" font-size="11" font-weight="600">復元方法</text>
+  <text x="95" y="264" fill="#475569" font-size="10">短縮した各結果に .task_outputs/ 内の信頼できるパスを残す。</text>
+  <text x="125" y="280" fill="#94a3b8" font-size="9">メッセージ構造を保ったまま次のループへ進める。</text>
 </svg>

@@ -1,8 +1,8 @@
 # s04: Hooks — ループに掛ける、ループには書き込まない
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md)
 
-s01 → s02 → s03 → `s04` → [s05](../s05_todo_write/) → s06 → ... → s20
+s01 → s02 → s03 → `s04` → [s05](../s05_todo_write/) → s06 → ... → s16 → s17
 
 > *"ループに掛ける、ループには書き込まない"* — フックがツール実行の前後に拡張ロジックを注入する。
 >
@@ -48,7 +48,7 @@ s03 のループと権限ロジックは完全に保持される。唯一の変�
 | UserPromptSubmit | ユーザー入力後、LLM に入る前 | 入力バリデーション、コンテキスト注入 |
 | PreToolUse | ツール実行前 | 権限チェック、ログ記録 |
 | PostToolUse | ツール実行後 | 副作用（自動 git add など）、出力チェック |
-| Stop | ループが終了する直前 | クリーンアップ（CC は強制続行もサポート） |
+| Stop | ループが終了する直前 | 後処理、ループを続行するかの判断 |
 
 拡張は `register_hook()` で追加する。ループは `trigger_hooks()` を呼ぶだけ。
 
@@ -77,9 +77,9 @@ def trigger_hooks(event: str, *args):
     return None
 ```
 
-教学版では、PreToolUse の非 None 戻り値は実行阻止を意味し、Stop の非 None 戻り値は強制続行を意味する。UserPromptSubmit と PostToolUse の戻り値は未使用。
+`PreToolUse` が `None` 以外を返すと、現在のツール実行は中止される。`Stop` が `None` 以外を返すと、ループは続行する。`UserPromptSubmit` と `PostToolUse` の戻り値は制御フローに影響しない。
 
-**UserPromptSubmit**、ユーザー入力後、LLM に入る前に発火。CC では入力の横取りや変更が可能、教学版はログ出力のみ：
+**UserPromptSubmit** はユーザー入力後、LLM に入る前に発火する。以下の hook は現在の作業ディレクトリを記録する：
 
 ```python
 def context_inject_hook(query: str) -> str | None:
@@ -108,7 +108,7 @@ def permission_hook(block):
         for pattern in DENY_LIST:
             if pattern in block.input.get("command", ""):
                 return "Permission denied by deny list"
-    if block.name in ("write_file", "edit_file"):
+    if block.name in ("read_file", "write_file", "edit_file"):
         path = block.input.get("path", "")
         if not (WORKDIR / path).resolve().is_relative_to(WORKDIR):
             choice = input("   Allow? [y/N] ").strip().lower()
@@ -130,7 +130,7 @@ register_hook("PreToolUse", log_hook)
 register_hook("PostToolUse", large_output_hook)
 ```
 
-**Stop**、ループが終了する直前に発火（`stop_reason != "tool_use"`）。教学版ではクリーンアップ統計を印刷：
+**Stop** はループが終了する直前に発火する。以下の hook は終了時の統計を出力する：
 
 ```python
 def summary_hook(messages: list) -> str | None:
@@ -147,7 +147,10 @@ register_hook("Stop", summary_hook)
 agent_loop 内では、終了前に発火：
 
 ```python
-if response.stop_reason != "tool_use":
+tool_calls = [
+    block for block in response.content if block.type == "tool_use"
+]
+if not tool_calls:
     force = trigger_hooks("Stop", messages)   # ← 終了する前に
     if force:
         # フックがメッセージを返した → 注入して続行
@@ -159,10 +162,7 @@ if response.stop_reason != "tool_use":
 **ループ内で変更されたのは一箇所だけ**：s03 は直接 `check_permission(block)` を呼び出していたが、s04 は `trigger_hooks("PreToolUse", block)` に置き換えた：
 
 ```python
-for block in response.content:
-    if block.type != "tool_use":
-        continue
-
+for block in tool_calls:
     # s03: if not check_permission(block): ...
     # s04: フックがハードコードを代替
     blocked = trigger_hooks("PreToolUse", block)
@@ -220,64 +220,5 @@ Agent は安全に操作を実行できるようになった。しかし「ま�
 
 → s05 TodoWrite：Agent に計画ツールを与える。まずリストを作り、それから実行。
 
-<details>
-<summary>CC ソースコードを深掘り</summary>
-
-> 以下は CC ソースコード `toolHooks.ts`（650 行）、`hooks.ts`、`stopHooks.ts`、`coreTypes.ts` の完全分析に基づく。
-
-### 一、Hook イベント：4 つではなく 27 個
-
-教育版は PreToolUse と PostToolUse のみを取り上げる。CC には実際に 27 のフックイベントがある（`coreTypes.ts:25-53`）：
-
-| カテゴリ | イベント |
-|----------|---------|
-| ツール関連 | `PreToolUse`, `PostToolUse`, `PostToolUseFailure` |
-| セッション関連 | `SessionStart`, `SessionEnd`, `Stop`, `StopFailure`, `Setup` |
-| ユーザー対話 | `UserPromptSubmit`, `Notification`, `PermissionRequest`, `PermissionDenied` |
-| サブエージェント | `SubagentStart`, `SubagentStop` |
-| 圧縮関連 | `PreCompact`, `PostCompact` |
-| チーム関連 | `TeammateIdle`, `TaskCreated`, `TaskCompleted` |
-| その他 | `Elicitation`, `ElicitationResult`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`, `CwdChanged`, `FileChanged` |
-
-教育版は 4 つのコアイベント（UserPromptSubmit、PreToolUse、PostToolUse、Stop）のみを取り上げる。これらで agent cycle の重要ノードを全てカバーできる。残り 23 個は同じパターン。
-
-### 二、HookResult よく使うフィールド抜粋
-
-CC の `HookResult`（`types/hooks.ts:260-275`）には 14 のフィールドがある。よく使うもの：
-
-| フィールド | 型 | 用途 |
-|-----------|-----|------|
-| `message` | Message | オプションの UI メッセージ |
-| `blockingError` | HookBlockingError | ブロッキングエラー → 会話に注入してモデルが自己修正 |
-| `outcome` | success/blocking/non_blocking_error/cancelled | 実行結果 |
-| `preventContinuation` | boolean | 後続実行を阻止 |
-| `stopReason` | string | 停止理由の説明 |
-| `permissionBehavior` | allow/deny/ask/passthrough | フックが権限決定を返す |
-| `updatedInput` | Record | ツール入力の変更 |
-| `additionalContext` | string | 追加コンテキスト |
-| `updatedMCPToolOutput` | unknown | MCP ツール出力の変更 |
-
-### 三、重要な不変条件：Hook 'allow' は deny/ask ルールをバイパスできない
-
-これは CC 権限システムで最も重要なセキュリティ設計（`toolHooks.ts:325-331`）：**フックが allow を返しても、settings.json の deny/ask ルールをチェックする。** ユーザーのフックスクリプトが「許可」と言っても、settings.json でそのツールが無効になっていれば、操作は阻止される。
-
-教育版にはこの階層がない。フックが非 None を返せば直接中断。教育目的では十分だが、本番環境ではセキュリティホールになる。
-
-### 四、stopHookActive 機構
-
-CC の Stop フックには無限ループ防止機構がある（`query.ts:212,1300`）：`stopHookActive` 状態フィールド。Stop フックが blockingError を発生させると、ループは `stopHookActive: true` で次のラウンドに再入する。後続のイテレーションではこのフラグを見て Stop フックを再トリガーしない。これで「永久に止まらない」バグを防ぐ：モデルが自己修正 → Stop フックが再度エラー → モデルが再修正 → Stop フックが再度エラー... を防止。
-
-### 五、hook_stopped_continuation
-
-PostToolUse フックが `preventContinuation: true` を返すと、`hook_stopped_continuation` アタッチメントが生成される（`toolHooks.ts:117-130`）。query.ts（L1388-1393）はそれを検出して `shouldPreventContinuation = true` を設定し、ループが終了する。これは「フックが Agent を優雅に停止させる」機構 — クラッシュではなく、完了。
-
-### 教育版の簡略化は意図的
-
-- 27 イベント → 4（UserPromptSubmit/PreToolUse/PostToolUse/Stop）：agent cycle の重要ノードをカバー
-- 14 フィールド → 単純な戻り値（None = 続行、非 None = 中断/続行）：認知負荷を最小限に
-- Hook allow vs deny/ask の不変条件 → 省略：教育版に settings.json 層はない
-- stopHookActive → 省略：教育版の Stop フックは単純な続行のみ、無限ループ防止は不要
-
-</details>
 
 <!-- translation-sync: zh@v1, en@v1, ja@v1 -->

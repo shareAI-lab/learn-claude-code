@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="system-ui, -apple-system, sans-serif" role="img" aria-labelledby="title description">
+  <title id="title">Workflow Runtime execution flow</title>
+  <desc id="description">One Workflow tool call executes a complete workflow run. Lifecycle and progress events remain inside the call, which returns one tool result containing launch metadata, the result, and task state.</desc>
+  <defs>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e"/>
+    </marker>
+    <marker id="arrow-gray" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#888888"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="640" rx="8" fill="#ffffff"/>
+
+  <text x="480" y="30" text-anchor="middle" fill="#1a1a1a" font-size="19" font-weight="700">Workflow Runtime — one Workflow call executes one complete run</text>
+  <text x="480" y="51" text-anchor="middle" fill="#888888" font-size="12">lifecycle and progress events are emitted during the call; one final tool_result returns to messages[]</text>
+
+  <!-- Main session loop -->
+  <rect x="20" y="68" width="920" height="132" rx="8" fill="#ffffff" stroke="#d0d0d0" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="40" y="88" fill="#1a1a1a" font-size="13" font-weight="700">Main session loop</text>
+
+  <path d="M 818 118 L 818 100 L 110 100 L 110 118" fill="none" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow-green)"/>
+  <text x="464" y="95" text-anchor="middle" fill="#22c55e" font-size="10" font-weight="600">append one tool_result to messages[]</text>
+
+  <rect x="42" y="118" width="136" height="54" rx="6" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="110" y="141" text-anchor="middle" fill="#1a1a1a" font-size="12" font-weight="700" font-family="monospace">messages[]</text>
+  <text x="110" y="159" text-anchor="middle" fill="#888888" font-size="9">message history</text>
+
+  <line x1="178" y1="145" x2="218" y2="145" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <rect x="220" y="118" width="92" height="54" rx="6" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="266" y="141" text-anchor="middle" fill="#1a1a1a" font-size="13" font-weight="700">LLM</text>
+  <text x="266" y="159" text-anchor="middle" fill="#888888" font-size="9">tool_use?</text>
+
+  <line x1="312" y1="145" x2="352" y2="145" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <rect x="354" y="118" width="220" height="54" rx="6" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="464" y="140" text-anchor="middle" fill="#1a1a1a" font-size="11" font-weight="700" font-family="monospace">Workflow({name, args})</text>
+  <text x="464" y="159" text-anchor="middle" fill="#888888" font-size="8.5" font-family="monospace">resume_from_run_id?</text>
+
+  <rect x="715" y="110" width="205" height="70" rx="6" fill="#fafafa" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="818" y="134" text-anchor="middle" fill="#1a1a1a" font-size="12" font-weight="700">tool_result</text>
+  <text x="818" y="153" text-anchor="middle" fill="#22c55e" font-size="9.5" font-weight="600" font-family="monospace">launched + result + task</text>
+  <text x="818" y="168" text-anchor="middle" fill="#888888" font-size="8.5">one return after the run</text>
+
+  <!-- Complete WorkflowTool.call lifecycle -->
+  <rect x="20" y="232" width="920" height="350" rx="8" fill="#ffffff" stroke="#d0d0d0" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="40" y="253" fill="#1a1a1a" font-size="13" font-weight="700">WorkflowTool.call — complete workflow task lifecycle</text>
+
+  <rect x="45" y="272" width="180" height="76" rx="6" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="135" y="294" text-anchor="middle" fill="#1a1a1a" font-size="11" font-weight="700" font-family="monospace">WorkflowTool.call</text>
+  <text x="135" y="314" text-anchor="middle" fill="#888888" font-size="9">validate meta · permission</text>
+  <text x="135" y="331" text-anchor="middle" fill="#888888" font-size="9" font-family="monospace">runId · taskId · envelope</text>
+
+  <line x1="225" y1="310" x2="263" y2="310" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <rect x="265" y="272" width="180" height="76" rx="6" fill="#fafafa" stroke="#d0d0d0" stroke-width="1.5"/>
+  <text x="355" y="294" text-anchor="middle" fill="#1a1a1a" font-size="11" font-weight="700">Emit lifecycle</text>
+  <text x="355" y="314" text-anchor="middle" fill="#22c55e" font-size="9.5" font-weight="600" font-family="monospace">async_launched</text>
+  <text x="355" y="331" text-anchor="middle" fill="#888888" font-size="9.5" font-family="monospace">task_started</text>
+
+  <line x1="445" y1="310" x2="483" y2="310" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <rect x="485" y="272" width="180" height="76" rx="6" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="575" y="294" text-anchor="middle" fill="#1a1a1a" font-size="11" font-weight="700">Execute script</text>
+  <text x="575" y="314" text-anchor="middle" fill="#888888" font-size="9" font-family="monospace">phase · agent()</text>
+  <text x="575" y="331" text-anchor="middle" fill="#888888" font-size="9" font-family="monospace">parallel · pipeline</text>
+
+  <line x1="665" y1="310" x2="703" y2="310" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <rect x="705" y="272" width="210" height="76" rx="6" fill="#fafafa" stroke="#d0d0d0" stroke-width="1.5"/>
+  <text x="810" y="294" text-anchor="middle" fill="#1a1a1a" font-size="11" font-weight="700">Finalize task</text>
+  <text x="810" y="314" text-anchor="middle" fill="#888888" font-size="9">write output · save last run</text>
+  <text x="810" y="331" text-anchor="middle" fill="#22c55e" font-size="9.5" font-weight="600" font-family="monospace">task_notification</text>
+
+  <!-- Script execution details -->
+  <line x1="575" y1="348" x2="575" y2="388" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <text x="588" y="371" fill="#22c55e" font-size="9" font-weight="600">agent()</text>
+
+  <rect x="475" y="390" width="190" height="64" rx="6" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="570" y="413" text-anchor="middle" fill="#1a1a1a" font-size="11" font-weight="700">Agent runner calls × N</text>
+  <text x="570" y="432" text-anchor="middle" fill="#888888" font-size="9">schema validation · token budget</text>
+  <text x="570" y="447" text-anchor="middle" fill="#888888" font-size="8.5">parallel work, structured results</text>
+
+  <line x1="665" y1="422" x2="703" y2="422" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <text x="684" y="414" text-anchor="middle" fill="#22c55e" font-size="8.5" font-weight="600">record</text>
+
+  <rect x="705" y="390" width="190" height="64" rx="6" fill="#fafafa" stroke="#d0d0d0" stroke-width="1.5"/>
+  <text x="800" y="413" text-anchor="middle" fill="#1a1a1a" font-size="11" font-weight="700">Journal</text>
+  <text x="800" y="432" text-anchor="middle" fill="#888888" font-size="9" font-family="monospace">semantic key → result</text>
+  <text x="800" y="447" text-anchor="middle" fill="#888888" font-size="8.5">resume returns cached calls</text>
+
+  <path d="M 705 441 L 680 441 L 680 372 L 635 372 L 635 348" fill="none" stroke="#888888" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrow-gray)"/>
+  <text x="670" y="365" text-anchor="end" fill="#888888" font-size="8.5">cached</text>
+
+  <!-- Events remain within the call; the call returns once -->
+  <rect x="45" y="490" width="470" height="58" rx="6" fill="#fafafa" stroke="#d0d0d0" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="280" y="512" text-anchor="middle" fill="#1a1a1a" font-size="10.5" font-weight="700">Lifecycle + progress events emitted during the call</text>
+  <text x="280" y="532" text-anchor="middle" fill="#888888" font-size="8.8" font-family="monospace">async_launched · task_started · workflow_phase / agent / log · task_notification</text>
+
+  <path d="M 810 348 L 810 472 L 738 472 L 738 488" fill="none" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <rect x="560" y="490" width="355" height="58" rx="6" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="738" y="513" text-anchor="middle" fill="#1a1a1a" font-size="11" font-weight="700" font-family="monospace">return { launched, result, task }</text>
+  <text x="738" y="532" text-anchor="middle" fill="#888888" font-size="9">after task_notification</text>
+
+  <!-- Cross-lane call and return -->
+  <path d="M 464 172 L 464 215 L 135 215 L 135 270" fill="none" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow-green)"/>
+  <text x="250" y="209" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="600">execute complete run</text>
+
+  <path d="M 915 519 L 934 519 L 934 211 L 818 211 L 818 180" fill="none" stroke="#22c55e" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <text x="928" y="380" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="600" transform="rotate(-90 928 380)">return once</text>
+
+  <text x="480" y="616" text-anchor="middle" fill="#888888" font-size="10">One return boundary: async_launched is a lifecycle event; launched + result + task return together.</text>
+</svg>

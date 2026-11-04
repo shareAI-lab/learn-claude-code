@@ -2,45 +2,45 @@
   "version": "s11",
   "decisions": [
     {
-      "id": "classified-recovery",
-      "title": "Different Failures Need Different Recovery Paths",
-      "description": "max_tokens, prompt_too_long, and provider overload mean different things. The runtime classifies the error before retrying.",
-      "alternatives": "Blind retry is easy, but wastes time and can repeat a failure that needs compaction or token escalation.",
+      "id": "explicit-background-boundary",
+      "title": "Background Work Is an Execution Mode, Not a New Tool",
+      "description": "The lesson keeps the familiar tool surface and adds a background execution flag around slow operations. That makes the new mechanism visible: the same bash call can either block the loop or be moved to a thread. The agent learns that responsiveness is a runtime concern, not a reason to invent a separate tool for every slow task.",
+      "alternatives": "A dedicated background_bash tool would be simpler to route, but it would hide the more general idea that any slow operation can be scheduled asynchronously.",
       "zh": {
-        "title": "不同失败需要不同恢复路径",
-        "description": "max_tokens、prompt_too_long 和供应商过载含义不同。运行时会先分类错误，再决定如何重试。"
+        "title": "后台任务是执行模式，而不是新工具",
+        "description": "课程保留原有工具表面，只在慢操作外增加后台执行标记。这样能清楚看到：同一个 bash 调用既可以阻塞主循环，也可以放入线程。Agent 学到的是响应性属于运行时问题，而不是每个慢任务都要发明一个新工具。"
       },
       "ja": {
-        "title": "失敗ごとに異なる回復経路が必要",
-        "description": "max_tokens、prompt_too_long、プロバイダ過負荷は意味が違います。ランタイムは再試行前にエラーを分類します。"
+        "title": "バックグラウンド処理は新ツールではなく実行モード",
+        "description": "このレッスンでは既存のツール面を保ち、遅い操作にバックグラウンド実行フラグを加えます。同じ bash 呼び出しがループをブロックすることも、スレッドへ移すこともできる点が見えます。応答性はランタイムの責務であり、遅いタスクごとに新しいツールを作る必要はありません。"
       }
     },
     {
-      "id": "recovery-state",
-      "title": "RecoveryState Prevents Infinite Retries",
-      "description": "The runtime tracks token escalation, compact retries, consecutive 529s, and fallback model use. Recovery becomes bounded and inspectable.",
-      "alternatives": "A while-retry loop can accidentally retry forever or hide which mitigation has already run.",
+      "id": "notification-reentry",
+      "title": "Completed Threads Re-enter as Notifications",
+      "description": "Background results are injected as task notifications instead of pretending to be immediate tool results. This preserves the chronology of the conversation: the model first sees that work started, and later sees that a task completed.",
+      "alternatives": "The thread could mutate the last tool result in place, but that would make the transcript impossible to reason about and hard to replay.",
       "zh": {
-        "title": "RecoveryState 防止无限重试",
-        "description": "运行时记录 token 升级、compact retry、连续 529、fallback model 等状态。恢复因此有边界、可检查。"
+        "title": "线程完成后以通知形式回到循环",
+        "description": "后台结果会作为任务通知注入，而不是伪装成立即返回的 tool result。这样保留了对话时间线：模型先看到任务已启动，之后再看到任务完成。"
       },
       "ja": {
-        "title": "RecoveryState が無限リトライを防ぐ",
-        "description": "token 拡張、compact retry、連続 529、fallback model の利用を追跡します。回復処理に境界と可観測性を与えます。"
+        "title": "完了したスレッドは通知として戻る",
+        "description": "バックグラウンド結果は即時の tool result ではなくタスク通知として注入されます。モデルはまず作業開始を見て、その後に完了を知るため、会話の時系列が保たれます。"
       }
     },
     {
-      "id": "no-fake-continuation",
-      "title": "Do Not Fake User Messages During Token Recovery",
-      "description": "The first max_tokens escalation retries without appending a synthetic user prompt. The transcript should reflect real events, not internal recovery tricks.",
-      "alternatives": "Always appending 'continue' is tempting, but it pollutes conversation history and may change model behavior.",
+      "id": "shared-result-store",
+      "title": "A Small Shared Store Keeps Threads Observable",
+      "description": "The implementation tracks background task state and results in explicit dictionaries. That keeps the code teachable while still exposing the hard parts of concurrency: ids, lifecycle state, and safe collection.",
+      "alternatives": "A full queue or job database adds durability, but it would obscure the minimal moving parts needed to understand threaded agent work.",
       "zh": {
-        "title": "Token 恢复时不伪造用户消息",
-        "description": "第一次 max_tokens 升级会直接重试，不追加合成 user prompt。Transcript 应反映真实事件，而不是内部恢复技巧。"
+        "title": "小型共享存储让线程可观察",
+        "description": "实现用显式字典记录后台任务状态和结果。这样代码仍然易学，同时暴露并发中的关键问题：任务 id、生命周期状态和结果收集。"
       },
       "ja": {
-        "title": "トークン回復で偽のユーザーメッセージを入れない",
-        "description": "最初の max_tokens 拡張では合成 user prompt を追加せず再試行します。transcript は内部の回復処理ではなく実際の出来事を反映すべきです。"
+        "title": "小さな共有ストアでスレッドを観測可能にする",
+        "description": "実装は辞書でバックグラウンドタスクの状態と結果を追跡します。コードを学びやすく保ちながら、id、ライフサイクル、安全な収集という並行処理の要点を示します。"
       }
     }
   ]

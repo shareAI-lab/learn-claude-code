@@ -24,7 +24,7 @@
   <!-- タイトル -->
   <rect x="0" y="0" width="800" height="48" fill="url(#header)" rx="8"/>
   <rect x="0" y="40" width="800" height="8" fill="url(#header)"/>
-  <text x="400" y="31" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Subagent — 独立した messages[]、中間過程はすべて破棄</text>
+  <text x="400" y="31" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Subagent — 新しい messages[]、最終テキストを親へ返す</text>
 
   <!-- ===== 親 Agent（左側） ===== -->
   <rect x="30" y="68" width="310" height="268" rx="12" fill="#f0f4ff" stroke="#2563eb" stroke-width="2"/>
@@ -54,9 +54,9 @@
   <text x="122" y="206" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">基本ツール</text>
   <text x="122" y="219" fill="#64748b" font-size="8" text-anchor="middle">bash / read / write / ...</text>
 
-  <!-- task → spawn -->
+  <!-- task が入れ子のループを実行 -->
   <rect x="200" y="193" width="110" height="26" rx="4" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
-  <text x="255" y="210" fill="#5b21b6" font-size="10" font-weight="600" text-anchor="middle">task → spawn</text>
+  <text x="255" y="210" fill="#5b21b6" font-size="10" font-weight="600" text-anchor="middle">task → run</text>
 
   <!-- Parent tool_result target -->
   <rect x="190" y="270" width="120" height="34" rx="5" fill="#dcfce7" stroke="#16a34a" stroke-width="1.2"/>
@@ -86,16 +86,16 @@
   <rect x="455" y="150" width="300" height="56" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="1" stroke-dasharray="4,2"/>
   <text x="605" y="170" fill="#5b21b6" font-size="10" font-weight="600" text-anchor="middle">独自の while ループ（最大 30 ラウンド）</text>
   <text x="605" y="186" fill="#5b21b6" font-size="9" text-anchor="middle">bash · read · write · edit · glob</text>
-  <text x="605" y="198" fill="#94a3b8" font-size="8" text-anchor="middle">task なし — 再帰 spawn 禁止</text>
+  <text x="605" y="198" fill="#94a3b8" font-size="8" text-anchor="middle">task なし — 委任は 1 階層</text>
 
-  <!-- 中間結果 → 破棄 -->
-  <rect x="460" y="218" width="290" height="44" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1" stroke-dasharray="4,2"/>
-  <text x="605" y="238" fill="#64748b" font-size="10" text-anchor="middle">中間 30+ ラウンドのツール呼び出し + 結果</text>
-  <text x="605" y="254" fill="#dc2626" font-size="10" font-weight="600" text-anchor="middle">すべて破棄 ✗</text>
+  <!-- 中間結果は子の messages にだけ残る -->
+  <rect x="460" y="218" width="290" height="44" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="605" y="238" fill="#64748b" font-size="10" text-anchor="middle">子のツール呼び出しと結果</text>
+  <text x="605" y="254" fill="#64748b" font-size="10" font-weight="600" text-anchor="middle">親 messages[] へコピーしない</text>
 
   <!-- 最後のテキストのみ抽出 -->
   <rect x="460" y="272" width="290" height="28" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
-  <text x="605" y="290" fill="#166534" font-size="10" font-weight="600" text-anchor="middle">✓ 最後のテキストのみ抽出 → 親に返却</text>
+  <text x="605" y="290" fill="#166534" font-size="10" font-weight="600" text-anchor="middle">最終テキスト → Parent tool_result</text>
 
   <!-- ===== ディスパッチ線：親 → サブエージェント（上） ===== -->
   <path d="M 310 206 L 362 206 Q 370 206 370 198 L 370 126 Q 370 118 378 118 L 450 118" fill="none" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#arrow-purple)"/>
@@ -111,15 +111,15 @@
   <rect x="60" y="370" width="680" height="56" rx="8" fill="#f1f5f9"/>
 
   <rect x="80" y="384" width="16" height="12" rx="3" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
-  <text x="104" y="394" fill="#334155" font-size="10">s05 保持：ループ、フック、todo_write、6 つの基本ツール</text>
+  <text x="104" y="394" fill="#334155" font-size="10">親 Agent のツール：5 つの基本ツール + task</text>
 
   <rect x="80" y="404" width="16" height="12" rx="3" fill="#ede9fe" stroke="#7c3aed" stroke-width="1"/>
-  <text x="104" y="414" fill="#334155" font-size="10">s06 新規：task ツール + spawn_subagent() — 独立 messages[]、要約のみ返却</text>
+  <text x="104" y="414" fill="#334155" font-size="10">子 Agent のツール：5 つの基本ツール、task なし</text>
 
   <!-- データフローラベル -->
   <rect x="430" y="440" width="310" height="44" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
   <text x="445" y="458" fill="#7c3aed" font-size="10" font-weight="600">① 親 → サブ：</text>
-  <text x="580" y="458" fill="#64748b" font-size="10">task description（短い文字列）</text>
+  <text x="580" y="458" fill="#64748b" font-size="10">task prompt（短い文字列）</text>
   <text x="445" y="476" fill="#16a34a" font-size="10" font-weight="600">② サブ → 親：</text>
   <text x="580" y="476" fill="#64748b" font-size="10">extract_text()（最終結論のみ）</text>
 </svg>

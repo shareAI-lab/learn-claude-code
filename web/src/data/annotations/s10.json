@@ -2,45 +2,59 @@
   "version": "s10",
   "decisions": [
     {
-      "id": "prompt-from-state",
-      "title": "The System Prompt Is Built from Runtime State",
-      "description": "Prompt sections are selected from real state: workspace, available tools, memory, and skills. The prompt becomes a product of the runtime rather than a single hardcoded string.",
-      "alternatives": "A static prompt is easier to inspect, but it goes stale as capabilities change.",
+      "id": "tasks-as-files",
+      "title": "Tasks Are Durable JSON Files",
+      "description": "Each task is persisted under .tasks/ with id, subject, description, status, owner, and blockedBy. The task board survives context compaction and process restarts.",
+      "alternatives": "In-memory tasks are easier to code, but vanish exactly when long-running coordination needs them most.",
       "zh": {
-        "title": "系统提示词由运行时状态构建",
-        "description": "Prompt section 来自真实状态：workspace、可用工具、memory 和 skills。提示词是运行时的产物，而不是单个硬编码字符串。"
+        "title": "任务是持久 JSON 文件",
+        "description": "每个任务都持久化在 .tasks/ 下，包含 id、subject、description、status、owner、blockedBy。任务板能跨上下文压缩和进程重启保留。"
       },
       "ja": {
-        "title": "システムプロンプトはランタイム状態から作る",
-        "description": "workspace、利用可能ツール、memory、skills などの実状態から prompt section を選びます。プロンプトは単一の固定文字列ではなくランタイムの産物です。"
+        "title": "タスクは永続 JSON ファイル",
+        "description": "各タスクは .tasks/ に id、subject、description、status、owner、blockedBy を持って保存されます。タスクボードはコンテキスト圧縮や再起動を越えて残ります。"
       }
     },
     {
-      "id": "deterministic-cache-key",
-      "title": "A Deterministic Cache Avoids Reassembly",
-      "description": "The context object is serialized with stable ordering. If the key has not changed, the prompt can be reused safely.",
-      "alternatives": "Rebuilding every turn is simple, but hides when the prompt actually changed.",
+      "id": "runtime-owned-task-ids",
+      "title": "Create Nodes Before Adding Edges",
+      "description": "create_task returns a host-generated ID. After all nodes exist, update_task uses those returned IDs to add blockedBy edges and rejects invalid or cyclic changes.",
+      "alternatives": "Asking the model to invent persistent IDs can produce collisions or references that the host never created.",
       "zh": {
-        "title": "确定性缓存避免重复组装",
-        "description": "Context 对象用稳定顺序序列化。如果 key 没变，提示词就可以安全复用。"
+        "title": "先创建节点，再添加边",
+        "description": "create_task 返回宿主生成的 ID。所有节点创建后，update_task 使用这些返回的 ID 添加 blockedBy 边，并拒绝无效或成环的修改。"
       },
       "ja": {
-        "title": "決定的キャッシュで再組み立てを避ける",
-        "description": "context オブジェクトを安定した順序でシリアライズします。key が変わらなければプロンプトを安全に再利用できます。"
+        "title": "ノードを作成してから辺を追加する",
+        "description": "create_task は host が生成した ID を返します。全ノードの作成後、update_task は返された ID で blockedBy の辺を追加し、無効な変更や循環を拒否します。"
       }
     },
     {
-      "id": "sections-have-owners",
-      "title": "Prompt Sections Have Owners",
-      "description": "Identity, tools, workspace, and memory are separate sections. This makes it easier to debug which subsystem injected a bad instruction.",
-      "alternatives": "Concatenating arbitrary strings works until the prompt grows and no one knows where a rule came from.",
+      "id": "blockedby-dependencies",
+      "title": "blockedBy Encodes Ordering",
+      "description": "A task can only be claimed when all blockedBy dependencies are completed. Missing dependencies are treated as blocked to fail closed.",
+      "alternatives": "Letting the model remember ordering is fragile and hard for teammates to share.",
       "zh": {
-        "title": "Prompt Section 有明确归属",
-        "description": "identity、tools、workspace、memory 是分开的 section。这样更容易定位哪一层注入了错误指令。"
+        "title": "blockedBy 编码任务顺序",
+        "description": "只有所有 blockedBy 依赖都完成时，任务才能被 claim。缺失依赖也被视为阻塞，采用 fail closed。"
       },
       "ja": {
-        "title": "prompt section には所有者がある",
-        "description": "identity、tools、workspace、memory を別 section にします。どのサブシステムが悪い指示を入れたかを追いやすくなります。"
+        "title": "blockedBy が順序を表現する",
+        "description": "blockedBy の依存がすべて完了した時だけタスクを claim できます。存在しない依存もブロック扱いにして fail closed にします。"
+      }
+    },
+    {
+      "id": "claim-complete-lifecycle",
+      "title": "Claim and Complete Make Work Observable",
+      "description": "claim_task records an owner and in_progress state; complete_task marks completion and reports downstream tasks that became unblocked.",
+      "alternatives": "A simple checklist can say done, but it cannot safely coordinate ownership or dependencies.",
+      "zh": {
+        "title": "Claim 和 Complete 让工作可观察",
+        "description": "claim_task 记录 owner 和 in_progress 状态；complete_task 标记完成，并报告被解锁的下游任务。"
+      },
+      "ja": {
+        "title": "claim と complete が作業を観測可能にする",
+        "description": "claim_task は owner と in_progress を記録し、complete_task は完了を記録して解放された下流タスクを報告します。"
       }
     }
   ]

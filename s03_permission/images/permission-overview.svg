@@ -36,7 +36,7 @@
   <!-- LLM -->
   <rect x="230" y="84" width="130" height="48" rx="8" fill="#fff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="295" y="104" fill="#1e3a5f" font-size="13" font-weight="700" text-anchor="middle">LLM</text>
-  <text x="295" y="122" fill="#64748b" font-size="10" text-anchor="middle">stop_reason?</text>
+  <text x="295" y="122" fill="#64748b" font-size="10" text-anchor="middle">tool_use block?</text>
 
   <!-- 否 → 返回 -->
   <line x1="295" y1="132" x2="295" y2="156" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow)"/>

@@ -11,40 +11,40 @@
   <rect width="720" height="400" fill="#fafbfc" rx="8"/>
   <rect x="0" y="0" width="720" height="38" fill="url(#header)" rx="8"/>
   <rect x="0" y="30" width="720" height="8" fill="url(#header)"/>
-  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">L4: autoCompact — LLM Full Summary</text>
+  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Step 4: compact_history, Summarize History</text>
 
   <!-- Trigger Condition -->
   <rect x="20" y="54" width="680" height="44" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
   <text x="35" y="70" fill="#991b1b" font-size="11" font-weight="600">Trigger Condition</text>
-  <text x="140" y="70" fill="#991b1b" font-size="11">All three preprocessing layers have run, estimated tokens &gt; contextWindow - maxOutputTokens - 13_000.</text>
-  <text x="140" y="86" fill="#991b1b" font-size="10">Tries sessionMemoryCompact first (lightweight summary from existing memory), only calls LLM if insufficient.</text>
+  <text x="140" y="70" fill="#991b1b" font-size="11">After micro_compact, estimate_chars(messages) &gt; CONTEXT_CHAR_LIMIT.</text>
+  <text x="140" y="86" fill="#991b1b" font-size="10">The current CONTEXT_CHAR_LIMIT is 50,000 characters.</text>
 
   <!-- Steps -->
   <rect x="20" y="106" width="200" height="110" rx="8" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
   <text x="120" y="130" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">Step 1: Save transcript</text>
   <text x="40" y="152" fill="#475569" font-size="10">Write conversation to .transcripts/</text>
   <text x="40" y="168" fill="#475569" font-size="10">One JSONL message per line</text>
-  <text x="40" y="184" fill="#475569" font-size="10">File: transcript_{time}.jsonl</text>
+  <text x="40" y="184" fill="#475569" font-size="10">File: transcript_{uuid}.jsonl</text>
   <text x="40" y="200" fill="#94a3b8" font-size="9">Full transcript stays on disk</text>
 
   <line x1="225" y1="161" x2="265" y2="161" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow)"/>
 
   <rect x="270" y="106" width="200" height="110" rx="8" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
-  <text x="370" y="130" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">Step 2: LLM generates summary</text>
-  <text x="290" y="152" fill="#475569" font-size="10">Send conversation history to LLM</text>
-  <text x="290" y="166" fill="#475569" font-size="9">Summary must include 9 sections:</text>
-  <text x="370" y="180" fill="#94a3b8" font-size="8" text-anchor="middle">request · concepts · files · errors</text>
-  <text x="370" y="192" fill="#94a3b8" font-size="8" text-anchor="middle">resolutions · user messages · todos</text>
-  <text x="370" y="204" fill="#94a3b8" font-size="8" text-anchor="middle">current state · next steps</text>
+  <text x="370" y="130" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">Step 2: Factual summary</text>
+  <text x="370" y="152" fill="#475569" font-size="9" text-anchor="middle">Conversation is data to summarize</text>
+  <text x="290" y="166" fill="#475569" font-size="9">Summary preserves 5 categories:</text>
+  <text x="370" y="180" fill="#94a3b8" font-size="8" text-anchor="middle">goal · findings and decisions · files</text>
+  <text x="370" y="192" fill="#94a3b8" font-size="8" text-anchor="middle">remaining work · user constraints</text>
+  <text x="370" y="204" fill="#94a3b8" font-size="8" text-anchor="middle">do not propose or select an action</text>
 
   <line x1="475" y1="161" x2="515" y2="161" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow)"/>
 
   <rect x="520" y="106" width="180" height="110" rx="8" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
-  <text x="610" y="130" fill="#991b1b" font-size="12" font-weight="700" text-anchor="middle">Step 3: Replace message list</text>
-  <text x="540" y="152" fill="#991b1b" font-size="10">All old messages → 1 summary</text>
-  <text x="540" y="168" fill="#991b1b" font-size="10">Model continues from summary</text>
-  <text x="540" y="184" fill="#991b1b" font-size="10">Includes recently_read file list</text>
-  <text x="540" y="200" fill="#ef4444" font-size="9">⚠ This is an irreversible operation</text>
+  <text x="610" y="130" fill="#991b1b" font-size="12" font-weight="700" text-anchor="middle">Step 3: Replace history</text>
+  <text x="610" y="152" fill="#991b1b" font-size="9" text-anchor="middle">Old history → 1 message</text>
+  <text x="610" y="168" fill="#991b1b" font-size="9" text-anchor="middle">Request + conversation summary</text>
+  <text x="610" y="184" fill="#991b1b" font-size="9" text-anchor="middle">System separates instructions/data</text>
+  <text x="610" y="200" fill="#ef4444" font-size="9" text-anchor="middle">Transcript remains on disk</text>
 
   <!-- Before/After comparison -->
   <rect x="20" y="234" width="320" height="94" rx="6" fill="#fff" stroke="#94a3b8" stroke-width="1"/>
@@ -54,19 +54,19 @@
   <rect x="149" y="264" width="52" height="16" rx="3" fill="#e2e8f0"/><text x="154" y="276" fill="#475569" font-size="8">user</text>
   <rect x="206" y="264" width="52" height="16" rx="3" fill="#e2e8f0"/><text x="211" y="276" fill="#475569" font-size="8">assistant</text>
   <rect x="263" y="264" width="52" height="16" rx="3" fill="#e2e8f0"/><text x="268" y="276" fill="#475569" font-size="8">user</text>
-  <text x="180" y="318" fill="#94a3b8" font-size="9" text-anchor="middle">~180 messages, occupying 62K tokens</text>
+  <text x="180" y="318" fill="#94a3b8" font-size="9" text-anchor="middle">Many messages, estimated size &gt; 50,000</text>
 
   <line x1="345" y1="281" x2="375" y2="281" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow)"/>
 
   <rect x="380" y="234" width="320" height="94" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1"/>
   <text x="540" y="256" fill="#991b1b" font-size="11" font-weight="600" text-anchor="middle">After messages</text>
   <rect x="395" y="264" width="290" height="32" rx="4" fill="#fee2e2" stroke="#fca5a5" stroke-width="0.5"/>
-  <text x="540" y="276" fill="#991b1b" font-size="9" text-anchor="middle">[Compacted] Summary: goal → create hello.py ...</text>
-  <text x="540" y="290" fill="#991b1b" font-size="9" text-anchor="middle">Recent files: hello.py, README.md ...</text>
-  <text x="540" y="318" fill="#94a3b8" font-size="9" text-anchor="middle">~1 message, occupying 1K tokens</text>
+  <text x="540" y="276" fill="#991b1b" font-size="9" text-anchor="middle">Current user request: captured at input</text>
+  <text x="540" y="290" fill="#991b1b" font-size="9" text-anchor="middle">Conversation summary: facts and remaining work</text>
+  <text x="540" y="318" fill="#94a3b8" font-size="9" text-anchor="middle">One summary message, well below the limit</text>
 
-  <!-- Circuit breaker -->
+  <!-- Error recovery -->
   <rect x="20" y="340" width="680" height="36" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
-  <text x="35" y="362" fill="#475569" font-size="11" font-weight="600">Circuit breaker:</text>
-  <text x="130" y="362" fill="#475569" font-size="10">3 consecutive autocompact failures → stop retrying. Prevents wasting API calls when context is unrecoverable.</text>
+  <text x="35" y="362" fill="#475569" font-size="11" font-weight="600">Error recovery:</text>
+  <text x="125" y="362" fill="#475569" font-size="10">If the API still returns prompt_too_long, run reactive_compact and retry only once.</text>
 </svg>

@@ -27,16 +27,16 @@
   <!-- タイトル -->
   <rect x="0" y="0" width="820" height="48" fill="url(#header)" rx="8"/>
   <rect x="0" y="40" width="820" height="8" fill="url(#header)"/>
-  <text x="410" y="31" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Context Compact — LLM 呼び出し前に圧縮、3 つのトリガーモード</text>
+  <text x="410" y="31" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Context Compact：LLM 呼び出し前の圧縮と 3 つのトリガー</text>
 
   <!-- ラベル -->
-  <text x="50" y="74" fill="#94a3b8" font-size="11" font-weight="600">s07 保持</text>
+  <text x="50" y="74" fill="#94a3b8" font-size="11" font-weight="600">共通カーネル</text>
   <text x="180" y="74" fill="#d97706" font-size="11" font-weight="600">s08 新規</text>
 
   <!-- ===== ① messages[] ===== -->
   <rect x="40" y="132" width="100" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="90" y="155" fill="#1e3a5f" font-size="12" font-weight="600" text-anchor="middle">messages[]</text>
-  <text x="90" y="172" fill="#64748b" font-size="9" text-anchor="middle">(s07 保持)</text>
+  <text x="90" y="172" fill="#64748b" font-size="9" text-anchor="middle">(共通部分)</text>
 
   <!-- messages → パイプライン入口 -->
   <line x1="140" y1="158" x2="168" y2="158" stroke="#d97706" stroke-width="2" marker-end="url(#arrow-amber)"/>
@@ -45,25 +45,25 @@
   <rect x="170" y="82" width="200" height="252" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
   <text x="270" y="102" fill="#92400e" font-size="11" font-weight="700" text-anchor="middle">圧縮パイプライン</text>
 
-  <!-- ── ① 毎ターン自動 ── -->
+  <!-- ── ① 前処理 ── -->
   <rect x="186" y="110" width="168" height="16" rx="3" fill="#fde68a" stroke="#d97706" stroke-width="0.8"/>
-  <text x="270" y="122" fill="#92400e" font-size="8" font-weight="700" text-anchor="middle">① 毎ターン自動 · 無条件 · 0 API</text>
+  <text x="270" y="122" fill="#92400e" font-size="8" font-weight="700" text-anchor="middle">① Step 1–2 は毎ターン · 0 API</text>
 
   <rect x="186" y="130" width="168" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
-  <text x="270" y="146" fill="#92400e" font-size="10" font-weight="600" text-anchor="middle">L3 tool_result_budget</text>
+  <text x="270" y="146" fill="#92400e" font-size="10" font-weight="600" text-anchor="middle">Step 1 tool_result_budget</text>
 
   <rect x="186" y="158" width="168" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
-  <text x="270" y="174" fill="#92400e" font-size="10" font-weight="600" text-anchor="middle">L1 snip_compact</text>
+  <text x="270" y="174" fill="#92400e" font-size="10" font-weight="600" text-anchor="middle">Step 2 snip_compact</text>
 
   <rect x="186" y="186" width="168" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
-  <text x="270" y="202" fill="#92400e" font-size="10" font-weight="600" text-anchor="middle">L2 micro_compact</text>
+  <text x="270" y="202" fill="#92400e" font-size="9" font-weight="600" text-anchor="middle">Step 3 micro_compact（上限超過時）</text>
 
   <!-- ↓ → ◇ -->
   <line x1="270" y1="210" x2="270" y2="222" stroke="#555" stroke-width="1.2" marker-end="url(#arrow)"/>
 
   <!-- ◇ 判定ダイヤモンド -->
   <polygon points="270,226 300,244 270,262 240,244" fill="#f0f4ff" stroke="#ea580c" stroke-width="1.5"/>
-  <text x="270" y="247" fill="#9a3412" font-size="7" font-weight="600" text-anchor="middle">閾値超過?</text>
+  <text x="270" y="247" fill="#9a3412" font-size="7" font-weight="600" text-anchor="middle">まだ超過?</text>
 
   <!-- いいえ：右側注釈 -->
   <text x="306" y="240" fill="#16a34a" font-size="9" font-weight="700">No → 通過</text>
@@ -74,10 +74,10 @@
 
   <!-- ── ② 条件トリガー ── -->
   <rect x="186" y="268" width="168" height="16" rx="3" fill="#fed7aa" stroke="#ea580c" stroke-width="0.8"/>
-  <text x="270" y="280" fill="#9a3412" font-size="8" font-weight="700" text-anchor="middle">② 条件 · トークン閾値超過 · 1 API</text>
+  <text x="270" y="280" fill="#9a3412" font-size="8" font-weight="700" text-anchor="middle">② 条件 · サイズ上限超過 · 1 API</text>
 
   <rect x="186" y="288" width="168" height="24" rx="4" fill="#fed7aa" stroke="#ea580c" stroke-width="1"/>
-  <text x="270" y="304" fill="#9a3412" font-size="10" font-weight="600" text-anchor="middle">L4 compact_history</text>
+  <text x="270" y="304" fill="#9a3412" font-size="10" font-weight="600" text-anchor="middle">Step 4 compact_history</text>
 
   <!-- パイプライン出口 → LLM -->
   <line x1="370" y1="158" x2="438" y2="158" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
@@ -85,7 +85,7 @@
   <!-- ===== ③ LLM ===== -->
   <rect x="440" y="132" width="100" height="52" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="490" y="155" fill="#1e3a5f" font-size="14" font-weight="700" text-anchor="middle">LLM</text>
-  <text x="490" y="172" fill="#64748b" font-size="9" text-anchor="middle">stop_reason=tool_use?</text>
+  <text x="490" y="172" fill="#64748b" font-size="9" text-anchor="middle">tool_use block?</text>
 
   <!-- LLM No → 返却 -->
   <line x1="490" y1="184" x2="490" y2="278" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-green)"/>
@@ -101,7 +101,7 @@
   <rect x="580" y="126" width="130" height="64" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="645" y="150" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">TOOL_HANDLERS</text>
   <text x="645" y="166" fill="#64748b" font-size="9" text-anchor="middle">bash · read · write</text>
-  <text x="645" y="180" fill="#64748b" font-size="9" text-anchor="middle">task · load_skill · ...</text>
+  <text x="645" y="180" fill="#64748b" font-size="9" text-anchor="middle">edit · glob · compact</text>
 
   <!-- LLM API 例外 → 緊急圧縮 → 次ターンで再試行 -->
   <path d="M 535 184 L 570 216 L 580 228" fill="none" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-red)"/>
@@ -113,7 +113,7 @@
   <rect x="580" y="210" width="170" height="56" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1" stroke-dasharray="4,2"/>
   <text x="665" y="228" fill="#991b1b" font-size="9" font-weight="700" text-anchor="middle">③ 緊急トリガー</text>
   <text x="665" y="242" fill="#991b1b" font-size="8" text-anchor="middle">API が prompt_too_long を返す</text>
-  <text x="665" y="256" fill="#991b1b" font-size="8" text-anchor="middle">→ reactive_compact → リトライ</text>
+  <text x="665" y="256" fill="#991b1b" font-size="8" text-anchor="middle">→ reactive_compact → 1 回リトライ</text>
 
   <!-- ===== ループバック ===== -->
   <path d="M 710 158 L 760 158 L 760 348 L 90 348 L 90 184" fill="none" stroke="#555" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
@@ -123,16 +123,16 @@
   <rect x="50" y="390" width="720" height="116" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
 
   <rect x="70" y="404" width="16" height="12" rx="3" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
-  <text x="94" y="414" fill="#334155" font-size="10">s07 保持：ループ、フック、スキルロード、サブエージェント</text>
+  <text x="94" y="414" fill="#334155" font-size="10">共通：ループ、フック、権限確認、5 個の基本ツール</text>
 
   <rect x="70" y="426" width="16" height="12" rx="3" fill="#fde68a" stroke="#d97706" stroke-width="1"/>
-  <text x="94" y="436" fill="#334155" font-size="10">① 毎ターン自動：L3→L1→L2 が各 LLM 呼び出し前に無条件実行、0 API</text>
+  <text x="94" y="436" fill="#334155" font-size="10">① 前処理：Step 1→2 は毎ターン、Step 3 は上限超過時のみ、0 API</text>
 
   <rect x="70" y="448" width="16" height="12" rx="3" fill="#fed7aa" stroke="#ea580c" stroke-width="1"/>
-  <text x="94" y="458" fill="#334155" font-size="10">② 条件トリガー：L3/L1/L2 後もトークン超過 → compact_history、1 API</text>
+  <text x="94" y="458" fill="#334155" font-size="10">② 条件：Step 3 後も上限超過 → compact_history、1 API</text>
 
   <rect x="70" y="470" width="16" height="12" rx="3" fill="#fef2f2" stroke="#dc2626" stroke-width="1" stroke-dasharray="3,2"/>
-  <text x="94" y="480" fill="#334155" font-size="10">③ 緊急トリガー：API が prompt_too_long を返す → reactive_compact → リトライ</text>
+  <text x="94" y="480" fill="#334155" font-size="10">③ 回復：API が prompt_too_long を返す → reactive_compact → 1 回リトライ</text>
 
-  <text x="70" y="498" fill="#94a3b8" font-size="9">3 つのモードはコスト増加：0 API → 1 API → 1 API + より積極的なトリム</text>
+  <text x="70" y="498" fill="#94a3b8" font-size="9">コストは順に増加：0 API → 1 回の要約 → 1 回の要約とリトライ</text>
 </svg>

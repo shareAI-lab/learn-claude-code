@@ -46,6 +46,12 @@ import uuid
 from pathlib import Path
 from queue import Queue
 
+try:
+    import readline
+    readline.parse_and_bind('set bind-tty-special-chars off')
+except ImportError:
+    pass
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
@@ -83,7 +89,7 @@ def run_bash(command: str) -> str:
         return "Error: Dangerous command blocked"
     try:
         r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True, errors="replace", timeout=120)
         out = (r.stdout + r.stderr).strip()
         return out[:50000] if out else "(no output)"
     except subprocess.TimeoutExpired:
@@ -91,7 +97,7 @@ def run_bash(command: str) -> str:
 
 def run_read(path: str, limit: int = None) -> str:
     try:
-        lines = safe_path(path).read_text().splitlines()
+        lines = safe_path(path).read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more)"]
         return "\n".join(lines)[:50000]
@@ -102,7 +108,7 @@ def run_write(path: str, content: str) -> str:
     try:
         fp = safe_path(path)
         fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
+        fp.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -110,10 +116,10 @@ def run_write(path: str, content: str) -> str:
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
         fp = safe_path(path)
-        c = fp.read_text()
+        c = fp.read_text(encoding="utf-8")
         if old_text not in c:
             return f"Error: Text not found in {path}"
-        fp.write_text(c.replace(old_text, new_text, 1))
+        fp.write_text(c.replace(old_text, new_text, 1), encoding="utf-8")
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -201,7 +207,7 @@ class SkillLoader:
         self.skills = {}
         if skills_dir.exists():
             for f in sorted(skills_dir.rglob("SKILL.md")):
-                text = f.read_text()
+                text = f.read_text(encoding="utf-8")
                 match = re.match(r"^---\n(.*?)\n---\n(.*)", text, re.DOTALL)
                 meta, body = {}, text
                 if match:
@@ -243,7 +249,7 @@ def microcompact(messages: list):
 def auto_compact(messages: list) -> list:
     TRANSCRIPT_DIR.mkdir(exist_ok=True)
     path = TRANSCRIPT_DIR / f"transcript_{int(time.time())}.jsonl"
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         for msg in messages:
             f.write(json.dumps(msg, default=str) + "\n")
     conv_text = json.dumps(messages, default=str)[-80000:]
@@ -270,10 +276,10 @@ class TaskManager:
     def _load(self, tid: int) -> dict:
         p = TASKS_DIR / f"task_{tid}.json"
         if not p.exists(): raise ValueError(f"Task {tid} not found")
-        return json.loads(p.read_text())
+        return json.loads(p.read_text(encoding="utf-8"))
 
     def _save(self, task: dict):
-        (TASKS_DIR / f"task_{task['id']}.json").write_text(json.dumps(task, indent=2))
+        (TASKS_DIR / f"task_{task['id']}.json").write_text(json.dumps(task, indent=2), encoding="utf-8")
 
     def create(self, subject: str, description: str = "") -> str:
         task = {"id": self._next_id(), "subject": subject, "description": description,
@@ -291,7 +297,7 @@ class TaskManager:
             task["status"] = status
             if status == "completed":
                 for f in TASKS_DIR.glob("task_*.json"):
-                    t = json.loads(f.read_text())
+                    t = json.loads(f.read_text(encoding="utf-8"))
                     if tid in t.get("blockedBy", []):
                         t["blockedBy"].remove(tid)
                         self._save(t)
@@ -306,7 +312,7 @@ class TaskManager:
         return json.dumps(task, indent=2)
 
     def list_all(self) -> str:
-        tasks = [json.loads(f.read_text()) for f in sorted(TASKS_DIR.glob("task_*.json"))]
+        tasks = [json.loads(f.read_text(encoding="utf-8")) for f in sorted(TASKS_DIR.glob("task_*.json"))]
         if not tasks: return "No tasks."
         lines = []
         for t in tasks:
@@ -339,7 +345,7 @@ class BackgroundManager:
     def _exec(self, tid: str, command: str, timeout: int):
         try:
             r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                               capture_output=True, text=True, timeout=timeout)
+                               capture_output=True, text=True, errors="replace", timeout=timeout)
             output = (r.stdout + r.stderr).strip()[:50000]
             self.tasks[tid].update({"status": "completed", "result": output or "(no output)"})
         except Exception as e:
@@ -370,15 +376,15 @@ class MessageBus:
         msg = {"type": msg_type, "from": sender, "content": content,
                "timestamp": time.time()}
         if extra: msg.update(extra)
-        with open(INBOX_DIR / f"{to}.jsonl", "a") as f:
+        with open(INBOX_DIR / f"{to}.jsonl", "a", encoding="utf-8") as f:
             f.write(json.dumps(msg) + "\n")
         return f"Sent {msg_type} to {to}"
 
     def read_inbox(self, name: str) -> list:
         path = INBOX_DIR / f"{name}.jsonl"
         if not path.exists(): return []
-        msgs = [json.loads(l) for l in path.read_text().strip().splitlines() if l]
-        path.write_text("")
+        msgs = [json.loads(l) for l in path.read_text(encoding="utf-8").strip().splitlines() if l]
+        path.write_text("", encoding="utf-8")
         return msgs
 
     def broadcast(self, sender: str, content: str, names: list) -> str:
@@ -407,11 +413,11 @@ class TeammateManager:
 
     def _load(self) -> dict:
         if self.config_path.exists():
-            return json.loads(self.config_path.read_text())
+            return json.loads(self.config_path.read_text(encoding="utf-8"))
         return {"team_name": "default", "members": []}
 
     def _save(self):
-        self.config_path.write_text(json.dumps(self.config, indent=2))
+        self.config_path.write_text(json.dumps(self.config, indent=2), encoding="utf-8")
 
     def _find(self, name: str) -> dict:
         for m in self.config["members"]:
@@ -509,7 +515,7 @@ class TeammateManager:
                     break
                 unclaimed = []
                 for f in sorted(TASKS_DIR.glob("task_*.json")):
-                    t = json.loads(f.read_text())
+                    t = json.loads(f.read_text(encoding="utf-8"))
                     if t.get("status") == "pending" and not t.get("owner") and not t.get("blockedBy"):
                         unclaimed.append(t)
                 if unclaimed:
@@ -650,6 +656,45 @@ TOOLS = [
 ]
 
 
+def append_user_notice(messages: list, text: str) -> None:
+    """Add an async notice without creating adjacent user messages."""
+    block = {"type": "text", "text": text}
+    if messages and messages[-1].get("role") == "user":
+        content = messages[-1].get("content", "")
+        if isinstance(content, list):
+            messages[-1]["content"] = [*content, block]
+        else:
+            messages[-1]["content"] = [
+                {"type": "text", "text": str(content)},
+                block,
+            ]
+        return
+    messages.append({"role": "user", "content": [block]})
+
+
+def inject_pending_notifications(messages: list) -> int:
+    count = 0
+    notifs = BG.drain()
+    if notifs:
+        text = "\n".join(
+            f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs
+        )
+        append_user_notice(
+            messages,
+            f"<background-results>\n{text}\n</background-results>",
+        )
+        count += len(notifs)
+
+    inbox = BUS.read_inbox("lead")
+    if inbox:
+        append_user_notice(
+            messages,
+            f"<inbox>{json.dumps(inbox, indent=2)}</inbox>",
+        )
+        count += len(inbox)
+    return count
+
+
 # === SECTION: agent_loop ===
 def agent_loop(messages: list):
     rounds_without_todo = 0
@@ -659,15 +704,8 @@ def agent_loop(messages: list):
         if estimate_tokens(messages) > TOKEN_THRESHOLD:
             print("[auto-compact triggered]")
             messages[:] = auto_compact(messages)
-        # s08: drain background notifications
-        notifs = BG.drain()
-        if notifs:
-            txt = "\n".join(f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs)
-            messages.append({"role": "user", "content": f"<background-results>\n{txt}\n</background-results>"})
-        # s10: check lead inbox
-        inbox = BUS.read_inbox("lead")
-        if inbox:
-            messages.append({"role": "user", "content": f"<inbox>{json.dumps(inbox, indent=2)}</inbox>"})
+        # s08/s10: fold asynchronous notices into one user turn.
+        inject_pending_notifications(messages)
         # LLM call
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
@@ -711,7 +749,8 @@ if __name__ == "__main__":
     history = []
     while True:
         try:
-            query = input("\033[36ms_full >> \033[0m")
+            # \001/\002 tell Readline the ANSI escapes have zero display width.
+            query = input("\001\033[36m\002s_full >> \001\033[0m\002")
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in ("q", "exit", ""):

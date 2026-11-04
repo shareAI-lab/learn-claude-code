@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 664" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="664" fill="#fafbfc" rx="8"/>
+
+  <rect x="0" y="0" width="760" height="44" fill="url(#header)" rx="8"/>
+  <rect x="0" y="36" width="760" height="8" fill="url(#header)"/>
+  <text x="380" y="28" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Team Protocols — リクエスト・レスポンス + request_id 紐付け + 状態機械</text>
+
+  <rect x="40" y="56" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="58" y="66" fill="#2563eb" font-size="10" font-weight="600">チームランタイム</text>
+  <rect x="140" y="56" width="12" height="10" rx="2" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1"/>
+  <text x="158" y="66" fill="#7c3aed" font-size="10" font-weight="600">協調プロトコル</text>
+
+  <!-- Row 1: Lead Loop -->
+  <rect x="20" y="90" width="70" height="40" rx="8" fill="#eef2ff" stroke="#4f46e5" stroke-width="1.5"/>
+  <text x="55" y="114" fill="#4f46e5" font-size="8" font-weight="600" text-anchor="middle">turn</text>
+  <line x1="90" y1="110" x2="104" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="107" y="90" width="70" height="40" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="142" y="114" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">messages</text>
+  <line x1="177" y1="110" x2="191" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="194" y="86" width="80" height="48" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="234" y="114" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">prompt</text>
+  <line x1="274" y1="110" x2="288" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="291" y="86" width="70" height="48" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="326" y="114" fill="#1e3a5f" font-size="9" font-weight="600" text-anchor="middle">LLM</text>
+  <line x1="361" y1="110" x2="375" y2="110" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="378" y="80" width="356" height="60" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="556" y="98" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">TOOL DISPATCH（コアツールセット）</text>
+  <text x="394" y="114" fill="#2563eb" font-size="8">base(5) · task(5) · team(7)</text>
+  <text x="394" y="128" fill="#7c3aed" font-size="8" font-weight="700">★ request_shutdown · request_plan · review_plan</text>
+  <path d="M 734 110 L 748 110 L 748 150 L 55 150 L 55 130" fill="none" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)" stroke-dasharray="5,4"/>
+
+  <!-- Row 2: shutdown protocol -->
+  <rect x="30" y="176" width="700" height="90" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="380" y="196" fill="#92400e" font-size="11" font-weight="700" text-anchor="middle">プロトコル A：shutdown フロー（Lead が開始 → チームメイトが応答）</text>
+
+  <rect x="50" y="208" width="180" height="46" rx="6" fill="#fff" stroke="#d97706" stroke-width="1"/>
+  <text x="140" y="226" fill="#92400e" font-size="9" font-weight="600" text-anchor="middle">① Lead: request_shutdown</text>
+  <text x="140" y="242" fill="#6b7280" font-size="7" text-anchor="middle">new_request_id() → ProtocolState</text>
+
+  <line x1="230" y1="231" x2="254" y2="231" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="257" y="208" width="180" height="46" rx="6" fill="#fff" stroke="#d97706" stroke-width="1"/>
+  <text x="347" y="226" fill="#92400e" font-size="9" font-weight="600" text-anchor="middle">② チームメイト: handle_shutdown</text>
+  <text x="347" y="242" fill="#6b7280" font-size="7" text-anchor="middle">ack → shutdown_response</text>
+
+  <line x1="437" y1="231" x2="461" y2="231" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="464" y="208" width="180" height="46" rx="6" fill="#fff" stroke="#d97706" stroke-width="1"/>
+  <text x="554" y="226" fill="#92400e" font-size="9" font-weight="600" text-anchor="middle">③ Lead: consume_lead_inbox</text>
+  <text x="554" y="242" fill="#6b7280" font-size="7" text-anchor="middle">match_response(request_id) → ✓</text>
+
+  <!-- Row 3: plan approval protocol -->
+  <rect x="30" y="280" width="700" height="110" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="380" y="300" fill="#1e40af" font-size="11" font-weight="700" text-anchor="middle">プロトコル B：plan approval フロー（チームメイトが開始 → Lead が審査）</text>
+
+  <rect x="50" y="312" width="150" height="46" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+  <text x="125" y="330" fill="#475569" font-size="8" font-weight="600" text-anchor="middle">0. Lead: request_plan</text>
+  <text x="125" y="346" fill="#6b7280" font-size="7" text-anchor="middle">plan_request メッセージ</text>
+
+  <line x1="200" y1="335" x2="222" y2="335" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)" stroke-dasharray="4,3"/>
+
+  <rect x="225" y="312" width="160" height="46" rx="6" fill="#fff" stroke="#2563eb" stroke-width="1"/>
+  <text x="305" y="330" fill="#1e40af" font-size="8" font-weight="600" text-anchor="middle">① チームメイト: submit_plan</text>
+  <text x="305" y="346" fill="#6b7280" font-size="7" text-anchor="middle">plan_approval_request + request_id</text>
+
+  <line x1="385" y1="335" x2="407" y2="335" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="410" y="312" width="160" height="46" rx="6" fill="#fff" stroke="#2563eb" stroke-width="1"/>
+  <text x="490" y="330" fill="#1e40af" font-size="8" font-weight="600" text-anchor="middle">② Lead: review_plan</text>
+  <text x="490" y="346" fill="#6b7280" font-size="7" text-anchor="middle">plan_approval_response</text>
+
+  <line x1="570" y1="335" x2="592" y2="335" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="595" y="312" width="120" height="46" rx="6" fill="#fff" stroke="#2563eb" stroke-width="1"/>
+  <text x="655" y="330" fill="#1e40af" font-size="8" font-weight="600" text-anchor="middle">③ チームメイト: 受信</text>
+  <text x="655" y="346" fill="#6b7280" font-size="7" text-anchor="middle">[Plan approved/rejected]</text>
+
+  <text x="380" y="380" fill="#6b7280" font-size="8" text-anchor="middle">request_plan が要求を送り、submit_plan がレビュー可能な ProtocolState を作る</text>
+
+  <!-- Row 4: State Machine + Storage -->
+  <rect x="30" y="406" width="340" height="85" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="200" y="426" fill="#4c1d95" font-size="10" font-weight="700" text-anchor="middle">状態機械（両プロトコルで共用）</text>
+
+  <rect x="55" y="440" width="58" height="20" rx="4" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+  <text x="84" y="454" fill="#475569" font-size="9" text-anchor="middle">pending</text>
+  <line x1="113" y1="450" x2="192" y2="450" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="152" y="445" fill="#16a34a" font-size="8" font-weight="600" text-anchor="middle">approve</text>
+  <rect x="192" y="440" width="62" height="20" rx="4" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="223" y="454" fill="#166534" font-size="9" text-anchor="middle">approved</text>
+  <path d="M 84 460 L 84 478 L 128 478" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="76" y="472" fill="#dc2626" font-size="8" font-weight="600" text-anchor="end">reject</text>
+  <rect x="128" y="468" width="60" height="20" rx="4" fill="#fef2f2" stroke="#dc2626" stroke-width="1"/>
+  <text x="158" y="482" fill="#991b1b" font-size="9" text-anchor="middle">rejected</text>
+
+  <rect x="400" y="406" width="330" height="85" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="565" y="426" fill="#4c1d95" font-size="10" font-weight="700" text-anchor="middle">pending_requests ストレージ</text>
+  <text x="420" y="446" fill="#7c3aed" font-size="9">pending_requests: dict[str, ProtocolState]</text>
+  <text x="420" y="462" fill="#6b7280" font-size="8">request_id → {type, sender, status, created_at}</text>
+  <text x="420" y="478" fill="#6b7280" font-size="8">match_response: request_id でリクエストを検索</text>
+
+  <!-- Row 5: Two protocols same machine -->
+  <rect x="30" y="506" width="700" height="52" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="55" y="524" fill="#1e3a5f" font-size="10" font-weight="600">2つのプロトコル、1つのメカニズム：</text>
+  <rect x="270" y="512" width="130" height="18" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="335" y="525" fill="#92400e" font-size="9" text-anchor="middle">shutdown_request</text>
+  <text x="408" y="525" fill="#475569" font-size="10">と</text>
+  <rect x="425" y="512" width="140" height="18" rx="4" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+  <text x="495" y="525" fill="#1e40af" font-size="9" text-anchor="middle">plan_approval_request</text>
+  <text x="55" y="548" fill="#6b7280" font-size="8">同じ pending → approved / rejected 状態機械を共有。新しいプロトコルタイプ = 新しい msg_type、新しい状態機械は不要。request_id がリクエストとレスポンスを関連付ける。</text>
+
+  <!-- Row 6: distinguish -->
+  <rect x="30" y="570" width="700" height="38" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1"/>
+  <text x="55" y="588" fill="#166534" font-size="9" font-weight="600">区別：</text>
+  <text x="100" y="588" fill="#475569" font-size="9">request_plan は plan_request を送り、submit_plan は request_id を作ってレビューを待つ。</text>
+  <text x="55" y="602" fill="#475569" font-size="9">submit_plan がプロトコルエントリポイント（msg_type="plan_approval_request"）で、チームメイトが自発的に開始し、request_id を pending_requests に書き込む。</text>
+
+  <!-- Bottom notes -->
+  <rect x="30" y="622" width="700" height="28" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <rect x="50" y="632" width="12" height="10" rx="2" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
+  <text x="70" y="642" fill="#475569" font-size="10">Runtime: MessageBus + 永続チームメイト + 自動イベント配信</text>
+  <rect x="310" y="632" width="12" height="10" rx="2" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1"/>
+  <text x="330" y="642" fill="#475569" font-size="10">Protocol: request_id + dispatch + pending_requests + プランゲート</text>
+</svg>

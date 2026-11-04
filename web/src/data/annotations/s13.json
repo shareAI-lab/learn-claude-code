@@ -2,45 +2,101 @@
   "version": "s13",
   "decisions": [
     {
-      "id": "explicit-background-boundary",
-      "title": "Background Work Is an Execution Mode, Not a New Tool",
-      "description": "The lesson keeps the familiar tool surface and adds a background execution flag around slow operations. That makes the new mechanism visible: the same bash call can either block the loop or be moved to a thread. The agent learns that responsiveness is a runtime concern, not a reason to invent a separate tool for every slow task.",
-      "alternatives": "A dedicated background_bash tool would be simpler to route, but it would hide the more general idea that any slow operation can be scheduled asynchronously.",
+      "id": "confirm-team-before-spawn",
+      "title": "The User Confirms the Team Before It Starts",
+      "description": "The Lead may notice that a request can be split, but it first proposes a small team with clear responsibilities. Teammates start only after the user confirms the extra agents.",
+      "alternatives": "Spawning immediately saves one turn, but hides the cost and coordination choice from the user.",
       "zh": {
-        "title": "后台任务是执行模式，而不是新工具",
-        "description": "课程保留原有工具表面，只在慢操作外增加后台执行标记。这样能清楚看到：同一个 bash 调用既可以阻塞主循环，也可以放入线程。Agent 学到的是响应性属于运行时问题，而不是每个慢任务都要发明一个新工具。"
+        "title": "启动团队前先征得用户确认",
+        "description": "Lead 可以判断一个需求适合拆分，但要先提出职责清晰的小团队。只有用户确认后，运行时才启动额外的 Agent。"
       },
       "ja": {
-        "title": "バックグラウンド処理は新ツールではなく実行モード",
-        "description": "このレッスンでは既存のツール面を保ち、遅い操作にバックグラウンド実行フラグを加えます。同じ bash 呼び出しがループをブロックすることも、スレッドへ移すこともできる点が見えます。応答性はランタイムの責務であり、遅いタスクごとに新しいツールを作る必要はありません。"
+        "title": "チームを起動する前にユーザーが確認する",
+        "description": "Lead は依頼を分割できると判断しても、まず役割が明確な小さなチームを提案する。追加 Agent はユーザーの確認後に起動する。"
       }
     },
     {
-      "id": "notification-reentry",
-      "title": "Completed Threads Re-enter as Notifications",
-      "description": "Background results are injected as task notifications instead of pretending to be immediate tool results. This preserves the chronology of the conversation: the model first sees that work started, and later sees that a task completed.",
-      "alternatives": "The thread could mutate the last tool result in place, but that would make the transcript impossible to reason about and hard to replay.",
+      "id": "runtime-owned-delivery",
+      "title": "Message Delivery Belongs to the Runtime",
+      "description": "The MessageBus persists each handoff, while the runtime watches the Lead mailbox and injects new team events into the next turn. The model does not spend turns polling an inbox.",
+      "alternatives": "A model-visible check_inbox tool is easy to add, but wastes turns and can leave completed work unnoticed.",
       "zh": {
-        "title": "线程完成后以通知形式回到循环",
-        "description": "后台结果会作为任务通知注入，而不是伪装成立即返回的 tool result。这样保留了对话时间线：模型先看到任务已启动，之后再看到任务完成。"
+        "title": "消息投递由运行时负责",
+        "description": "MessageBus 持久化每次交接，运行时监听 Lead 邮箱，并把新的团队事件送入下一轮上下文。模型不需要浪费轮次轮询收件箱。"
       },
       "ja": {
-        "title": "完了したスレッドは通知として戻る",
-        "description": "バックグラウンド結果は即時の tool result ではなくタスク通知として注入されます。モデルはまず作業開始を見て、その後に完了を知るため、会話の時系列が保たれます。"
+        "title": "メッセージ配信はランタイムが担う",
+        "description": "MessageBus が各ハンドオフを永続化し、ランタイムが Lead の受信箱を監視して新しい team event を次の turn に注入する。モデルは受信箱のポーリングに turn を費やさない。"
       }
     },
     {
-      "id": "shared-result-store",
-      "title": "A Small Shared Store Keeps Threads Observable",
-      "description": "The implementation tracks background task state and results in explicit dictionaries. That keeps the code teachable while still exposing the hard parts of concurrency: ids, lifecycle state, and safe collection.",
-      "alternatives": "A full queue or job database would be more production-ready, but it would obscure the minimal moving parts needed to understand threaded agent work.",
+      "id": "typed-request-correlation",
+      "title": "Typed Requests Carry Correlation IDs",
+      "description": "Plan and shutdown requests use explicit message types and request ids. Replies can arrive in any order and still update the correct pending request.",
+      "alternatives": "Matching the latest free-form message works only until requests overlap.",
       "zh": {
-        "title": "小型共享存储让线程可观察",
-        "description": "实现用显式字典记录后台任务状态和结果。这样代码仍然易学，同时暴露并发中的关键问题：任务 id、生命周期状态和结果收集。"
+        "title": "类型化请求携带关联 ID",
+        "description": "计划和关机请求使用明确的消息类型与 request id。即使回复顺序不同，运行时也能更新正确的 pending request。"
       },
       "ja": {
-        "title": "小さな共有ストアでスレッドを観測可能にする",
-        "description": "実装は辞書でバックグラウンドタスクの状態と結果を追跡します。コードを学びやすく保ちながら、id、ライフサイクル、安全な収集という並行処理の要点を示します。"
+        "title": "型付きリクエストに対応 ID を持たせる",
+        "description": "プランと終了の要求は明示的な message type と request id を使う。返信順が変わっても、正しい pending request を更新できる。"
+      }
+    },
+    {
+      "id": "plan-approval-is-a-gate",
+      "title": "Plan Approval Is an Execution Gate",
+      "description": "When the Lead requests a plan, mutating tools remain blocked until the matching plan is approved. Rejection requires a new submission rather than a conversational workaround.",
+      "alternatives": "Treating approval as a suggestion cannot prevent an early write or shell command.",
+      "zh": {
+        "title": "计划审批是执行闸门",
+        "description": "Lead 请求计划后，修改类工具会保持阻塞，直到对应计划通过。被拒绝的计划必须重新提交，不能靠对话绕过。"
+      },
+      "ja": {
+        "title": "プラン承認を実行ゲートにする",
+        "description": "Lead がプランを要求すると、対応するプランが承認されるまで変更系ツールをブロックする。却下後は会話で迂回せず再提出が必要になる。"
+      }
+    },
+    {
+      "id": "idle-claim-is-atomic",
+      "title": "Idle Discovery and Claiming Form One Safe Path",
+      "description": "An idle teammate scans only pending, unowned tasks whose dependencies are complete. The ownership check and pending-to-in_progress update happen under one lock, so two teammates cannot claim the same work.",
+      "alternatives": "Central dispatch keeps assignment simple, while an unlocked scan can assign the same task twice.",
+      "zh": {
+        "title": "空闲发现与原子认领组成一条安全路径",
+        "description": "空闲队友只扫描 pending、未分配且依赖已完成的任务。所有权检查与 pending 到 in_progress 的更新在同一把锁内完成，因此两个队友不会认领同一任务。"
+      },
+      "ja": {
+        "title": "待機中の探索と原子的な認領を一つの安全な経路にする",
+        "description": "待機中のチームメイトは pending、未所有、依存解決済みのタスクだけを探す。所有権確認と pending から in_progress への更新を同じ lock 内で行い、二重認領を防ぐ。"
+      }
+    },
+    {
+      "id": "task-bound-worktree",
+      "title": "The Working Directory Is a Task Property",
+      "description": "A task records its worktree binding, and a teammate's bash, read, and write tools derive their working directory from the claimed task. This is explicit cwd routing for parallel edits, not a security sandbox or a second orchestration system.",
+      "alternatives": "Letting agents switch directories implicitly is shorter, but makes the cwd boundary invisible and easy to lose.",
+      "zh": {
+        "title": "工作目录是任务的显式属性",
+        "description": "任务记录自己的 worktree 绑定，队友的 bash、read、write 工具从已认领任务推导工作目录。这是为并行编辑提供的显式 cwd 路由，不是安全沙箱，也不是第二套编排系统。"
+      },
+      "ja": {
+        "title": "作業ディレクトリをタスクの明示的な属性にする",
+        "description": "タスクが worktree の紐付けを保持し、チームメイトの bash、read、write は認領したタスクから作業ディレクトリを決める。これは並行編集のための明示的な cwd routing であり、security sandbox や第二の編成システムではない。"
+      }
+    },
+    {
+      "id": "worktree-cleanup-fails-closed",
+      "title": "Worktree Cleanup Fails Closed",
+      "description": "Creation binds a task only after git succeeds. Removal accepts only a known path under the worktree root and refuses unverifiable or dirty state unless discard is explicit; it never completes the task as a side effect.",
+      "alternatives": "Unconditional force removal is convenient, but can destroy unreviewed work and blur task completion with directory cleanup.",
+      "zh": {
+        "title": "Worktree 清理默认拒绝不安全操作",
+        "description": "只有 git 创建成功后才绑定任务。删除仅接受 worktree 根目录下的已知路径；状态无法验证或存在未保存改动时，除非明确选择丢弃，否则拒绝删除，并且不会顺带完成任务。"
+      },
+      "ja": {
+        "title": "Worktree の片付けは安全側に失敗する",
+        "description": "git の作成成功後にだけタスクを紐付ける。削除は worktree ルート配下の既知パスだけを受け付け、状態を確認できない場合や変更が残る場合は明示的な破棄なしに拒否し、タスクを副作用で完了させない。"
       }
     }
   ]

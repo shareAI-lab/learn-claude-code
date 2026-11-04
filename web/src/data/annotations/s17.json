@@ -2,45 +2,45 @@
   "version": "s17",
   "decisions": [
     {
-      "id": "idle-poll-loop",
-      "title": "Autonomy Starts from Idle Polling",
-      "description": "The agent becomes autonomous by doing useful checks while idle: scanning tasks, reading inbox messages, and deciding whether to claim work. No new magic planner is introduced.",
-      "alternatives": "A central scheduler could assign every task, but this lesson focuses on local autonomy inside each teammate loop.",
+      "id": "host-owns-completion-gate",
+      "title": "The Host Owns the Completion Gate",
+      "description": "The working model may request to stop, but GoalController evaluates the active goal before AgentSession returns. The gate sits at the existing turn boundary.",
+      "alternatives": "Asking the working model whether it is finished is simpler, but lets the same actor make and verify its own claim.",
       "zh": {
-        "title": "自治从空闲轮询开始",
-        "description": "Agent 通过在空闲时做有用检查获得自治能力：扫描任务、读取 inbox、判断是否 claim 工作。这里没有引入新的神秘规划器。"
+        "title": "完成闸门由宿主持有",
+        "description": "工作模型可以请求停止，但 GoalController 会在 AgentSession 返回前评估 active goal。这个闸门就在原有的轮次边界上。"
       },
       "ja": {
-        "title": "自律性はアイドルポーリングから始まる",
-        "description": "エージェントはアイドル時にタスク走査、受信箱確認、作業の claim 判断を行うことで自律的になります。新しい魔法のプランナーは導入しません。"
+        "title": "完了ゲートはホストが所有する",
+        "description": "作業モデルは停止を要求できますが、GoalController は AgentSession が return する前に active goal を評価します。この gate は既存の turn 境界に置かれます。"
       }
     },
     {
-      "id": "claim-before-work",
-      "title": "Claim Before Work Prevents Collisions",
-      "description": "A teammate must claim a task before entering WORK state. Ownership checks make autonomous pickup safe when multiple agents poll the same task board.",
-      "alternatives": "Agents could simply pick any open task, but two agents might duplicate work or overwrite each other's result.",
+      "id": "conversation-is-evaluator-input",
+      "title": "The Conversation Is the Evaluator's Input",
+      "description": "The evaluator receives the active condition and the current conversation, including tool results reported there. It has no tools of its own and judges only what the conversation contains.",
+      "alternatives": "Letting the evaluator rerun commands would turn a completion check into another worker and create a second execution path.",
       "zh": {
-        "title": "先 Claim 再工作，避免冲突",
-        "description": "队友必须先 claim 任务，再进入 WORK 状态。多个 agent 轮询同一个任务板时，所有权检查让自治领取任务更安全。"
+        "title": "对话记录就是判断器的输入",
+        "description": "判断器接收 active condition 和当前对话，其中也包括已经写入的工具结果。它自己没有工具，只能根据对话中已有的内容判断。"
       },
       "ja": {
-        "title": "作業前に claim して衝突を防ぐ",
-        "description": "チームメイトは WORK 状態へ入る前にタスクを claim します。複数のエージェントが同じタスクボードをポーリングしても、所有権チェックにより安全に取得できます。"
+        "title": "conversation が evaluator の入力になる",
+        "description": "evaluator は active condition と現在の conversation を受け取り、そこに記録された tool result も読みます。自身では tool を使えず、conversation にある内容だけで判断します。"
       }
     },
     {
-      "id": "identity-reinjection",
-      "title": "Identity Is Re-injected on Each Autonomous Turn",
-      "description": "Autonomous agents need a stable sense of who they are and what they are allowed to do. Re-injecting identity keeps a teammate from drifting into the lead's responsibilities.",
-      "alternatives": "A one-time identity prompt is shorter, but long-running loops are prone to context drift.",
+      "id": "continuation-limits-preserve-goal",
+      "title": "Limits Return Control Without Clearing the Goal",
+      "description": "When a goal is unmet, the controller appends the evaluator's reason to messages[] and continues the same loop. The Stop-hook block cap or global turn limit returns control to the user while leaving the goal active.",
+      "alternatives": "Continuing without any limit can hold one request forever; marking the goal complete or clearing it at the limit would lose unfinished work.",
       "zh": {
-        "title": "每个自治回合都重新注入身份",
-        "description": "自治 agent 需要稳定知道自己是谁、允许做什么。重新注入身份可以防止队友逐渐漂移到 lead 的职责上。"
+        "title": "达到限制时交还控制权，但保留目标",
+        "description": "目标未满足时，controller 把判断理由追加到 messages[]，并在同一个循环里继续。Stop hook 的连续阻止上限或全局轮次上限会把控制权交还用户，同时让目标保持 active。"
       },
       "ja": {
-        "title": "各自律ターンでアイデンティティを再注入する",
-        "description": "自律エージェントには、自分が誰で何を許可されているかという安定した認識が必要です。アイデンティティを再注入することで、チームメイトがリードの責務へ漂うことを防ぎます。"
+        "title": "上限では control を返し、goal は維持する",
+        "description": "goal が未達なら、controller は evaluator の理由を messages[] に追加し、同じ loop を続けます。Stop hook の連続 block 上限または global turn limit に達すると、goal を active のまま user に control を返します。"
       }
     }
   ]

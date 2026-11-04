@@ -1,46 +1,49 @@
 {
   "version": "s17",
-  "title": "Autonomous Agents",
-  "description": "Idle teammates can scan the task board, claim eligible work, and return to idle after completion.",
+  "title": "Goal Loop",
+  "description": "A separate evaluator reads the conversation at the end of a turn and sends unfinished work back through the same loop.",
   "steps": [
     {
+      "type": "user_message",
+      "content": "/goal pytest tests/auth exits with code 0",
+      "annotation": "The command stores an active completion condition and starts the work."
+    },
+    {
+      "type": "assistant_text",
+      "content": "The authentication code looks correct. The tests should pass now.",
+      "annotation": "With no more tool calls, the session asks the evaluator whether the active goal is complete."
+    },
+    {
       "type": "system_event",
-      "content": "teammate(worker-a): state=IDLE -> idle_poll()",
-      "annotation": "Autonomy starts from an idle lifecycle tick, not a direct user command."
+      "content": "goal_evaluated ok=false -> block",
+      "annotation": "The evaluator finds no test exit code in the conversation."
+    },
+    {
+      "type": "system_event",
+      "content": "[Goal still active] Run pytest tests/auth and surface the exit code.",
+      "annotation": "The controller appends the reason to messages[] and continues the same loop; no queue is involved."
     },
     {
       "type": "tool_call",
-      "toolName": "list_tasks",
-      "content": "{\"status\":\"open\"}",
-      "annotation": "The idle agent scans the shared task board."
+      "toolName": "bash",
+      "content": "pytest tests/auth",
+      "annotation": "The next agent turn runs the missing check."
     },
     {
       "type": "tool_result",
-      "toolName": "list_tasks",
-      "content": "[{\"id\":\"task_5\",\"status\":\"open\",\"owner\":null,\"title\":\"Update README\"}]",
-      "annotation": "Only unclaimed work is eligible for autonomous pickup."
+      "toolName": "bash",
+      "content": "exit_code=0\n12 passed in 0.42s",
+      "annotation": "The concrete command result enters the same conversation."
     },
     {
-      "type": "tool_call",
-      "toolName": "claim_task",
-      "content": "{\"id\":\"task_5\",\"owner\":\"worker-a\"}",
-      "annotation": "The task manager enforces ownership before work begins."
-    },
-    {
-      "type": "system_event",
-      "content": "worker-a: state=WORK task=task_5",
-      "annotation": "The lifecycle moves from IDLE to WORK."
-    },
-    {
-      "type": "tool_call",
-      "toolName": "complete_task",
-      "content": "{\"id\":\"task_5\",\"result\":\"README updated with setup notes.\"}",
-      "annotation": "Completion writes the result back to the shared board."
+      "type": "assistant_text",
+      "content": "pytest tests/auth exited 0: 12 tests passed.",
+      "annotation": "A turn with no further tool call reaches the Stop hook again."
     },
     {
       "type": "system_event",
-      "content": "worker-a: state=IDLE next_poll_in=5s",
-      "annotation": "After finishing, the agent becomes available for more work."
+      "content": "goal_evaluated ok=true -> achieved",
+      "annotation": "The controller records success, clears the active goal, and returns."
     }
   ]
 }

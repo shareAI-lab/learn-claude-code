@@ -37,7 +37,7 @@ client = Anthropic(
     api_key=os.getenv("ANTHROPIC_API_KEY"),
     base_url=os.getenv("ANTHROPIC_BASE_URL")
 )
-MODEL = os.getenv("MODEL_NAME", "claude-sonnet-4-20250514")
+MODEL = os.getenv("MODEL_NAME", "claude-sonnet-5-5")
 
 SYSTEM = """You are a coding agent. Use bash for everything:
 - Read: cat, grep, find, ls
@@ -63,7 +63,7 @@ def run(prompt, history=[]):
             if b.type == "tool_use":
                 print(f"> {{b.input['command']}}")
                 try:
-                    out = subprocess.run(b.input["command"], shell=True, capture_output=True, text=True, timeout=60)
+                    out = subprocess.run(b.input["command"], shell=True, capture_output=True, text=True, errors="replace", timeout=60)
                     output = (out.stdout + out.stderr).strip() or "(empty)"
                 except Exception as e:
                     output = f"Error: {{e}}"
@@ -97,7 +97,7 @@ client = Anthropic(
     api_key=os.getenv("ANTHROPIC_API_KEY"),
     base_url=os.getenv("ANTHROPIC_BASE_URL")
 )
-MODEL = os.getenv("MODEL_NAME", "claude-sonnet-4-20250514")
+MODEL = os.getenv("MODEL_NAME", "claude-sonnet-5-5")
 WORKDIR = Path.cwd()
 
 SYSTEM = f"""You are a coding agent at {{WORKDIR}}.
@@ -133,7 +133,7 @@ def execute(name: str, args: dict) -> str:
         if any(d in args["command"] for d in dangerous):
             return "Error: Dangerous command blocked"
         try:
-            r = subprocess.run(args["command"], shell=True, cwd=WORKDIR, capture_output=True, text=True, timeout=60)
+            r = subprocess.run(args["command"], shell=True, cwd=WORKDIR, capture_output=True, text=True, errors="replace", timeout=60)
             return (r.stdout + r.stderr).strip()[:50000] or "(empty)"
         except subprocess.TimeoutExpired:
             return "Error: Timeout (60s)"
@@ -142,7 +142,7 @@ def execute(name: str, args: dict) -> str:
 
     if name == "read_file":
         try:
-            return safe_path(args["path"]).read_text()[:50000]
+            return safe_path(args["path"]).read_text(encoding="utf-8")[:50000]
         except Exception as e:
             return f"Error: {{e}}"
 
@@ -150,7 +150,7 @@ def execute(name: str, args: dict) -> str:
         try:
             p = safe_path(args["path"])
             p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(args["content"])
+            p.write_text(args["content"], encoding="utf-8")
             return f"Wrote {{len(args['content'])}} bytes to {{args['path']}}"
         except Exception as e:
             return f"Error: {{e}}"
@@ -158,10 +158,13 @@ def execute(name: str, args: dict) -> str:
     if name == "edit_file":
         try:
             p = safe_path(args["path"])
-            content = p.read_text()
+            content = p.read_text(encoding="utf-8")
             if args["old_text"] not in content:
                 return f"Error: Text not found in {{args['path']}}"
-            p.write_text(content.replace(args["old_text"], args["new_text"], 1))
+            p.write_text(
+                content.replace(args["old_text"], args["new_text"], 1),
+                encoding="utf-8",
+            )
             return f"Edited {{args['path']}}"
         except Exception as e:
             return f"Error: {{e}}"
@@ -210,7 +213,7 @@ if __name__ == "__main__":
 ENV_TEMPLATE = '''# API Configuration
 ANTHROPIC_API_KEY=sk-xxx
 ANTHROPIC_BASE_URL=https://api.anthropic.com
-MODEL_NAME=claude-sonnet-4-20250514
+MODEL_NAME=claude-sonnet-5-5
 '''
 
 
@@ -230,17 +233,17 @@ def create_agent(name: str, level: int, output_dir: Path):
     # Write agent file
     agent_file = agent_dir / f"{name}.py"
     template = TEMPLATES.get(level, TEMPLATES[1])
-    agent_file.write_text(template.format(name=name))
+    agent_file.write_text(template.format(name=name), encoding="utf-8")
     print(f"Created: {agent_file}")
 
     # Write .env.example
     env_file = agent_dir / ".env.example"
-    env_file.write_text(ENV_TEMPLATE)
+    env_file.write_text(ENV_TEMPLATE, encoding="utf-8")
     print(f"Created: {env_file}")
 
     # Write .gitignore
     gitignore = agent_dir / ".gitignore"
-    gitignore.write_text(".env\n__pycache__/\n*.pyc\n")
+    gitignore.write_text(".env\n__pycache__/\n*.pyc\n", encoding="utf-8")
     print(f"Created: {gitignore}")
 
     print(f"\nAgent '{name}' created at {agent_dir}")

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" font-family="system-ui, -apple-system, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="system-ui, -apple-system, sans-serif">
   <defs>
     <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#7c3aed"/>
@@ -8,10 +8,10 @@
     </marker>
   </defs>
 
-  <rect width="720" height="380" fill="#fafbfc" rx="8"/>
+  <rect width="720" height="300" fill="#fafbfc" rx="8"/>
   <rect x="0" y="0" width="720" height="38" fill="url(#header)" rx="8"/>
   <rect x="0" y="30" width="720" height="8" fill="url(#header)"/>
-  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Memory System — Store · Load · Extract · Consolidate</text>
+  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Memory System — Store · Recall · Extract · Consolidate</text>
 
   <!-- Storage -->
   <rect x="40" y="58" width="145" height="80" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
@@ -22,12 +22,12 @@
 
   <line x1="190" y1="98" x2="218" y2="98" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-  <!-- Loading -->
+  <!-- Recall -->
   <rect x="222" y="58" width="200" height="80" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
-  <text x="322" y="80" fill="#5b21b6" font-size="13" font-weight="700" text-anchor="middle">Load</text>
+  <text x="322" y="80" fill="#5b21b6" font-size="13" font-weight="700" text-anchor="middle">Recall</text>
   <line x1="237" y1="90" x2="407" y2="90" stroke="#c4b5fd" stroke-width="0.5"/>
-  <text x="237" y="108" fill="#5b21b6" font-size="10">Index in SYSTEM (always)</text>
-  <text x="237" y="124" fill="#5b21b6" font-size="10">LLM side-query select files</text>
+  <text x="237" y="108" fill="#5b21b6" font-size="10">Index in the system prompt</text>
+  <text x="237" y="124" fill="#5b21b6" font-size="10">Model selects relevant files</text>
   <text x="237" y="134" fill="#a78bfa" font-size="9">≤ 5 items, fallback to keyword</text>
 
   <line x1="425" y1="98" x2="453" y2="98" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrow)"/>
@@ -36,9 +36,9 @@
   <rect x="457" y="58" width="130" height="80" rx="8" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2"/>
   <text x="522" y="80" fill="#5b21b6" font-size="13" font-weight="700" text-anchor="middle">Extract</text>
   <line x1="472" y1="90" x2="572" y2="90" stroke="#c4b5fd" stroke-width="0.5"/>
-  <text x="472" y="106" fill="#5b21b6" font-size="9.5">After each turn</text>
-  <text x="472" y="121" fill="#5b21b6" font-size="9.5">Extract prefs</text>
-  <text x="472" y="134" fill="#a78bfa" font-size="8.5">Avoid duplicates</text>
+  <text x="472" y="106" fill="#5b21b6" font-size="9.5">After the turn</text>
+  <text x="472" y="121" fill="#5b21b6" font-size="9.5">Extract durable knowledge</text>
+  <text x="472" y="134" fill="#a78bfa" font-size="8.5">Scope + duplicate checks</text>
 
   <!-- Consolidation -->
   <rect x="600" y="58" width="100" height="80" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
@@ -46,14 +46,14 @@
   <line x1="615" y1="90" x2="685" y2="90" stroke="#c4b5fd" stroke-width="0.5"/>
   <text x="615" y="106" fill="#5b21b6" font-size="9.5">≥ 10 files</text>
   <text x="615" y="121" fill="#5b21b6" font-size="9.5">Dedup · merge</text>
-  <text x="615" y="134" fill="#a78bfa" font-size="8.5">CC: gated Dream</text>
+  <text x="615" y="134" fill="#a78bfa" font-size="8.5">Snapshot + rollback</text>
 
   <!-- Memory Files -->
   <rect x="40" y="180" width="660" height="36" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,2"/>
   <text x="370" y="203" fill="#475569" font-size="11" text-anchor="middle">.memory/ — MEMORY.md index + *.md files (YAML frontmatter: name / description / type)</text>
 
   <!-- Arrow: Storage → Memory Files -->
-  <path d="M 112 138 L 112 174 Q 112 180 118 180" fill="none" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M 112 138 L 112 180" fill="none" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrow)"/>
   <text x="120" y="162" fill="#7c3aed" font-size="9">read/write</text>
 
   <!-- Arrow: Extraction → Memory Files -->
@@ -69,10 +69,4 @@
   <text x="60" y="260" fill="#5b21b6" font-size="10" font-weight="600">Four types:</text>
   <text x="140" y="260" fill="#475569" font-size="10">user (who you are) · feedback (how to work) · project (what's happening) · reference (where to find things)</text>
 
-  <!-- CC source comparison -->
-  <rect x="40" y="296" width="660" height="72" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
-  <text x="60" y="316" fill="#5b21b6" font-size="11" font-weight="600">CC Source Comparison</text>
-  <text x="60" y="334" fill="#475569" font-size="10">• Selection: LLM side-query (Sonnet selects), not embedding vector similarity</text>
-  <text x="60" y="350" fill="#475569" font-size="10">• Extraction timing: stop hook (after each turn ends), not after autoCompact</text>
-  <text x="60" y="365" fill="#475569" font-size="10">• Dream: time + sessions + file lock, not simple count</text>
 </svg>

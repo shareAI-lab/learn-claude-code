@@ -71,7 +71,7 @@ class TaskManager:
 ```python
 def _clear_dependency(self, completed_id):
     for f in self.dir.glob("task_*.json"):
-        task = json.loads(f.read_text())
+        task = json.loads(f.read_text(encoding="utf-8"))
         if completed_id in task.get("blockedBy", []):
             task["blockedBy"].remove(completed_id)
             self._save(task)

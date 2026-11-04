@@ -41,7 +41,7 @@ def safe_path(p: str) -> Path:
     return path
 
 def run_read(path: str, limit: int = None) -> str:
-    text = safe_path(path).read_text()
+    text = safe_path(path).read_text(encoding="utf-8")
     lines = text.splitlines()
     if limit and limit < len(lines):
         lines = lines[:limit]

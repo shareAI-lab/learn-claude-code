@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-gray" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#737373"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="540" rx="8" fill="#ffffff"/>
+  <text x="480" y="32" text-anchor="middle" fill="#171717" font-size="20" font-weight="700">Goal Loop</text>
+  <text x="480" y="53" text-anchor="middle" fill="#737373" font-size="11.5">the return boundary checks the active condition before the turn can end</text>
+
+  <rect x="24" y="76" width="912" height="426" rx="8" fill="#ffffff" stroke="#d4d4d4" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="44" y="100" fill="#171717" font-size="13" font-weight="700">Agent session</text>
+
+  <rect x="52" y="150" width="142" height="58" rx="6" fill="#ffffff" stroke="#171717" stroke-width="1.5"/>
+  <text x="123" y="173" text-anchor="middle" fill="#171717" font-size="12" font-weight="700" font-family="monospace">messages[]</text>
+  <text x="123" y="192" text-anchor="middle" fill="#737373" font-size="9">conversation and tool results</text>
+
+  <line x1="194" y1="179" x2="230" y2="179" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <rect x="232" y="150" width="132" height="58" rx="6" fill="#ffffff" stroke="#171717" stroke-width="1.5"/>
+  <text x="298" y="173" text-anchor="middle" fill="#171717" font-size="12" font-weight="700">Worker model</text>
+  <text x="298" y="192" text-anchor="middle" fill="#737373" font-size="9">tools and actions</text>
+
+  <line x1="364" y1="179" x2="400" y2="179" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <rect x="402" y="150" width="132" height="58" rx="6" fill="#ffffff" stroke="#171717" stroke-width="1.5"/>
+  <text x="468" y="173" text-anchor="middle" fill="#171717" font-size="11.5" font-weight="700">no tool_use</text>
+  <text x="468" y="192" text-anchor="middle" fill="#737373" font-size="9">worker proposes a stop</text>
+
+  <line x1="534" y1="179" x2="574" y2="179" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <rect x="576" y="112" width="324" height="278" rx="8" fill="#f8fdf9" stroke="#171717" stroke-width="2"/>
+  <text x="596" y="138" fill="#171717" font-size="13" font-weight="700">Goal gate</text>
+  <text x="880" y="138" text-anchor="end" fill="#737373" font-size="9">GoalController</text>
+
+  <rect x="600" y="156" width="276" height="48" rx="6" fill="#ffffff" stroke="#737373" stroke-width="1.2"/>
+  <text x="738" y="176" text-anchor="middle" fill="#171717" font-size="11.5" font-weight="700">Stop-hook checks</text>
+  <text x="738" y="192" text-anchor="middle" fill="#737373" font-size="9">active goal · background work</text>
+
+  <line x1="738" y1="204" x2="738" y2="292" stroke="#16a34a" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+
+  <rect x="600" y="228" width="126" height="48" rx="6" fill="#ffffff" stroke="#a3a3a3" stroke-width="1.2"/>
+  <text x="663" y="248" text-anchor="middle" fill="#171717" font-size="10.5" font-weight="700">Goal condition</text>
+  <text x="663" y="264" text-anchor="middle" fill="#737373" font-size="8.5">checkable end state</text>
+
+  <rect x="750" y="228" width="126" height="48" rx="6" fill="#ffffff" stroke="#a3a3a3" stroke-width="1.2"/>
+  <text x="813" y="248" text-anchor="middle" fill="#171717" font-size="10.5" font-weight="700">Conversation</text>
+  <text x="813" y="264" text-anchor="middle" fill="#737373" font-size="8.5">reported evidence</text>
+
+  <path d="M663 276V284H700V292" fill="none" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <path d="M813 276V284H776V292" fill="none" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+  <rect x="650" y="292" width="176" height="52" rx="6" fill="#ffffff" stroke="#171717" stroke-width="1.5"/>
+  <text x="738" y="313" text-anchor="middle" fill="#171717" font-size="11.5" font-weight="700">Evaluator</text>
+  <text x="738" y="331" text-anchor="middle" fill="#737373" font-size="9">tool-free model call</text>
+
+  <line x1="738" y1="344" x2="738" y2="356" stroke="#737373" stroke-width="1.5"/>
+  <path d="M738 356L750 368L738 380L726 368Z" fill="#ffffff" stroke="#737373" stroke-width="1.3"/>
+
+  <path d="M726 368H650V404H516V420" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <text x="682" y="360" text-anchor="middle" fill="#16a34a" font-size="9" font-weight="600">block + reason</text>
+  <rect x="330" y="422" width="372" height="50" rx="6" fill="#ffffff" stroke="#171717" stroke-width="1.5"/>
+  <text x="516" y="443" text-anchor="middle" fill="#171717" font-size="11.5" font-weight="700">append the evaluator reason to messages[]</text>
+  <text x="516" y="460" text-anchor="middle" fill="#737373" font-size="9">continue in the same while loop</text>
+
+  <path d="M330 447H123V208" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-green)"/>
+
+  <path d="M750 368H841V430" fill="none" stroke="#737373" stroke-width="1.5" marker-end="url(#arrow-gray)"/>
+  <text x="806" y="360" text-anchor="middle" fill="#737373" font-size="8.5">allow / terminal</text>
+  <rect x="768" y="432" width="146" height="40" rx="6" fill="#f5f5f5" stroke="#a3a3a3" stroke-width="1.3"/>
+  <text x="841" y="456" text-anchor="middle" fill="#171717" font-size="11.5" font-weight="700">return to user</text>
+
+  <text x="480" y="525" text-anchor="middle" fill="#737373" font-size="10">The evaluator is part of the gate; it reads evidence already present in the conversation and never runs tools.</text>
+</svg>

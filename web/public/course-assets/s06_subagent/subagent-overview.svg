@@ -24,7 +24,7 @@
   <!-- 标题 -->
   <rect x="0" y="0" width="800" height="48" fill="url(#header)" rx="8"/>
   <rect x="0" y="40" width="800" height="8" fill="url(#header)"/>
-  <text x="400" y="31" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">Subagent — 独立 messages[]，中间过程全部丢弃</text>
+  <text x="400" y="31" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">Subagent — 全新 messages[]，最终文本返回父循环</text>
 
   <!-- ===== Parent Agent（左侧） ===== -->
   <rect x="30" y="68" width="310" height="268" rx="12" fill="#f0f4ff" stroke="#2563eb" stroke-width="2"/>
@@ -54,9 +54,9 @@
   <text x="122" y="206" fill="#1e3a5f" font-size="10" font-weight="600" text-anchor="middle">基础工具</text>
   <text x="122" y="219" fill="#64748b" font-size="8" text-anchor="middle">bash / read / write / ...</text>
 
-  <!-- task → spawn -->
+  <!-- task 运行嵌套循环 -->
   <rect x="200" y="193" width="110" height="26" rx="4" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
-  <text x="255" y="210" fill="#5b21b6" font-size="10" font-weight="600" text-anchor="middle">task → spawn</text>
+  <text x="255" y="210" fill="#5b21b6" font-size="10" font-weight="600" text-anchor="middle">task → run</text>
 
   <!-- Parent tool_result target -->
   <rect x="190" y="270" width="120" height="34" rx="5" fill="#dcfce7" stroke="#16a34a" stroke-width="1.2"/>
@@ -86,16 +86,16 @@
   <rect x="455" y="150" width="300" height="56" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="1" stroke-dasharray="4,2"/>
   <text x="605" y="170" fill="#5b21b6" font-size="10" font-weight="600" text-anchor="middle">自己的 while 循环（最多 30 轮）</text>
   <text x="605" y="186" fill="#5b21b6" font-size="9" text-anchor="middle">bash · read · write · edit · glob</text>
-  <text x="605" y="198" fill="#94a3b8" font-size="8" text-anchor="middle">无 task — 禁止递归 spawn</text>
+  <text x="605" y="198" fill="#94a3b8" font-size="8" text-anchor="middle">无 task — 只允许一层委派</text>
 
-  <!-- intermediate results → discard -->
-  <rect x="460" y="218" width="290" height="44" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1" stroke-dasharray="4,2"/>
-  <text x="605" y="238" fill="#64748b" font-size="10" text-anchor="middle">中间 30+ 轮工具调用 + 结果</text>
-  <text x="605" y="254" fill="#dc2626" font-size="10" font-weight="600" text-anchor="middle">全部丢弃 ✗</text>
+  <!-- 中间结果只保留在子 Agent 消息列表中 -->
+  <rect x="460" y="218" width="290" height="44" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="605" y="238" fill="#64748b" font-size="10" text-anchor="middle">子 Agent 的工具调用与结果</text>
+  <text x="605" y="254" fill="#64748b" font-size="10" font-weight="600" text-anchor="middle">不复制到父 messages[]</text>
 
   <!-- extract only last text -->
   <rect x="460" y="272" width="290" height="28" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
-  <text x="605" y="290" fill="#166534" font-size="10" font-weight="600" text-anchor="middle">✓ 只提取最后一段文本 → 返回给 Parent</text>
+  <text x="605" y="290" fill="#166534" font-size="10" font-weight="600" text-anchor="middle">最终文本 → Parent tool_result</text>
 
   <!-- ===== dispatch 线：Parent → Subagent（走上面） ===== -->
   <path d="M 310 206 L 362 206 Q 370 206 370 198 L 370 126 Q 370 118 378 118 L 450 118" fill="none" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#arrow-purple)"/>
@@ -111,15 +111,15 @@
   <rect x="60" y="370" width="680" height="56" rx="8" fill="#f1f5f9"/>
 
   <rect x="80" y="384" width="16" height="12" rx="3" fill="#f0f4ff" stroke="#2563eb" stroke-width="1"/>
-  <text x="104" y="394" fill="#334155" font-size="10">s05 保留：循环、hook、todo_write、6 个基础工具</text>
+  <text x="104" y="394" fill="#334155" font-size="10">父 Agent 工具：5 个基础工具 + task</text>
 
   <rect x="80" y="404" width="16" height="12" rx="3" fill="#ede9fe" stroke="#7c3aed" stroke-width="1"/>
-  <text x="104" y="414" fill="#334155" font-size="10">s06 新增：task 工具 + spawn_subagent() — 独立 messages[]，只回传摘要</text>
+  <text x="104" y="414" fill="#334155" font-size="10">子 Agent 工具：5 个基础工具，无 task</text>
 
   <!-- 数据流标注 -->
   <rect x="430" y="440" width="310" height="44" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
   <text x="445" y="458" fill="#7c3aed" font-size="10" font-weight="600">① Parent → Sub：</text>
-  <text x="580" y="458" fill="#64748b" font-size="10">task description（一小段文字）</text>
+  <text x="580" y="458" fill="#64748b" font-size="10">task prompt（一小段文字）</text>
   <text x="445" y="476" fill="#16a34a" font-size="10" font-weight="600">② Sub → Parent：</text>
   <text x="580" y="476" fill="#64748b" font-size="10">extract_text()（只有最终结论）</text>
 </svg>

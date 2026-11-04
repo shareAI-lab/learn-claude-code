@@ -11,7 +11,7 @@
   <rect width="720" height="300" fill="#fafbfc" rx="8"/>
   <rect x="0" y="0" width="720" height="38" fill="url(#header)" rx="8"/>
   <rect x="0" y="30" width="720" height="8" fill="url(#header)"/>
-  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">L2: microCompact — Old Result Placeholder Replacement</text>
+  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Step 3: micro_compact, Replace Older Results</text>
 
   <!-- Pain Point -->
   <rect x="20" y="54" width="680" height="36" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
@@ -39,20 +39,20 @@
   <text x="535" y="114" fill="#ca8a04" font-size="12" font-weight="600" text-anchor="middle">After (keep only latest 3 complete)</text>
   <rect x="390" y="122" width="310" height="95" rx="6" fill="#fefce8" stroke="#ca8a04" stroke-width="1"/>
   <rect x="400" y="130" width="290" height="10" rx="2" fill="#fef3c7"/>
-  <text x="408" y="138" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <text x="408" y="138" fill="#92400e" font-size="8" font-family="monospace">[Earlier tool result saved at .task_outputs/...]</text>
   <rect x="400" y="145" width="290" height="10" rx="2" fill="#fef3c7"/>
-  <text x="408" y="153" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <text x="408" y="153" fill="#92400e" font-size="8" font-family="monospace">[Earlier tool result saved at .task_outputs/...]</text>
   <rect x="400" y="160" width="290" height="10" rx="2" fill="#fef3c7"/>
-  <text x="408" y="168" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <text x="408" y="168" fill="#92400e" font-size="8" font-family="monospace">[Earlier tool result saved at .task_outputs/...]</text>
   <rect x="400" y="175" width="290" height="10" rx="2" fill="#fef3c7"/>
   <text x="408" y="183" fill="#92400e" font-size="8" font-family="monospace">Read file J: (full content, 2800 chars)</text>
-  <text x="545" y="212" fill="#ca8a04" font-size="9" font-weight="600" text-anchor="middle">Keep latest 3; first 7 become placeholders</text>
+  <text x="545" y="212" fill="#ca8a04" font-size="9" font-weight="600" text-anchor="middle">Keep latest 3; first 7 become recovery paths</text>
 
   <!-- How -->
   <rect x="20" y="228" width="680" height="62" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
-  <text x="35" y="248" fill="#1e3a5f" font-size="11" font-weight="600">How (teaching version)</text>
-  <text x="155" y="248" fill="#475569" font-size="10">Iterate through tool_result, keep only latest 3 complete, replace older ones with placeholders.</text>
-  <text x="35" y="264" fill="#1e3a5f" font-size="11" font-weight="600">Real CC</text>
-  <text x="95" y="264" fill="#475569" font-size="10">Clears old results via API cache_edits (without breaking prompt cache prefix), only for COMPACTABLE_TOOLS:</text>
-  <text x="95" y="280" fill="#94a3b8" font-size="9">Read, Bash, Grep, Glob, WebSearch, WebFetch, Edit, Write. Teaching version uses text placeholders to simulate the same effect.</text>
+  <text x="35" y="248" fill="#1e3a5f" font-size="11" font-weight="600">Rule</text>
+  <text x="75" y="248" fill="#475569" font-size="10">Keep the latest 3; save and shorten older results until context reaches 80%.</text>
+  <text x="35" y="264" fill="#1e3a5f" font-size="11" font-weight="600">Recovery</text>
+  <text x="95" y="264" fill="#475569" font-size="10">Every shortened result retains its trusted path under .task_outputs/.</text>
+  <text x="105" y="280" fill="#94a3b8" font-size="9">The message structure remains valid for the next loop iteration.</text>
 </svg>

@@ -1,8 +1,8 @@
 # s05: TodoWrite — 計画なき Agent は途中で道を外れる
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md)
 
-s01 → s02 → s03 → s04 → `s05` → [s06](../s06_subagent/) → s07 → ... → s20
+s01 → s02 → s03 → s04 → `s05` → [s06](../s06_subagent/) → s07 → ... → s16 → s17
 
 > *"計画なき agent は風の向くままに"* — まず手順を列挙してから実行。長いタスクで見落としが減る。
 >
@@ -24,30 +24,42 @@ Agent は作業を開始する。3 つのファイルをリネーム、テスト
 
 ![Todo Overview](images/todo-overview.ja.svg)
 
-前章の最小フック構造を保持し、本章では新規の `todo_write` ツールとリマインダー機構に注目する。`todo_write` は実際の作業を何もしない。ファイルを読めない、コマンドを実行できない。Agent が手を動かす前に思考を整理できるようにするだけ。
+S05 は S04 のツールディスパッチ、権限チェック、Hooks を保持し、`todo_write` とリマインダーカウンターを追加する。`todo_write` は計画状態だけを更新し、実際の作業は既存のツールが行う。
 
-ディスパッチ機構は変わらず、新ツールも `TOOL_HANDLERS[block.name]` を経由する。ただし、todo リマインダーのデモのため、ループにカウンターを追加した：連続 3 ラウンド `todo_write` を呼び出さないとリマインダーが注入される。
+新しいツールも `TOOL_HANDLERS[block.name]` を経由する。3 回連続のツール使用ラウンドで `todo_write` が呼ばれなければ、Harness は 3 回目のツール結果にリマインダーを追加する。
 
 ---
 
 ## 仕組み
 
-**todo_write ツール**は、ステータス付きのリストを受け取り、現在のプロセスメモリに保持し、端末に進捗を表示する：
+**TodoManager** はメモリ上のタスクリストを保持し、更新を検証して、描画結果をモデルへ返す。`run_todo_write` は同じ状態を端末にも表示する：
 
 ```python
-CURRENT_TODOS: list[dict] = []
+class TodoManager:
+    def __init__(self):
+        self.items = []
 
-def run_todo_write(todos: list) -> str:
-    global CURRENT_TODOS
-    CURRENT_TODOS = todos
+    def update(self, todos: list | str) -> str:
+        # Parse and validate before replacing the current list.
+        validated = []
+        ...
+        self.items = validated
+        return self.render()
 
-    lines = ["\n## Current Tasks"]
-    for t in CURRENT_TODOS:
-        icon = {"pending": " ", "in_progress": "▸", "completed": "✓"}[t["status"]]
-        lines.append(f"  [{icon}] {t['content']}")
-    print("\n".join(lines))
-    return f"Updated {len(CURRENT_TODOS)} tasks"
+    def render(self) -> str:
+        # [ ] pending, [>] in progress, [x] completed
+        ...
+
+
+TODO = TodoManager()
+
+def run_todo_write(todos: list | str) -> str:
+    output = TODO.update(todos)
+    print(output)
+    return output
 ```
+
+1 回の更新は最大 20 項目で、各項目には空でない `content` が必要となり、`in_progress` にできる項目は同時に 1 つだけ。文字列入力は JSON または Python のリスト表現として、`eval` を使わずに解析する。
 
 ツール定義は他の 5 つと一緒にディスパッチマップに追加される：
 
@@ -81,18 +93,19 @@ TOOLS = [
 TOOL_HANDLERS["todo_write"] = run_todo_write
 ```
 
-**Nag リマインダー**、モデルが連続 3 ラウンド `todo_write` を呼び出さないとき、リマインダーが自動的に注入される（教育用機構、CC ソースコードに固定ラウンド数のロジックはない）：
+**リマインダー**：3 回連続のツール使用ラウンドで `todo_write` が呼ばれなければ、リマインダーを 3 回目の結果に追加し、カウンターをリセットする：
 
 ```python
-if rounds_since_todo >= 3 and messages:
-    messages.append({
-        "role": "user",
-        "content": "<reminder>Update your todos.</reminder>",
+rounds_since_todo = 0 if used_todo else rounds_since_todo + 1
+if rounds_since_todo >= 3:
+    results.append({
+        "type": "text",
+        "text": "<reminder>Update your todos.</reminder>",
     })
     rounds_since_todo = 0
 ```
 
-Agent がタスクを受け取った後の典型的な流れ：まず `todo_write` を呼び出して全手順を列挙（全て `pending`）→ 一つの手順に取り掛かり、`in_progress` に変更 → 完了したら `completed` に変更 → 次の `pending` を見る → 続行。3 ラウンド `todo_write` がない場合、次の LLM 呼び出し前にリマインダーが追加される。
+Agent がタスクを受け取った後の典型的な流れ：まず `todo_write` を呼び出して全手順を列挙（全て `pending`）→ 一つの手順に取り掛かり、`in_progress` に変更 → 完了したら `completed` に変更 → 次の `pending` を見る → 続行。
 
 **重要な洞察**：todo_write は Agent に**実行能力**を何も追加しない。追加するのは**計画能力**だ。
 
@@ -103,9 +116,9 @@ Agent がタスクを受け取った後の典型的な流れ：まず `todo_writ
 | コンポーネント | 変更前 (s04) | 変更後 (s05) |
 |--------------|-------------|-------------|
 | ツール数 | 5 (bash, read, write, edit, glob) | 6 (+todo_write) |
-| 計画能力 | なし | ステータス付き TODO リスト + Nag リマインダー |
+| 計画能力 | なし | ステータス付き TODO リスト + リマインダー |
 | SYSTEM プロンプト | 汎用プロンプト | 「先に計画してから実行」のガイダンスを追加 |
-| ループ | 不変 | ディスパッチは不変、rounds_since_todo カウンターとリマインダー注入を追加 |
+| ループ | ツールディスパッチと Hooks | 同じ分配経路に rounds_since_todo とリマインダー注入を追加 |
 
 ---
 
@@ -132,27 +145,5 @@ Agent は計画できるようになった。しかしタスクが大きすぎ�
 
 → s06 Subagent：大きなタスクをサブタスクに分割し、それぞれを独立した Agent に任せる。それぞれが独自のクリーンなコンテキストを持ち、相互汚染がない。
 
-<details>
-<summary>CC ソースコードを深掘り</summary>
-
-CC には二つのタスクシステムが共存している（`tasks.ts:133-139`）：
-
-- **TodoWrite（V1）**：シンプルなリストツール、データはメモリ AppState で管理（`TodoWriteTool.ts:65-103`）。教育版もプロセスメモリに保持し、終了時に消える
-- **Task System（V2 = s12）**：ファイル永続化、依存グラフ、並行ロック、ownership
-
-切り替えは `isTodoV2Enabled()` で制御される。現在のソースコードの実装：対話型セッションでは V2 がデフォルトで有効、非対話型セッション（SDK）では V1 がデフォルトで有効。`CLAUDE_CODE_ENABLE_TASKS` 環境変数を設定するとセッション種別に関わらず V2 が強制有効になる。ソースコメント「Force-enable tasks in non-interactive mode」は環境変数パスの用途を説明しており、デフォルト分岐の戻り値のセマンティクスとは異なるため注意。
-
-教育版は実際のソースコードにある `activeForm` フィールドを省略している（`utils/todo/types.ts:8-15`）。CC は UI スピナーに「何をしているか」を表示するために使用するが、教育版は端末出力のみでこのフィールドは不要。
-
-教育版の Nag リマインダー（3 ラウンド未更新で注入）は教育用機構。CC ソースコードに固定「3 ラウンド」のロジックはなく、最も近いのは `TodoWriteTool.ts:72-107` で 3 つ以上の todo が全て完了しているのに verification 項目がない場合に verification nudge を追加する処理。
-
-Task System の TodoWrite に対する核心的な増分：
-- メモリリストではなくファイル永続化（Claude 設定ディレクトリ下 `tasks/{taskListId}/{taskId}.json`）
-- 平坦なリストではなく `blockedBy` 依存グラフ
-- ロックなしではなく `proper-lockfile` による並行安全性
-- 一つのツールではなく四つの独立ツール（Create/Get/Update/List）
-- TaskCreated / TaskCompleted フック（`TaskCreateTool.ts:80-129`、`TaskUpdateTool.ts:231-260`）による外部システム統合
-
-</details>
 
 <!-- translation-sync: zh@v1, en@v1, ja@v1 -->

@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 620" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#0891b2"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrow-cyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0891b2"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="620" rx="8" fill="#fafbfc"/>
+  <rect width="760" height="44" rx="8" fill="url(#header)"/>
+  <rect y="36" width="760" height="8" fill="url(#header)"/>
+  <text x="380" y="28" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Agent Teams — 一套 Team Harness</text>
+
+  <!-- 用户确认、Lead 与控制协议 -->
+  <rect x="28" y="82" width="140" height="62" rx="8" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+  <text x="98" y="106" text-anchor="middle" fill="#334155" font-size="11" font-weight="700">用户</text>
+  <text x="98" y="124" text-anchor="middle" fill="#64748b" font-size="9">先确认团队方案</text>
+
+  <line x1="168" y1="113" x2="220" y2="113" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="220" y="72" width="300" height="82" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.8"/>
+  <text x="370" y="96" text-anchor="middle" fill="#1e3a5f" font-size="12" font-weight="700">Lead Agent Loop</text>
+  <text x="370" y="116" text-anchor="middle" fill="#475569" font-size="9">用户对话 · 创建任务 · 协调团队</text>
+  <text x="370" y="134" text-anchor="middle" fill="#2563eb" font-size="9" font-weight="600">启动 · 发消息 · 创建 worktree · 审批计划</text>
+
+  <line x1="520" y1="113" x2="570" y2="113" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+
+  <rect x="570" y="82" width="162" height="62" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"/>
+  <text x="651" y="105" text-anchor="middle" fill="#92400e" font-size="10" font-weight="700">类型化控制</text>
+  <text x="651" y="122" text-anchor="middle" fill="#a16207" font-size="8.5">request_id · shutdown</text>
+  <text x="651" y="136" text-anchor="middle" fill="#a16207" font-size="8.5">计划审批闸门</text>
+
+  <!-- 连线端点精确落在组件边缘 -->
+  <line x1="370" y1="154" x2="370" y2="190" stroke="#0891b2" stroke-width="1.8" marker-end="url(#arrow-cyan)"/>
+  <line x1="651" y1="144" x2="651" y2="190" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+
+  <rect x="60" y="190" width="640" height="44" rx="22" fill="#ecfeff" stroke="#0891b2" stroke-width="2"/>
+  <text x="380" y="209" text-anchor="middle" fill="#0e7490" font-size="11" font-weight="700">MessageBus · .mailboxes/&lt;name&gt;.jsonl</text>
+  <text x="380" y="225" text-anchor="middle" fill="#0f766e" font-size="8.5">运行时投递 · 普通消息 · result · idle_notification · 控制事件</text>
+
+  <!-- MessageBus 与队友循环 -->
+  <line x1="118" y1="234" x2="118" y2="282" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <line x1="348" y1="234" x2="348" y2="282" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <line x1="578" y1="234" x2="578" y2="282" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <line x1="182" y1="282" x2="182" y2="234" stroke="#0891b2" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arrow-cyan)"/>
+  <line x1="412" y1="282" x2="412" y2="234" stroke="#0891b2" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arrow-cyan)"/>
+  <line x1="642" y1="282" x2="642" y2="234" stroke="#0891b2" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arrow-cyan)"/>
+
+  <rect x="40" y="282" width="220" height="82" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="150" y="305" text-anchor="middle" fill="#166534" font-size="10.5" font-weight="700">队友：config</text>
+  <text x="150" y="324" text-anchor="middle" fill="#15803d" font-size="8.5">独立 prompt · messages · tools</text>
+  <text x="150" y="342" text-anchor="middle" fill="#475569" font-size="8.5">WORK → result → IDLE</text>
+  <text x="150" y="356" text-anchor="middle" fill="#64748b" font-size="8">直接消息使其回到 WORK</text>
+
+  <rect x="270" y="282" width="220" height="82" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="380" y="305" text-anchor="middle" fill="#166534" font-size="10.5" font-weight="700">队友：auth</text>
+  <text x="380" y="324" text-anchor="middle" fill="#15803d" font-size="8.5">独立 prompt · messages · tools</text>
+  <text x="380" y="342" text-anchor="middle" fill="#475569" font-size="8.5">WORK → result → IDLE</text>
+  <text x="380" y="356" text-anchor="middle" fill="#64748b" font-size="8">认领任务使其回到 WORK</text>
+
+  <rect x="500" y="282" width="220" height="82" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="610" y="305" text-anchor="middle" fill="#166534" font-size="10.5" font-weight="700">队友：tests</text>
+  <text x="610" y="324" text-anchor="middle" fill="#15803d" font-size="8.5">独立 prompt · messages · tools</text>
+  <text x="610" y="342" text-anchor="middle" fill="#475569" font-size="8.5">WORK → result → IDLE</text>
+  <text x="610" y="356" text-anchor="middle" fill="#64748b" font-size="8">shutdown 结束循环</text>
+
+  <!-- IDLE 时发现任务 -->
+  <line x1="150" y1="364" x2="150" y2="404" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <line x1="380" y1="364" x2="380" y2="404" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <line x1="610" y1="364" x2="610" y2="404" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+  <rect x="60" y="404" width="640" height="54" rx="8" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+  <text x="380" y="425" text-anchor="middle" fill="#334155" font-size="11" font-weight="700">共享任务板 · .tasks/</text>
+  <text x="380" y="444" text-anchor="middle" fill="#475569" font-size="9">IDLE：先等收件箱 → 扫描 ready task → 原子认领 → 复用 WORK 循环</text>
+
+  <!-- 任务绑定选择 cwd -->
+  <line x1="380" y1="458" x2="380" y2="482" stroke="#475569" stroke-width="1.5"/>
+  <line x1="220" y1="482" x2="540" y2="482" stroke="#475569" stroke-width="1.5"/>
+  <line x1="220" y1="482" x2="220" y2="506" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="540" y1="482" x2="540" y2="506" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="311" y="468" width="138" height="18" rx="4" fill="#fafbfc"/>
+  <text x="380" y="480" text-anchor="middle" fill="#475569" font-size="8.5" font-weight="600">Task.worktree 选择 cwd</text>
+
+  <rect x="60" y="506" width="300" height="66" rx="8" fill="#f0f4ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="210" y="529" text-anchor="middle" fill="#1e3a5f" font-size="10.5" font-weight="700">无 worktree：仓库 WORKDIR</text>
+  <text x="210" y="548" text-anchor="middle" fill="#475569" font-size="8.5">task.worktree 为 null</text>
+  <text x="210" y="562" text-anchor="middle" fill="#64748b" font-size="8">行为与前面章节一致</text>
+
+  <rect x="400" y="506" width="300" height="66" rx="8" fill="#fff7ed" stroke="#d97706" stroke-width="1.5"/>
+  <text x="550" y="529" text-anchor="middle" fill="#92400e" font-size="10.5" font-weight="700">按需开启：.worktrees/&lt;name&gt;</text>
+  <text x="550" y="548" text-anchor="middle" fill="#a16207" font-size="8.5">独立 checkout + 保留 wt/&lt;name&gt; 分支</text>
+  <text x="550" y="562" text-anchor="middle" fill="#78716c" font-size="8">只隔开工作目录，不是安全沙箱</text>
+
+  <rect x="60" y="590" width="640" height="20" rx="5" fill="#ecfdf5" stroke="#bbf7d0"/>
+  <text x="380" y="604" text-anchor="middle" fill="#166534" font-size="8.5" font-weight="600">只有任务成功完成后，运行时才会清除队友的 assignment 和 cwd。</text>
+</svg>

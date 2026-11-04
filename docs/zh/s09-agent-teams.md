@@ -78,8 +78,8 @@ class MessageBus:
     def read_inbox(self, name):
         path = self.dir / f"{name}.jsonl"
         if not path.exists(): return "[]"
-        msgs = [json.loads(l) for l in path.read_text().strip().splitlines() if l]
-        path.write_text("")  # drain
+        msgs = [json.loads(l) for l in path.read_text(encoding="utf-8").strip().splitlines() if l]
+        path.write_text("", encoding="utf-8")  # drain
         return json.dumps(msgs, indent=2)
 ```
 

@@ -1,8 +1,8 @@
 # s01: Agent Loop — ループ一つで十分
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md)
 
-`s01` → [s02](../s02_tool_use/) → s03 → s04 → ... → s20
+`s01` → [s02](../s02_tool_use/) → s03 → s04 → ... → s16 → s17
 > *"One loop & Bash is all you need"* — ツール一つ + ループ一つ = 一つの Agent。
 >
 > **Harness レイヤー**: ループ — モデルと現実世界をつなぐ最初の架け橋。
@@ -25,12 +25,12 @@
 
 ![Agent Loop](images/agent-loop.ja.svg)
 
-一つの `while True` ループ — モデルがツールを呼べば続き、呼ばなければ停止。全体でたった 2 つのシグナル：
+一つの `while True` ループ — モデルがツールを呼べば続き、呼ばなければ停止。ループは response の content block を直接確認する：
 
 | シグナル | 意味 | ループの動作 |
 |----------|------|-------------|
-| `stop_reason == "tool_use"` | モデルが「ツールが必要」と挙手 | 実行 → 結果を戻す → 続行 |
-| `stop_reason != "tool_use"` | モデルが「完了」と宣言 | ループ終了 |
+| `tool_use` block を含む | モデルがツール呼び出しを要求 | 実行 → 結果を戻す → 続行 |
+| `tool_use` block を含まない | モデルがツールを呼ばなかった | ループ終了 |
 
 ---
 
@@ -57,22 +57,26 @@ response = client.messages.create(
 
 ```python
 messages.append({"role": "assistant", "content": response.content})
-if response.stop_reason != "tool_use":
+tool_calls = [
+    block for block in response.content if block.type == "tool_use"
+]
+if not tool_calls:
     return
 ```
+
+実際の `tool_use` block だけが実行段階に進むため、空の tool result メッセージは追加されない。
 
 **ステップ 4**：モデルが要求したツールを実行し、結果を収集する。
 
 ```python
 results = []
-for block in response.content:
-    if block.type == "tool_use":
-        output = run_bash(block.input["command"])
-        results.append({
-            "type": "tool_result",
-            "tool_use_id": block.id,
-            "content": output,
-        })
+for block in tool_calls:
+    output = run_bash(block.input["command"])
+    results.append({
+        "type": "tool_result",
+        "tool_use_id": block.id,
+        "content": output,
+    })
 ```
 
 **ステップ 5**：ツールの結果を新しいメッセージとして追加し、ステップ 2 に戻る。
@@ -92,28 +96,30 @@ def agent_loop(messages):
         )
         messages.append({"role": "assistant", "content": response.content})
 
-        if response.stop_reason != "tool_use":
+        tool_calls = [
+            block for block in response.content if block.type == "tool_use"
+        ]
+        if not tool_calls:
             return
 
         results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                output = run_bash(block.input["command"])
-                results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": output,
-                })
+        for block in tool_calls:
+            output = run_bash(block.input["command"])
+            results.append({
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": output,
+            })
         messages.append({"role": "user", "content": results})
 ```
 
-30 行未満 — これが最小実行可能な agent harness のカーネルだ。これは知能そのものではなく、モデルが継続的に行動できるための最小ランタイムフレームワーク。モデルが決定し（ツールを呼ぶか、どれを呼ぶか）、harness が実行する（呼ばれたら実行し、結果を戻す）。次の 18 章はすべてこのループの上に仕組みを積み重ねていく。ループ自体は永遠に変わらない。
+30 行あまり — これが最小実行可能な agent harness のカーネルだ。これは知能そのものではなく、モデルが継続的に行動できるための最小ランタイムフレームワーク。モデルが決定し（ツールを呼ぶか、どれを呼ぶか）、harness が実行を担う（ツールを呼び出し、結果を新しいメッセージとして追加する）。次の 16 章はすべてこのループの上に仕組みを積み重ねていく。ループ自体は永遠に変わらない。
 
 ---
 
 ## 試してみよう
 
-> **教育デモの注意**: このコードはモデルが生成したシェルコマンドを実行します。プロジェクトファイルへの影響を避けるため、一時テストディレクトリで実行してください。s03 で本格的な権限システムを説明します。
+> **安全上の注意**: このコードはモデルが生成したシェルコマンドを実行します。プロジェクトファイルへの影響を避けるため、一時テストディレクトリで実行してください。s03 で権限制御を追加します。
 
 **準備**（初回のみ）：
 
@@ -145,63 +151,5 @@ python s01_agent_loop/code.py
 
 → s02 Tool Use：5 つの本格的なツールを与えたらどうなる？ モデルは複数のツールを同時に呼び出すか？ 並列実行で競合は起きないか？
 
-<details>
-<summary>CC ソースコードを深掘り</summary>
 
-> 以下は CC ソースコード `src/query.ts`（1729 行）の検証に基づく。核心的な違いは二つ：CC はループ継続の判断に `stop_reason` フィールドを頼らず、コンテンツに `tool_use` ブロックが含まれるかをチェックする（ストリーミングレスポンスでは `stop_reason` が信頼できないため）。CC には本番環境向けのより多くの終了パスとリカバリ戦略がある。
-
-**教育版の 30 行 `while True` が CC の 1729 行の核心。** 以下の各項目は、すべてその核心の上に積み重ねられた保護機構である。
-
-<details>
-<summary>一、ループ構造の違い</summary>
-
-教育版は `response.stop_reason` をチェックする。CC はこれをループ継続の唯一の根拠として使わない — ストリーミングレスポンスでは、`stop_reason` がまだ更新されていなくても、コンテンツに既に `tool_use` ブロックが含まれている可能性がある。CC は `needsFollowUp` フラグを使用する：ストリーミングメッセージの受信時（`query.ts:830-834`）に、`tool_use` ブロックが検出されると `true` に設定される。`QueryEngine.ts` は `message_delta` から実際の `stop_reason` を取得して他の処理に利用するが、query loop 自体は `needsFollowUp` に依存する。
-
-```typescript
-// query.ts:554-558
-// stop_reason === 'tool_use' is unreliable.
-// Set during streaming whenever a tool_use block arrives.
-let needsFollowUp = false
-```
-
-</details>
-
-<details>
-<summary>二、State オブジェクト 10 フィールド（教育版は messages のみ使用）</summary>
-
-| # | フィールド | 用途 | 対応章 |
-|---|-----------|------|--------|
-| 1 | `messages` | 現在のイテレーションのメッセージ配列 | s01 |
-| 2 | `toolUseContext` | ツール、シグナル、権限コンテキスト | s02 |
-| 3 | `autoCompactTracking` | 圧縮状態の追跡 | s08 |
-| 4 | `maxOutputTokensRecoveryCount` | トークンリカバリ試行回数（上限 3） | s11 |
-| 5 | `hasAttemptedReactiveCompact` | 今回のラウンドでリアクティブ圧縮を試みたか | s08 |
-| 6 | `maxOutputTokensOverride` | 8K→64K へのアップグレード上書き | s11 |
-| 7 | `pendingToolUseSummary` | バックグラウンド Haiku 生成のツール使用要約 | s08 |
-| 8 | `stopHookActive` | 停止フックがブロッキングエラーを発生させたか | s04 |
-| 9 | `turnCount` | ターン数（maxTurns チェック用） | s01 |
-| 10 | `transition` | 前回の継続理由 | s11 |
-
-> 注：`taskBudgetRemaining`（`query.ts:291`）は loop-local のローカル変数であり、State には含まれない。ソースコメントには明確に "Loop-local (not on State)" と書かれている。
-
-</details>
-
-<details>
-<summary>三、複数の終了パスと継続パス</summary>
-
-教育版には 1 つの終了パスしかない（モデルがツールを呼ばなければ終了）。本番版には複数の終了・継続パスがあり、blocking limit、prompt too long、model error、abort、hook stop、max turns、token budget continuation、reactive compact retry など多くのシナリオをカバーしている。各シナリオには対応するリカバリまたは終了戦略がある。
-
-</details>
-
-<details>
-<summary>四、ストリーミングツール実行と QueryEngine</summary>
-
-CC の `StreamingToolExecutor`（`query.ts:561`）は、モデルがまだ生成中にツールの実行を開始できる（concurrency-safe なツールは並列、それ以外は排他実行）。`QueryEngine.ts` はさらに、コスト超過や構造化出力の検証失敗などの保護を追加する。教育版はこれらを実装しない — 目標は概念の明確さであり、極限のパフォーマンスではない。
-
-</details>
-
-**一言で**: query.ts の 1729 行の核心は 30 行の `while True`。複雑なフィールドや終了パスはすべて保護機構だ。まず核心のループを理解すれば、その後のすべては自然に理解できる。
-
-</details>
-
-<!-- translation-sync: zh@v1, en@v1, ja@v1 -->
+<!-- translation-sync: zh@v2, en@v2, ja@v2 -->

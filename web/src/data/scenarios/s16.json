@@ -1,45 +1,54 @@
 {
   "version": "s16",
-  "title": "Team Protocols",
-  "description": "Typed requests, request ids, and response matching turn team chat into a protocol.",
+  "title": "Workflow Runtime",
+  "description": "A fixed review pipeline executes inside one Workflow call, records a journal, emits lifecycle and progress events, and returns one final tool result.",
   "steps": [
     {
       "type": "user_message",
-      "content": "Ask the reviewer agent for a plan before it edits anything.",
-      "annotation": "The lead needs a structured plan request, not free-form chat."
+      "content": "Review this load_user change across correctness, security, performance, and style.",
+      "annotation": "The goal is open-ended, but the review procedure has a fixed shape."
     },
     {
       "type": "tool_call",
-      "toolName": "request_plan",
-      "content": "{\"to\":\"reviewer\",\"task\":\"Review the parser change before editing.\"}",
-      "annotation": "The protocol records a pending request with a request_id."
+      "toolName": "Workflow",
+      "content": "{\"name\":\"review-changes\",\"args\":{\"budget\":null,\"changes\":\"def load_user(user_id):\\n    query = f\\\"SELECT * FROM users WHERE id = {user_id}\\\"\\n    return db.execute(query).fetchone()\\n\"}}",
+      "annotation": "The model selects a saved workflow and arguments; the host registry supplies its trusted metadata and script."
     },
     {
       "type": "system_event",
-      "content": "pending_requests[req_18] = {kind:\"plan\", to:\"reviewer\", status:\"pending\"}",
-      "annotation": "ProtocolState keeps the request open until a matching response arrives."
+      "content": "async_launched(runId=wf_review-changes_0000000000001a7b) -> task_started",
+      "annotation": "The runtime emits launch lifecycle events before it executes the script; this is not a tool result."
     },
     {
       "type": "system_event",
-      "content": "dispatch_message -> reviewer inbox: {type:\"plan_request\", request_id:\"req_18\"}",
-      "annotation": "The message is typed so the teammate knows how to handle it."
-    },
-    {
-      "type": "tool_call",
-      "toolName": "submit_plan",
-      "content": "{\"request_id\":\"req_18\",\"plan\":[\"inspect parser\",\"run fixtures\",\"report risks\"]}",
-      "annotation": "The teammate responds with the same request_id."
+      "content": "phase=Review -> pipeline([correctness, security, performance, style])",
+      "annotation": "Each item advances independently through the scripted stages."
     },
     {
       "type": "system_event",
-      "content": "match_response(req_18) -> status: ready_for_review",
-      "annotation": "The lead can correlate the reply with the exact request."
+      "content": "phase=Verify -> adversarial checks run in parallel",
+      "annotation": "Structured results cross a validation boundary before aggregation."
     },
     {
-      "type": "tool_call",
-      "toolName": "review_plan",
-      "content": "{\"request_id\":\"req_18\",\"approved\":true}",
-      "annotation": "The lead explicitly approves the plan before work proceeds."
+      "type": "system_event",
+      "content": "workflow_agent status=done -> journal append",
+      "annotation": "Every completed agent call is checkpointed as the script runs."
+    },
+    {
+      "type": "system_event",
+      "content": "task_notification(status=completed, outputFile=.runtime/wf_review-changes_0000000000001a7b.output.json)",
+      "annotation": "The task emits its final lifecycle event after output is written."
+    },
+    {
+      "type": "tool_result",
+      "toolName": "Workflow",
+      "content": "{\"launched\":{\"status\":\"async_launched\",\"taskId\":\"local_workflow_wf_review-changes_0000000000001a7b\",\"taskType\":\"local_workflow\",\"runId\":\"wf_review-changes_0000000000001a7b\",\"workflowName\":\"review-changes\"},\"result\":{\"confirmed\":[{\"dimension\":\"performance\",\"title\":\"audit:performance #1\",\"severity\":\"medium\"},{\"dimension\":\"performance\",\"title\":\"audit:performance #2\",\"severity\":\"medium\"},{\"dimension\":\"style\",\"title\":\"audit:style #1\",\"severity\":\"medium\"},{\"dimension\":\"style\",\"title\":\"audit:style #2\",\"severity\":\"medium\"},{\"dimension\":\"security\",\"title\":\"audit:security #1\",\"severity\":\"low\"},{\"dimension\":\"security\",\"title\":\"audit:security #2\",\"severity\":\"low\"}]},\"task\":{\"taskId\":\"local_workflow_wf_review-changes_0000000000001a7b\",\"taskType\":\"local_workflow\",\"runId\":\"wf_review-changes_0000000000001a7b\",\"workflowName\":\"review-changes\",\"status\":\"completed\",\"usage\":{\"agents\":11,\"tokens\":883},\"progress\":[{\"type\":\"workflow_phase\",\"title\":\"Review\"},{\"type\":\"workflow_agent\",\"label\":\"audit:correctness\",\"phase\":\"Review\",\"status\":\"done\"},{\"type\":\"workflow_phase\",\"title\":\"Verify\"},{\"type\":\"workflow_agent\",\"label\":\"audit:security\",\"phase\":\"Review\",\"status\":\"done\"},{\"type\":\"workflow_agent\",\"label\":\"audit:performance\",\"phase\":\"Review\",\"status\":\"done\"},{\"type\":\"workflow_agent\",\"label\":\"audit:style\",\"phase\":\"Review\",\"status\":\"done\"},{\"type\":\"workflow_agent\",\"label\":\"verify:correctness:audit:correctness #1\",\"phase\":\"Verify\",\"status\":\"done\"},{\"type\":\"workflow_agent\",\"label\":\"verify:security:audit:security #1\",\"phase\":\"Verify\",\"status\":\"done\"},{\"type\":\"workflow_agent\",\"label\":\"verify:security:audit:security #2\",\"phase\":\"Verify\",\"status\":\"done\"},{\"type\":\"workflow_agent\",\"label\":\"verify:performance:audit:performance #1\",\"phase\":\"Verify\",\"status\":\"done\"},{\"type\":\"workflow_agent\",\"label\":\"verify:performance:audit:performance #2\",\"phase\":\"Verify\",\"status\":\"done\"},{\"type\":\"workflow_agent\",\"label\":\"verify:style:audit:style #1\",\"phase\":\"Verify\",\"status\":\"done\"},{\"type\":\"workflow_agent\",\"label\":\"verify:style:audit:style #2\",\"phase\":\"Verify\",\"status\":\"done\"},{\"type\":\"workflow_log\",\"message\":\"confirmed 6 real finding(s)\"}]}}",
+      "annotation": "The demo fixture returns six synthetic findings and measured runner usage; these are not claims about the repository."
+    },
+    {
+      "type": "system_event",
+      "content": "append Workflow tool_result -> messages[]",
+      "annotation": "A main-loop integration can append this JSON-safe result and continue with the updated conversation."
     }
   ]
 }

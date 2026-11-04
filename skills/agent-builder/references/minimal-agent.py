@@ -18,7 +18,7 @@ import os
 
 # Configuration
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-MODEL = os.getenv("MODEL_NAME", "claude-sonnet-4-20250514")
+MODEL = os.getenv("MODEL_NAME", "claude-sonnet-5-5")
 WORKDIR = Path.cwd()
 
 # System prompt - keep it simple
@@ -70,7 +70,7 @@ def execute_tool(name: str, args: dict) -> str:
         try:
             r = subprocess.run(
                 args["command"], shell=True, cwd=WORKDIR,
-                capture_output=True, text=True, timeout=60
+                capture_output=True, text=True, errors="replace", timeout=60
             )
             return (r.stdout + r.stderr).strip() or "(empty)"
         except subprocess.TimeoutExpired:
@@ -78,7 +78,7 @@ def execute_tool(name: str, args: dict) -> str:
 
     if name == "read_file":
         try:
-            return (WORKDIR / args["path"]).read_text()[:50000]
+            return (WORKDIR / args["path"]).read_text(encoding="utf-8")[:50000]
         except Exception as e:
             return f"Error: {e}"
 
@@ -86,7 +86,7 @@ def execute_tool(name: str, args: dict) -> str:
         try:
             p = WORKDIR / args["path"]
             p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(args["content"])
+            p.write_text(args["content"], encoding="utf-8")
             return f"Wrote {len(args['content'])} bytes to {args['path']}"
         except Exception as e:
             return f"Error: {e}"

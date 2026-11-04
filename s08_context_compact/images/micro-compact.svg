@@ -11,7 +11,7 @@
   <rect width="720" height="300" fill="#fafbfc" rx="8"/>
   <rect x="0" y="0" width="720" height="38" fill="url(#header)" rx="8"/>
   <rect x="0" y="30" width="720" height="8" fill="url(#header)"/>
-  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">L2: microCompact — 旧结果占位替换</text>
+  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Step 3: micro_compact，旧结果可恢复替换</text>
 
   <!-- 痛点 -->
   <rect x="20" y="54" width="680" height="36" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
@@ -38,20 +38,20 @@
   <text x="535" y="114" fill="#ca8a04" font-size="12" font-weight="600" text-anchor="middle">压缩后（只保留最近 3 条完整）</text>
   <rect x="390" y="122" width="310" height="95" rx="6" fill="#fefce8" stroke="#ca8a04" stroke-width="1"/>
   <rect x="400" y="130" width="290" height="10" rx="2" fill="#fef3c7"/>
-  <text x="408" y="138" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <text x="408" y="138" fill="#92400e" font-size="8" font-family="monospace">[Earlier tool result saved at .task_outputs/...]</text>
   <rect x="400" y="145" width="290" height="10" rx="2" fill="#fef3c7"/>
-  <text x="408" y="153" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <text x="408" y="153" fill="#92400e" font-size="8" font-family="monospace">[Earlier tool result saved at .task_outputs/...]</text>
   <rect x="400" y="160" width="290" height="10" rx="2" fill="#fef3c7"/>
-  <text x="408" y="168" fill="#92400e" font-size="8" font-family="monospace">[Earlier result compacted. Re-run if needed.]</text>
+  <text x="408" y="168" fill="#92400e" font-size="8" font-family="monospace">[Earlier tool result saved at .task_outputs/...]</text>
   <rect x="400" y="175" width="290" height="10" rx="2" fill="#fef3c7"/>
   <text x="408" y="183" fill="#92400e" font-size="8" font-family="monospace">Read file J: (完整内容, 2800 字符)</text>
-  <text x="545" y="212" fill="#ca8a04" font-size="9" font-weight="600">只保留最近 3 条，前 7 条变占位</text>
+  <text x="545" y="212" fill="#ca8a04" font-size="9" font-weight="600">保留最近 3 条，前 7 条变恢复路径</text>
 
   <!-- 原理 -->
   <rect x="20" y="228" width="680" height="62" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
-  <text x="35" y="248" fill="#1e3a5f" font-size="11" font-weight="600">怎么做（教学版）</text>
-  <text x="115" y="248" fill="#475569" font-size="10">遍历 tool_result，只保留最近 3 条完整，更旧的替换为占位符。</text>
-  <text x="35" y="264" fill="#1e3a5f" font-size="11" font-weight="600">真实 CC</text>
-  <text x="95" y="264" fill="#475569" font-size="10">通过 API cache_edits 清除旧结果（不破坏 prompt cache 前缀），仅对 COMPACTABLE_TOOLS 生效：</text>
-  <text x="95" y="280" fill="#94a3b8" font-size="9">Read, Bash, Grep, Glob, WebSearch, WebFetch, Edit, Write。教学版用文本占位模拟同样效果。</text>
+  <text x="35" y="248" fill="#1e3a5f" font-size="11" font-weight="600">处理规则</text>
+  <text x="95" y="248" fill="#475569" font-size="10">最近 3 条保持完整，更早的结果先保存，再逐条缩短到阈值 80%。</text>
+  <text x="35" y="264" fill="#1e3a5f" font-size="11" font-weight="600">恢复方式</text>
+  <text x="95" y="264" fill="#475569" font-size="10">每条缩短结果都保留 .task_outputs/ 下的可信路径。</text>
+  <text x="95" y="280" fill="#94a3b8" font-size="9">消息结构保持不变，后续循环仍可继续处理。</text>
 </svg>

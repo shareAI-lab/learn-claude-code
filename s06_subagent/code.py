@@ -1,39 +1,34 @@
 #!/usr/bin/env python3
 """
-s06: Subagent — spawn sub-agents with fresh messages[] for context isolation.
+s06_subagent.py - Subagents
 
-  Parent Agent                           Subagent
-  +------------------+                  +------------------+
-  | messages=[...]   |                  | messages=[task]  | <-- fresh
-  |                  |   dispatch       |                  |
-  | tool: task       | ---------------> | own while loop   |
-  |   prompt="..."   |                  |   bash/read/...  |
-  |                  |   summary only   |   (max 30 turns) |
-  | result = "..."   | <--------------- | return last text |
-  +------------------+                  +------------------+
-        ^                                      |
-        |       intermediate results DISCARDED  |
-        +--------------------------------------+
+The task tool runs a second agent loop with a fresh message list. Both
+loops share the working directory, but only the final text returns to
+the parent conversation.
 
-  Subagent tools: bash, read, write, edit, glob (NO task — no recursion)
+    Parent agent                    Subagent
+    +------------------+            +------------------+
+    | messages=[...]   |            | messages=[prompt]|
+    |                  |   task     |                  |
+    | tool: task       | ---------> | own agent loop   |
+    |                  |            | base tools only  |
+    | tool_result      | <--------- | final text       |
+    +------------------+            +------------------+
 
-Changes from s05:
-  + task tool + spawn_subagent() with fresh messages[]
-  + Safety limit: max 30 turns per subagent
-  + extract_text() helper
-  Subagent cannot spawn sub-subagents (no task tool in sub_tools).
-  Main loop unchanged: task auto-dispatches via TOOL_HANDLERS.
-
-Run: python s06_subagent/code.py
-Needs: pip install anthropic python-dotenv + ANTHROPIC_API_KEY in .env
+The subagent has no task tool, so it cannot delegate again.
 """
 
-import ast, json, os, subprocess
+import os
+import re
+import subprocess
 from pathlib import Path
 
 try:
     import readline
     readline.parse_and_bind('set bind-tty-special-chars off')
+    readline.parse_and_bind('set input-meta on')
+    readline.parse_and_bind('set output-meta on')
+    readline.parse_and_bind('set convert-meta off')
 except ImportError:
     pass
 
@@ -47,114 +42,86 @@ if os.getenv("ANTHROPIC_BASE_URL"):
 WORKDIR = Path.cwd()
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
-CURRENT_TODOS: list[dict] = []
 
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 SYSTEM = (
-    f"You are a coding agent at {WORKDIR}. "
-    "For complex sub-problems, use the task tool to spawn a subagent."
+    f"You are a coding agent at {WORKDIR}. Environment: {ENVIRONMENT_PROMPT}. "
+    "Use task for focused exploration or a self-contained subtask."
 )
-
-# s06: subagent gets its own system prompt — no task, no recursion
 SUB_SYSTEM = (
-    f"You are a coding agent at {WORKDIR}. "
-    "Complete the task you were given, then return a concise summary. "
-    "Do not delegate further."
+    f"You are a coding agent at {WORKDIR}. Environment: {ENVIRONMENT_PROMPT}. "
+    "Complete the given task, then return a concise final answer."
 )
 
 
-# ═══════════════════════════════════════════════════════════
-#  FROM s02-s05 (unchanged): Tool Implementations
-# ═══════════════════════════════════════════════════════════
-
-def safe_path(p: str) -> Path:
-    path = (WORKDIR / p).resolve()
-    if not path.is_relative_to(WORKDIR):
-        raise ValueError(f"Path escapes workspace: {p}")
-    return path
+# -- Base tools --
 
 def run_bash(command: str) -> str:
     try:
-        r = subprocess.run(command, shell=True, cwd=WORKDIR,
-                           capture_output=True, text=True, timeout=120)
-        out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
+        result = subprocess.run(
+            command, shell=True, cwd=WORKDIR,
+            capture_output=True, text=True, errors="replace", timeout=120,
+        )
+        output = (result.stdout + result.stderr).strip()
+        return output[:50000] if output else "(no output)"
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
 
+
 def run_read(path: str, limit: int | None = None) -> str:
     try:
-        lines = safe_path(path).read_text().splitlines()
+        lines = (WORKDIR / path).resolve().read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
         return "\n".join(lines)
     except Exception as e:
         return f"Error: {e}"
 
+
 def run_write(path: str, content: str) -> str:
     try:
-        file_path = safe_path(path)
+        file_path = (WORKDIR / path).resolve()
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content)
+        file_path.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as e:
         return f"Error: {e}"
 
+
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
-        file_path = safe_path(path)
-        text = file_path.read_text()
+        file_path = (WORKDIR / path).resolve()
+        text = file_path.read_text(encoding="utf-8")
         if old_text not in text:
             return f"Error: text not found in {path}"
-        file_path.write_text(text.replace(old_text, new_text, 1))
+        file_path.write_text(text.replace(old_text, new_text, 1), encoding="utf-8")
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
 
+
 def run_glob(pattern: str) -> str:
-    import glob as g
+    import glob
     try:
-        results = []
-        for match in g.glob(pattern, root_dir=WORKDIR):
-            if (WORKDIR / match).resolve().is_relative_to(WORKDIR):
-                results.append(match)
-        return "\n".join(results) if results else "(no matches)"
+        matches = sorted({
+            match for match in glob.glob(
+                pattern, root_dir=WORKDIR, recursive=True)
+            if (WORKDIR / match).resolve().is_relative_to(WORKDIR)
+        })
+        shown = matches[:200]
+        if len(matches) > 200:
+            shown.append("... (more matches omitted; narrow the pattern)")
+        return "\n".join(shown) if shown else "(no matches)"
     except Exception as e:
         return f"Error: {e}"
 
-def _normalize_todos(todos):
-    if isinstance(todos, str):
-        try:
-            todos = json.loads(todos)
-        except json.JSONDecodeError:
-            try:
-                todos = ast.literal_eval(todos)
-            except (SyntaxError, ValueError):
-                return None, "Error: todos must be a list or JSON array string"
-    if not isinstance(todos, list):
-        return None, "Error: todos must be a list"
-    for i, t in enumerate(todos):
-        if not isinstance(t, dict):
-            return None, f"Error: todos[{i}] must be an object"
-        if "content" not in t or "status" not in t:
-            return None, f"Error: todos[{i}] missing 'content' or 'status'"
-        if t["status"] not in ("pending", "in_progress", "completed"):
-            return None, f"Error: todos[{i}] has invalid status '{t['status']}'"
-    return todos, None
 
-def run_todo_write(todos: list) -> str:
-    global CURRENT_TODOS
-    todos, error = _normalize_todos(todos)
-    if error:
-        return error
-    CURRENT_TODOS = todos
-    lines = ["\n\033[33m## Current Tasks\033[0m"]
-    for t in CURRENT_TODOS:
-        icon = {"pending": " ", "in_progress": "\033[36m▸\033[0m", "completed": "\033[32m✓\033[0m"}[t["status"]]
-        lines.append(f"  [{icon}] {t['content']}")
-    print("\n".join(lines))
-    return f"Updated {len(CURRENT_TODOS)} tasks"
-
-TOOLS = [
+BASE_TOOLS = [
     {"name": "bash", "description": "Run a shell command.",
      "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
     {"name": "read_file", "description": "Read file contents.",
@@ -163,108 +130,27 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
     {"name": "edit_file", "description": "Replace exact text in a file once.",
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
-    {"name": "glob", "description": "Find files matching a glob pattern.",
+    {"name": "glob", "description": "Find files matching a glob pattern; ** matches recursively.",
      "input_schema": {"type": "object", "properties": {"pattern": {"type": "string"}}, "required": ["pattern"]}},
-    {"name": "todo_write", "description": "Create and manage a task list for your current coding session.",
-     "input_schema": {"type": "object", "properties": {"todos": {"type": "array", "items": {"type": "object", "properties": {"content": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}, "required": ["content", "status"]}}}, "required": ["todos"]}},
 ]
 
-TOOL_HANDLERS = {
-    "bash": run_bash, "read_file": run_read, "write_file": run_write,
-    "edit_file": run_edit, "glob": run_glob, "todo_write": run_todo_write,
+BASE_HANDLERS = {
+    "bash": run_bash,
+    "read_file": run_read,
+    "write_file": run_write,
+    "edit_file": run_edit,
+    "glob": run_glob,
 }
 
 
-# ═══════════════════════════════════════════════════════════
-#  NEW in s06: Subagent — fresh messages[], summary only
-# ═══════════════════════════════════════════════════════════
-
-SUB_TOOLS = [
-    {"name": "bash", "description": "Run a shell command.",
-     "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
-    {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
-    {"name": "write_file", "description": "Write content to a file.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
-    {"name": "edit_file", "description": "Replace exact text in a file once.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
-    {"name": "glob", "description": "Find files matching a glob pattern.",
-     "input_schema": {"type": "object", "properties": {"pattern": {"type": "string"}}, "required": ["pattern"]}},
-]
-# NO "task" tool — prevent recursive spawning
-
-SUB_HANDLERS = {
-    "bash": run_bash, "read_file": run_read, "write_file": run_write,
-    "edit_file": run_edit, "glob": run_glob,
-}
-
-def extract_text(content) -> str:
-    """Extract text from message content blocks."""
-    if not isinstance(content, list):
-        return str(content)
-    return "\n".join(getattr(b, "text", "") for b in content if getattr(b, "type", None) == "text")
-
-def spawn_subagent(description: str) -> str:
-    """Spawn a subagent with fresh messages[], return summary only."""
-    print(f"\n\033[35m[Subagent spawned]\033[0m")
-    messages = [{"role": "user", "content": description}]  # fresh context
-
-    for _ in range(30):  # safety limit
-        response = client.messages.create(
-            model=MODEL, system=SUB_SYSTEM,
-            messages=messages, tools=SUB_TOOLS, max_tokens=8000,
-        )
-        messages.append({"role": "assistant", "content": response.content})
-        if response.stop_reason != "tool_use":
-            break
-        results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                # Issue 1: subagent also runs hooks (permissions apply)
-                blocked = trigger_hooks("PreToolUse", block)
-                if blocked:
-                    results.append({"type": "tool_result", "tool_use_id": block.id,
-                                    "content": str(blocked)})
-                    continue
-                handler = SUB_HANDLERS.get(block.name)
-                output = handler(**block.input) if handler else f"Unknown: {block.name}"
-                trigger_hooks("PostToolUse", block, output)
-                print(f"  \033[90m[sub] {block.name}: {str(output)[:100]}\033[0m")
-                results.append({"type": "tool_result", "tool_use_id": block.id,
-                                "content": output})
-        messages.append({"role": "user", "content": results})
-
-    # Issue 5: fallback if safety limit hit during tool_use
-    result = extract_text(messages[-1]["content"])
-    if not result:
-        # last message is tool_result, look backwards for assistant text
-        for msg in reversed(messages):
-            if msg["role"] == "assistant":
-                result = extract_text(msg["content"])
-                if result:
-                    break
-        if not result:
-            result = "Subagent stopped after 30 turns without final answer."
-    print(f"\033[35m[Subagent done]\033[0m")
-    return result  # only summary, entire message history discarded
-
-# Add task tool to parent's tools
-TOOLS.append({
-    "name": "task",
-    "description": "Launch a subagent to handle a complex subtask. Returns only the final conclusion.",
-    "input_schema": {"type": "object", "properties": {"description": {"type": "string"}}, "required": ["description"]},
-})
-TOOL_HANDLERS["task"] = spawn_subagent
-
-
-# ═══════════════════════════════════════════════════════════
-#  FROM s04 (unchanged): Hook System
-# ═══════════════════════════════════════════════════════════
+# -- Hooks --
 
 HOOKS = {"UserPromptSubmit": [], "PreToolUse": [], "PostToolUse": [], "Stop": []}
 
+
 def register_hook(event: str, callback):
     HOOKS[event].append(callback)
+
 
 def trigger_hooks(event: str, *args):
     for callback in HOOKS[event]:
@@ -273,106 +159,222 @@ def trigger_hooks(event: str, *args):
             return result
     return None
 
+
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
+DESTRUCTIVE_COMMAND_WORD = re.compile(
+    r"(?i)(?:^|[;&|()\n])\s*(?:rm|del)(?=\s|$|[;&|()])"
+)
+DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+
+
+def contains_destructive_command(command: str) -> bool:
+    return bool(DESTRUCTIVE_COMMAND_WORD.search(command))
+
 
 def permission_hook(block):
-    """PreToolUse: deny list check."""
+    """PreToolUse: block denied operations and ask about risky ones."""
     if block.name == "bash":
-        for p in DENY_LIST:
-            if p in block.input.get("command", ""):
-                print(f"\n\033[31m⛔ Blocked: '{p}'\033[0m")
-                return "Permission denied"
+        command = block.input.get("command", "")
+        for pattern in DENY_LIST:
+            if pattern in command:
+                print(f"\n\033[31m[blocked] '{pattern}'\033[0m")
+                return "Permission denied by deny list"
+        if contains_destructive_command(command) or any(
+            keyword in command for keyword in DESTRUCTIVE
+        ):
+            print("\n\033[33m[permission] Potentially destructive command\033[0m")
+            print(f"   Tool: {block.name}({block.input})")
+            choice = input("   Allow? [y/N] ").strip().lower()
+            if choice not in ("y", "yes"):
+                return "Permission denied by user"
+
+    if block.name in ("read_file", "write_file", "edit_file"):
+        path = block.input.get("path", "")
+        if not (WORKDIR / path).resolve().is_relative_to(WORKDIR):
+            print("\n\033[33m[permission] Access outside workspace\033[0m")
+            print(f"   Tool: {block.name}({block.input})")
+            choice = input("   Allow? [y/N] ").strip().lower()
+            if choice not in ("y", "yes"):
+                return "Permission denied by user"
     return None
+
 
 def log_hook(block):
-    """PreToolUse: log tool calls."""
-    print(f"\033[90m[HOOK] {block.name}\033[0m")
+    """PreToolUse: log every tool call."""
+    args_preview = str(list(block.input.values())[:2])[:60]
+    print(f"\033[90m[HOOK] {block.name}({args_preview})\033[0m")
     return None
 
+
+def large_output_hook(block, output):
+    """PostToolUse: warn on large output."""
+    if len(str(output)) > 100000:
+        print(f"\033[33m[HOOK] Large output from {block.name}: {len(str(output))} chars\033[0m")
+    return None
+
+
 def context_inject_hook(query: str):
-    """UserPromptSubmit: log working directory."""
+    """UserPromptSubmit: log the working directory."""
     print(f"\033[90m[HOOK] UserPromptSubmit: working in {WORKDIR}\033[0m")
     return None
 
+
 def summary_hook(messages: list):
-    """Stop: print tool call count."""
-    tool_count = sum(1 for m in messages
-                     for b in (m.get("content") if isinstance(m.get("content"), list) else [])
-                     if isinstance(b, dict) and b.get("type") == "tool_result")
+    """Stop: print the number of tool results in this message list."""
+    tool_count = sum(
+        1
+        for message in messages
+        for block in (
+            message.get("content")
+            if isinstance(message.get("content"), list)
+            else []
+        )
+        if isinstance(block, dict) and block.get("type") == "tool_result"
+    )
     print(f"\033[90m[HOOK] Stop: session used {tool_count} tool calls\033[0m")
     return None
+
 
 register_hook("UserPromptSubmit", context_inject_hook)
 register_hook("PreToolUse", permission_hook)
 register_hook("PreToolUse", log_hook)
+register_hook("PostToolUse", large_output_hook)
 register_hook("Stop", summary_hook)
 
 
-# ═══════════════════════════════════════════════════════════
-#  agent_loop — same as s05 + nag reminder, task auto-dispatches
-# ═══════════════════════════════════════════════════════════
+def execute_tool(block, handlers: dict) -> str:
+    blocked = trigger_hooks("PreToolUse", block)
+    if blocked:
+        return str(blocked)
 
-rounds_since_todo = 0
+    handler = handlers.get(block.name)
+    try:
+        output = handler(**block.input) if handler else f"Unknown: {block.name}"
+    except Exception as e:
+        output = f"Error: {e}"
 
-def agent_loop(messages: list):
-    global rounds_since_todo
-    while True:
-        # s05: nag reminder
-        if rounds_since_todo >= 3 and messages:
-            messages.append({"role": "user",
-                             "content": "<reminder>Update your todos.</reminder>"})
-            rounds_since_todo = 0
+    trigger_hooks("PostToolUse", block, output)
+    return str(output)
 
+
+# -- New in s06: a nested agent loop with fresh messages --
+
+SUB_TOOLS = list(BASE_TOOLS)
+SUB_HANDLERS = dict(BASE_HANDLERS)
+
+
+def extract_text(content) -> str:
+    if not isinstance(content, list):
+        return str(content)
+    return "\n".join(
+        getattr(block, "text", "")
+        for block in content
+        if getattr(block, "type", None) == "text"
+    )
+
+
+def run_subagent(prompt: str) -> str:
+    print("\n\033[35m[Subagent started]\033[0m")
+    messages = [{"role": "user", "content": prompt}]
+
+    for _ in range(30):
         response = client.messages.create(
-            model=MODEL, system=SYSTEM, messages=messages,
-            tools=TOOLS, max_tokens=8000,
+            model=MODEL,
+            system=SUB_SYSTEM,
+            messages=messages,
+            tools=SUB_TOOLS,
+            max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
 
-        if response.stop_reason != "tool_use":
+        tool_calls = [
+            block for block in response.content if block.type == "tool_use"
+        ]
+        if not tool_calls:
+            force = trigger_hooks("Stop", messages)
+            if force:
+                messages.append({"role": "user", "content": force})
+                continue
+            print("\033[35m[Subagent done]\033[0m")
+            return extract_text(response.content) or "(no summary)"
+
+        results = []
+        for block in tool_calls:
+            output = execute_tool(block, SUB_HANDLERS)
+            print(f"  \033[90m[sub] {block.name}: {output[:100]}\033[0m")
+            results.append({
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": output,
+            })
+        messages.append({"role": "user", "content": results})
+
+    print("\033[35m[Subagent stopped]\033[0m")
+    return "Subagent stopped after 30 turns without a final answer."
+
+
+TASK_TOOL = {
+    "name": "task",
+    "description": "Run a subagent with fresh conversation context and return its final text.",
+    "input_schema": {
+        "type": "object",
+        "properties": {"prompt": {"type": "string", "minLength": 1}},
+        "required": ["prompt"],
+    },
+}
+
+TOOLS = [*BASE_TOOLS, TASK_TOOL]
+TOOL_HANDLERS = {**BASE_HANDLERS, "task": run_subagent}
+
+
+# -- Parent agent loop --
+
+def agent_loop(messages: list):
+    while True:
+        response = client.messages.create(
+            model=MODEL,
+            system=SYSTEM,
+            messages=messages,
+            tools=TOOLS,
+            max_tokens=8000,
+        )
+        messages.append({"role": "assistant", "content": response.content})
+
+        tool_calls = [
+            block for block in response.content if block.type == "tool_use"
+        ]
+        if not tool_calls:
             force = trigger_hooks("Stop", messages)
             if force:
                 messages.append({"role": "user", "content": force})
                 continue
             return
 
-        rounds_since_todo += 1
         results = []
-        for block in response.content:
-            if block.type != "tool_use":
-                continue
-
-            blocked = trigger_hooks("PreToolUse", block)
-            if blocked:
-                results.append({"type": "tool_result", "tool_use_id": block.id,
-                                "content": str(blocked)})
-                continue
-
-            handler = TOOL_HANDLERS.get(block.name)
-            output = handler(**block.input) if handler else f"Unknown: {block.name}"
-
-            trigger_hooks("PostToolUse", block, output)
-
-            if block.name == "todo_write":
-                rounds_since_todo = 0
-
-            results.append({"type": "tool_result", "tool_use_id": block.id,
-                            "content": output})
-
+        for block in tool_calls:
+            output = execute_tool(block, TOOL_HANDLERS)
+            results.append({
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": output,
+            })
         messages.append({"role": "user", "content": results})
 
 
 if __name__ == "__main__":
-    print("s06: Subagent — spawn sub-agents with fresh context, summary only")
-    print("Type a question, press Enter. Type q to quit.\n")
+    print("s06: Subagent - fresh messages, final text returns")
+    print("Enter a question, press Enter to send. Type q to quit.\n")
 
     history = []
     while True:
         try:
-            query = input("\033[36ms06 >> \033[0m")
+            # \001/\002 tell Readline the ANSI escapes have zero display width.
+            query = input("\001\033[36m\002s06 >> \001\033[0m\002")
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         trigger_hooks("UserPromptSubmit", query)
         history.append({"role": "user", "content": query})

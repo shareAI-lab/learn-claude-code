@@ -98,7 +98,7 @@ def _idle_poll(self, name, messages):
 def scan_unclaimed_tasks() -> list:
     unclaimed = []
     for f in sorted(TASKS_DIR.glob("task_*.json")):
-        task = json.loads(f.read_text())
+        task = json.loads(f.read_text(encoding="utf-8"))
         if (task.get("status") == "pending"
                 and not task.get("owner")
                 and not task.get("blockedBy")):

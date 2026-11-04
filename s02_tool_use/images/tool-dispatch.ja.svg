@@ -40,14 +40,14 @@
   <!-- LLM -->
   <rect x="270" y="82" width="150" height="52" rx="8" fill="#fff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="345" y="104" fill="#1e3a5f" font-size="13" font-weight="700" text-anchor="middle">LLM</text>
-  <text x="345" y="122" fill="#64748b" font-size="10" text-anchor="middle">stop_reason 判定</text>
+  <text x="345" y="122" fill="#64748b" font-size="10" text-anchor="middle">tool_use block 判定</text>
 
   <!-- 矢印：LLM → 判定 -->
   <line x1="345" y1="134" x2="345" y2="162" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
 
   <!-- 判定ダイヤモンド -->
   <polygon points="345,166 415,196 345,226 275,196" fill="#fff8f0" stroke="#d97706" stroke-width="1.5"/>
-  <text x="345" y="194" fill="#92400e" font-size="10" font-weight="600" text-anchor="middle">tool_use?</text>
+  <text x="345" y="194" fill="#92400e" font-size="10" font-weight="600" text-anchor="middle">tool_use block?</text>
 
   <!-- いいえ → 返却 -->
   <line x1="415" y1="196" x2="475" y2="196" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>

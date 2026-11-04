@@ -1,310 +1,362 @@
-# s08: Context Compact — コンテキストはいつか満杯になる、場所を空ける方法が必要
+# s08: Context Compact：コンテキストが満杯になる前に整理する
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md)
 
-s01 → s02 → s03 → s04 → s05 → s06 → s07 → `s08` → [s09](../s09_memory/) → s10 → ... → s20
-> *"Context will fill up — have a way to make room"* — 4層圧縮戦略、安価なものを先に、高価なものを後に実行。
+s01 → s02 → s03 → s04 → s05 → s06 → s07 → `s08` → [s09](../s09_memory/) → s10 → ... → s16 → s17
+
+> *「コンテキストには上限があるため、空きを作る仕組みが必要になる。」* 4 つの処理を低コストな順に実行します。
 >
-> **Harness レイヤー**: 圧縮 — クリーンな記憶、無限のセッション。
+> **Harness レイヤー**：圧縮によって、限られたコンテキストを長いタスクでも使い続けられます。
 
----
 
-## 課題
+Agent が作業を続けると、読み込んだファイル、コマンド結果、モデルの応答がすべて `messages` に残ります。履歴はやがてモデルのコンテキスト上限を超えます。
 
-Agent が動いている途中で、止まってしまう。
+このレッスンでは、4 ステップの圧縮パイプラインを実装します。まず再取得できるツール結果を整理し、それでも足りない場合にだけ履歴を要約します。
 
-bash、read、write は揃っており、能力は十分。しかし 1000 行のファイル（~4000 token）を読み、さらに 30 のファイルを読み、20 のコマンドを実行したとします。各コマンドの出力、各ファイルの内容がすべて `messages` リストに蓄積されます。
+![Context Compact の全体像](images/compact-overview.ja.svg)
 
-コンテキストウィンドウには上限があります。満杯になると、API は即座に拒否します：`prompt_too_long`。
 
-圧縮しなければ、Agent は大規模プロジェクトではまともに動けません。
+## コンテキストを理解する
 
----
+コンテキストウィンドウは、モデルが現在使っている下書き用紙と考えられます。ユーザーメッセージ、モデルの応答、`tool_use`、`tool_result` が順番に書き込まれます。モデルはタスクを続けるたびに、その内容を読み直します。
 
-## ソリューション
+下書き用紙の大きさは固定です。上限を超えると API はリクエストを拒否し、`prompt is too long` を返します。コーディングタスクでは、ツール結果が多くの領域を占めます。
 
-![Compact Overview](images/compact-overview.ja.svg)
+- 長いファイルを読むと、その内容がコンテキストに入ります。
+- テストやビルドのログは、一度に数十 KB 追加されることがあります。
+- 多数のファイルを検索すると、結果が次々に追加されます。
 
-s07 のフック構造、スキルロード、サブ Agent の骨格を維持し、圧縮に焦点を当てるため一部のツールは省略。コアの変更点：各 LLM 呼び出し前に 3 層のプリプロセッサ（0 API）を挿入し、token が閾値を超えた場合は LLM 要約（1 API）をトリガー、API エラー時には緊急トリムを実行。
+タスクが続くほど `messages` は大きくなります。圧縮は、その増加を抑えながら、現在の目標、ユーザーの制約、進行中の作業をできるだけ保持します。
 
-コア設計：安価なものを先に、高価なものを後に。
 
----
+## ツール結果から整理する理由
 
-## 仕組み
+履歴全体の要約はコンテキストを大きく縮められますが、細部が失われ、モデル呼び出しも 1 回増えます。
 
-![4層圧縮パイプライン](images/compaction-layers.ja.svg)
+ツール結果には、先に処理しやすい性質があります。
 
-### L1: snip_compact — 無関係な古い会話を切り捨て
+1. 大きなファイル結果はディスクに保存し、必要なときに読み直せます。
+2. 古いコマンドは再実行できます。
+3. 最新の結果ほど現在の作業に近い傾向があります。
+4. テキストの切り詰めと構造の調整にはモデル呼び出しが不要です。
 
-Agent が 80 ラウンドの会話を実行し、`messages` が 160 件まで溜まった。先頭の「hello.py を作って」は現在の作業とほぼ無関係だが、スペースを占有し続けている。
+そのため、情報損失とコストが小さい順に、保存、切り詰め、古い結果の置換、履歴の要約を行います。
 
-メッセージ数が 50 を超えた場合 → 先頭 3 件（初期コンテキスト）と末尾 47 件（現在の作業）を保持して中間を切り詰める。ただし切れ目だけは調整し、`assistant(tool_use)` と後続の `user(tool_result)` を分断しない：
+![4 ステップの圧縮パイプライン](images/compaction-layers.ja.svg)
 
-```python
-def snip_compact(messages, max_messages=50):
-    if len(messages) <= max_messages:
-        return messages
-    head_end, tail_start = 3, len(messages) - (max_messages - 3)
-    if head_end > 0 and _message_has_tool_use(messages[head_end - 1]):
-        while head_end < len(messages) and _is_tool_result_message(messages[head_end]):
-            head_end += 1
-    if (tail_start > 0 and tail_start < len(messages)
-            and _is_tool_result_message(messages[tail_start])
-            and _message_has_tool_use(messages[tail_start - 1])):
-        tail_start -= 1
-    snipped = tail_start - head_end
-    placeholder = {"role": "user", "content": f"[snipped {snipped} messages from conversation middle]"}
-    return messages[:head_end] + [placeholder] + messages[tail_start:]
+
+## ステップ 1：tool_result_budget
+
+1 回のモデル応答が複数のツールを要求することがあります。実行後の `tool_result` は、最後の user メッセージにまとめて書き込まれます。合計が `200_000` 文字を超えると、`tool_result_budget` は大きな結果から順に処理します。
+
+`LARGE_RESULT_CHAR_LIMIT = 30000` を超える結果は、次の場所に完全な形で保存されます。
+
+```text
+.task_outputs/tool-results/<tool_use_id>.txt
 ```
 
-切り捨て自体は単純なままで、境界だけを保護する。残ったメッセージ内の `tool_result` 内容はまだ蓄積され続けている。34 番目のメッセージに 30KB の古いファイル内容が残っているかもしれない。→ L2。
+コンテキストには、ファイルパスと先頭 2000 文字のプレビューを残します。
 
-### L2: micro_compact — 古いツール結果をプレースホルダに置換
+![大きな結果を保存する](images/layer1-budget.ja.svg)
 
-![古い結果のプレースホルダ](images/micro-compact.ja.svg)
-
-Agent が連続して 10 個のファイルを読んだ。1〜7 回目の完全な内容はまだコンテキストに残っており、もう不要だが、大量のスペースを占有している。
-
-直近 3 件の `tool_result` の完全な内容のみを保持し、それより古いものは 1 行のプレースホルダに置換：
+中心となるループは、結果を大きい順に保存します。
 
 ```python
-KEEP_RECENT_TOOL_RESULTS = 3
+blocks = [block for block in content
+          if isinstance(block, dict)
+          and block.get("type") == "tool_result"]
+total = sum(len(str(block.get("content", ""))) for block in blocks)
 
-def micro_compact(messages):
-    tool_results = collect_tool_result_blocks(messages)
-    if len(tool_results) <= KEEP_RECENT_TOOL_RESULTS:
-        return messages
-    for _, _, block in tool_results[:-KEEP_RECENT_TOOL_RESULTS]:
-        if len(block.get("content", "")) > 120:
-            block["content"] = "[Earlier tool result compacted. Re-run if needed.]"
+ranked = sorted(
+    blocks,
+    key=lambda block: len(str(block.get("content", ""))),
+    reverse=True,
+)
+for block in ranked:
+    if total <= max_chars:
+        break
+    content = str(block.get("content", ""))
+    if len(content) <= self.LARGE_RESULT_CHAR_LIMIT:
+        continue
+    block["content"] = self.persist_large_output(
+        block.get("tool_use_id", "unknown"), content)
+    total = sum(len(str(item.get("content", ""))) for item in blocks)
+```
+
+このステップが対象にするのは、最新のツール結果だけです。完全な出力は保存先から再取得できるため、最初に実行する処理に適しています。
+
+
+## ステップ 2：snip_compact
+
+履歴が `trigger_messages`（デフォルト 50 件）に達すると、`snip_compact` は完全な履歴を `.transcripts/` に保存してから、`target_messages`（デフォルト 30 件）を目標に切り詰めます。先頭 3 件、archive marker 1 件、最新 26 件を保持します。marker は削除した件数と完全な transcript の保存先を記録します。発動閾値と目標件数を分けることで、新しいメッセージを追加する余裕が生まれ、その後の model call ごとに再び履歴を書き出すことを避けます。その代わり、context に直接残る最近のメッセージは少なくなります。古い内容は transcript から取得できます。
+
+パラメータは `5 <= target_messages < trigger_messages` を満たす必要があります。目標件数には marker を含め、先頭 3 件に加えて最新のメッセージを少なくとも 1 件保持します。
+
+```python
+if len(messages) < trigger_messages:
     return messages
+head_end = 3
+tail_start = len(messages) - (target_messages - head_end - 1)
+
+if self.has_tool_use(messages[head_end - 1]):
+    while (head_end < tail_start
+           and self.is_tool_result(messages[head_end])):
+        head_end += 1
+
+if (tail_start > 0
+        and self.is_tool_result(messages[tail_start])
+        and self.has_tool_use(messages[tail_start - 1])):
+    tail_start -= 1
+
+transcript = self.write_transcript(messages)
+marker = {"role": "user", "content":
+          f"[{tail_start - head_end} messages archived at {transcript}]"}
+messages = [*messages[:head_end], marker, *messages[tail_start:]]
 ```
 
-古い結果はクリーンアップされたが、1 件の新しい結果だけで 500KB の可能性がある。大きなファイルを `cat` するだけでコンテキストがいっぱいになる。→ L3。
+切断位置では、`assistant(tool_use)` と `user(tool_result)` の組を保護するため、保持件数が目標を少し上回る場合があります。対応するツール呼び出しがない孤立した結果を含むと、次の API リクエストは無効になります。
 
-### L3: tool_result_budget — 大きな結果をディスクに退避
+ツール呼び出しが繰り返されると、現在の要求がアーカイブ対象の中間領域へ移ることがあります。実際に切り詰めた後、`prepare` は元のユーザーメッセージまたは既存の `Current user request` マーカーがまだ見えるかを確認します。どちらも残っていなければ、処理を続ける前に `active_request` を一度だけ追加します。
 
-![大きな結果のディスク退避](images/layer1-budget.ja.svg)
+このステップはメッセージ数を抑えます。保持されたメッセージ内のツール結果は、まだ長い可能性があります。
 
-モデルが一度に 5 つの大きなファイルを読み、1 つの user メッセージ内の全 `tool_result` の合計が 500KB に達した。
 
-最後の user メッセージ内のすべての `tool_result` の合計サイズを集計。200KB を超えた場合 → サイズ順にソートし、最大のものから順に `.task_outputs/tool-results/` に退避。コンテキストには `<persisted-output>` マーカー + 先頭 2000 文字のプレビューのみを残す。モデルはマーカーを見て完全な内容がディスク上にあることを認識し、必要に応じて再読み込みできる。
+## ステップ 3：micro_compact
+
+最初の 2 ステップの後、`prepare` は残りのコンテキストサイズを推定し、`CONTEXT_CHAR_LIMIT` を超えている場合にだけ `micro_compact` を実行します。モデルがすでに読んだ結果については最新 3 件を残し、それより古く 120 文字を超える結果を、コンテキストが上限の 80% に近づくまで順に短くします。古い結果は置換前に完全な内容をディスクへ保存するため、各プレースホルダーには復元用のパスが残ります。
+
+![古い結果を復元可能なパスへ置き換える](images/micro-compact.ja.svg)
 
 ```python
-def tool_result_budget(messages, max_bytes=200_000):
-    last = messages[-1]
-    blocks = [(i, b) for i, b in enumerate(last["content"])
-              if b.get("type") == "tool_result"]
-    total = sum(len(str(b.get("content", ""))) for _, b in blocks)
-    if total <= max_bytes:
-        return messages
-    ranked = sorted(blocks, key=lambda p: len(str(p[1].get("content", ""))), reverse=True)
-    for idx, block in ranked:
-        if total <= max_bytes:
-            break
-        block["content"] = persist_large_output(block["tool_use_id"], str(block["content"]))
-        total = recalculate_total(blocks)
-    return messages
+unseen = self.unseen_tool_result_positions(messages)
+consumed = [entry for entry in results if entry[:2] not in unseen]
+
+for _, _, block in consumed[:-self.KEEP_RECENT_RESULTS]:
+    if self.estimate_chars(messages) <= target_chars:
+        break
+    content = str(block.get("content", ""))
+    if len(content) <= 120:
+        continue
+    saved_path = self.persisted_output_path(content)
+    if not saved_path:
+        saved_path = self.save_output(block["tool_use_id"], content)
+    block["content"] = f"[Earlier tool result saved at {saved_path}]"
 ```
 
-最初の 3 層はすべて純粋なテキスト/構造操作（0 API 呼び出し）だが、会話内容を「理解」することはできない。コンテキストがまだ大きすぎる可能性がある。→ L4。
+新しい結果は通常、モデルが一度読むまで完全な形で保持されます。未読の最新バッチだけでコンテキストを超える場合、`fit_tool_results` は大きな結果を保存し、1,000 文字の preview と完全な出力へのパスを残します。これにより、モデルが新しい結果を見る前に履歴全体を要約する事態を避けます。
 
-### L4: compact_history — LLM 全量要約
+最初の 2 ステップは毎ラウンド実行され、ステップ 3 はコンテキストが上限を超えた場合にだけ実行されます。3 ステップとも決定的で復元可能なテキスト処理と構造操作であり、追加の API 呼び出しは発生しません。
 
-![LLM 全量要約](images/auto-compact.ja.svg)
 
-最初の 3 層がすべて実行されたが、超大規模プロジェクトで 30 分間連続作業すると、token がまだ閾値を超えている。
+## ステップ 4：compact_history
 
-3 ステップのフロー：
-
-1. **transcript を保存**：完全な会話を `.transcripts/` に JSONL 形式で書き出す。transcript は回復可能な記録として保存されるが、モデルのアクティブなコンテキストには要約しか残らない。モデルの現在の推論にとって、詳細はすでにコンテキストにない。教学コードは transcript 検索ツールを提供しない。
-2. **LLM で要約を生成**：会話履歴を LLM に送り、現在の目標、重要な発見、変更済みファイル、残りの作業、ユーザーの制約などの重要な情報を保持するよう指示。
-3. **メッセージリストを置換**：すべての古いメッセージが 1 件の要約に置き換えられる。教学版は要約のみを保持する。実際の Claude Code は compact 後に直近のファイル、計画、agent/skill/tool などのコンテキストを再付加する。
+`micro_compact` と `fit_tool_results` の後、コードは `estimate_chars(messages)` でコンテキストを再び推定します。
 
 ```python
-def compact_history(messages):
-    transcript_path = write_transcript(messages)  # 先に完全な会話を保存
-    summary = summarize_history(messages)          # LLM で要約を生成
-    return [{"role": "user",
-             "content": f"[Compacted]\n\n{summary}"}]
+CONTEXT_CHAR_LIMIT = 50000
+
+def estimate_chars(messages):
+    return len(json.dumps(messages, default=str, ensure_ascii=False))
 ```
 
-**サーキットブレーカー**：連続 3 回失敗したらリトライを停止し、無限ループによる API 呼び出しの浪費を防止。
+文字数がまだ `CONTEXT_CHAR_LIMIT` を超えている場合、`compact_history` は 4 つの処理を行います。
 
-### 緊急: reactive_compact
+1. 完全なメッセージ履歴を `.transcripts/` に書き込みます。
+2. モデルに事実だけの状態要約を依頼します。
+3. 入力時に取得した現在の要求を要約と明確に分けます。
+4. 現在の履歴を 1 件の `[Compacted]` メッセージに置き換えます。
 
-API がまだ `prompt_too_long`（413）を返すことがある。コンテキストの増加速度が圧縮のトリガー速度を上回る場合。
-
-この時 **reactive_compact** がトリガーされる：compact_history よりもさらに積極的だが、末尾を残す際も孤立した `tool_result` を残さないようにする。
+![履歴の要約](images/auto-compact.ja.svg)
 
 ```python
-def reactive_compact(messages):
-    transcript = write_transcript(messages)
-    tail_start = max(0, len(messages) - 5)
-    if (tail_start > 0 and tail_start < len(messages)
-            and _is_tool_result_message(messages[tail_start])
-            and _message_has_tool_use(messages[tail_start - 1])):
-        tail_start -= 1
-    summary = summarize_history(messages[:tail_start])
-    return [{"role": "user",
-             "content": f"[Reactive compact]\n\n{summary}"}, *messages[tail_start:]]
+def compact_history(messages, active_request):
+    transcript = self.write_transcript(messages)
+    print(f"[transcript saved: {transcript}]")
+    summary = self.summarize_history(messages)
+    return [self.summary_message(
+        "Compacted", active_request, summary, transcript)]
 ```
 
-reactive compact にはリトライ上限がある（デフォルト 1 回）。さらに失敗した場合は例外をスローし、無限ループしない。完全なエラー回復ロジックは s11 に委ねる。
+要約呼び出しは、履歴内の指示を実行せず、目標、ファイル、判断、残作業、ユーザー制約を整理するようモデルに求めます。ツール結果も `role=user` を使うため、CLI は `active_request` を Agent Loop に直接渡します。圧縮後のメッセージでは、現在の要求を `Current user request`、要約を `Conversation summary` に分け、完全な transcript のパスも残します。
 
-### 合わせて実行
+このレッスンでは文字数を発火条件として使い、関連するしきい値も同じ単位で扱います。
+
+
+## 順序を固定する理由
+
+パイプラインは次の順序で処理し、必要な場合にだけ情報を失う要約へ進みます。
 
 ```python
-def agent_loop(messages):
-    reactive_retries = 0
+messages = self.tool_result_budget(messages)
+before_snip = messages
+messages = self.snip_compact(messages)
+active_request_marker = (
+    f"Current user request:\n{active_request}\n\n"
+    "Conversation summary (reference only):"
+)
+if (messages is not before_snip
+        and not any(
+            message.get("role") == "user"
+            and isinstance(message.get("content"), str)
+            and (message["content"] == active_request
+                 or active_request_marker in message["content"])
+            for message in messages)):
+    messages.append({"role": "user", "content": active_request})
+if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
+    target = int(self.CONTEXT_CHAR_LIMIT * 0.8)
+    messages = self.micro_compact(messages, target)
+    if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
+        messages = self.fit_tool_results(messages, target)
+    if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
+        messages = self.compact_history(messages, active_request)
+```
+
+この順序には 2 つの条件があります。
+
+1. ステップ 1 と 2 は毎ラウンド実行され、ステップ 3 は上限を超えた場合だけ実行されます。API リクエストを追加するのはステップ 4 だけです。
+2. 短縮した各ツール結果には `.task_outputs/tool-results/` 内の信頼できるパスを残します。それでも上限を超える場合にだけ、モデルによる履歴要約へ進みます。
+
+各ラウンドは、コストが低く情報を再取得しやすい処理から始まります。
+
+
+## API に拒否された後の回復
+
+文字数はモデルが使う token 数の推定値です。そのため API が `prompt is too long` を返す可能性は残ります。`reactive_compact` は transcript を保存し、古い履歴を要約して、最新 5 メッセージを保持します。
+
+```python
+tail_start = max(0, len(messages) - self.KEEP_RECENT_MESSAGES)
+if (tail_start > 0
+        and self.is_tool_result(messages[tail_start])
+        and self.has_tool_use(messages[tail_start - 1])):
+    tail_start -= 1
+
+old_history = messages[:tail_start] if tail_start else messages
+summary = self.summarize_history(old_history)
+message = self.summary_message(
+    "Reactive compact", active_request, summary, transcript)
+messages = [message, *messages[tail_start:]] if tail_start else [message]
+```
+
+この切断位置でもツール呼び出しと結果の組を分割せず、現在のユーザー要求は `active_request` で明示的に渡されます。`MAX_REACTIVE_RETRIES = 1` により、回復処理は 1 回だけ許可されます。もう一度コンテキスト長のエラーを受けた場合は、例外を呼び出し元へ返します。
+
+
+## Agent Loop に組み込む
+
+```python
+def agent_loop(messages, active_request):
     while True:
-        # 3 つのプリプロセッサ（0 API 呼び出し）
-        # 順序：budget を先に実行し、大きな内容をプレースホルダ化する前に退避
-        messages[:] = tool_result_budget(messages)    # L3: 大きな結果を退避
-        messages[:] = snip_compact(messages)          # L1: 中間を切り捨て
-        messages[:] = micro_compact(messages)         # L2: 古い結果をプレースホルダに
-
-        # まだ足りない？LLM 要約（1 API 呼び出し）
-        if estimate_token_count(messages) > THRESHOLD:
-            messages[:] = compact_history(messages)
+        messages[:] = COMPACTOR.prepare(messages, active_request)
 
         try:
-            response = client.messages.create(...)
-        except PromptTooLongError:
-            if reactive_retries < MAX_REACTIVE_RETRIES:
-                messages[:] = reactive_compact(messages)  # 緊急対応
+            response = client.messages.create(
+                model=MODEL, system=SYSTEM, messages=messages,
+                tools=TOOLS, max_tokens=8000)
+            reactive_retries = 0
+        except Exception as error:
+            message = str(error).lower()
+            too_long = ("prompt_too_long" in message
+                        or "prompt is too long" in message
+                        or "too many tokens" in message)
+            if too_long and reactive_retries < MAX_REACTIVE_RETRIES:
+                messages[:] = COMPACTOR.reactive_compact(
+                    messages, active_request)
                 reactive_retries += 1
                 continue
-            raise  # リトライ上限超過、例外をスロー
-        # ... ツール実行 ...
-
-        # compact ツール：モデルが能動的に呼び出した場合、compact_history をトリガー
-        if block.name == "compact":
-            messages[:] = compact_history(messages)
-            results.append({..., "content": "[Compacted. History summarized.]"})
-            messages.append({"role": "user", "content": results})
-            break  # 現在のターンを終了し、圧縮後のコンテキストで新しく開始
+            raise
 ```
 
-**順序は変えられない。** L3（budget）が L2（micro）の前に実行される理由：micro は古い大きな tool_result を 1 行のプレースホルダに置換するため、budget はその前に完全な内容を退避させる必要がある。CC ソースが `applyToolResultBudget` を最初に配置する理由も同じ。
+すべてのモデル呼び出しが同じパイプラインを通ります。CLI は `query` を追加した後に `agent_loop(history, query)` を呼びます。実際に切り詰められ、見えるコピーがすべて削除された場合にだけ、`prepare` は `active_request` を追加し直します。そのため、圧縮を繰り返しても現在の要求は失われません。`micro_compact` の後も上限を超える場合、または API が拒否した場合にだけ、コードはモデルへ要約を依頼します。
 
----
 
-## s07 からの変更点
+## compact ツール
 
-| コンポーネント | 変更前 (s07) | 変更後 (s08) |
-|------|-----------|-----------|
-| コンテキスト管理 | なし（コンテキストが無限に膨張） | 4 層圧縮パイプライン + 緊急対応 |
-| 新規関数 | — | snip_compact, micro_compact, tool_result_budget, compact_history, reactive_compact |
-| ツール | bash, read_file, write_file, edit_file, glob, todo_write, task, load_skill (8) | 8 + compact (9) |
-| ループ | LLM 呼び出し → ツール実行 | 各ラウンド前に 3 層プリプロセッサを実行 + 閾値で compact_history をトリガー |
-| 設計原則 | — | 安価なものを先に、高価なものを後に |
+自動しきい値が判断できるのは、コンテキストの大きさだけです。ある段階を終え、次の段階に要約だけを引き継げばよいとモデルが判断したとき、`compact` を呼び出せます。
 
----
+```python
+{"name": "compact",
+ "description": "Summarize earlier conversation to free context space."}
+```
 
-## 試してみよう
+1 回の応答には、ファイル書き込みと圧縮のように複数のツール呼び出しが含まれることがあります。Harness はまず一括処理をすべて実行し、各 `tool_use` に対応する `tool_result` を追加します。そのターンが完結してから要約します。
 
-```sh
+```python
+tool_calls = [
+    block for block in response.content if block.type == "tool_use"
+]
+results = []
+compact_requested = False
+
+for block in tool_calls:
+    if block.name == "compact":
+        output = "Compaction requested after this tool batch."
+        compact_requested = True
+    else:
+        output = execute_tool(block)
+    results.append({"type": "tool_result", "tool_use_id": block.id,
+                    "content": output})
+
+messages.append({"role": "user", "content": results})
+
+if compact_requested:
+    messages[:] = COMPACTOR.compact_history(messages, active_request)
+```
+
+これにより孤立したツール結果が残りません。また、圧縮前に実行したファイル書き込みなどの記録も保持されるため、モデルが同じ副作用を繰り返すことを防げます。
+
+
+## このレッスンで追加するもの
+
+| コンポーネント | 共通の実行ループ | s08 で追加 |
+| --- | --- | --- |
+| Agent Loop | モデルを呼び出し、ツールを実行し、結果を追加 | 各モデル呼び出しの前に `COMPACTOR.prepare()` を実行 |
+| Hooks | 権限確認、ツールログ、結果処理 | 同じツール実行入口を維持 |
+| コンテキスト | `messages` に追加 | 大きな結果の保存、古い履歴のアーカイブ、要約、長さエラー後の 1 回の再試行 |
+| ツール | 5 個の基本ツール | `compact` を追加し、合計 6 個 |
+
+> **s09 との境界：** s08 は現在のセッションにある有限のコンテキストを管理し、再取得できる詳細を圧縮できます。s09 は、圧縮後や次のセッションにも残す情報を保存します。
+
+
+## 試してみる
+
+```bash
 cd learn-claude-code
 python s08_context_compact/code.py
 ```
 
-以下のプロンプトを試してみてください：
+### 実験 1：古い結果を置き換える
 
-1. `Read the file README.md, then read code.py, then read s01_agent_loop/README.md`（連続して複数のファイルを読み、L2 の古い結果圧縮を観察）
-2. `Read every file in s08_context_compact/`（一度に大量の内容を読み込み、L3 のディスク退避を観察）
-3. 20+ ラウンドの対話を繰り返し、`[auto compact]` または `[reactive compact]` が表示されるか観察
+```text
+s01_agent_loop から s05_todo_write までの README.md を読み、
+各ファイルの最上位見出しを比較して、命名の規則をまとめてください。
+```
 
-観察のポイント：ツール実行のたびに、古い tool_result は圧縮されているか？連続対話で token が閾値を超えたとき、要約が自動的にトリガーされたか？
+このタスクでは少なくとも 5 件のファイル結果が生成されます。新しい結果は通常、モデルが初めて読むまで完全に保持されます。未読結果自体が大きすぎる場合は、preview と復元パスを残します。以降のターンでは、すでに読まれた最新 3 件を残し、それより前の長い結果は `[Earlier tool result saved at ...]` 参照に変わります。
 
----
+### 実験 2：大きな結果を保存する
+
+```text
+web/src/data/generated/docs.json のデータ構造を調べ、
+1 件のレッスン記録に含まれる主なフィールドを説明してください。
+```
+
+ファイルが 1 ラウンドの予算を超える場合でもタスクは続行でき、完全な結果が `.task_outputs/tool-results/` に保存されます。
+
+### 実験 3：自動要約を発火させる
+
+```text
+s08_context_compact/code.py と s09_memory/code.py を比較し、
+現在のコンテキストと永続メモリの管理方法を説明してください。
+```
+
+ファイル結果によって `estimate_chars(messages)` が 50000 を超えると、ターミナルに `[auto compact]` と transcript のパスが表示されます。次の呼び出しは `[Compacted]` の要約から続行します。
+
+`.transcripts/` と `.task_outputs/tool-results/` を確認すると、履歴の保存と大きな結果の転送をそれぞれ観察できます。
+
 
 ## 次へ
 
-コンテキスト圧縮により、Agent は長時間クラッシュせずに動けるようになった。しかし、圧縮のたびにユーザーが以前に伝えた偏好や制約も一緒に失われてしまう。Agent が重要なことを選択的に記憶できるようにできないか？
+コンテキスト圧縮により、Agent は限られたウィンドウでも長いタスクを続けられます。圧縮後や次のセッションにも残す情報には、独立した永続メモリが必要です。
 
-s09 Memory → 3 つのサブシステム：何を記憶するかの選択、重要情報の抽出、整理と統合。圧縮を越え、セッションを越えて。
+s09 Memory では、メモリの書き込み、検索、整理を実装します。
 
-<details>
-<summary>CC ソースコードの詳細</summary>
-
-> 以下は CC ソースコード `compact.ts`、`autoCompact.ts`、`microCompact.ts`、`query.ts` の分析に基づく。
-
-### 実行順序の対応
-
-教学版は説明の便宜上 L1/L2/L3/L4 と番号を振っているが、実際の実行順序は番号と完全には一致しない：
-
-| 項目 | 教学版 | Claude Code |
-|------|--------|-------------|
-| 実行順序 | budget → snip → micro → auto | budget → snip → micro → collapse → auto（`query.ts:379-468`） |
-| snip_compact | 先頭 3 + 末尾 47 を保持 | CC はメインスレッドのみ有効；実装はオープンソースリポジトリにない（`HISTORY_SNIP` feature gate）、インターフェースは確認可能：`snipCompactIfNeeded(messages)` → `{ messages, tokensFreed, boundaryMessage? }`、`SnipTool` もモデルが能動的に呼び出し可能。教学版の 3/47 は簡略パラメータ |
-| micro_compact | テキストプレースホルダで置換 | 2 つのパス：time-based は直接内容をクリア、cached は API の `cache_edits` を使用（legacy パスは削除済み） |
-| micro_compact ホワイトリスト | 位置による（直近 3 件） | time-based は時間閾値でトリガー、cached はカウントでトリガー（`microCompact.ts`） |
-| tool_result_budget | 200KB 文字 | 200,000 文字（`toolLimits.ts:49`） |
-| compact_history 閾値 | 文字数で推定 | 精密な token 数：`contextWindow - maxOutputTokens - 13_000` |
-| 要約の要求 | 5 種類の情報 | 9 つのセクション + `<analysis>`/`<summary>` デュアルタグ |
-| 圧縮プロンプト | シンプルなプロンプト | 先頭と末尾に二重の安全ガードでツール呼び出しを禁止 |
-| PTL retry | あり（簡略版） | `truncateHeadForPTLRetry()` がメッセージグループ単位でロールバック（`compact.ts:243-290`） |
-| 圧縮後のリカバリ | なし（教学版は要約のみ保持） | 直近のファイル、計画、agent/skill/tool などの自動再付加 |
-| サーキットブレーカー | 3 回 | 3 回（`autoCompact.ts:70`） |
-| reactive リトライ | 1 回 | CC にはより精緻な段階別リトライがある |
-
-### 実行順序の詳細
-
-CC ソース `query.ts` での実際の順序：
-
-1. `applyToolResultBudget`（L379）：まず大きな結果を処理し、完全な内容を退避
-2. `snipCompact`（L403）：中間メッセージを切り捨て
-3. `microcompact`（L414）：古い結果のプレースホルダ化
-4. `contextCollapse`（L441）：独立したコンテキスト管理システム（教学版にはなし）
-5. `autoCompact`（L454）：LLM 全量要約
-
-教学版の budget → snip → micro の順序はこれと一致する。教学版には contextCollapse メカニズムがない。
-
-### read_file のトレードオフ
-
-教学版の `micro_compact` は、古い `tool_result` を一律にプレースホルダへ置き換える。`read_file` も例外ではない。これは通常、機能的な正しさには影響しない。後でファイル内容が必要になれば、モデルはもう一度そのファイルを読めばよい。代償は、追加のツール呼び出しが発生し得ることと、prompt cache のヒット率が下がり得ること。
-
-Claude Code は、この問題を教学版のような単純なルールでは処理していない。`Read` も microcompact 可能なツール集合に入れる一方で、別途 `readFileState` を維持している。変更されていないファイルの再読込では `FILE_UNCHANGED_STUB` を返し、compact 後には予算内で直近に読んだファイル内容を復元する（例：最大 5 ファイル、1 ファイル 5K token、合計 50K token）。これは本番実装向けのキャッシュと復元メカニズムである。教学版ではそこまで展開せず、「古い結果を圧縮し、必要なら再読込する」という単純な trade-off を残している。
-
-### 完全な定数リファレンス
-
-| 定数 | 値 | ソースファイル |
-|------|-----|--------|
-| `AUTOCOMPACT_BUFFER_TOKENS` | 13,000 | `autoCompact.ts:62` |
-| `MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES` | 3 | `autoCompact.ts:70` |
-| `MAX_OUTPUT_TOKENS_FOR_SUMMARY` | 20,000 | `autoCompact.ts:30` |
-| `POST_COMPACT_TOKEN_BUDGET` | 50,000 | `compact.ts:123` |
-| `POST_COMPACT_MAX_FILES_TO_RESTORE` | 5 | `compact.ts:122` |
-| `POST_COMPACT_MAX_TOKENS_PER_FILE` | 5,000 | `compact.ts:124` |
-| 時間ベース micro_compact 間隔 | 60 分 | `timeBasedMCConfig.ts` |
-| `MAX_COMPACT_STREAMING_RETRIES` | 2 | `compact.ts:131` |
-
-### contextCollapse と sessionMemoryCompact
-
-CC ソースコードには、この教学版では展開していない 2 つのメカニズムが存在する：
-
-- **contextCollapse**：独立したコンテキスト管理システム。有効時には proactive autocompact を抑制し（`autoCompact.ts:215-222`）、collapse の commit/blocking フローがコンテキスト管理を引き継ぐ。ただし manual `/compact` と reactive fallback は独立パスのままで、contextCollapse の影響を受けない。
-- **sessionMemoryCompact**：compact_history の前に、CC は既存の session memory（s09 で解説）を使った軽量要約を先に試みる。LLM を呼び出さない。このメカニズムは s09 を学んだ後に振り返るとより理解しやすい。
-
-### 圧縮プロンプトの中身
-
-CC の圧縮プロンプトには 2 つの厳格な要件がある：
-
-1. **ツール呼び出しの絶対禁止**：冒頭が `CRITICAL: Respond with TEXT ONLY. Do NOT call any tools.` で、末尾にも再度 REMINDER がある
-2. **先に分析してから要約**：モデルはまず `<analysis>` タグで思考を整理し、その後 `<summary>` タグで正式な要約を出力する。analysis はフォーマット時に除去される
-
-### 教学版の簡略化は意図的
-
-- micro_compact でテキストプレースホルダを使用 → API 層の `cache_edits` 権限がないため
-- read_file は特別扱いしない → 教学版では必要時の再読込を受け入れ、readFileState と圧縮後復元の仕組みを導入しない
-- token を文字数で推定 → 精密な tokenizer は教学の対象外
-- 圧縮後のリカバリを省略 → 教学版は要約のみを保持し、ファイルの自動再付加を行わない
-- 2 つの補助メカニズムを展開しない → 10% の細部に属する
-
-コア設計思想、安価なものを先に高価なものを後に、は完全に保持されている。
-
-</details>
-
-<!-- translation-sync: zh@v2, en@v2, ja@v2 -->
+<!-- translation-sync: zh@v9, en@v9, ja@v9 -->

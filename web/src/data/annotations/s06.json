@@ -4,43 +4,43 @@
     {
       "id": "fresh-subagent-context",
       "title": "Subagents Start with Fresh Messages",
-      "description": "The child agent receives only the delegated prompt. This isolates exploratory work and prevents the parent context from filling with every intermediate tool result.",
-      "alternatives": "Sharing the full parent history gives more context, but it defeats the purpose of delegation as context isolation.",
+      "description": "The subagent receives only the delegated prompt. Its intermediate tool calls stay in a separate message list instead of being copied into the parent conversation.",
+      "alternatives": "Passing the parent history would give the subagent more context, but would no longer demonstrate a fresh-message boundary.",
       "zh": {
         "title": "子代理从全新 Messages 开始",
-        "description": "子代理只收到被委派的 prompt。这样探索性工作被隔离，父上下文不会塞满每个中间工具结果。"
+        "description": "子 Agent 只收到被委派的 prompt。中间工具调用留在另一份消息列表中，不复制到父对话。"
       },
       "ja": {
         "title": "サブエージェントは新しい messages で始まる",
-        "description": "子エージェントは委任された prompt だけを受け取ります。探索作業を隔離し、親コンテキストが中間 tool result で膨らむのを防ぎます。"
+        "description": "サブエージェントは委任された prompt だけを受け取る。中間ツール呼び出しは別のメッセージリストに残り、親会話へコピーされない。"
       }
     },
     {
       "id": "summary-only-return",
-      "title": "Only the Summary Returns to the Parent",
-      "description": "The parent receives a compact final answer, not the child's full transcript. That gives delegation a predictable context cost.",
-      "alternatives": "Returning the full transcript can help debugging, but it makes large subagent runs expensive to continue.",
+      "title": "Only the Final Text Returns to the Parent",
+      "description": "The parent receives the subagent's final text as the task result, not the subagent's full message list.",
+      "alternatives": "Returning the full message list would expose more detail, but it would remove the boundary shown in this lesson.",
       "zh": {
-        "title": "只有摘要返回父循环",
-        "description": "父循环收到的是压缩后的最终答案，而不是子代理的完整 transcript。这样委派的上下文成本可预测。"
+        "title": "只有最终文本返回父循环",
+        "description": "父循环收到的是作为 task 结果返回的最终文本，而不是子 Agent 的完整消息列表。"
       },
       "ja": {
-        "title": "親に戻るのは要約だけ",
-        "description": "親が受け取るのは子の完全な transcript ではなく、圧縮された最終回答です。委任のコンテキストコストを予測可能にします。"
+        "title": "親に戻るのは最終テキストだけ",
+        "description": "親が受け取るのは task result となる最終テキストであり、サブエージェントの完全なメッセージリストではない。"
       }
     },
     {
       "id": "no-recursive-task-tool",
-      "title": "Subagents Cannot Spawn Subagents",
-      "description": "The child tool set omits task, preventing recursive delegation from exploding. The lesson keeps isolation visible before adding richer team behavior later.",
-      "alternatives": "Allowing recursion is powerful, but much harder to bound and explain in a teaching runtime.",
+      "title": "The Subagent Has No Task Tool",
+      "description": "The subagent tool set omits task, so this lesson has one delegation level.",
+      "alternatives": "Recursive delegation is possible, but requires additional lifecycle and limit controls not introduced here.",
       "zh": {
-        "title": "子代理不能再创建子代理",
-        "description": "子代理工具集中不包含 task，避免递归委派失控。课程先把隔离讲清楚，再在后续章节加入更复杂团队行为。"
+        "title": "子 Agent 没有 task 工具",
+        "description": "子 Agent 的工具集中不包含 task，因此本章只有一层委派。"
       },
       "ja": {
-        "title": "サブエージェントはさらにサブエージェントを作れない",
-        "description": "子のツールセットから task を外し、再帰的委任の爆発を防ぎます。まず隔離を明確にし、後の章でより豊かなチーム動作を扱います。"
+        "title": "サブエージェントに task ツールはない",
+        "description": "サブエージェントのツールセットに task はなく、本章の委任は 1 階層となる。"
       }
     }
   ]

@@ -1,10 +1,10 @@
 {
   "meta": { "title": "Learn Claude Code", "description": "0 から 1 へ nano Claude Code-like agent を構築し、毎回 1 つの仕組みを追加" },
   "nav": { "home": "ホーム", "timeline": "学習パス", "compare": "バージョン比較", "layers": "アーキテクチャ層", "github": "GitHub" },
-  "home": { "hero_title": "Learn Claude Code", "hero_subtitle": "0 から 1 へ nano Claude Code-like agent を構築し、毎回 1 つの仕組みを追加", "start": "学習を始める", "core_pattern": "コアパターン", "core_pattern_desc": "すべての AI コーディングエージェントは同じループを共有する：モデルを呼び出し、ツールを実行し、結果を返す。実運用ではこの上にポリシー、権限、ライフサイクル層が重なる。", "learning_path": "学習パス", "learning_path_desc": "20の段階的セッション、シンプルなループから完全なマルチエージェント Harness まで", "layers_title": "アーキテクチャ層", "layers_desc": "5つの直交する関心事が完全なエージェントを構成", "loc": "行", "learn_more": "詳細を見る", "versions_in_layer": "バージョン", "message_flow": "メッセージの増加", "message_flow_desc": "エージェントループ実行時のメッセージ配列の成長を観察" },
+  "home": { "hero_title": "Learn Claude Code", "hero_subtitle": "0 から 1 へ nano Claude Code-like agent を構築し、毎回 1 つの仕組みを追加", "start": "学習を始める", "core_pattern": "コアパターン", "core_pattern_desc": "すべての AI コーディングエージェントは同じループを共有する：モデルを呼び出し、ツールを実行し、結果を返す。Harness はその周囲にポリシー、権限、記憶、協調、ライフサイクル制御を加える。", "learning_path": "学習パス", "learning_path_desc": "17の段階的セッション、シンプルなループから決定的な編成と目標完了まで", "layers_title": "アーキテクチャ層", "layers_desc": "5つの直交する関心事が完全なエージェントを構成", "loc": "行", "learn_more": "詳細を見る", "versions_in_layer": "バージョン", "message_flow": "メッセージの増加", "message_flow_desc": "エージェントループ実行時のメッセージ配列の成長を観察" },
   "version": { "loc": "行のコード", "tools": "ツール", "new": "新規", "prev": "前のバージョン", "next": "次のバージョン", "view_source": "ソースを見る", "view_diff": "差分を見る", "design_decisions": "設計判断", "whats_new": "新機能", "tutorial": "チュートリアル", "simulator": "エージェントループシミュレーター", "execution_flow": "実行フロー", "architecture": "アーキテクチャ", "concept_viz": "コンセプト可視化", "alternatives": "検討された代替案", "tab_learn": "学習", "tab_simulate": "シミュレーション", "tab_code": "ソースコード", "tab_deep_dive": "詳細分析" },
   "sim": { "play": "再生", "pause": "一時停止", "step": "ステップ", "reset": "リセット", "speed": "速度", "step_of": "/" },
-  "timeline": { "title": "学習パス", "subtitle": "s01からs20へ：段階的エージェント Harness 設計", "layer_legend": "レイヤー凡例", "loc_growth": "コード量の推移", "learn_more": "詳細を見る" },
+  "timeline": { "title": "学習パス", "subtitle": "s01からs17へ：段階的エージェント Harness 設計", "layer_legend": "レイヤー凡例", "loc_growth": "コード量の推移", "learn_more": "詳細を見る" },
   "layers": {
     "title": "アーキテクチャ層",
     "subtitle": "5つの直交する関心事が完全なエージェントを構成",
@@ -12,7 +12,7 @@
     "planning": "作業の組織化。シンプルなToDoリストからエージェント間で共有される依存関係対応タスクボードまで。",
     "memory": "コンテキスト制限内での記憶保持。圧縮戦略によりエージェントが一貫性を失わずに無限に作業可能。",
     "concurrency": "ノンブロッキング実行。バックグラウンドスレッドと通知バスによる並列作業。",
-    "collaboration": "マルチエージェント連携。チーム、メッセージング、自律的に考えるチームメイト。"
+    "collaboration": "マルチエージェント連携。チーム、メッセージング、原子的なタスク認領、タスクに紐付く worktree ディレクトリ。"
   },
   "compare": {
     "title": "バージョン比較",
@@ -48,17 +48,14 @@
     "s07": "スキル",
     "s08": "コンテキスト圧縮",
     "s09": "メモリ",
-    "s10": "システムプロンプト",
-    "s11": "エラー回復",
-    "s12": "タスクシステム",
-    "s13": "バックグラウンドタスク",
-    "s14": "Cron スケジューラー",
-    "s15": "エージェントチーム",
-    "s16": "チームプロトコル",
-    "s17": "自律エージェント",
-    "s18": "Worktree 分離",
-    "s19": "MCP ツール",
-    "s20": "Comprehensive Agent Turn"
+    "s10": "タスクシステム",
+    "s11": "バックグラウンドタスク",
+    "s12": "Cron スケジューラー",
+    "s13": "Agent Team Runtime",
+    "s14": "MCP ツール",
+    "s15": "Integrated Harness",
+    "s16": "Workflow Runtime",
+    "s17": "Goal Loop"
   },
   "layer_labels": {
     "tools": "ツールと実行",
@@ -77,16 +74,13 @@
     "s07": "オンデマンド スキルローディング",
     "s08": "3層コンテキスト圧縮",
     "s09": "メモリライブラリ",
-    "s10": "実行時プロンプト組み立て",
-    "s11": "エラー回復経路",
-    "s12": "タスクボード依存関係",
-    "s13": "バックグラウンドタスクレーン",
-    "s14": "Cron スケジューラー",
-    "s15": "チームメールボックス作業台",
-    "s16": "Team Protocol Cards",
-    "s17": "自律エージェントサイクル",
-    "s18": "Worktree タスク分離",
-    "s19": "MCP ツールブリッジ",
-    "s20": "Comprehensive Agent Turn"
+    "s10": "タスクボード依存関係",
+    "s11": "バックグラウンドタスクレーン",
+    "s12": "Cron スケジューラー",
+    "s13": "Team Runtime：メッセージ・認領・ディレクトリ紐付け",
+    "s14": "MCP ツールブリッジ",
+    "s15": "Integrated Harness のターン",
+    "s16": "Workflow Runtime",
+    "s17": "目標完了ゲート"
   }
 }

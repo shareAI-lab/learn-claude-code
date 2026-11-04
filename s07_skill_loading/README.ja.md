@@ -1,28 +1,29 @@
-# s07: Skill Loading — 必要なときにだけ読み込む
+# s07: Skill Loading — 必要なときにスキルを読み込む
 
-[中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md)
 
-s01 → s02 → s03 → s04 → s05 → s06 → `s07` → [s08](../s08_context_compact/) → s09 → ... → s20
-> *"Load when needed, don't stuff the prompt"* — tool_result で注入、system prompt には詰め込まない。
+s01 → s02 → s03 → s04 → s05 → s06 → `s07` → [s08](../s08_context_compact/) → s09 → ... → s16 → s17
+
+> system prompt にはスキルカタログを入れ、`load_skill` は完全な `SKILL.md` を返す。
 >
-> **Harness レイヤー**: 知識 — 必要に応じて読み込み、コンテキストに詰め込まない。
+> **Harness レイヤー**：知識の読み込み — 利用可能なスキルをモデルに示し、名前で内容を読み込む。
 
 ---
 
 ## 課題
 
-プロジェクトには React コンポーネント仕様、SQL スタイルガイド、API 設計ドキュメントがある。Agent にこれらの仕様を自動的に守らせたい。最も直接的な方法 — すべて system prompt に詰め込む：
+あるプロジェクトに React コンポーネント仕様、SQL スタイルガイド、API 設計ドキュメントがあるとする。開発中に Agent へこれらの規約を守らせたい場合、最も直接的な方法は、すべてを system prompt に入れることだ：
 
 ```python
 SYSTEM = (
     f"You are a coding agent. "
-    + open("docs/react-style.md").read()       # 2000 行
-    + open("docs/sql-style.md").read()         # 1500 行
-    + open("docs/api-design.md").read()        # 3000 行
+    + open("docs/react-style.md").read()
+    + open("docs/sql-style.md").read()
+    + open("docs/api-design.md").read()
 )
 ```
 
-6500 行の system prompt。Agent は LLM を呼び出すたびにこれらのドキュメントを運ぶ — CSS の色を変えるときも SQL クエリを修正するときも。99% の内容が現在のタスクと無関係で、トークンを無駄に消費する。
+この方法で Agent はすべての規約を読めるが、3 つの文書すべてが system prompt に固定され、現在のタスクに必要な文書だけを選べない。LLM を呼び出すたびに、3 つの文書の全文がモデルへ送られる。タスクが React コンポーネントの変更だけなら、必要なのは React コンポーネント仕様だけである。無関係な SQL スタイルガイドと API 設計ドキュメントも入力 token とコンテキストウィンドウを使うため、コード、会話、tool result に使える領域が減る。
 
 ---
 
@@ -30,24 +31,20 @@ SYSTEM = (
 
 ![Skill Overview](images/skill-overview.ja.svg)
 
-前章の最小フック構造、`todo_write`、サブ Agent を維持し、本章は新規の `load_skill` ツールに注目する。起動時にスキルカタログを SYSTEM prompt に注入し、実行時に完全な内容を読み込むツールを登録する。使ったときだけトークンを消費。
+起動時に `SkillLoader` が `skills/*/SKILL.md` を走査し、YAML frontmatter の `name` と `description` を読み取って、カタログを system prompt に追加する。完全な指示が必要になると、モデルは `load_skill(name)` を呼ぶ。返された `SKILL.md` は `tool_result` としてメッセージリストへ追加される。
 
-2 層設計：
-
-| 層 | 場所 | タイミング | コスト |
-|---|------|-----------|--------|
-| 1. カタログ | system prompt | 起動時に注入（harness が skills/ をスキャン） | ~100 トークン/スキル、毎ターン携帯 |
-| 2. 内容 | tool_result | Agent が load_skill を呼び出したとき。SKILL.md は、必要に応じて read_file/bash で追加リソースへアクセスするための手がかりになる | ~2000 トークン/スキル、オンデマンド |
-
-ディスパッチ機構は変わらず、`load_skill` は `TOOL_HANDLERS[block.name]` を通じて自動的にディスパッチされる。
+| 内容 | モデル入力での位置 | 追加時点 |
+|------|--------------------|----------|
+| スキル名と説明 | system prompt | 起動時 |
+| 完全な `SKILL.md` | `tool_result` | `load_skill` 呼び出し時 |
 
 ---
 
 ## 仕組み
 
-**skills/ ディレクトリ**、スキルごとに 1 つのサブディレクトリ、それぞれに `SKILL.md` ファイルを含む：
+各スキルは `SKILL.md` を持つディレクトリである：
 
-```
+```text
 skills/
   agent-builder/SKILL.md
   code-review/SKILL.md
@@ -55,64 +52,75 @@ skills/
   pdf/SKILL.md
 ```
 
-**第 1 層：起動時にカタログを注入**：harness は起動時に `_scan_skills()` を呼び出して skills/ ディレクトリをスキャンし、各 SKILL.md の YAML frontmatter（`name`、`description`）を解析して `SKILL_REGISTRY` 辞書に格納する。`list_skills()` はレジストリからカタログを生成し、SYSTEM prompt に注入する。Agent は毎ターン「どのスキルが利用可能か」を確認できる。追加の API 呼び出しは不要：
+### スキルを走査する
 
 ```python
-SKILL_REGISTRY: dict[str, dict] = {}
+class SkillLoader:
+    def scan(self):
+        self.skills.clear()
+        skills_root = self.skills_dir.resolve()
+        for manifest in sorted(self.skills_dir.glob("*/SKILL.md")):
+            if (not manifest.is_file()
+                    or not manifest.resolve().is_relative_to(skills_root)):
+                continue
+            content = manifest.read_text(encoding="utf-8")
+            metadata, body = self.parse_frontmatter(content)
+            raw_name = metadata.get("name")
+            name = raw_name.strip() if isinstance(raw_name, str) else ""
+            name = name or manifest.parent.name
+            raw_description = metadata.get("description")
+            description = (raw_description.strip()
+                           if isinstance(raw_description, str) else "")
+            description = description or body.split("\n", 1)[0]
+            description = " ".join(str(description).lstrip("# ").split())
+            self.skills[name] = {
+                "name": name,
+                "description": description,
+                "content": content,
+            }
+```
 
-def _scan_skills():
-    if not SKILLS_DIR.exists():
-        return
-    for d in sorted(SKILLS_DIR.iterdir()):
-        if not d.is_dir():
-            continue
-        manifest = d / "SKILL.md"
-        if manifest.exists():
-            raw = manifest.read_text()
-            meta, body = _parse_frontmatter(raw)
-            name = meta.get("name", d.name)
-            desc = meta.get("description", raw.split("\n")[0].lstrip("#").strip())
-            SKILL_REGISTRY[name] = {"name": name, "description": desc, "content": raw}
+`catalog()` は名前と説明だけを返す：
 
-_scan_skills()  # runs once at startup
+```text
+- code-review: Perform thorough code reviews...
+- pdf: Process PDF files...
+```
 
-def list_skills() -> str:
-    return "\n".join(f"- **{s['name']}**: {s['description']}" for s in SKILL_REGISTRY.values())
+### system prompt を組み立てる
 
-def build_system() -> str:
-    catalog = list_skills()
+```python
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
+
+def build_system_prompt() -> str:
     return (
-        f"You are a coding agent at {WORKDIR}. "
-        f"Skills available:\n{catalog}\n"
-        "Use load_skill to get full details when needed."
+        f"You are a coding agent at {WORKDIR}. Environment: {ENVIRONMENT_PROMPT}. "
+        "Use tools to solve tasks. "
+        "Act, don't explain.\n\n"
+        f"Skills available:\n{SKILL_LOADER.catalog()}\n\n"
+        "Use load_skill to read the full instructions when a skill applies."
     )
-
-SYSTEM = build_system()
 ```
 
-**第 2 層：load_skill**：Agent が「SQL スタイルガイドが必要」と判断し、`load_skill("sql-style")` を呼び出す。レジストリを通じて検索し、ファイルパスを経由しないため、パストラバーサルのリスクがない。SKILL.md の内容は `tool_result` を通じて注入され、既存の file および bash ツールを通じて、参照される `references/`、`scripts/`、`assets/` へのその後のアクセスも含められる。
+固定された Agent の指示と、起動時に見つかったスキルカタログをこの関数で組み合わせる。
+
+### 完全な内容を読み込む
 
 ```python
-def load_skill(name: str) -> str:
-    skill = SKILL_REGISTRY.get(name)
-    if not skill:
-        return f"Skill not found: {name}"
-    return skill["content"]
+def load(self, name: str) -> str:
+    skill = self.skills.get(name)
+    if skill:
+        return skill["content"]
+    available = ", ".join(self.skills) or "none"
+    return f"Error: Unknown skill '{name}'. Available: {available}"
 ```
 
-重要な違い：スキル内容は system prompt の一部ではなく、ツール結果として現在の messages に入る。後続の呼び出しでは履歴とともに携帯され、コンテキスト圧縮、切り捨て、またはセッション終了まで保持される。これは s08 の compact と自然に接続する：オンデマンド読み込みで「運ぶべきでないものは運ばない」を解決し、compact が「捨てるべきものをどう捨てるか」を解決する。
-
----
-
-## s06 からの変更点
-
-| コンポーネント | 変更前 (s06) | 変更後 (s07) |
-|---------------|-------------|-------------|
-| ツール数 | 7 (bash, read, write, edit, glob, todo_write, task) | 8 (+load_skill) |
-| 知識読み込み | なし | 2 層：起動時カタログ注入 SYSTEM + 実行時 load_skill。SKILL.md がその後のリソースアクセスを案内できる |
-| SYSTEM プロンプト | 静的文字列 | 起動時に skills/ をスキャンしてカタログ注入 |
-| スキルレジストリ | なし | SKILL_REGISTRY（起動時に充填、パストラバーサル防止） |
-| ループ | 変更なし | 変更なし（スキルツールは自動ディスパッチ） |
+`name` は起動時に作られたレジストリの検索に使われ、ファイルパスとして解釈されない。ツールが返ると、既存の Agent Loop が内容を新しい `tool_result` メッセージとして追加する。
 
 ---
 
@@ -123,60 +131,21 @@ cd learn-claude-code
 python s07_skill_loading/code.py
 ```
 
-以下のプロンプトを試してみよう：
+以下の prompt を試す：
 
 1. `What skills are available?`
 2. `Load the code-review skill and follow its instructions`
-3. `I need to do a code review -- load the relevant skill first`
+3. `Review README.md and load the relevant skill first`
 
-観察のポイント：Agent は SYSTEM 内のカタログから利用可能なスキルを知っているか？ 完全な手順が必要なときに `[HOOK] load_skill` が表示されるか？ 読み込んだスキルの説明を使って回答しているか？
+system prompt にカタログだけが入り、`load_skill` の呼び出し後に完全な `SKILL.md` が現れることを確認する。
 
 ---
 
 ## 次へ
 
-オンデマンド読み込みで「運ぶべきでないものは運ばない」問題は解決した。しかし別の問題が待っている：Agent が 30 分連続で作業すると、messages リストが中間プロセスで埋め尽くされる。古い tool_result、期限切れのファイル内容、コンテキストを占領しているが価値を生まない。
+ツール呼び出しが増えると、`messages[]` には以前のファイル内容やツール結果が残る。
 
-→ s08 Context Compact：4 層圧縮戦略。安価な層を先に実行、高価な層を後に実行。
+s08 Context Compact → 過去のメッセージを短くし、後続の呼び出しで使えるコンテキストを確保する。
 
-<details>
-<summary>CC ソースコードを深掘り</summary>
 
-> 以下は CC ソースコード `loadSkillsDir.ts`、`SkillTool.ts`、`bundledSkills.ts`、`commands.ts` の分析に基づく。
-
-### 一、スキルソース：skills/ ディレクトリだけではない
-
-教育版はすべてのスキルが `skills/` ディレクトリにあると想定している。CC は実際に複数のファイルに分散したソースから読み込む：`loadSkillsDir.ts` は user/project/`--add-dir` ディレクトリと legacy commands（`.claude/commands/`）を担当、`bundledSkills.ts` は組み込みスキル、`SkillTool.ts` は MCP リモートスキル、`commands.ts` はコマンド集約を担当。タイプには managed/policy skills、user skills（`~/.claude/skills/`）、project skills（`.claude/skills/`）、`--add-dir` skills、legacy commands、dynamic skills、conditional skills（`paths` frontmatter を持ち、ファイルパスでアクティベート）、bundled skills、plugin skills、MCP skills が含まれる。
-
-### 二、SKILL.md Frontmatter の一般的なフィールド
-
-CC の SKILL.md YAML frontmatter は `parseSkillFrontmatterFields()`（`loadSkillsDir.ts`）で解析される。一般的なフィールド：
-
-| フィールド | 用途 |
-|-----------|------|
-| `name` / `description` | 表示名と説明 |
-| `when_to_use` | モデルにいつ呼び出すかを指導 |
-| `allowed-tools` | スキルが使用可能なツールの自動許可リスト |
-| `context` | `inline`（デフォルト）または `fork`（サブ Agent として実行） |
-| `model` | モデルオーバーライド（haiku/sonnet/opus/inherit） |
-| `hooks` | スキルレベルのフック設定 |
-| `paths` | 条件付きアクティベーションの glob パターン |
-| `user-invocable` | ユーザーが `/name` で呼び出し可能 |
-
-完全なフィールドリストはバージョンによって変動する。上記は教育版に関連するコアフィールドのみ。
-
-### 三、2 層読み込みの正確な実装
-
-1. **カタログ（起動時）**：`getSkillDirCommands()` がディレクトリをスキャン → メタデータのみを含む `Command` オブジェクトとして登録。`getSkillListingAttachments()` がスキルリストを添付ファイルとしてフォーマット、コンテキストウィンドウの ~1% を予算とする（上限 8000 文字）。
-2. **読み込み（呼び出し時）**：モデルが `Skill` ツールを呼び出す（入力フィールドは `skill` + オプションの `args`、教育版は `name` を使用）→ `getPromptForCommand()` が完全な SKILL.md 内容を展開 → `SkillTool` が返す tool_result の表示テキストは `"Launching skill: {name}"` のみ、実際のスキル内容は `newMessages` を通じて注入される。教育版では両者を「tool_result を通じて注入」として簡略化している。読み込まれた SKILL.md は、モデルが後続で既存の file/bash ツールから関連リソースへアクセスする際の手がかりにもなる。
-
-### 教育版の単純化は意図的
-
-- 複数ファイル・複数ソース → 1 つの `skills/` ディレクトリ：2 層読み込みの核心概念を示すのに十分
-- 複数の frontmatter フィールド → name/description のみ解析：解析の複雑さを削減
-- forked skills（`context: 'fork'`）→ 省略：教育版では inline skill loading のみ展開する
-- `Skill` ツールの入力 `skill`+`args` → 教育版は `name` を使用：追加の引数解析の複雑さを回避
-
-</details>
-
-<!-- translation-sync: zh@v2, en@v2, ja@v2 -->
+<!-- translation-sync: zh@v6, en@v6, ja@v6 -->

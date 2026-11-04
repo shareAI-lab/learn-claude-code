@@ -55,6 +55,12 @@ import time
 import uuid
 from pathlib import Path
 
+try:
+    import readline
+    readline.parse_and_bind('set bind-tty-special-chars off')
+except ImportError:
+    pass
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
@@ -103,19 +109,20 @@ class MessageBus:
         if extra:
             msg.update(extra)
         inbox_path = self.dir / f"{to}.jsonl"
-        with open(inbox_path, "a") as f:
+        with open(inbox_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(msg) + "\n")
         return f"Sent {msg_type} to {to}"
 
-    def read_inbox(self, name: str) -> list:
+    def read_inbox(self, name: str, clear: bool = True) -> list:
         inbox_path = self.dir / f"{name}.jsonl"
         if not inbox_path.exists():
             return []
         messages = []
-        for line in inbox_path.read_text().strip().splitlines():
+        for line in inbox_path.read_text(encoding="utf-8").strip().splitlines():
             if line:
                 messages.append(json.loads(line))
-        inbox_path.write_text("")
+        if clear:
+            inbox_path.write_text("", encoding="utf-8")
         return messages
 
     def broadcast(self, sender: str, content: str, teammates: list) -> str:
@@ -141,11 +148,11 @@ class TeammateManager:
 
     def _load_config(self) -> dict:
         if self.config_path.exists():
-            return json.loads(self.config_path.read_text())
+            return json.loads(self.config_path.read_text(encoding="utf-8"))
         return {"team_name": "default", "members": []}
 
     def _save_config(self):
-        self.config_path.write_text(json.dumps(self.config, indent=2))
+        self.config_path.write_text(json.dumps(self.config, indent=2), encoding="utf-8")
 
     def _find_member(self, name: str) -> dict:
         for m in self.config["members"]:
@@ -307,7 +314,7 @@ def _run_bash(command: str) -> str:
     try:
         r = subprocess.run(
             command, shell=True, cwd=WORKDIR,
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, errors="replace", timeout=120,
         )
         out = (r.stdout + r.stderr).strip()
         return out[:50000] if out else "(no output)"
@@ -317,7 +324,7 @@ def _run_bash(command: str) -> str:
 
 def _run_read(path: str, limit: int = None) -> str:
     try:
-        lines = _safe_path(path).read_text().splitlines()
+        lines = _safe_path(path).read_text(encoding="utf-8").splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"... ({len(lines) - limit} more)"]
         return "\n".join(lines)[:50000]
@@ -329,7 +336,7 @@ def _run_write(path: str, content: str) -> str:
     try:
         fp = _safe_path(path)
         fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
+        fp.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes"
     except Exception as e:
         return f"Error: {e}"
@@ -338,10 +345,10 @@ def _run_write(path: str, content: str) -> str:
 def _run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
         fp = _safe_path(path)
-        c = fp.read_text()
+        c = fp.read_text(encoding="utf-8")
         if old_text not in c:
             return f"Error: Text not found in {path}"
-        fp.write_text(c.replace(old_text, new_text, 1))
+        fp.write_text(c.replace(old_text, new_text, 1), encoding="utf-8")
         return f"Edited {path}"
     except Exception as e:
         return f"Error: {e}"
@@ -429,7 +436,7 @@ def agent_loop(messages: list):
         if inbox:
             messages.append({
                 "role": "user",
-                "content": f"<inbox>{json.dumps(inbox, indent=2)}</inbox>",
+                "content": f"<inbox>{json.dumps(inbox)}</inbox>",
             })
         response = client.messages.create(
             model=MODEL,
@@ -463,7 +470,8 @@ if __name__ == "__main__":
     history = []
     while True:
         try:
-            query = input("\033[36ms10 >> \033[0m")
+            # \001/\002 tell Readline the ANSI escapes have zero display width.
+            query = input("\001\033[36m\002s10 >> \001\033[0m\002")
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in ("q", "exit", ""):
@@ -472,7 +480,7 @@ if __name__ == "__main__":
             print(TEAM.list_all())
             continue
         if query.strip() == "/inbox":
-            print(json.dumps(BUS.read_inbox("lead"), indent=2))
+            print(json.dumps(BUS.read_inbox("lead", False), indent=2))
             continue
         history.append({"role": "user", "content": query})
         agent_loop(history)

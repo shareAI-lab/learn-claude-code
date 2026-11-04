@@ -39,7 +39,7 @@
   <!-- ② LLM -->
   <rect x="200" y="108" width="120" height="64" rx="8" fill="#fff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="260" y="134" fill="#1e3a5f" font-size="14" font-weight="700" text-anchor="middle">LLM</text>
-  <text x="260" y="154" fill="#64748b" font-size="10" text-anchor="middle">stop_reason=tool_use?</text>
+  <text x="260" y="154" fill="#64748b" font-size="10" text-anchor="middle">tool_use block?</text>
 
   <!-- LLM No → Return -->
   <line x1="260" y1="172" x2="260" y2="200" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow)"/>
@@ -57,7 +57,7 @@
   <text x="460" y="132" fill="#166534" font-size="9" font-weight="600" text-anchor="middle">PreToolUse</text>
   <rect x="396" y="140" width="128" height="18" rx="3" fill="#dcfce7" stroke="#16a34a" stroke-width="0.8"/>
   <text x="460" y="153" fill="#166534" font-size="8" text-anchor="middle">permission_hook · log_hook</text>
-  <text x="460" y="176" fill="#64748b" font-size="8" text-anchor="middle">Teaching: non-None → block</text>
+  <text x="460" y="176" fill="#64748b" font-size="8" text-anchor="middle">non-None → block</text>
 
   <!-- PreToolUse Block → branch down -->
   <line x1="460" y1="184" x2="460" y2="218" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow-red)"/>

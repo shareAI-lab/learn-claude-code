@@ -11,40 +11,40 @@
   <rect width="720" height="400" fill="#fafbfc" rx="8"/>
   <rect x="0" y="0" width="720" height="38" fill="url(#header)" rx="8"/>
   <rect x="0" y="30" width="720" height="8" fill="url(#header)"/>
-  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">L4: autoCompact — LLM 全量摘要</text>
+  <text x="360" y="25" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">Step 4: compact_history，生成历史摘要</text>
 
   <!-- 触发条件 -->
   <rect x="20" y="54" width="680" height="44" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
   <text x="35" y="70" fill="#991b1b" font-size="11" font-weight="600">触发条件</text>
-  <text x="105" y="70" fill="#991b1b" font-size="11">前三层预处理全跑完，估算 token &gt; contextWindow - maxOutputTokens - 13_000。</text>
-  <text x="105" y="86" fill="#991b1b" font-size="10">先尝试 sessionMemoryCompact（用已有记忆做轻量摘要），不足才调 LLM。</text>
+  <text x="105" y="70" fill="#991b1b" font-size="11">micro_compact 后，estimate_chars(messages) &gt; CONTEXT_CHAR_LIMIT。</text>
+  <text x="105" y="86" fill="#991b1b" font-size="10">当前实现的 CONTEXT_CHAR_LIMIT 为 50,000 个字符。</text>
 
   <!-- 步骤 -->
   <rect x="20" y="106" width="200" height="110" rx="8" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
   <text x="120" y="130" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">步骤 1：保存 transcript</text>
   <text x="40" y="152" fill="#475569" font-size="10">完整对话写入 .transcripts/</text>
   <text x="40" y="168" fill="#475569" font-size="10">JSONL 格式，一行一条消息</text>
-  <text x="40" y="184" fill="#475569" font-size="10">文件名：transcript_{timestamp}.jsonl</text>
+  <text x="40" y="184" fill="#475569" font-size="10">文件名：transcript_{uuid}.jsonl</text>
   <text x="40" y="200" fill="#94a3b8" font-size="9">信息没有丢失，只是移出活跃区</text>
 
   <line x1="225" y1="161" x2="265" y2="161" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow)"/>
 
   <rect x="270" y="106" width="200" height="110" rx="8" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
-  <text x="370" y="130" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">步骤 2：LLM 生成摘要</text>
-  <text x="290" y="152" fill="#475569" font-size="10">把对话历史发给 LLM</text>
-  <text x="290" y="166" fill="#475569" font-size="9">摘要需包含 9 个部分：</text>
-  <text x="290" y="180" fill="#94a3b8" font-size="8">请求·概念·文件·错误·解决</text>
-  <text x="290" y="192" fill="#94a3b8" font-size="8">用户消息·待办·当前·下一步</text>
-  <text x="290" y="206" fill="#94a3b8" font-size="9">只生成一次</text>
+  <text x="370" y="130" fill="#1e3a5f" font-size="12" font-weight="700" text-anchor="middle">步骤 2：生成事实摘要</text>
+  <text x="370" y="152" fill="#475569" font-size="9" text-anchor="middle">原对话作为待摘要数据</text>
+  <text x="290" y="166" fill="#475569" font-size="9">摘要保留 5 类信息：</text>
+  <text x="290" y="180" fill="#94a3b8" font-size="8">目标·发现与决定·相关文件</text>
+  <text x="290" y="192" fill="#94a3b8" font-size="8">剩余工作·用户约束</text>
+  <text x="290" y="206" fill="#94a3b8" font-size="9">不提出或选择后续动作</text>
 
   <line x1="475" y1="161" x2="515" y2="161" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow)"/>
 
   <rect x="520" y="106" width="180" height="110" rx="8" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
-  <text x="610" y="130" fill="#991b1b" font-size="12" font-weight="700" text-anchor="middle">步骤 3：替换消息列表</text>
-  <text x="540" y="152" fill="#991b1b" font-size="10">所有旧消息 → 1 条摘要</text>
-  <text x="540" y="168" fill="#991b1b" font-size="10">模型从摘要继续工作</text>
-  <text x="540" y="184" fill="#991b1b" font-size="10">附带 recently_read 文件列表</text>
-  <text x="540" y="200" fill="#ef4444" font-size="9">⚠ 这是无法恢复的操作</text>
+  <text x="610" y="130" fill="#991b1b" font-size="12" font-weight="700" text-anchor="middle">步骤 3：替换历史</text>
+  <text x="610" y="152" fill="#991b1b" font-size="9" text-anchor="middle">旧历史 → 1 条压缩消息</text>
+  <text x="610" y="168" fill="#991b1b" font-size="9" text-anchor="middle">用户要求与参考状态分开</text>
+  <text x="610" y="184" fill="#991b1b" font-size="9" text-anchor="middle">system 区分指令与数据</text>
+  <text x="610" y="200" fill="#ef4444" font-size="9" text-anchor="middle">完整 transcript 保留在磁盘</text>
 
   <!-- Before/After 对比 -->
   <rect x="20" y="234" width="320" height="94" rx="6" fill="#fff" stroke="#94a3b8" stroke-width="1"/>
@@ -54,19 +54,19 @@
   <rect x="149" y="264" width="52" height="16" rx="3" fill="#e2e8f0"/><text x="154" y="276" fill="#475569" font-size="8">user</text>
   <rect x="206" y="264" width="52" height="16" rx="3" fill="#e2e8f0"/><text x="211" y="276" fill="#475569" font-size="8">assistant</text>
   <rect x="263" y="264" width="52" height="16" rx="3" fill="#e2e8f0"/><text x="268" y="276" fill="#475569" font-size="8">user</text>
-  <text x="180" y="318" fill="#94a3b8" font-size="9" text-anchor="middle">~180 条消息，占 62K token</text>
+  <text x="180" y="318" fill="#94a3b8" font-size="9" text-anchor="middle">多条消息，估算 size &gt; 50,000</text>
 
   <line x1="345" y1="281" x2="375" y2="281" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow)"/>
 
   <rect x="380" y="234" width="320" height="94" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1"/>
   <text x="540" y="256" fill="#991b1b" font-size="11" font-weight="600" text-anchor="middle">压缩后 messages</text>
   <rect x="395" y="264" width="290" height="32" rx="4" fill="#fee2e2" stroke="#fca5a5" stroke-width="0.5"/>
-  <text x="540" y="276" fill="#991b1b" font-size="9" text-anchor="middle">[Compacted] 摘要：目标 → 创建 hello.py ...</text>
-  <text x="540" y="290" fill="#991b1b" font-size="9" text-anchor="middle">最近文件：hello.py, README.md ...</text>
-  <text x="540" y="318" fill="#94a3b8" font-size="9" text-anchor="middle">~1 条消息，占 1K token</text>
+  <text x="540" y="276" fill="#991b1b" font-size="9" text-anchor="middle">当前用户要求：入口时捕获</text>
+  <text x="540" y="290" fill="#991b1b" font-size="9" text-anchor="middle">对话摘要：事实、决定与剩余工作</text>
+  <text x="540" y="318" fill="#94a3b8" font-size="9" text-anchor="middle">1 条摘要消息，显著低于阈值</text>
 
-  <!-- 熔断器 -->
+  <!-- 错误后补救 -->
   <rect x="20" y="340" width="680" height="36" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
-  <text x="35" y="362" fill="#475569" font-size="11" font-weight="600">熔断器：</text>
-  <text x="95" y="362" fill="#475569" font-size="10">连续 autocompact 失败 3 次 → 停止重试。防止上下文不可恢复时反复浪费 API 调用。</text>
+  <text x="35" y="362" fill="#475569" font-size="11" font-weight="600">错误后补救：</text>
+  <text x="115" y="362" fill="#475569" font-size="10">API 仍返回 prompt_too_long 时执行 reactive_compact，并且只重试 1 次。</text>
 </svg>
