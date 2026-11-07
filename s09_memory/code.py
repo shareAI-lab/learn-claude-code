@@ -266,7 +266,7 @@ def recent_user_text(messages: list, max_turns: int = 3) -> str:
             turns.append(text)
         if len(turns) == max_turns:
             break
-    return "\n".join(reversed(turns))[:4000]
+    return "\n".join(reversed(turns))[-4000:]
 
 def keyword_memory_selection(
     records: list[dict], query: str, max_items: int

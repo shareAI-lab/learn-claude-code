@@ -74,6 +74,8 @@ The index supports selection while full content stays in the individual files.
 
 At the start of a user request, `select_relevant_memories()` sends the recent user text and memory catalog to a lightweight model call. It selects at most five relevant records:
 
+`recent_user_text()` keeps the latest three non-empty user messages in chronological order, then retains the final 4,000 characters so the newest context remains visible.
+
 ```python
 prompt = (
     "Select memory records that are relevant to the current user request. "

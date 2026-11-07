@@ -74,6 +74,8 @@ index は関連する記憶を選ぶために使い、本文は個別ファイ�
 
 ユーザーの request が始まると、`select_relevant_memories()` は最近のユーザー発言と memory catalog を軽量なモデル呼び出しへ渡し、関係する記録を最大五件選ぶ。
 
+`recent_user_text()` は空でない最新 3 件の user message を時系列順に並べ、最後の 4,000 文字を残すため、最新の context が切り捨てられない。
+
 ```python
 prompt = (
     "Select memory records that are relevant to the current user request. "

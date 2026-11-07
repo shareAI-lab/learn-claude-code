@@ -74,6 +74,8 @@ def write_memory_file(name, mem_type, description, body):
 
 每次用户发起请求时，`select_relevant_memories()` 读取最近的用户消息和记忆目录，让一次轻量模型调用选择最多五条相关记录：
 
+`recent_user_text()` 按时间顺序保留最近三条非空用户消息，再取最后 4,000 个字符，确保最新上下文不会被截掉。
+
 ```python
 prompt = (
     "Select memory records that are relevant to the current user request. "
