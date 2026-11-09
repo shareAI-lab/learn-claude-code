@@ -298,14 +298,20 @@ cd web && npm install && npm run dev   # http://localhost:3000
 主線：動ける → 複雑な仕事ができる → 記憶して回復できる → 長く動ける → 協作できる → 拡張して統合する
 
 ```mermaid
+---
+config:
+  htmlLabels: false
+  flowchart:
+    wrappingWidth: 260
+---
 flowchart TD
     %% カードスタイル
-    classDef stage1 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#0D47A1,rx:12,ry:12,text-align:left
-    classDef stage2 fill:#E8F5E9,stroke:#388E3C,stroke-width:2px,color:#1B5E20,rx:12,ry:12,text-align:left
-    classDef stage3 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#E65100,rx:12,ry:12,text-align:left
-    classDef stage4 fill:#FCE4EC,stroke:#C2185b,stroke-width:2px,color:#880E4F,rx:12,ry:12,text-align:left
-    classDef stage5 fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C,rx:12,ry:12,text-align:left
-    classDef stage6 fill:#E0F7FA,stroke:#0097A7,stroke-width:2px,color:#006064,rx:12,ry:12,text-align:left
+    classDef stage1 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#0D47A1,rx:12,ry:12,text-align:center
+    classDef stage2 fill:#E8F5E9,stroke:#388E3C,stroke-width:2px,color:#1B5E20,rx:12,ry:12,text-align:center
+    classDef stage3 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#E65100,rx:12,ry:12,text-align:center
+    classDef stage4 fill:#FCE4EC,stroke:#C2185b,stroke-width:2px,color:#880E4F,rx:12,ry:12,text-align:center
+    classDef stage5 fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C,rx:12,ry:12,text-align:center
+    classDef stage6 fill:#E0F7FA,stroke:#0097A7,stroke-width:2px,color:#006064,rx:12,ry:12,text-align:center
 
     %% 背景スタイル
     classDef groupBox fill:#F8F9FA,stroke:#CED4DA,stroke-width:2px,stroke-dasharray: 5 5,rx:15,ry:15,color:#495057
@@ -313,11 +319,35 @@ flowchart TD
     %% 第1層：1-3段階
     subgraph Phase1 ["🌱 段階 1-3：基礎能力の構築（単純から複雑へ）"]
         direction LR
-        S1["<b>第1段階：Agent が動ける</b><br/>━━━━━━━━━━━━━<br/><b>s01 Agent Loop</b><br/>└─ 1つのループ + bash<br/><br/><b>s02 Tool Use</b><br/>└─ 1つのツールから複数へ<br/><br/><b>s03 Permission</b><br/>└─ 実行してよいか判断する<br/><br/><b>s04 Hooks</b><br/>└─ ツール前後に拡張入口を作る"]:::stage1
+        S1["`**第1段階：Agent が動ける**
+━━━━━━━━━━━━━
+**s01 Agent Loop**
+└─ 1つのループ + bash
 
-        S2["<b>第2段階：複雑な仕事をこなす</b><br/>━━━━━━━━━━━━━<br/><b>s05 TodoWrite</b><br/>└─ 先に計画し、それから実行<br/><br/><b>s06 Subagent</b><br/>└─ 新しい messages、最終テキストを返す<br/><br/><b>s08 Context Compact</b><br/>└─ 長いコンテキストに空きを作る"]:::stage2
+**s02 Tool Use**
+└─ 1つのツールから複数へ
 
-        S3["<b>第3段階：セッションを越えて記憶する</b><br/>━━━━━━━━━━━━━<br/><b>s09 Memory</b><br/>└─ 再利用する知識を保存・想起"]:::stage3
+**s03 Permission**
+└─ 実行してよいか判断する
+
+**s04 Hooks**
+└─ ツール前後に拡張入口を作る`"]:::stage1
+
+        S2["`**第2段階：複雑な仕事をこなす**
+━━━━━━━━━━━━━
+**s05 TodoWrite**
+└─ 先に計画し、それから実行
+
+**s06 Subagent**
+└─ 新しい messages、最終テキストを返す
+
+**s08 Context Compact**
+└─ 長いコンテキストに空きを作る`"]:::stage2
+
+        S3["`**第3段階：セッションを越えて記憶する**
+━━━━━━━━━━━━━
+**s09 Memory**
+└─ 再利用する知識を保存・想起`"]:::stage3
 
         S1 ==> S2 ==> S3
     end
@@ -325,11 +355,34 @@ flowchart TD
     %% 第2層：4-6段階
     subgraph Phase2 ["🚀 段階 4-6：高次能力の進化（長期実行、協作、統合）"]
         direction LR
-        S4["<b>第4段階：長く動くタスク</b><br/>━━━━━━━━━━━━━<br/><b>s10 Task System</b><br/>└─ タスクと依存関係を保存<br/><br/><b>s11 Background Tasks</b><br/>└─ 遅い作業をバックグラウンドへ<br/><br/><b>s12 Cron Scheduler</b><br/>└─ 時間で自動実行"]:::stage4
+        S4["`**第4段階：長く動くタスク**
+━━━━━━━━━━━━━
+**s10 Task System**
+└─ タスクと依存関係を保存
 
-        S5["<b>第5段階：複数 Agent の協作</b><br/>━━━━━━━━━━━━━<br/><b>s13 Agent Teams</b><br/>└─ チームメイト + 配信 + プロトコル<br/>└─ 実行可能なタスクを原子的に認領<br/>└─ タスクに紐付く Worktree"]:::stage5
+**s11 Background Tasks**
+└─ 遅い作業をバックグラウンドへ
 
-        S6["<b>第6段階：外部能力と統合</b><br/>━━━━━━━━━━━━━<br/><b>s07 Skill Loading</b><br/>└─ スキルを必要時に展開<br/><br/><b>s14 MCP Plugin</b><br/>└─ 外部ツールを同じプールへ<br/><br/><b>s15 Integrated Harness</b><br/>└─ course mechanisms を 1 つの loop へ"]:::stage6
+**s12 Cron Scheduler**
+└─ 時間で自動実行`"]:::stage4
+
+        S5["`**第5段階：複数 Agent の協作**
+━━━━━━━━━━━━━
+**s13 Agent Teams**
+└─ チームメイト + 配信 + プロトコル
+└─ 実行可能なタスクを原子的に認領
+└─ タスクに紐付く Worktree`"]:::stage5
+
+        S6["`**第6段階：外部能力と統合**
+━━━━━━━━━━━━━
+**s07 Skill Loading**
+└─ スキルを必要時に展開
+
+**s14 MCP Plugin**
+└─ 外部ツールを同じプールへ
+
+**s15 Integrated Harness**
+└─ course mechanisms を 1 つの loop へ`"]:::stage6
 
         S4 ==> S5 ==> S6
     end
@@ -337,11 +390,17 @@ flowchart TD
     %% 第3層：編成と目標の完了
     subgraph Phase3 ["第7段階：編成と目標の完了"]
         direction LR
-        S7["<b>第7段階：編成して完了する</b><br/>━━━━━━━━━━━━━<br/><b>s16 Workflow Runtime</b><br/>└─ 固定編成はスクリプトが担う<br/><br/><b>s17 Goal Loop</b><br/>└─ 独立した評価で停止を決める"]:::stage1
-        S6 ==> S7
+        S7["`**第7段階：編成して完了する**
+━━━━━━━━━━━━━
+**s16 Workflow Runtime**
+└─ 固定編成はスクリプトが担う
+
+**s17 Goal Loop**
+└─ 独立した評価で停止を決める`"]:::stage1
     end
 
     %% 3つの層を接続
+    %% Link groups, not their nodes, to preserve each group's LR direction.
     Phase1 ===> Phase2 ===> Phase3
 
     class Phase1,Phase2,Phase3 groupBox
