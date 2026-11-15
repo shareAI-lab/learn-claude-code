@@ -301,14 +301,20 @@ cd web && npm install && npm run dev   # http://localhost:3000
 主线：能动手 → 能做复杂任务 → 能记住和恢复 → 能长期运行 → 能协作 → 能扩展并合体 → 能编排并实现目标闭环
 
 ```mermaid
+---
+config:
+  htmlLabels: false
+  flowchart:
+    wrappingWidth: 260
+---
 flowchart TD
-    %% 统一定义卡片样式：加入 text-align:left 保证列表不会居中乱飘
-    classDef stage1 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#0D47A1,rx:12,ry:12,text-align:left
-    classDef stage2 fill:#E8F5E9,stroke:#388E3C,stroke-width:2px,color:#1B5E20,rx:12,ry:12,text-align:left
-    classDef stage3 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#E65100,rx:12,ry:12,text-align:left
-    classDef stage4 fill:#FCE4EC,stroke:#C2185b,stroke-width:2px,color:#880E4F,rx:12,ry:12,text-align:left
-    classDef stage5 fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C,rx:12,ry:12,text-align:left
-    classDef stage6 fill:#E0F7FA,stroke:#0097A7,stroke-width:2px,color:#006064,rx:12,ry:12,text-align:left
+    %% 统一定义卡片样式
+    classDef stage1 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#0D47A1,rx:12,ry:12,text-align:center
+    classDef stage2 fill:#E8F5E9,stroke:#388E3C,stroke-width:2px,color:#1B5E20,rx:12,ry:12,text-align:center
+    classDef stage3 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#E65100,rx:12,ry:12,text-align:center
+    classDef stage4 fill:#FCE4EC,stroke:#C2185b,stroke-width:2px,color:#880E4F,rx:12,ry:12,text-align:center
+    classDef stage5 fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C,rx:12,ry:12,text-align:center
+    classDef stage6 fill:#E0F7FA,stroke:#0097A7,stroke-width:2px,color:#006064,rx:12,ry:12,text-align:center
     
     %% 背景框样式
     classDef groupBox fill:#F8F9FA,stroke:#CED4DA,stroke-width:2px,stroke-dasharray: 5 5,rx:15,ry:15,color:#495057
@@ -316,11 +322,35 @@ flowchart TD
     %% 第一层：1-3阶段
     subgraph Phase1 ["🌱 阶段 1-3：基础能力构建（从简单到复杂）"]
         direction LR
-        S1["<b>第一阶段：让 Agent 能动手</b><br/>━━━━━━━━━━━━━<br/><b>s01 Agent Loop</b><br/>└─ 一个循环 + bash<br/><br/><b>s02 Tool Use</b><br/>└─ 单个到多个工具<br/><br/><b>s03 Permission</b><br/>└─ 判断能不能做<br/><br/><b>s04 Hooks</b><br/>└─ 工具前后留扩展插口"]:::stage1
+        S1["`**第一阶段：让 Agent 能动手**
+━━━━━━━━━━━━━
+**s01 Agent Loop**
+└─ 一个循环 + bash
 
-        S2["<b>第二阶段：做复杂任务</b><br/>━━━━━━━━━━━━━<br/><b>s05 TodoWrite</b><br/>└─ 先列计划，再执行<br/><br/><b>s06 Subagent</b><br/>└─ 全新消息，返回最终文本<br/><br/><b>s08 Context Compact</b><br/>└─ 长下文腾空间"]:::stage2
+**s02 Tool Use**
+└─ 单个到多个工具
 
-        S3["<b>第三阶段：跨会话记忆</b><br/>━━━━━━━━━━━━━<br/><b>s09 Memory</b><br/>└─ 保存并召回可复用知识"]:::stage3
+**s03 Permission**
+└─ 判断能不能做
+
+**s04 Hooks**
+└─ 工具前后留扩展插口`"]:::stage1
+
+        S2["`**第二阶段：做复杂任务**
+━━━━━━━━━━━━━
+**s05 TodoWrite**
+└─ 先列计划，再执行
+
+**s06 Subagent**
+└─ 全新消息，返回最终文本
+
+**s08 Context Compact**
+└─ 长下文腾空间`"]:::stage2
+
+        S3["`**第三阶段：跨会话记忆**
+━━━━━━━━━━━━━
+**s09 Memory**
+└─ 保存并召回可复用知识`"]:::stage3
 
         S1 ==> S2 ==> S3
     end
@@ -328,11 +358,34 @@ flowchart TD
     %% 第二层：4-6阶段
     subgraph Phase2 ["🚀 阶段 4-6：高阶能力进化（长期、协作与融合）"]
         direction LR
-        S4["<b>第四阶段：让任务长期运行</b><br/>━━━━━━━━━━━━━<br/><b>s10 Task System</b><br/>└─ 任务落盘记依赖<br/><br/><b>s11 Background Tasks</b><br/>└─ 慢操作丢后台<br/><br/><b>s12 Cron Scheduler</b><br/>└─ 按时自动触发"]:::stage4
+        S4["`**第四阶段：让任务长期运行**
+━━━━━━━━━━━━━
+**s10 Task System**
+└─ 任务落盘记依赖
 
-        S5["<b>第五阶段：让多个 Agent 协作</b><br/>━━━━━━━━━━━━━<br/><b>s13 Agent Teams</b><br/>└─ 队友 + 消息投递 + 协作协议<br/>└─ 原子认领就绪任务<br/>└─ 任务绑定的 Worktree"]:::stage5
+**s11 Background Tasks**
+└─ 慢操作丢后台
 
-        S6["<b>第六阶段：接外部能力合体</b><br/>━━━━━━━━━━━━━<br/><b>s07 Skill Loading</b><br/>└─ 技能按需展开<br/><br/><b>s14 MCP Plugin</b><br/>└─ 外部接进工具池<br/><br/><b>s15 Agent Harness 集成</b><br/>└─ 课程机制回到同一循环"]:::stage6
+**s12 Cron Scheduler**
+└─ 按时自动触发`"]:::stage4
+
+        S5["`**第五阶段：让多个 Agent 协作**
+━━━━━━━━━━━━━
+**s13 Agent Teams**
+└─ 队友 + 消息投递 + 协作协议
+└─ 原子认领就绪任务
+└─ 任务绑定的 Worktree`"]:::stage5
+
+        S6["`**第六阶段：接外部能力合体**
+━━━━━━━━━━━━━
+**s07 Skill Loading**
+└─ 技能按需展开
+
+**s14 MCP Plugin**
+└─ 外部接进工具池
+
+**s15 Agent Harness 集成**
+└─ 课程机制回到同一循环`"]:::stage6
 
         S4 ==> S5 ==> S6
     end
@@ -340,11 +393,17 @@ flowchart TD
     %% 第三层：编排与目标闭环
     subgraph Phase3 ["🎯 第七阶段：编排与目标闭环"]
         direction LR
-        S7["<b>第七阶段：编排并完成</b><br/>━━━━━━━━━━━━━<br/><b>s16 Workflow Runtime</b><br/>└─ 脚本拥有固定编排<br/><br/><b>s17 Goal Loop</b><br/>└─ 独立判断决定何时停止"]:::stage1
-        S6 ==> S7
+        S7["`**第七阶段：编排并完成**
+━━━━━━━━━━━━━
+**s16 Workflow Runtime**
+└─ 脚本拥有固定编排
+
+**s17 Goal Loop**
+└─ 独立判断决定何时停止`"]:::stage1
     end
 
-    %% 将三个模块连接起来，形成 Z 字形阅读流
+    %% 连接三个阶段分组
+    %% Link groups, not their nodes, to preserve each group's LR direction.
     Phase1 ===> Phase2 ===> Phase3
 
     %% 应用背景样式

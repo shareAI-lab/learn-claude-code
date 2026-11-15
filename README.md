@@ -247,14 +247,20 @@ This is a 0-to-1 harness engineering course. Each chapter isolates one mechanism
 Main line: act → handle complex work → remember across sessions → run long tasks → collaborate → extend and assemble → orchestrate and close goals.
 
 ```mermaid
+---
+config:
+  htmlLabels: false
+  flowchart:
+    wrappingWidth: 260
+---
 flowchart TD
     %% Card styles
-    classDef stage1 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#0D47A1,rx:12,ry:12,text-align:left
-    classDef stage2 fill:#E8F5E9,stroke:#388E3C,stroke-width:2px,color:#1B5E20,rx:12,ry:12,text-align:left
-    classDef stage3 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#E65100,rx:12,ry:12,text-align:left
-    classDef stage4 fill:#FCE4EC,stroke:#C2185b,stroke-width:2px,color:#880E4F,rx:12,ry:12,text-align:left
-    classDef stage5 fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C,rx:12,ry:12,text-align:left
-    classDef stage6 fill:#E0F7FA,stroke:#0097A7,stroke-width:2px,color:#006064,rx:12,ry:12,text-align:left
+    classDef stage1 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#0D47A1,rx:12,ry:12,text-align:center
+    classDef stage2 fill:#E8F5E9,stroke:#388E3C,stroke-width:2px,color:#1B5E20,rx:12,ry:12,text-align:center
+    classDef stage3 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#E65100,rx:12,ry:12,text-align:center
+    classDef stage4 fill:#FCE4EC,stroke:#C2185b,stroke-width:2px,color:#880E4F,rx:12,ry:12,text-align:center
+    classDef stage5 fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C,rx:12,ry:12,text-align:center
+    classDef stage6 fill:#E0F7FA,stroke:#0097A7,stroke-width:2px,color:#006064,rx:12,ry:12,text-align:center
 
     %% Group style
     classDef groupBox fill:#F8F9FA,stroke:#CED4DA,stroke-width:2px,stroke-dasharray: 5 5,rx:15,ry:15,color:#495057
@@ -262,11 +268,35 @@ flowchart TD
     %% Layer 1: stages 1-3
     subgraph Phase1 ["🌱 Stages 1-3: Core capabilities (simple to complex)"]
         direction LR
-        S1["<b>1. Let the Agent act</b><br/>━━━━━━━━━━━━━<br/><b>s01 Agent Loop</b><br/>└─ one loop + bash<br/><br/><b>s02 Tool Use</b><br/>└─ one tool to many tools<br/><br/><b>s03 Permission</b><br/>└─ decide what can run<br/><br/><b>s04 Hooks</b><br/>└─ extension points around tools"]:::stage1
+        S1["`**1. Let the Agent act**
+━━━━━━━━━━━━━
+**s01 Agent Loop**
+└─ one loop + bash
 
-        S2["<b>2. Handle complex work</b><br/>━━━━━━━━━━━━━<br/><b>s05 TodoWrite</b><br/>└─ plan first, then execute<br/><br/><b>s06 Subagent</b><br/>└─ fresh messages, final text back<br/><br/><b>s08 Context Compact</b><br/>└─ make room in long context"]:::stage2
+**s02 Tool Use**
+└─ one tool to many tools
 
-        S3["<b>3. Remember across sessions</b><br/>━━━━━━━━━━━━━<br/><b>s09 Memory</b><br/>└─ persist and recall reusable knowledge"]:::stage3
+**s03 Permission**
+└─ decide what can run
+
+**s04 Hooks**
+└─ extension points around tools`"]:::stage1
+
+        S2["`**2. Handle complex work**
+━━━━━━━━━━━━━
+**s05 TodoWrite**
+└─ plan first, then execute
+
+**s06 Subagent**
+└─ fresh messages, final text back
+
+**s08 Context Compact**
+└─ make room in long context`"]:::stage2
+
+        S3["`**3. Remember across sessions**
+━━━━━━━━━━━━━
+**s09 Memory**
+└─ persist and recall reusable knowledge`"]:::stage3
 
         S1 ==> S2 ==> S3
     end
@@ -274,11 +304,34 @@ flowchart TD
     %% Layer 2: stages 4-6
     subgraph Phase2 ["🚀 Stages 4-6: Advanced capabilities (long-running, collaboration, integration)"]
         direction LR
-        S4["<b>4. Run long tasks</b><br/>━━━━━━━━━━━━━<br/><b>s10 Task System</b><br/>└─ persist tasks and deps<br/><br/><b>s11 Background Tasks</b><br/>└─ send slow work background<br/><br/><b>s12 Cron Scheduler</b><br/>└─ trigger by time"]:::stage4
+        S4["`**4. Run long tasks**
+━━━━━━━━━━━━━
+**s10 Task System**
+└─ persist tasks and deps
 
-        S5["<b>5. Coordinate many Agents</b><br/>━━━━━━━━━━━━━<br/><b>s13 Agent Teams</b><br/>└─ teammates + delivery + protocols<br/>└─ atomic task claims<br/>└─ task-bound worktrees"]:::stage5
+**s11 Background Tasks**
+└─ send slow work background
 
-        S6["<b>6. Extend and assemble</b><br/>━━━━━━━━━━━━━<br/><b>s07 Skill Loading</b><br/>└─ expand skills on demand<br/><br/><b>s14 MCP Plugin</b><br/>└─ external tools, one pool<br/><br/><b>s15 Integrated Harness</b><br/>└─ course mechanisms, one loop"]:::stage6
+**s12 Cron Scheduler**
+└─ trigger by time`"]:::stage4
+
+        S5["`**5. Coordinate many Agents**
+━━━━━━━━━━━━━
+**s13 Agent Teams**
+└─ teammates + delivery + protocols
+└─ atomic task claims
+└─ task-bound worktrees`"]:::stage5
+
+        S6["`**6. Extend and assemble**
+━━━━━━━━━━━━━
+**s07 Skill Loading**
+└─ expand skills on demand
+
+**s14 MCP Plugin**
+└─ external tools, one pool
+
+**s15 Integrated Harness**
+└─ course mechanisms, one loop`"]:::stage6
 
         S4 ==> S5 ==> S6
     end
@@ -286,11 +339,17 @@ flowchart TD
     %% Layer 3: orchestration and goal closure
     subgraph Phase3 ["🎯 Stage 7: Orchestration and goal closure"]
         direction LR
-        S7["<b>7. Orchestrate and finish</b><br/>━━━━━━━━━━━━━<br/><b>s16 Workflow Runtime</b><br/>└─ scripts own fixed orchestration<br/><br/><b>s17 Goal Loop</b><br/>└─ independent evaluation decides when to stop"]:::stage1
-        S6 ==> S7
+        S7["`**7. Orchestrate and finish**
+━━━━━━━━━━━━━
+**s16 Workflow Runtime**
+└─ scripts own fixed orchestration
+
+**s17 Goal Loop**
+└─ independent evaluation decides when to stop`"]:::stage1
     end
 
     %% Connect the three layers
+    %% Link groups, not their nodes, to preserve each group's LR direction.
     Phase1 ===> Phase2 ===> Phase3
 
     class Phase1,Phase2,Phase3 groupBox
