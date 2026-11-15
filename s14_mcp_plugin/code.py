@@ -320,6 +320,11 @@ BUILTIN_TOOLS = [*BASE_TOOLS, CONNECT_TOOL]
 BUILTIN_HANDLERS = {**BASE_HANDLERS, "connect_mcp": run_connect_mcp}
 
 
+def make_mcp_handler(client: MCPClient, tool: str):
+    """Bind client and tool in a closure so tool input cannot replace them."""
+    return lambda **kwargs: client.call_tool(tool, kwargs)
+
+
 def assemble_tool_pool() -> tuple[list[dict], dict[str, callable]]:
     """Combine built-in tools with every connected server tool."""
     global mcp_tool_policies
@@ -354,10 +359,7 @@ def assemble_tool_pool() -> tuple[list[dict], dict[str, callable]]:
                 "description": tool_def.get("description", ""),
                 "input_schema": schema,
             })
-            handlers[prefixed] = (
-                lambda *, client=server, tool=raw_name, **kwargs:
-                client.call_tool(tool, kwargs)
-            )
+            handlers[prefixed] = make_mcp_handler(server, raw_name)
             policies[prefixed] = MCP_HOST_POLICY.get(
                 (server_name, raw_name), "confirm"
             )

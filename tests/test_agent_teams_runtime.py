@@ -648,6 +648,21 @@ class AgentTeamsRuntimeTests(unittest.TestCase):
                             "Permission denied by user",
                         )
 
+    def test_mcp_handlers_ignore_a_tool_key_in_the_tool_input(self):
+        for lesson_path in MCP_LESSONS:
+            with self.subTest(lesson=lesson_path.parent.name):
+                with tempfile.TemporaryDirectory() as tmp:
+                    lesson = load_lesson(Path(tmp), lesson_path)
+                    lesson.connect_mcp("deploy")
+                    _tools, handlers = lesson.assemble_tool_pool()
+
+                    output = handlers["mcp__deploy__status"](
+                        service="web", tool="trigger"
+                    )
+
+                    self.assertNotIn("Triggered", output)
+                    self.assertIn("unexpected keyword argument 'tool'", output)
+
     def test_integrated_permission_requires_approval_for_every_shell_command(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
