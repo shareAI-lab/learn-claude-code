@@ -25,10 +25,12 @@ policy, hooks, and lifecycle controls on top.
 """
 
 import os
+import platform
 import subprocess
 
 try:
     import readline
+
     # #143 UTF-8 backspace fix for macOS libedit
     readline.parse_and_bind('set bind-tty-special-chars off')
     readline.parse_and_bind('set input-meta on')
@@ -49,10 +51,14 @@ if os.getenv("ANTHROPIC_BASE_URL"):
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
-SYSTEM = f"You are a coding agent at {os.getcwd()}. Use bash to solve tasks. Act, don't explain."
+SYSTEM = f"""You are a coding agent running on {platform.system()} at {os.getcwd()}.
+You MUST use dos commands on Windows. NEVER use Linux/Unix commands like "ls", "cat", or "grep" on Windows.
+On Linux/macOS, use bash commands.
+Act and respond with commands only; do not explain or comment.
+"""
 
 TOOLS = [{
-    "name": "bash",
+    "name": "run_command",
     "description": "Run a shell command.",
     "input_schema": {
         "type": "object",
@@ -62,8 +68,19 @@ TOOLS = [{
 }]
 
 
-def run_bash(command: str) -> str:
-    dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
+def run_command(command: str) -> str:
+    dangerous = [
+        # Linux / macOS
+        "rm -rf /", "rm -rf /*", "shutdown", "reboot", "halt", "poweroff",
+        ":(){:|:&};:", "> /dev/", "mkfs", "dd if=",
+
+        # Windows
+        "format", "del /f", "rd /s", "shutdown", "taskkill",
+        "powershell -command", "Remove-Item", "Stop-Computer",
+
+        # 通用危险符号
+        "sudo"
+    ]
     if any(d in command for d in dangerous):
         return "Error: Dangerous command blocked"
     try:
@@ -94,7 +111,7 @@ def agent_loop(messages: list):
         for block in response.content:
             if block.type == "tool_use":
                 print(f"\033[33m$ {block.input['command']}\033[0m")
-                output = run_bash(block.input["command"])
+                output = run_command(block.input["command"])
                 print(output[:200])
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": output})

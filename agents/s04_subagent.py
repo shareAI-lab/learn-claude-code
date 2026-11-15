@@ -56,8 +56,20 @@ def safe_path(p: str) -> Path:
         raise ValueError(f"Path escapes workspace: {p}")
     return path
 
-def run_bash(command: str) -> str:
-    dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
+
+def run_command(command: str) -> str:
+    dangerous = [
+        # Linux / macOS
+        "rm -rf /", "rm -rf /*", "shutdown", "reboot", "halt", "poweroff",
+        ":(){:|:&};:", "> /dev/", "mkfs", "dd if=",
+
+        # Windows
+        "format", "del /f", "rd /s", "shutdown", "taskkill",
+        "powershell -command", "Remove-Item", "Stop-Computer",
+
+        # 通用危险符号
+        "sudo"
+    ]
     if any(d in command for d in dangerous):
         return "Error: Dangerous command blocked"
     try:
@@ -70,6 +82,7 @@ def run_bash(command: str) -> str:
     except (FileNotFoundError, OSError) as e:
         return f"Error: {e}"
 
+
 def run_read(path: str, limit: int = None) -> str:
     try:
         lines = safe_path(path).read_text(encoding="utf-8").splitlines()
@@ -79,6 +92,7 @@ def run_read(path: str, limit: int = None) -> str:
     except Exception as e:
         return f"Error: {e}"
 
+
 def run_write(path: str, content: str) -> str:
     try:
         fp = safe_path(path)
@@ -87,6 +101,7 @@ def run_write(path: str, content: str) -> str:
         return f"Wrote {len(content)} bytes"
     except Exception as e:
         return f"Error: {e}"
+
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     try:
@@ -101,22 +116,26 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
 
 
 TOOL_HANDLERS = {
-    "bash":       lambda **kw: run_bash(kw["command"]),
-    "read_file":  lambda **kw: run_read(kw["path"], kw.get("limit")),
+    "run_command": lambda **kw: run_command(kw["command"]),
+    "read_file": lambda **kw: run_read(kw["path"], kw.get("limit")),
     "write_file": lambda **kw: run_write(kw["path"], kw["content"]),
-    "edit_file":  lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"]),
+    "edit_file": lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"]),
 }
 
 # Child gets all base tools except task (no recursive spawning)
 CHILD_TOOLS = [
-    {"name": "bash", "description": "Run a shell command.",
+    {"name": "run_command", "description": "Run a shell command.",
      "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
     {"name": "read_file", "description": "Read file contents.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["path"]}},
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "limit": {"type": "integer"}},
+                      "required": ["path"]}},
     {"name": "write_file", "description": "Write content to file.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}},
+                      "required": ["path", "content"]}},
     {"name": "edit_file", "description": "Replace exact text in file.",
-     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
+     "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"},
+                                                       "new_text": {"type": "string"}},
+                      "required": ["path", "old_text", "new_text"]}},
 ]
 
 
@@ -144,8 +163,11 @@ def run_subagent(prompt: str) -> str:
 
 # -- Parent tools: base tools + task dispatcher --
 PARENT_TOOLS = CHILD_TOOLS + [
-    {"name": "task", "description": "Spawn a subagent with fresh context. It shares the filesystem but not conversation history.",
-     "input_schema": {"type": "object", "properties": {"prompt": {"type": "string"}, "description": {"type": "string", "description": "Short description of the task"}}, "required": ["prompt"]}},
+    {"name": "task",
+     "description": "Spawn a subagent with fresh context. It shares the filesystem but not conversation history.",
+     "input_schema": {"type": "object", "properties": {"prompt": {"type": "string"}, "description": {"type": "string",
+                                                                                                     "description": "Short description of the task"}},
+                      "required": ["prompt"]}},
 ]
 
 
