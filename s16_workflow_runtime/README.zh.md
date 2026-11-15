@@ -43,15 +43,23 @@ async def sample_workflow(ctx, args):
 
 `Workflow` 会加入 s15 宿主已有的工具池。用户可以要求运行一个保存好的 workflow，模型也可以在任务匹配已知编排时选择这个工具。适配器会用名称查询宿主管理的 `WORKFLOWS` registry，再把可信的元数据和函数交给运行时；s15 的其他工具仍在同一个循环里可用。
 
+工具描述会列出每个已保存 workflow 的名称和用途，`name` 的枚举值也来自同一个 registry。这样模型就能看到可调用的 workflow，包括 `review-changes`。
+
 模型可见的 schema 只接受 `name`、`args` 和 `resume_from_run_id`。名称未知或参数格式错误时，适配器会返回错误工具结果，不会让宿主循环退出。随后运行时校验已经注册的元数据、经过权限检查、注册本地 workflow 任务，并在执行脚本前发出 `async_launched`。进度事件和最终的 `task_notification` 随后到达；调用返回可写入 JSON 的启动信息、结果和任务状态。
 
 ```python
 WORKFLOW_TOOL = {
     "name": "Workflow",
+    "description": (
+        "Run a saved workflow by name. Pass input in args. Available workflows:\n"
+        + "\n".join(
+            f"{name}: {meta['description']}" for name, (meta, _) in WORKFLOWS.items()
+        )
+    ),
     "input_schema": {
         "type": "object",
         "properties": {
-            "name": {"type": "string"},
+            "name": {"type": "string", "enum": list(WORKFLOWS)},
             "args": {"type": "object"},
             "resume_from_run_id": {"type": "string"},
         },

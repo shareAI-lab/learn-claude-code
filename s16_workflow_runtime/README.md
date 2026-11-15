@@ -43,15 +43,23 @@ async def sample_workflow(ctx, args):
 
 `Workflow` is added to the s15 host's existing tool pool. The user can request a saved workflow, or the model can select it when a task matches a known orchestration. The adapter resolves the name through the host-owned `WORKFLOWS` registry, then passes its trusted metadata and function to the runtime. The other s15 tools remain available in the same loop.
 
+The tool description lists each saved workflow's name and purpose. The `name` enum comes from the same registry, so the model can see which workflows it can call, including `review-changes`.
+
 The model-facing schema accepts `name`, `args`, and `resume_from_run_id`. Unknown names and malformed arguments become an error tool result instead of ending the host loop. The runtime then validates the registered metadata, checks permissions, registers a local workflow task, and emits `async_launched` before running the script. Progress events follow, then the final `task_notification`; the call returns JSON-safe launch information, result, and task state.
 
 ```python
 WORKFLOW_TOOL = {
     "name": "Workflow",
+    "description": (
+        "Run a saved workflow by name. Pass input in args. Available workflows:\n"
+        + "\n".join(
+            f"{name}: {meta['description']}" for name, (meta, _) in WORKFLOWS.items()
+        )
+    ),
     "input_schema": {
         "type": "object",
         "properties": {
-            "name": {"type": "string"},
+            "name": {"type": "string", "enum": list(WORKFLOWS)},
             "args": {"type": "object"},
             "resume_from_run_id": {"type": "string"},
         },

@@ -318,6 +318,25 @@ def test_workflow_tool_extends_the_integrated_host_pool() -> None:
 
     assert [tool["name"] for tool in tools] == ["bash", "Workflow"]
     assert handlers["Workflow"] is workflow.run_workflow_sync
+    description = tools[1]["description"]
+    for name, (meta, _script) in workflow.WORKFLOWS.items():
+        assert f"{name}: {meta['description']}" in description
+
+
+def test_workflow_tool_schema_accepts_only_registered_names() -> None:
+    workflow = load_lesson(
+        "workflow_discovery_test", ROOT / "s16_workflow_runtime" / "code.py"
+    )
+    schema = workflow.SimpleJsonSchema(workflow.WORKFLOW_TOOL["input_schema"])
+
+    for name in workflow.WORKFLOWS:
+        assert schema.validate({"name": name}) == (True, None)
+        assert schema.validate({
+            "name": name,
+            "args": {"changes": "example change"},
+            "resume_from_run_id": "wf_review-changes_0000000000001a7b",
+        }) == (True, None)
+    assert schema.validate({"name": "not-registered"})[0] is False
 
 
 def test_anthropic_runner_parses_json_and_records_real_usage() -> None:

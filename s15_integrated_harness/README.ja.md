@@ -134,7 +134,7 @@ S15 には 2 層の plan がある：
 S15 には 2 種類の delegation がある：
 
 - `task`: one-shot subagent。独立した `messages[]` を使い、中間 context を捨て、final summary だけ返す。
-- `spawn_teammate`: persistent teammate thread。ready `task_id` を渡すと、runtime は thread 開始前に Claim する。省略した場合、teammate は IDLE で後続 Task を待てる。assignment がない teammate は file tool と Shell tool を使えない。固定の tool round 上限なしで `WORK → result → IDLE` を続け、model または dispatch の失敗は `error` を送り、thread cleanup は未完了 assignment を task board へ戻す。model call の前には毎回 inbox を読み、direct message や shutdown request が連続する tool-use round の後ろで待ち続けないようにする。idle 中はまず `MessageBus` を待ち、timeout 後だけ ready task を scan して最大 1 件を atomic に claim する。
+- `spawn_teammate`: persistent teammate thread。ready `task_id` を渡すと、runtime は thread 開始前に Claim する。省略した場合、teammate は IDLE で後続 Task を待てる。assignment がない teammate は file tool と Shell tool を使えない。固定の tool round 上限なしで `WORK → result → IDLE` を続け、model または dispatch の失敗は `error` を送り、thread cleanup は未完了 assignment を task board へ戻す。model call の前には毎回 inbox を読み、direct message や shutdown request が連続する tool-use round の後ろで待ち続けないようにする。idle 中はまず `MessageBus` を待ち、timeout 後は自分の未完了 assignment を再開してから ready task を scan し、最大 1 件を atomic に claim する。
 
 Lead は teammate を起動した後、model loop 内で status を繰り返し確認せず、現在の turn を終了する。Lead の受信箱に team event が入ると runtime が次の turn を開始する。
 
