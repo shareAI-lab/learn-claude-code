@@ -732,11 +732,16 @@ WORKFLOWS = {SAMPLE_META["name"]: (SAMPLE_META, sample_workflow)}
 
 WORKFLOW_TOOL = {
     "name": "Workflow",
-    "description": "Run a saved workflow by name. Pass input in args.",
+    "description": (
+        "Run a saved workflow by name. Pass input in args. Available workflows:\n"
+        + "\n".join(
+            f"{name}: {meta['description']}" for name, (meta, _) in WORKFLOWS.items()
+        )
+    ),
     "input_schema": {
         "type": "object",
         "properties": {
-            "name": {"type": "string"},
+            "name": {"type": "string", "enum": list(WORKFLOWS)},
             "args": {"type": "object"},
             "resume_from_run_id": {"type": "string"},
         },
