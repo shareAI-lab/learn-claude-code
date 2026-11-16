@@ -20,7 +20,12 @@ Need: pip install anthropic python-dotenv + .env with ANTHROPIC_API_KEY
     .worktrees/   optional task-bound working directories
 """
 
-import fcntl
+try:
+    import fcntl  # POSIX cross-process file locking.
+except ImportError:  # Windows has no fcntl module; msvcrt.locking is the equivalent.
+    fcntl = None
+    import msvcrt
+
 import json
 import os
 import random
@@ -67,6 +72,38 @@ teammate_assignments: dict[str, dict[str, object]] = {}
 assignment_versions: dict[str, int] = {}
 
 
+def _lock_file(handle, blocking: bool = True) -> None:
+    """Take an exclusive cross-process lock on `handle`.
+
+    POSIX locks with fcntl.flock; Windows locks the same file with msvcrt.locking,
+    so a teammate started from another shell still conflicts with this one. On
+    Windows the blocking form retries for about ten seconds before raising OSError.
+    """
+    if fcntl is not None:
+        flags = fcntl.LOCK_EX if blocking else fcntl.LOCK_EX | fcntl.LOCK_NB
+        fcntl.flock(handle.fileno(), flags)
+        return
+    handle.seek(0)
+    try:
+        msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK if blocking else msvcrt.LK_NBLCK, 1)
+    except OSError as exc:
+        if blocking:
+            raise
+        raise BlockingIOError(str(exc)) from exc
+
+
+def _unlock_file(handle) -> None:
+    """Release the lock taken by `_lock_file`."""
+    if fcntl is not None:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        return
+    handle.seek(0)
+    try:
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+    except OSError:
+        pass
+
+
 @contextmanager
 def task_store_lock():
     """Serialize task mutations across threads and host processes."""
@@ -75,7 +112,7 @@ def task_store_lock():
         if depth == 0:
             TASKS_DIR.mkdir(parents=True, exist_ok=True)
             handle = TASK_LOCK_PATH.open("a+", encoding="utf-8")
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            _lock_file(handle)
             _task_store_state.handle = handle
         _task_store_state.depth = depth + 1
         try:
@@ -84,7 +121,7 @@ def task_store_lock():
             _task_store_state.depth -= 1
             if _task_store_state.depth == 0:
                 handle = _task_store_state.handle
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                _unlock_file(handle)
                 handle.close()
                 del _task_store_state.handle
 
@@ -1847,6 +1884,27 @@ def print_last_assistant_message(history: list):
             print(block.get("text", ""))
 
 
+def _stdin_ready(timeout: float) -> bool:
+    """True when a line is waiting on stdin within `timeout` seconds.
+
+    POSIX can select() on stdin. Windows can only select() sockets, so the
+    console is polled with msvcrt.kbhit() instead; redirected input has no
+    console at all, so report ready and let readline() decide (this keeps
+    `echo q | python s13_agent_teams/code.py` working).
+    """
+    if os.name != "nt":
+        readable, _, _ = select.select([sys.stdin], [], [], timeout)
+        return bool(readable)
+    if not getattr(sys.stdin, "isatty", lambda: False)():
+        return True
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if msvcrt.kbhit():
+            return True
+        time.sleep(0.02)
+    return False
+
+
 def wait_for_cli_event() -> tuple[str, str | None]:
     prompt_visible = False
     while True:
@@ -1857,8 +1915,7 @@ def wait_for_cli_event() -> tuple[str, str | None]:
         if not prompt_visible:
             print("s13 >> ", end="", flush=True)
             prompt_visible = True
-        readable, _, _ = select.select([sys.stdin], [], [], 0.25)
-        if readable:
+        if _stdin_ready(0.25):
             line = sys.stdin.readline()
             if line == "":
                 return "quit", None

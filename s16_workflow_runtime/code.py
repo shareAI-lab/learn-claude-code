@@ -19,7 +19,12 @@ Run:
 """
 
 import asyncio
-import fcntl
+try:
+    import fcntl  # POSIX cross-process file locking.
+except ImportError:  # Windows has no fcntl module; msvcrt.locking is the equivalent.
+    fcntl = None
+    import msvcrt
+
 import hashlib
 import importlib.util
 import json
@@ -93,6 +98,38 @@ _run_locks_guard = threading.Lock()
 _run_locks: dict[str, threading.Lock] = {}
 
 
+def _lock_file(handle, blocking: bool = True) -> None:
+    """Take an exclusive cross-process lock on `handle`.
+
+    POSIX locks with fcntl.flock; Windows locks the same file with msvcrt.locking,
+    so a run started from another shell still conflicts with this one. On Windows
+    the blocking form retries for about ten seconds before raising OSError.
+    """
+    if fcntl is not None:
+        flags = fcntl.LOCK_EX if blocking else fcntl.LOCK_EX | fcntl.LOCK_NB
+        fcntl.flock(handle.fileno(), flags)
+        return
+    handle.seek(0)
+    try:
+        msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK if blocking else msvcrt.LK_NBLCK, 1)
+    except OSError as exc:
+        if blocking:
+            raise
+        raise BlockingIOError(str(exc)) from exc
+
+
+def _unlock_file(handle) -> None:
+    """Release the lock taken by `_lock_file`."""
+    if fcntl is not None:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        return
+    handle.seek(0)
+    try:
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+    except OSError:
+        pass
+
+
 @contextmanager
 def workflow_run_lock(run_id: str):
     """Hold one run across threads and host processes for its full lifecycle."""
@@ -106,7 +143,7 @@ def workflow_run_lock(run_id: str):
         STORE.mkdir(parents=True, exist_ok=True)
         handle = (STORE / f"{run_id}.lock").open("a+", encoding="utf-8")
         try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            _lock_file(handle, blocking=False)
         except BlockingIOError as exc:
             raise WorkflowInputError(
                 f"workflow run {run_id} is already active"
@@ -115,7 +152,7 @@ def workflow_run_lock(run_id: str):
     finally:
         if handle is not None:
             try:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                _unlock_file(handle)
             finally:
                 handle.close()
         local_lock.release()
