@@ -78,8 +78,8 @@ def create_task(subject: str, description: str = "") -> Task:
 ### update_task: Add Dependencies with Returned IDs
 
 ```python
-def update_task(task_id: str, addBlockedBy: list[str]) -> Task:
-    return TASKS.update_dependencies(task_id, addBlockedBy)
+def update_task(task_id: str, add_blocked_by: list[str]) -> Task:
+    return TASKS.update_dependencies(task_id, add_blocked_by)
 ```
 
 Task graph construction uses two phases: create every node first, then call `update_task` with the IDs returned by `create_task` to add edges. This matters when the model emits several tool calls in one response: sibling calls are formed before any tool result exists, so one `create_task` call cannot consume another call's newly generated ID.
@@ -176,9 +176,9 @@ tests = create_task("write tests")
 docs = create_task("write docs")
 
 # Phase 2: add edges using those returned IDs
-update_task(endpoints.id, addBlockedBy=[schema.id])
-update_task(tests.id, addBlockedBy=[endpoints.id])
-update_task(docs.id, addBlockedBy=[schema.id])
+update_task(endpoints.id, add_blocked_by=[schema.id])
+update_task(tests.id, add_blocked_by=[endpoints.id])
+update_task(docs.id, add_blocked_by=[schema.id])
 
 # Agent claims the first available task
 claim_task(schema.id)       # ✓ Claimed (no dependencies)
@@ -223,4 +223,4 @@ The task graph is in place, but full test suites, dependency installation, and d
 s11 Background Tasks → Slow operations run in the background. The Agent Loop can continue processing other tasks and receives a notification when the background work finishes.
 
 
-<!-- translation-sync: zh@v5, en@v5, ja@v5 -->
+<!-- translation-sync: zh@v6, en@v6, ja@v6 -->

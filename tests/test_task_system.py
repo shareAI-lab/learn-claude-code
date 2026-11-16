@@ -89,7 +89,7 @@ def test_s10_keeps_the_s04_kernel_and_adds_task_tools() -> None:
         update_schema = tools["update_task"]["input_schema"]
         assert "blockedBy" not in create_schema["properties"]
         assert create_schema["additionalProperties"] is False
-        assert update_schema["required"] == ["task_id", "addBlockedBy"]
+        assert update_schema["required"] == ["task_id", "add_blocked_by"]
 
 
 def test_dependencies_gate_claim_and_completion_checks_owner() -> None:
@@ -130,13 +130,13 @@ def test_dependencies_are_added_after_create_returns_runtime_ids() -> None:
 
         update_results = [
             lesson.execute_tool(tool_call(
-                "update_task", task_id=api_id, addBlockedBy=[schema_id]
+                "update_task", task_id=api_id, add_blocked_by=[schema_id]
             )),
             lesson.execute_tool(tool_call(
-                "update_task", task_id=tests_id, addBlockedBy=[api_id]
+                "update_task", task_id=tests_id, add_blocked_by=[api_id]
             )),
             lesson.execute_tool(tool_call(
-                "update_task", task_id=docs_id, addBlockedBy=[schema_id]
+                "update_task", task_id=docs_id, add_blocked_by=[schema_id]
             )),
         ]
 
@@ -185,10 +185,10 @@ def test_update_rejects_invalid_graph_changes_without_partial_mutation() -> None
         missing = lesson.execute_tool(tool_call(
             "update_task",
             task_id=target.id,
-            addBlockedBy=[dependency.id, "task_00000000"],
+            add_blocked_by=[dependency.id, "task_00000000"],
         ))
         self_dependency = lesson.execute_tool(tool_call(
-            "update_task", task_id=target.id, addBlockedBy=[target.id]
+            "update_task", task_id=target.id, add_blocked_by=[target.id]
         ))
 
         assert missing == "Error: Dependency not found: task_00000000"
@@ -208,7 +208,7 @@ def test_update_is_idempotent_and_rejects_cycles_or_started_tasks() -> None:
         lesson.update_task(third.id, [second.id])
 
         cycle = lesson.execute_tool(tool_call(
-            "update_task", task_id=first.id, addBlockedBy=[third.id]
+            "update_task", task_id=first.id, add_blocked_by=[third.id]
         ))
         assert cycle.startswith("Error: Dependency cycle detected")
         assert lesson.load_task(first.id).blockedBy == []
@@ -216,7 +216,7 @@ def test_update_is_idempotent_and_rejects_cycles_or_started_tasks() -> None:
 
         assert "Claimed" in lesson.claim_task(first.id)
         started = lesson.execute_tool(tool_call(
-            "update_task", task_id=first.id, addBlockedBy=[second.id]
+            "update_task", task_id=first.id, add_blocked_by=[second.id]
         ))
         assert "only be updated while pending and unowned" in started
 

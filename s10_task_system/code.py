@@ -147,7 +147,7 @@ class TaskStore:
     def update_dependencies(self, task_id: str,
                             add_blocked_by: list[str]) -> Task:
         if not isinstance(add_blocked_by, list):
-            raise ValueError("addBlockedBy must be a list of task IDs")
+            raise ValueError("add_blocked_by must be a list of task IDs")
 
         task = self.load(task_id)
         if task.status != "pending" or task.owner is not None:
@@ -206,8 +206,8 @@ def create_task(subject: str, description: str = "") -> Task:
     return TASKS.create(subject, description)
 
 
-def update_task(task_id: str, addBlockedBy: list[str]) -> Task:
-    return TASKS.update_dependencies(task_id, addBlockedBy)
+def update_task(task_id: str, add_blocked_by: list[str]) -> Task:
+    return TASKS.update_dependencies(task_id, add_blocked_by)
 
 
 def load_task(task_id: str) -> Task:
@@ -350,8 +350,8 @@ def run_create_task(subject: str, description: str = "") -> str:
     return f"Created {task.id}: {task.subject}"
 
 
-def run_update_task(task_id: str, addBlockedBy: list[str]) -> str:
-    task = update_task(task_id, addBlockedBy)
+def run_update_task(task_id: str, add_blocked_by: list[str]) -> str:
+    task = update_task(task_id, add_blocked_by)
     dependencies = ", ".join(task.blockedBy) or "(none)"
     print(f"  [update] {task.subject} blockedBy: {dependencies}")
     return f"Updated {task.id} blockedBy: {dependencies}"
@@ -406,7 +406,7 @@ TOOLS = [
     {"name": "create_task", "description": "Create a task and return its runtime-generated ID.",
      "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}, "description": {"type": "string"}}, "required": ["subject"], "additionalProperties": False}},
     {"name": "update_task", "description": "Add dependencies using IDs returned by create_task.",
-     "input_schema": {"type": "object", "properties": {"task_id": {"type": "string", "pattern": "^task_[0-9a-f]{8}$"}, "addBlockedBy": {"type": "array", "items": {"type": "string", "pattern": "^task_[0-9a-f]{8}$"}, "minItems": 1}}, "required": ["task_id", "addBlockedBy"], "additionalProperties": False}},
+     "input_schema": {"type": "object", "properties": {"task_id": {"type": "string", "pattern": "^task_[0-9a-f]{8}$"}, "add_blocked_by": {"type": "array", "items": {"type": "string", "pattern": "^task_[0-9a-f]{8}$"}, "minItems": 1}}, "required": ["task_id", "add_blocked_by"], "additionalProperties": False}},
     {"name": "list_tasks", "description": "List tasks with status, owner, and dependencies.",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "get_task", "description": "Get a task by ID.",
