@@ -78,8 +78,8 @@ def create_task(subject: str, description: str = "") -> Task:
 ### update_task: 返された ID で依存を追加
 
 ```python
-def update_task(task_id: str, addBlockedBy: list[str]) -> Task:
-    return TASKS.update_dependencies(task_id, addBlockedBy)
+def update_task(task_id: str, add_blocked_by: list[str]) -> Task:
+    return TASKS.update_dependencies(task_id, add_blocked_by)
 ```
 
 タスクグラフは 2 段階で構築する。まず全ノードを作成し、その後 `create_task` が返した ID を使って `update_task` で辺を追加する。モデルが 1 回の応答で複数のツール呼び出しを出す場合、同じ階層の呼び出しはツール結果が返る前にすべて確定するため、ある `create_task` は別の呼び出しで生成されたばかりの ID を利用できない。
@@ -176,9 +176,9 @@ tests = create_task("write tests")
 docs = create_task("write docs")
 
 # 第 2 段階：返された ID で依存の辺を追加する
-update_task(endpoints.id, addBlockedBy=[schema.id])
-update_task(tests.id, addBlockedBy=[endpoints.id])
-update_task(docs.id, addBlockedBy=[schema.id])
+update_task(endpoints.id, add_blocked_by=[schema.id])
+update_task(tests.id, add_blocked_by=[endpoints.id])
+update_task(docs.id, add_blocked_by=[schema.id])
 
 # Agent が最初に実行可能なタスクを引き受ける
 claim_task(schema.id)       # ✓ Claimed（依存なし）
@@ -223,4 +223,4 @@ python s10_task_system/code.py
 s11 Background Tasks → 遅い操作をバックグラウンドで実行する。Agent は他のタスクの処理を続け、バックグラウンド処理の完了後に通知を受け取る。
 
 
-<!-- translation-sync: zh@v5, en@v5, ja@v5 -->
+<!-- translation-sync: zh@v6, en@v6, ja@v6 -->

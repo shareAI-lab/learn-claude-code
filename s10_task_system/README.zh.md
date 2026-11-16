@@ -78,8 +78,8 @@ def create_task(subject: str, description: str = "") -> Task:
 ### update_task: 使用返回的 ID 添加依赖
 
 ```python
-def update_task(task_id: str, addBlockedBy: list[str]) -> Task:
-    return TASKS.update_dependencies(task_id, addBlockedBy)
+def update_task(task_id: str, add_blocked_by: list[str]) -> Task:
+    return TASKS.update_dependencies(task_id, add_blocked_by)
 ```
 
 任务图采用两阶段构建：先创建所有节点，再使用 `create_task` 返回的 ID 调用 `update_task` 添加边。模型可能在一条回复里同时发出多个工具调用，而这些同级调用在任何工具结果产生前就已经确定，因此某个 `create_task` 无法直接使用另一个调用刚生成的 ID。
@@ -176,9 +176,9 @@ tests = create_task("write tests")
 docs = create_task("write docs")
 
 # 第二阶段：使用返回的 ID 建立依赖边
-update_task(endpoints.id, addBlockedBy=[schema.id])
-update_task(tests.id, addBlockedBy=[endpoints.id])
-update_task(docs.id, addBlockedBy=[schema.id])
+update_task(endpoints.id, add_blocked_by=[schema.id])
+update_task(tests.id, add_blocked_by=[endpoints.id])
+update_task(docs.id, add_blocked_by=[schema.id])
 
 # Agent 认领第一个可做的任务
 claim_task(schema.id)       # ✓ Claimed (无依赖)
@@ -223,4 +223,4 @@ python s10_task_system/code.py
 s11 Background Tasks → 把慢操作放到后台。Agent 可以继续处理其他任务，后台执行完成后再接收通知。
 
 
-<!-- translation-sync: zh@v5, en@v5, ja@v5 -->
+<!-- translation-sync: zh@v6, en@v6, ja@v6 -->
