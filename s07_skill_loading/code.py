@@ -43,7 +43,7 @@ if os.getenv("ANTHROPIC_BASE_URL"):
     os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
 
 WORKDIR = Path.cwd()
-SKILLS_DIR = WORKDIR / "skills"
+SKILLS_DIR = WORKDIR.parent / "skills"
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 ENVIRONMENT_PROMPT = (
