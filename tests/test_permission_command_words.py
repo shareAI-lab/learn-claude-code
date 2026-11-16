@@ -125,3 +125,44 @@ def test_permission_command_words_cover_position_case_and_boundaries(
     result = permission_result(lesson, block)
 
     assert bool(result) is expected
+
+
+OUTSIDE_WORKSPACE_CASES = (
+    # shell reaching outside the workspace prompts, like the file tools
+    ("cat /etc/passwd", True),
+    ("cat ../secrets.txt", True),
+    ("tar -czf backup.tgz ../project", True),
+    ("cd /etc && cat passwd", True),
+    # paths inside the workspace and common sinks stay silent
+    ("cat notes.txt", False),
+    ("echo done > /dev/null", False),
+    ("ls -la", False),
+)
+
+
+@pytest.mark.parametrize("command, expected", OUTSIDE_WORKSPACE_CASES)
+def test_permission_rules_prompt_for_outside_workspace_shell_access(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+    expected: bool,
+) -> None:
+    lesson = load_lesson(tmp_path, ROOT / "s03_permission" / "code.py")
+    monkeypatch.setattr("builtins.input", lambda _prompt: "n")
+    block = types.SimpleNamespace(name="bash", input={"command": command})
+
+    result = lesson.check_rules("bash", block.input)
+
+    assert bool(result) is expected
+
+
+def test_permission_rules_silent_for_absolute_paths_inside_workspace(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lesson = load_lesson(tmp_path, ROOT / "s03_permission" / "code.py")
+    block = types.SimpleNamespace(
+        name="bash", input={"command": f"cat {tmp_path / 'notes.txt'}"}
+    )
+
+    assert lesson.check_rules("bash", block.input) is None
