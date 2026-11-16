@@ -85,6 +85,8 @@ for block in ranked:
 
 This step examines only the latest batch of tool results. The complete output remains available at the saved path, so persistence is the safest operation to run first.
 
+The 30,000-character threshold is not a per-result cap: this step leaves a 50,000-character result intact when its batch stays within 200,000 characters. When the batch exceeds that budget, selected results are saved before the next model call. This step replaces each saved result with its path and first 2,000 characters, so information near the end is absent from that message. The model can search the saved file or request a small excerpt with a tool. Asking for the whole file again may produce another oversized result and repeat the same cycle; request bounded output instead.
+
 
 ## Step 2: snip_compact
 
