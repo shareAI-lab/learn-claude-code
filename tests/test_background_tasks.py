@@ -92,9 +92,12 @@ def test_background_execution_requires_an_explicit_bash_flag():
         )
 
 
-def test_background_bash_passes_permission_before_dispatch():
+def test_background_bash_passes_permission_before_dispatch(monkeypatch):
     with tempfile.TemporaryDirectory() as tmp:
         lesson = load_lesson(Path(tmp))
+        # A scoped delete is not on the hard deny list; the parsed gate routes it
+        # to interactive approval, so answer the prompt with a denial.
+        monkeypatch.setattr("builtins.input", lambda _prompt: "n")
         block = types.SimpleNamespace(
             id="tool_denied",
             name="bash",
