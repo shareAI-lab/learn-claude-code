@@ -134,7 +134,7 @@ S15 同时保留两层计划：
 S15 有两种 delegation：
 
 - `task`：一次性 subagent。独立 `messages[]`，中间过程丢弃，只返回最终摘要。
-- `spawn_teammate`：持久队友线程。传入 ready `task_id` 时，运行时会在线程启动前完成认领；不传时，队友可以在 IDLE 中等待后续任务。没有 assignment 的队友不能使用文件或 Shell 工具。它按 `WORK → result → IDLE` 运行，不设固定的工具轮数上限；模型或分发失败会发出 `error`，线程清理会把未完成 assignment 释放回任务板。每次调用模型前都会先读取收件箱，因此直接消息和关机请求不会被连续的 tool-use 轮次饿死。idle 时先等待 `MessageBus` 消息，只在超时后扫描就绪 task，并以原子操作最多认领一个。
+- `spawn_teammate`：持久队友线程。传入 ready `task_id` 时，运行时会在线程启动前完成认领；不传时，队友可以在 IDLE 中等待后续任务。没有 assignment 的队友不能使用文件或 Shell 工具。它按 `WORK → result → IDLE` 运行，不设固定的工具轮数上限；模型或分发失败会发出 `error`，线程清理会把未完成 assignment 释放回任务板。每次调用模型前都会先读取收件箱，因此直接消息和关机请求不会被连续的 tool-use 轮次饿死。idle 时先等待 `MessageBus` 消息，超时后先恢复自己尚未完成的 assignment，最后才扫描就绪 task，并以原子操作最多认领一个。
 
 Lead 启动队友后结束当前轮次，不在模型循环里反复查询状态。队友事件进入 Lead 收件箱后，运行时会自动唤醒下一轮。
 
@@ -154,7 +154,7 @@ LLM 前先跑压缩管线：
 tool_result_budget → snip_compact → micro_compact → compact_history
 ```
 
-`snip_compact` 会先归档完整历史，再裁掉中段消息。`micro_compact` 只在上下文超限时运行：它先保存较早且已读取的结果，再用恢复路径替换；最近 3 条保持完整，并在接近阈值 80% 时停止。如果未读取的新结果本身过大，S15 会先保留预览和完整输出路径，再考虑总结历史。
+`snip_compact` 在消息数量达到 50 条时归档完整历史，再裁掉中段消息，目标为包含归档标记在内的 30 条。这样为新增消息留出空间，避免立即再次归档，代价是直接保留在上下文中的近期消息更少。工具调用与结果保持配对，因此保留数量可能略高于目标。`micro_compact` 只在上下文超限时运行：它先保存较早且已读取的结果，再用恢复路径替换；最近 3 条保持完整，并在接近阈值 80% 时停止。如果未读取的新结果本身过大，S15 会先保留预览和完整输出路径，再考虑总结历史。
 
 调用模型时再包一层恢复：
 
@@ -242,4 +242,4 @@ python s15_integrated_harness/code.py
 
 [s16 Workflow Runtime](../s16_workflow_runtime/) 会在这个 host 中加入 `Workflow` 工具。Workflow 把固定的编排路径写在代码中，并记录运行进度，使同一次运行可以继续执行。
 
-<!-- translation-sync: zh@v14, en@v14, ja@v14 -->
+<!-- translation-sync: zh@v15, en@v15, ja@v15 -->

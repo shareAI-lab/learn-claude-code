@@ -25,6 +25,33 @@ def load_lesson(name: str, script: Path):
     return module
 
 
+def canonical_workflow_result(result: dict) -> dict:
+    """Normalize progress events whose order is owned by the scheduler.
+
+    `agent()` appends its `workflow_agent` event once the runner returns, and
+    `pipeline()`/`parallel()` intentionally let agents finish in any order, so
+    the relative order of those events is not part of the runtime contract.
+    Phase and log events keep their positions; agent events are compared as a
+    multiset."""
+    task = dict(result["task"])
+    progress = task.pop("progress")
+    task["progress"] = {
+        "ordered": [
+            event for event in progress if event["type"] != "workflow_agent"
+        ],
+        "agents": sorted(
+            (event for event in progress if event["type"] == "workflow_agent"),
+            key=lambda event: (
+                event.get("phase") or "",
+                event.get("label") or "",
+                event.get("status") or "",
+                json.dumps(event, sort_keys=True),
+            ),
+        ),
+    }
+    return {**result, "task": task}
+
+
 def test_s10_scenario_builds_the_task_graph_in_two_phases() -> None:
     steps = load_scenario("s10")["steps"]
     create_calls = [
@@ -205,7 +232,28 @@ def test_s16_scenario_matches_the_deterministic_runtime(tmp_path: Path) -> None:
     actual = asyncio.run(workflow.run_workflow(**call_input))
 
     assert set(call_input) <= set(workflow.WORKFLOW_TOOL["input_schema"]["properties"])
-    assert shown_result == actual
+    assert canonical_workflow_result(shown_result) == canonical_workflow_result(actual)
+
+    progress = actual["task"]["progress"]
+    assert progress[0] == {"type": "workflow_phase", "title": "Review"}
+    assert [event for event in progress if event["type"] != "workflow_agent"] == [
+        {"type": "workflow_phase", "title": "Review"},
+        {"type": "workflow_phase", "title": "Verify"},
+        {"type": "workflow_log", "message": "confirmed 6 real finding(s)"},
+    ]
+    assert progress[-1]["type"] == "workflow_log"
+    verify_phase_index = next(
+        index for index, event in enumerate(progress)
+        if event == {"type": "workflow_phase", "title": "Verify"}
+    )
+    for index, event in enumerate(progress):
+        if event["type"] != "workflow_agent":
+            continue
+        if event["label"].startswith("audit:"):
+            assert event["phase"] == "Review"
+        else:
+            assert event["phase"] == "Verify"
+            assert index > verify_phase_index
 
 
 def test_generated_s16_metadata_extends_s15_without_registry_false_positives() -> None:

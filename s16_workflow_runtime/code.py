@@ -32,6 +32,14 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+WORKFLOW_AGENT_ENVIRONMENT = (
+    "Host OS: Windows. This workflow agent only responds to its supplied step; "
+    "it has no direct shell or file tools."
+    if os.name == "nt"
+    else "Host OS: Unix-like. This workflow agent only responds to its supplied "
+         "step; it has no direct shell or file tools."
+)
+
 # -- Runtime Guards --
 AGENT_CAP = 1000                       # hard cap on agent() calls per run
 CONCURRENCY = 8                        # parallelism cap (semaphore)
@@ -291,9 +299,9 @@ class AnthropicAgentRunner:
         response = self.client.messages.create(
             model=self.model,
             system=(
-                "You are a focused workflow agent. Complete only the supplied "
-                "step. Do not claim access to files or results not included in "
-                "the prompt."
+                "You are a focused workflow agent. Complete only the supplied step. "
+                + f"{WORKFLOW_AGENT_ENVIRONMENT} "
+                + "Do not claim access to files or results not included in the prompt."
             ),
             messages=[{"role": "user", "content": request}],
             max_tokens=2000,
@@ -505,7 +513,14 @@ class ExecutionState:
 
     async def parallel(self, thunks):
         """BARRIER: run all thunks concurrently and fail if any thunk fails."""
-        return await asyncio.gather(*[thunk() for thunk in thunks])
+        # Keep the journal open until every started branch has settled.
+        results = await asyncio.gather(
+            *[thunk() for thunk in thunks], return_exceptions=True
+        )
+        for result in results:
+            if isinstance(result, BaseException):
+                raise result
+        return results
 
     async def pipeline(self, items, *stages):
         """Per-item staged flow, NO barrier between stages: item A can be in
@@ -516,7 +531,9 @@ class ExecutionState:
             for stage in stages:
                 value = await stage(value, item, idx)
             return value
-        return await asyncio.gather(*[run_item(it, i) for i, it in enumerate(items)])
+        return await self.parallel([
+            lambda it=it, i=i: run_item(it, i) for i, it in enumerate(items)
+        ])
 
     async def workflow(self, name, args=None):
         """Run a saved workflow inline as a child (one level), sharing this run's
@@ -715,11 +732,16 @@ WORKFLOWS = {SAMPLE_META["name"]: (SAMPLE_META, sample_workflow)}
 
 WORKFLOW_TOOL = {
     "name": "Workflow",
-    "description": "Run a saved workflow by name. Pass input in args.",
+    "description": (
+        "Run a saved workflow by name. Pass input in args. Available workflows:\n"
+        + "\n".join(
+            f"{name}: {meta['description']}" for name, (meta, _) in WORKFLOWS.items()
+        )
+    ),
     "input_schema": {
         "type": "object",
         "properties": {
-            "name": {"type": "string"},
+            "name": {"type": "string", "enum": list(WORKFLOWS)},
             "args": {"type": "object"},
             "resume_from_run_id": {"type": "string"},
         },
@@ -833,10 +855,16 @@ async def run_demo(argv):
           f"tokens={usage['tokens']}  journal=.runtime/{task['runId']}.journal.jsonl")
 
 
+PROMPT = "\033[36ms16 >> \033[0m"
+# \001/\002 tell Readline the ANSI escapes have zero display width.
+READLINE_PROMPT = "\001\033[36m\002s16 >> \001\033[0m\002"
+
+
 def run_cli():
     """Run the cumulative s15 host with Workflow added to its tool pool."""
     host = load_integrated_host()
     install_workflow_tool(host)
+    host.CONSOLE.set_prompt(PROMPT, READLINE_PROMPT)
     host.CLI_ACTIVE = True
     host.start_runtime_services()
     print("s16: workflow runtime")
@@ -851,10 +879,12 @@ def run_cli():
     ).start()
     while True:
         try:
-            query = host.CONSOLE.ask("\033[36ms16 >> \033[0m")
+            query = host.CONSOLE.ask()
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         with host.agent_lock:
             host.trigger_hooks("UserPromptSubmit", query)

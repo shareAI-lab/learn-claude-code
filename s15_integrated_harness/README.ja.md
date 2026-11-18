@@ -134,7 +134,7 @@ S15 には 2 層の plan がある：
 S15 には 2 種類の delegation がある：
 
 - `task`: one-shot subagent。独立した `messages[]` を使い、中間 context を捨て、final summary だけ返す。
-- `spawn_teammate`: persistent teammate thread。ready `task_id` を渡すと、runtime は thread 開始前に Claim する。省略した場合、teammate は IDLE で後続 Task を待てる。assignment がない teammate は file tool と Shell tool を使えない。固定の tool round 上限なしで `WORK → result → IDLE` を続け、model または dispatch の失敗は `error` を送り、thread cleanup は未完了 assignment を task board へ戻す。model call の前には毎回 inbox を読み、direct message や shutdown request が連続する tool-use round の後ろで待ち続けないようにする。idle 中はまず `MessageBus` を待ち、timeout 後だけ ready task を scan して最大 1 件を atomic に claim する。
+- `spawn_teammate`: persistent teammate thread。ready `task_id` を渡すと、runtime は thread 開始前に Claim する。省略した場合、teammate は IDLE で後続 Task を待てる。assignment がない teammate は file tool と Shell tool を使えない。固定の tool round 上限なしで `WORK → result → IDLE` を続け、model または dispatch の失敗は `error` を送り、thread cleanup は未完了 assignment を task board へ戻す。model call の前には毎回 inbox を読み、direct message や shutdown request が連続する tool-use round の後ろで待ち続けないようにする。idle 中はまず `MessageBus` を待ち、timeout 後は自分の未完了 assignment を再開してから ready task を scan し、最大 1 件を atomic に claim する。
 
 Lead は teammate を起動した後、model loop 内で status を繰り返し確認せず、現在の turn を終了する。Lead の受信箱に team event が入ると runtime が次の turn を開始する。
 
@@ -154,7 +154,7 @@ LLM call の前に compaction pipeline を走らせる：
 tool_result_budget → snip_compact → micro_compact → compact_history
 ```
 
-`snip_compact` は中間メッセージを切る前に完全な履歴を保存する。`micro_compact` はコンテキストが上限を超えた場合にだけ実行し、古い既読結果を保存して復元パスへ置き換え、最新 3 件を完全に保ち、上限の約 80% で停止する。未読の新しい結果自体が大きすぎる場合、S15 は履歴要約を検討する前に preview と完全な出力へのパスを残す。
+`snip_compact` はメッセージ数が 50 件に達すると完全な履歴を保存し、archive marker を含む 30 件を目標に中間メッセージを切り詰める。これにより次の保存までに新しいメッセージを追加する余裕ができるが、context に直接保持する最近のメッセージは少なくなる。tool call と result の組を保護するため、保持件数が目標を少し上回る場合がある。`micro_compact` はコンテキストが上限を超えた場合にだけ実行し、古い既読結果を保存して復元パスへ置き換え、最新 3 件を完全に保ち、上限の約 80% で停止する。未読の新しい結果自体が大きすぎる場合、S15 は履歴要約を検討する前に preview と完全な出力へのパスを残す。
 
 model call は recovery で包む：
 
@@ -242,4 +242,4 @@ python s15_integrated_harness/code.py
 
 [s16 Workflow Runtime](../s16_workflow_runtime/) は、この host に `Workflow` tool を追加する。Workflow は固定された orchestration path を code に置き、進行状況を記録して同じ run を再開できるようにする。
 
-<!-- translation-sync: zh@v14, en@v14, ja@v14 -->
+<!-- translation-sync: zh@v15, en@v15, ja@v15 -->

@@ -51,8 +51,14 @@ WORKDIR = Path.cwd()
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 SYSTEM = (
-    f"You are a coding agent at {WORKDIR}. "
+    f"You are a coding agent at {WORKDIR}. Environment: {ENVIRONMENT_PROMPT}. "
     "Use task tools to track dependencies and progress. Create all task nodes "
     "first. After create_task returns runtime-generated IDs, use update_task "
     "with those exact IDs to add dependencies."
@@ -282,7 +288,7 @@ def run_bash(command: str) -> str:
             shell=True,
             cwd=WORKDIR,
             capture_output=True,
-            text=True,
+            text=True, errors="replace",
             timeout=120,
         )
         output = (result.stdout + result.stderr).strip()
@@ -444,7 +450,14 @@ def trigger_hooks(event: str, *args):
 
 
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
+DESTRUCTIVE_COMMAND_WORD = re.compile(
+    r"(?i)(?:^|[;&|()\n])\s*(?:rm|del)(?=\s|$|[;&|()])"
+)
 DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+
+
+def contains_destructive_command(command: str) -> bool:
+    return bool(DESTRUCTIVE_COMMAND_WORD.search(command))
 
 
 def permission_hook(block):
@@ -454,7 +467,9 @@ def permission_hook(block):
             if pattern in command:
                 print(f"\n\033[31m[blocked] '{pattern}'\033[0m")
                 return "Permission denied by deny list"
-        if any(keyword in command for keyword in DESTRUCTIVE):
+        if contains_destructive_command(command) or any(
+            keyword in command for keyword in DESTRUCTIVE
+        ):
             print("\n\033[33m[permission] Potentially destructive command\033[0m")
             print(f"   Tool: {block.name}({block.input})")
             choice = input("   Allow? [y/N] ").strip().lower()
@@ -570,10 +585,13 @@ if __name__ == "__main__":
     history = []
     while True:
         try:
-            query = input("\033[36ms10 >> \033[0m")
+            # \001/\002 tell Readline the ANSI escapes have zero display width.
+            query = input("\001\033[36m\002s10 >> \001\033[0m\002")
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         trigger_hooks("UserPromptSubmit", query)
         history.append({"role": "user", "content": query})

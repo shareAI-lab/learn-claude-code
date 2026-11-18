@@ -85,7 +85,7 @@ def trigger_hooks(event: str, *args):
 def context_inject_hook(query: str) -> str | None:
     """Inject current working directory info into every prompt."""
     print(f"\033[90m[HOOK] UserPromptSubmit: working in {WORKDIR}\033[0m")
-    return None   # return None = no modification, let prompt through
+    return None   # return None = 不修改提示词，直接放行
 
 register_hook("UserPromptSubmit", context_inject_hook)
 ```
@@ -139,7 +139,7 @@ def summary_hook(messages: list) -> str | None:
                      for b in (m.get("content") if isinstance(m.get("content"), list) else [])
                      if isinstance(b, dict) and b.get("type") == "tool_result")
     print(f"\033[90m[HOOK] Stop: session used {tool_count} tool calls\033[0m")
-    return None   # return None = allow stop, return string = force continuation
+    return None   # return None = 允许终止, return string = 强制继续
 
 register_hook("Stop", summary_hook)
 ```
@@ -153,7 +153,7 @@ tool_calls = [
 if not tool_calls:
     force = trigger_hooks("Stop", messages)   # ← 退出之前
     if force:
-        # hook returned a message → inject it and continue
+        # hook 返回消息 → 注入消息并继续执行
         messages.append({"role": "user", "content": force})
         continue
     return

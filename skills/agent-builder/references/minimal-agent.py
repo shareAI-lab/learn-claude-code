@@ -18,7 +18,7 @@ import os
 
 # Configuration
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-MODEL = os.getenv("MODEL_NAME", "claude-sonnet-4-20250514")
+MODEL = os.getenv("MODEL_NAME", "claude-sonnet-5-5")
 WORKDIR = Path.cwd()
 
 # System prompt - keep it simple
@@ -70,7 +70,7 @@ def execute_tool(name: str, args: dict) -> str:
         try:
             r = subprocess.run(
                 args["command"], shell=True, cwd=WORKDIR,
-                capture_output=True, text=True, timeout=60
+                capture_output=True, text=True, errors="replace", timeout=60
             )
             return (r.stdout + r.stderr).strip() or "(empty)"
         except subprocess.TimeoutExpired:

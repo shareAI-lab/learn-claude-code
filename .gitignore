@@ -235,3 +235,5 @@ analysis/
 analysis_progress.md
 
 node_modules/
+
+agent-cli/node_modules/

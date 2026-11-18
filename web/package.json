@@ -5,7 +5,7 @@
   "scripts": {
     "extract": "tsx scripts/extract-content.ts",
     "predev": "npm run extract",
-    "dev": "next dev",
+    "dev": "next dev -p 3002",
     "prebuild": "npm run extract",
     "build": "next build",
     "start": "next start"
@@ -34,5 +34,8 @@
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "nanoid": "3.3.18"
   }
 }

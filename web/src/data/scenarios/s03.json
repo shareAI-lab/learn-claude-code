@@ -16,7 +16,7 @@
     {
       "type": "tool_call",
       "toolName": "bash",
-      "content": "rm -rf /tmp/build-cache",
+      "content": "rm -rf ./tmp/build-cache",
       "annotation": "A destructive-looking command enters the permission pipeline."
     },
     {

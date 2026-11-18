@@ -45,8 +45,15 @@ WORKDIR = Path.cwd()
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 BASE_SYSTEM = (
-    f"You are a coding agent at {WORKDIR}. Use built-in and connected MCP "
+    f"You are a coding agent at {WORKDIR}. Environment: {ENVIRONMENT_PROMPT}. "
+    "Use built-in and connected MCP "
     "tools to solve tasks. Call connect_mcp before using a server."
 )
 
@@ -60,7 +67,7 @@ def run_bash(command: str) -> str:
             shell=True,
             cwd=WORKDIR,
             capture_output=True,
-            text=True,
+            text=True, errors="replace",
             timeout=120,
         )
         output = (result.stdout + result.stderr).strip()
@@ -313,6 +320,11 @@ BUILTIN_TOOLS = [*BASE_TOOLS, CONNECT_TOOL]
 BUILTIN_HANDLERS = {**BASE_HANDLERS, "connect_mcp": run_connect_mcp}
 
 
+def make_mcp_handler(client: MCPClient, tool: str):
+    """Bind client and tool in a closure so tool input cannot replace them."""
+    return lambda **kwargs: client.call_tool(tool, kwargs)
+
+
 def assemble_tool_pool() -> tuple[list[dict], dict[str, callable]]:
     """Combine built-in tools with every connected server tool."""
     global mcp_tool_policies
@@ -347,10 +359,7 @@ def assemble_tool_pool() -> tuple[list[dict], dict[str, callable]]:
                 "description": tool_def.get("description", ""),
                 "input_schema": schema,
             })
-            handlers[prefixed] = (
-                lambda *, client=server, tool=raw_name, **kwargs:
-                client.call_tool(tool, kwargs)
-            )
+            handlers[prefixed] = make_mcp_handler(server, raw_name)
             policies[prefixed] = MCP_HOST_POLICY.get(
                 (server_name, raw_name), "confirm"
             )
@@ -369,7 +378,14 @@ def assemble_system_prompt() -> str:
 
 HOOKS = {"UserPromptSubmit": [], "PreToolUse": [], "PostToolUse": [], "Stop": []}
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
+DESTRUCTIVE_COMMAND_WORD = re.compile(
+    r"(?i)(?:^|[;&|()\n])\s*(?:rm|del)(?=\s|$|[;&|()])"
+)
 DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+
+
+def contains_destructive_command(command: str) -> bool:
+    return bool(DESTRUCTIVE_COMMAND_WORD.search(command))
 
 
 def register_hook(event: str, callback):
@@ -390,7 +406,9 @@ def permission_hook(block):
         for pattern in DENY_LIST:
             if pattern in command:
                 return f"Permission denied by deny list: {pattern}"
-        if any(keyword in command for keyword in DESTRUCTIVE):
+        if contains_destructive_command(command) or any(
+            keyword in command for keyword in DESTRUCTIVE
+        ):
             print(f"\n[permission] {block.name}({block.input})")
             if input("Allow? [y/N] ").strip().lower() not in {"y", "yes"}:
                 return "Permission denied by user"
@@ -520,7 +538,9 @@ if __name__ == "__main__":
             query = input("s14 >> ")
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in {"q", "exit", ""}:
+        if not query.strip():
+            continue
+        if query.strip().lower() in {"q", "exit"}:
             break
         trigger_hooks("UserPromptSubmit", query)
         history.append({"role": "user", "content": query})

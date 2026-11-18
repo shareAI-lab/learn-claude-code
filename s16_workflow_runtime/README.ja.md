@@ -43,15 +43,23 @@ async def sample_workflow(ctx, args):
 
 `Workflow` は s15 host の既存 tool pool に追加されます。ユーザーが保存済み workflow の実行を求めるか、タスクが既知の orchestration に一致したときにモデルがこのツールを選びます。adapter は name を host-owned `WORKFLOWS` registry で解決し、trusted metadata と function を runtime へ渡します。s15 の他の tools も同じ loop で利用できます。
 
+ツールの説明には、保存済み workflow の名前と用途を列挙します。`name` の enum も同じ registry から作るため、モデルは `review-changes` を含む呼び出し可能な workflow を確認できます。
+
 model-facing schema が受け取るのは `name`、`args`、`resume_from_run_id` です。unknown name や不正 argument は error tool result として返し、host loop を終了させません。その後 runtime が登録済み metadata を検証し、permission check を通し、local workflow task を登録して、script の実行前に `async_launched` を出します。progress event と最後の `task_notification` が続き、call は JSON-safe な launch 情報、result、task state を返します。
 
 ```python
 WORKFLOW_TOOL = {
     "name": "Workflow",
+    "description": (
+        "Run a saved workflow by name. Pass input in args. Available workflows:\n"
+        + "\n".join(
+            f"{name}: {meta['description']}" for name, (meta, _) in WORKFLOWS.items()
+        )
+    ),
     "input_schema": {
         "type": "object",
         "properties": {
-            "name": {"type": "string"},
+            "name": {"type": "string", "enum": list(WORKFLOWS)},
             "args": {"type": "object"},
             "resume_from_run_id": {"type": "string"},
         },
@@ -110,14 +118,33 @@ script は少数の orchestration primitive だけを公開する `ExecutionStat
 
 各 item が同じ stage を独立して通る場合は `pipeline` を使えます。item A が stage 3 にいる間、item B はまだ stage 1 かもしれません。次の処理が前の group の全結果を必要とする場合は `parallel` を使います。
 
+ある分岐が失敗した場合、どちらの primitive も開始済みの他の分岐が終了するまで
+待ってからエラーを送出します。`asyncio.to_thread()` で実行中のモデル要求は、
+待機中の coroutine をキャンセルしても停止しません。各分岐が終了するまで
+journal を開いておくことで、成功した呼び出しの結果を resume 用に保存でき、
+最後の progress event の後に最終 task notification を出せます。
+
+```python
+async def parallel(self, thunks):
+    results = await asyncio.gather(
+        *[thunk() for thunk in thunks], return_exceptions=True
+    )
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+    return results
+```
+
 ```python
 async def pipeline(self, items, *stages):
     async def run_item(item, idx):
         value = item
-        for stage in stages:                       # 各 item がすべての stage を独立して完走
+        for stage in stages:
             value = await stage(value, item, idx)
         return value
-    return await asyncio.gather(*[run_item(it, i) for i, it in enumerate(items)])
+    return await self.parallel([
+        lambda it=it, i=i: run_item(it, i) for i, it in enumerate(items)
+    ])
 ```
 
 ## 構造化出力: Subagent に散文を返させない
