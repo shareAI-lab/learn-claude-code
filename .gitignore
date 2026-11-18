@@ -233,3 +233,7 @@ test_providers.py
 # Internal analysis artifacts (not learning material)
 analysis/
 analysis_progress.md
+
+node_modules/
+
+agent-cli/node_modules/

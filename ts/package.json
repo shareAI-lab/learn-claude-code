@@ -1,0 +1,35 @@
+{
+  "name": "learn-claude-code-ts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TypeScript 1:1 ports of the s01-s05 lessons",
+  "scripts": {
+    "s01": "tsx s01_agent_loop/code.ts",
+    "s02": "tsx s02_tool_use/code.ts",
+    "s03": "tsx s03_permission/code.ts",
+    "s04": "tsx s04_hooks/code.ts",
+    "s05": "tsx s05_todo_write/code.ts",
+    "s06": "tsx s06_subagent/code.ts",
+    "s07": "cd .. && tsx ts/s07_skill_loading/code.ts",
+    "s08": "tsx s08_context_compact/code.ts",
+    "s09": "tsx s09_memory/code.ts",
+    "s10": "tsx s10_task_system/code.ts",
+    "s11": "tsx s11_background_tasks/code.ts",
+    "s13": "tsx s13_agent_teams/code.ts",
+    "s14": "tsx s14_mcp_plugin/code.ts",
+    "s15": "cd .. && tsx ts/s15_integrated_harness/code.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
+    "dotenv": "^17.4.2",
+    "fast-glob": "^3.3.3",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.3.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  }
+}
