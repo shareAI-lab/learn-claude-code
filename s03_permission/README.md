@@ -57,6 +57,15 @@ def check_deny_list(command: str) -> str | None:
 **Gate 2**: Rule matching — describes "when to ask the user." Each rule specifies a tool and a check condition.
 
 ```python
+import re
+
+DESTRUCTIVE_COMMAND_WORD = re.compile(
+    r"(?i)(?:^|[;&|()\n])\s*(?:rm|del)(?=\s|$|[;&|()])"
+)
+
+def contains_destructive_command(command: str) -> bool:
+    return bool(DESTRUCTIVE_COMMAND_WORD.search(command))
+
 PERMISSION_RULES = [
     {
         "tools": ["read_file", "write_file", "edit_file"],
@@ -65,7 +74,9 @@ PERMISSION_RULES = [
     },
     {
         "tools": ["bash"],
-        "check": lambda args: any(kw in args.get("command", "") for kw in ["rm ", "> /etc/", "chmod 777"]),
+        "check": lambda args: contains_destructive_command(args.get("command", "")) or any(
+            kw in args.get("command", "") for kw in ["rm ", "> /etc/", "chmod 777"]
+        ),
         "message": "Potentially destructive command",
     },
 ]
@@ -141,6 +152,7 @@ Try these prompts:
 2. `Delete the file test.txt` (bash + rm triggers Gate 2)
 3. `What files are in the current directory?` (read-only, all pass)
 4. `Try to write a file to /etc/something` (writing outside workspace triggers Gate 2)
+5. On Windows, `del test.txt` and `DEL test.txt` trigger Gate 2, while `model`, `delimiter`, and `echo del test.txt` do not.
 
 What to watch for: Which operations pass through? Which need your confirmation? Which are denied outright?
 

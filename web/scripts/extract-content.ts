@@ -204,6 +204,26 @@ function titleFromMarkdown(content: string, fallback: string): string {
   return titleMatch ? titleMatch[1] : fallback;
 }
 
+/**
+ * Recursively copy a directory tree.
+ *
+ * Avoids `fs.cpSync`: on Windows with Node 22 it terminates the process with
+ * STATUS_STACK_BUFFER_OVERRUN (exit code 0xC0000409) and no JS-level error,
+ * which silently breaks `npm run dev` because this script backs its `predev` step.
+ */
+function copyDirRecursive(srcDir: string, dstDir: string): void {
+  fs.mkdirSync(dstDir, { recursive: true });
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const srcPath = path.join(srcDir, entry.name);
+    const dstPath = path.join(dstDir, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcPath, dstPath);
+    } else if (entry.isFile()) {
+      fs.copyFileSync(srcPath, dstPath);
+    }
+  }
+}
+
 function cleanCourseAssets() {
   fs.rmSync(COURSE_ASSETS_DIR, { recursive: true, force: true });
   fs.mkdirSync(COURSE_ASSETS_DIR, { recursive: true });
@@ -215,7 +235,7 @@ function copyChapterAssets(chapter: ChapterSource): ChapterImage[] {
 
   const outDir = path.join(COURSE_ASSETS_DIR, chapter.dirName);
   fs.mkdirSync(outDir, { recursive: true });
-  fs.cpSync(imagesDir, outDir, { recursive: true });
+  copyDirRecursive(imagesDir, outDir);
 
   return fs
     .readdirSync(imagesDir)

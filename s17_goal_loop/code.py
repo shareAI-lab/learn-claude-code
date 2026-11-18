@@ -31,6 +31,7 @@ import asyncio
 import glob
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -42,10 +43,23 @@ from typing import Any
 DEFAULT_MAX_TOKENS = 8000
 DEFAULT_EVALUATOR_MAX_TOKENS = 512
 DEFAULT_STOP_HOOK_BLOCK_CAP = 8
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 MAX_GOAL_LENGTH = 4000
 CLEAR_ALIASES = {"clear", "stop", "off", "reset", "none", "cancel"}
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
+DESTRUCTIVE_COMMAND_WORD = re.compile(
+    r"(?i)(?:^|[;&|()\n])\s*(?:rm|del)(?=\s|$|[;&|()])"
+)
 DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+
+
+def contains_destructive_command(command: str) -> bool:
+    return bool(DESTRUCTIVE_COMMAND_WORD.search(command))
 
 
 class GoalError(Exception):
@@ -598,7 +612,9 @@ class AgentSession:
             for pattern in DENY_LIST:
                 if pattern in command:
                     return f"Permission denied by deny list: {pattern}"
-            if any(keyword in command for keyword in DESTRUCTIVE):
+            if contains_destructive_command(command) or any(
+                keyword in command for keyword in DESTRUCTIVE
+            ):
                 print(f"\n[permission] {name}({arguments})")
                 if input("Allow? [y/N] ").strip().lower() not in {"y", "yes"}:
                     return "Permission denied by user"
@@ -678,7 +694,8 @@ class AgentSession:
                 model=self.model,
                 system=(
                     "You are a coding agent. Use tools to inspect and modify the "
-                    "current repository. Report concrete command results so an "
+                    + f"current repository. Environment: {ENVIRONMENT_PROMPT}. "
+                    + "Report concrete command results so an "
                     "independent evaluator can judge completion."
                 ),
                 messages=self.messages,
@@ -761,7 +778,7 @@ class AgentSession:
                 shell=True,
                 cwd=self.workdir,
                 capture_output=True,
-                text=True,
+                text=True, errors="replace",
                 timeout=120,
                 check=False,
             )

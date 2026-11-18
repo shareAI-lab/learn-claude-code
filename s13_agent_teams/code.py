@@ -372,7 +372,7 @@ def _run_git(args: list[str], cwd: Path | None = None) -> tuple[bool, str]:
     try:
         result = subprocess.run(
             ["git", *args], cwd=cwd or WORKDIR,
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, errors="replace", timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return False, f"{type(exc).__name__}: {exc}"
@@ -620,8 +620,14 @@ def remove_worktree(name: str, discard_changes: bool = False) -> str:
 
 # -- System Prompt --
 
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 PROMPT_SECTIONS = {
-    "identity": "You are a coding agent. Act, don't explain.",
+    "identity": f"You are a coding agent. Act, don't explain. Environment: {ENVIRONMENT_PROMPT}.",
     "tools": "Available tools: bash, read_file, write_file, edit_file, glob, "
              "create_task, update_task, list_tasks, get_task, claim_task, "
              "complete_task, "
@@ -670,7 +676,7 @@ def run_bash(command: str, cwd: Path | None = None) -> str:
             shell=True,
             cwd=cwd or WORKDIR,
             capture_output=True,
-            text=True,
+            text=True, errors="replace",
             timeout=120,
         )
         output = (result.stdout + result.stderr).strip()
@@ -1130,6 +1136,12 @@ def scan_unclaimed_tasks() -> list[Task]:
         return ready
 
 
+def resumable_task(owner: str) -> Task | None:
+    """Return the owner's unfinished Task before looking for new work."""
+    with task_lock:
+        return _owner_in_progress(owner)
+
+
 def claim_next_task(name: str) -> Task | None:
     """Claim the first still-available task, never a second assignment."""
     with task_lock:
@@ -1314,7 +1326,7 @@ class TeammateRuntime:
         return "idle"
 
     def wait_for_work(self) -> bool:
-        """Wait for a message or atomically claim the next ready Task."""
+        """Wait for a message, resume owned work, or claim a ready Task."""
         while True:
             inbox = BUS.wait_for_messages(self.name, IDLE_SCAN_INTERVAL)
             if inbox:
@@ -1325,18 +1337,26 @@ class TeammateRuntime:
                     return True
                 continue
 
-            task = claim_next_task(self.name)
+            if plan_gates.get(self.name) == "pending":
+                continue
+
+            task = resumable_task(self.name)
+            resuming = task is not None
+            if not task:
+                task = claim_next_task(self.name)
             if not task:
                 continue
             cwd = assignment_cwd(self.name)
             self.messages.append({
                 "role": "user",
                 "content": (
-                    f"[Auto-claimed task {task.id}] {task.subject}\n"
+                    f"[{'Resume' if resuming else 'Auto-claimed'} task "
+                    f"{task.id}] {task.subject}\n"
                     f"{task.description}\nWork directory: {cwd}"
                 ),
             })
-            print(f"  [idle] {self.name} claimed {task.id}: {task.subject}")
+            action = "resuming" if resuming else "claimed"
+            print(f"  [idle] {self.name} {action} {task.id}: {task.subject}")
             return True
 
     def run(self):
@@ -1663,7 +1683,14 @@ TOOL_HANDLERS = {
 
 HOOKS = {"UserPromptSubmit": [], "PreToolUse": [], "PostToolUse": [], "Stop": []}
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
+DESTRUCTIVE_COMMAND_WORD = re.compile(
+    r"(?i)(?:^|[;&|()\n])\s*(?:rm|del)(?=\s|$|[;&|()])"
+)
 DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+
+
+def contains_destructive_command(command: str) -> bool:
+    return bool(DESTRUCTIVE_COMMAND_WORD.search(command))
 
 
 def register_hook(event: str, callback):
@@ -1686,7 +1713,9 @@ def check_permission(block, prompt_user: bool = True) -> str | None:
         for pattern in DENY_LIST:
             if pattern in command:
                 return f"Permission denied by deny list: {pattern}"
-        if any(keyword in command for keyword in DESTRUCTIVE):
+        if contains_destructive_command(command) or any(
+            keyword in command for keyword in DESTRUCTIVE
+        ):
             if not prompt_user:
                 return "Permission required: ask Lead to run this command."
             print(f"\n[permission] {block.name}({block.input})")
@@ -1847,7 +1876,11 @@ if __name__ == "__main__":
         if kind == "quit":
             break
         if kind == "user":
-            if payload is None or payload.strip().lower() in {"q", "exit", ""}:
+            if payload is None:
+                break
+            if not payload.strip():
+                continue
+            if payload.strip().lower() in {"q", "exit"}:
                 break
             trigger_hooks("UserPromptSubmit", payload)
             history.append({"role": "user", "content": payload})

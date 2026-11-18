@@ -20,7 +20,7 @@ This lesson adds a four-step compaction pipeline. It first reduces recoverable t
 
 Think of the context window as the model's current scratchpad. User messages, model responses, `tool_use`, and `tool_result` blocks are written onto it in order. The model reads that material again whenever it continues the task.
 
-The scratchpad has a fixed size. When a request exceeds it, the API rejects the call with `prompt_too_long`. Tool results usually consume most of the space in coding tasks:
+The scratchpad has a fixed size. When a request exceeds it, the API rejects the call with `prompt is too long`. Tool results usually consume most of the space in coding tasks:
 
 - Reading a long file puts its contents into the context.
 - Test and build logs can add tens of kilobytes at once.
@@ -88,11 +88,15 @@ This step examines only the latest batch of tool results. The complete output re
 
 ## Step 2: snip_compact
 
-Once the history exceeds 50 messages, `snip_compact` writes the complete history to `.transcripts/`, then keeps the first 3 and latest 46 messages. The archive marker occupies the remaining slot, records how many messages were removed, and points to the complete transcript.
+Once the history reaches `trigger_messages` (50 by default), `snip_compact` writes the complete history to `.transcripts/`, then trims toward `target_messages` (30 by default): the first 3 messages, an archive marker, and the latest 26 messages. The marker records how many messages were removed and points to the complete transcript. Separate trigger and target counts leave room for new messages, avoiding another archive write on every subsequent model call. The tradeoff is keeping fewer recent messages directly in context; older content remains available in the transcript.
+
+Require `5 <= target_messages < trigger_messages`: the target includes the marker and leaves at least one recent message after the initial three.
 
 ```python
+if len(messages) < trigger_messages:
+    return messages
 head_end = 3
-tail_start = len(messages) - (max_messages - head_end - 1)
+tail_start = len(messages) - (target_messages - head_end - 1)
 
 if self.has_tool_use(messages[head_end - 1]):
     while (head_end < tail_start
@@ -110,7 +114,9 @@ marker = {"role": "user", "content":
 messages = [*messages[:head_end], marker, *messages[tail_start:]]
 ```
 
-The cut points protect every `assistant(tool_use)` and `user(tool_result)` pair. An orphaned result has no matching tool call, so the next API request would be invalid.
+The cut points protect every `assistant(tool_use)` and `user(tool_result)` pair, so the retained count may slightly exceed the target. An orphaned result has no matching tool call, so the next API request would be invalid.
+
+Repeated tool calls can move the active request into the archived middle. After a real snip, `prepare` checks whether the original user message or an existing `Current user request` marker is still visible. If neither remains, it appends `active_request` once before continuing.
 
 This step controls the number of messages. Tool results inside the retained messages may still be long.
 
@@ -182,7 +188,20 @@ The pipeline uses this order and only enters the lossy summary step when necessa
 
 ```python
 messages = self.tool_result_budget(messages)
+before_snip = messages
 messages = self.snip_compact(messages)
+active_request_marker = (
+    f"Current user request:\n{active_request}\n\n"
+    "Conversation summary (reference only):"
+)
+if (messages is not before_snip
+        and not any(
+            message.get("role") == "user"
+            and isinstance(message.get("content"), str)
+            and (message["content"] == active_request
+                 or active_request_marker in message["content"])
+            for message in messages)):
+    messages.append({"role": "user", "content": active_request})
 if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
     target = int(self.CONTEXT_CHAR_LIMIT * 0.8)
     messages = self.micro_compact(messages, target)
@@ -202,7 +221,7 @@ Each round therefore starts with the lowest-cost operation whose information is 
 
 ## Recovering From an API Rejection
 
-A character count can only estimate the tokens used by a model. The API may still return `prompt_too_long`. `reactive_compact` saves a transcript, summarizes older history, and retains the latest 5 messages:
+A character count can only estimate the tokens used by a model. The API may still return `prompt is too long`. `reactive_compact` saves a transcript, summarizes older history, and retains the latest 5 messages:
 
 ```python
 tail_start = max(0, len(messages) - self.KEEP_RECENT_MESSAGES)
@@ -236,6 +255,7 @@ def agent_loop(messages, active_request):
         except Exception as error:
             message = str(error).lower()
             too_long = ("prompt_too_long" in message
+                        or "prompt is too long" in message
                         or "too many tokens" in message)
             if too_long and reactive_retries < MAX_REACTIVE_RETRIES:
                 messages[:] = COMPACTOR.reactive_compact(
@@ -245,7 +265,7 @@ def agent_loop(messages, active_request):
             raise
 ```
 
-Every model call enters through the same pipeline. After appending `query`, the CLI calls `agent_loop(history, query)`, so repeated compaction cannot lose the current request. The code asks for a summary only when `micro_compact` still leaves the context above the limit or when the API rejects it.
+Every model call enters through the same pipeline. After appending `query`, the CLI calls `agent_loop(history, query)`, and `prepare` restores `active_request` only if a real snip removed every visible copy. Repeated compaction therefore cannot lose the current request. The code asks for a summary only when `micro_compact` still leaves the context above the limit or when the API rejects it.
 
 
 ## The compact Tool
@@ -339,4 +359,4 @@ Context compaction lets an Agent continue a long task within a limited window. I
 
 s09 Memory adds memory writing, retrieval, and consolidation.
 
-<!-- translation-sync: zh@v8, en@v8, ja@v8 -->
+<!-- translation-sync: zh@v9, en@v9, ja@v9 -->

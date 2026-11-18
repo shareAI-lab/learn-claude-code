@@ -20,7 +20,6 @@ Need: pip install anthropic python-dotenv pyyaml + .env with ANTHROPIC_API_KEY
 
 import ast
 import atexit
-import fcntl
 import importlib.util
 import json
 import os
@@ -36,6 +35,11 @@ from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, asdict, field
 import yaml
+
+try:
+    import fcntl
+except ImportError:  # Windows has no fcntl module.
+    fcntl = None
 
 try:
     import readline
@@ -72,6 +76,8 @@ KEEP_RECENT_TOOL_RESULTS = 3
 PERSIST_THRESHOLD = 30000
 CONTINUATION_PROMPT = "Continue from the previous response. Do not repeat completed work."
 PROMPT = "\033[36ms15 >> \033[0m"
+# \001/\002 tell Readline the ANSI escapes have zero display width.
+READLINE_PROMPT = "\001\033[36m\002s15 >> \001\033[0m\002"
 CLI_ACTIVE = False
 
 
@@ -102,10 +108,17 @@ class ConsoleBroker:
     def __init__(self):
         self._lock = threading.Lock()
         self.reader = None
+        self.display_prompt = PROMPT
+        self.readline_prompt = READLINE_PROMPT
 
-    def ask(self, prompt: str) -> str:
+    def set_prompt(self, display_prompt: str, readline_prompt: str):
+        self.display_prompt = display_prompt
+        self.readline_prompt = readline_prompt
+
+    def ask(self, prompt: str | None = None) -> str:
         with self._lock:
-            return (self.reader or input)(prompt)
+            active_prompt = self.readline_prompt if prompt is None else prompt
+            return (self.reader or input)(active_prompt)
 
 
 CONSOLE = ConsoleBroker()
@@ -122,7 +135,7 @@ def terminal_print(text: str):
         except Exception:
             line = ""
     print(f"\r\033[K{text}")
-    print(PROMPT + line, end="", flush=True)
+    print(CONSOLE.display_prompt + line, end="", flush=True)
 
 # -- Task System --
 
@@ -150,7 +163,10 @@ def task_store_lock():
         if depth == 0:
             TASKS_DIR.mkdir(parents=True, exist_ok=True)
             handle = TASK_LOCK_PATH.open("a+", encoding="utf-8")
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            # fcntl.flock gives cross-process locking on POSIX. Windows has no
+            # fcntl, so it falls back to the in-process threading lock only.
+            if fcntl is not None:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
             _task_store_state.handle = handle
         _task_store_state.depth = depth + 1
         try:
@@ -159,7 +175,8 @@ def task_store_lock():
             _task_store_state.depth -= 1
             if _task_store_state.depth == 0:
                 handle = _task_store_state.handle
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                if fcntl is not None:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
                 handle.close()
                 del _task_store_state.handle
 
@@ -445,7 +462,7 @@ def _run_git(args: list[str], cwd: Path | None = None) -> tuple[bool, str]:
     try:
         result = subprocess.run(
             ["git", *args], cwd=cwd or WORKDIR,
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, errors="replace", timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return False, f"{type(exc).__name__}: {exc}"
@@ -777,8 +794,14 @@ def load_skill(name: str) -> str:
 
 # -- Prompt Assembly --
 
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 PROMPT_SECTIONS = {
-    "identity": "You are a coding agent. Act, don't explain.",
+    "identity": f"You are a coding agent. Act, don't explain. Environment: {ENVIRONMENT_PROMPT}.",
     "tools": "Available tools: bash, read_file, write_file, edit_file, glob, "
              "todo_write, task, load_skill, compact, "
              "create_task, update_task, list_tasks, get_task, claim_task, "
@@ -861,8 +884,26 @@ _shell_process_lock = threading.RLock()
 
 
 def _stop_process_group(process: subprocess.Popen):
-    """Stop processes that remain in the command's original process group."""
-    for sig in (signal.SIGTERM, signal.SIGKILL):
+    """Stop a shell process and its children (cross-platform).
+
+    POSIX uses process-group signals (SIGTERM then SIGKILL). Windows has
+    neither ``os.killpg`` nor ``signal.SIGKILL``, so it falls back to
+    ``Popen.terminate()`` / ``Popen.kill()``.
+    """
+    if os.name == "nt":
+        for stop in (process.terminate, process.kill):
+            if process.poll() is not None:
+                return
+            try:
+                stop()
+            except OSError:
+                return
+            try:
+                process.wait(timeout=0.05)
+            except subprocess.TimeoutExpired:
+                continue
+        return
+    for sig in (signal.SIGTERM, getattr(signal, "SIGKILL", signal.SIGTERM)):
         try:
             os.killpg(process.pid, sig)
         except ProcessLookupError:
@@ -891,10 +932,13 @@ signal.signal(signal.SIGTERM, _handle_termination_signal)
 def _run_bash_process(command: str, cwd: Path | None = None) -> tuple[str, int | None]:
     process = None
     try:
+        # start_new_session (setsid) exists only on POSIX; skip it on Windows.
+        popen_kwargs = {} if os.name == "nt" else {"start_new_session": True}
         process = subprocess.Popen(
             command, shell=True, cwd=cwd or WORKDIR,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, start_new_session=True,
+            text=True, errors="replace",
+            **popen_kwargs,
         )
         with _shell_process_lock:
             _shell_processes.add(process)
@@ -1226,6 +1270,12 @@ def scan_unclaimed_tasks() -> list[Task]:
             if not error:
                 ready.append(task)
         return ready
+
+
+def resumable_task(owner: str) -> Task | None:
+    """Return the owner's unfinished Task before looking for new work."""
+    with task_lock:
+        return _owner_in_progress(owner)
 
 
 def claim_next_task(name: str) -> Task | None:
@@ -1592,7 +1642,13 @@ def spawn_teammate_thread(name: str, role: str, prompt: str,
                         break
                     continue
 
-                task = claim_next_task(name)
+                if plan_gates.get(name) == "pending":
+                    continue
+
+                task = resumable_task(name)
+                resuming = task is not None
+                if not task:
+                    task = claim_next_task(name)
                 if not task:
                     continue
                 try:
@@ -1602,12 +1658,14 @@ def spawn_teammate_thread(name: str, role: str, prompt: str,
                 messages.append({
                     "role": "user",
                     "content": (
-                        f"[Auto-claimed task {task.id}] "
+                        f"[{'Resume' if resuming else 'Auto-claimed'} task "
+                        f"{task.id}] "
                         f"{task.subject}\n{task.description}\n"
                         f"Work directory: {workdir}"
                     ),
                 })
-                print(f"  \033[32m[idle] {name} claimed "
+                action = "resuming" if resuming else "claimed"
+                print(f"  \033[32m[idle] {name} {action} "
                       f"{task.id}: {task.subject}\033[0m")
                 break
 
@@ -1825,7 +1883,7 @@ register_hook("Stop", stop_hook)
 # -- Subagent Tool --
 
 SUB_SYSTEM = (
-    f"You are a coding subagent at {WORKDIR}. "
+    f"You are a coding subagent at {WORKDIR}. Environment: {ENVIRONMENT_PROMPT}. "
     "Complete the task, then return a concise final summary. "
     "Do not spawn more agents."
 )
@@ -2061,11 +2119,13 @@ def is_archive_marker(message: dict) -> bool:
             and path.is_file())
 
 
-def snip_compact(messages: list, max_messages: int = 50) -> list:
-    if len(messages) <= max_messages:
+def snip_compact(messages: list, trigger_messages: int = 50, target_messages: int = 30) -> list:
+    if not 5 <= target_messages < trigger_messages:
+        raise ValueError("Require 5 <= target_messages < trigger_messages")
+    if len(messages) < trigger_messages:
         return messages
     head_end = 3
-    tail_start = len(messages) - (max_messages - head_end - 1)
+    tail_start = len(messages) - (target_messages - head_end - 1)
     if head_end > 0 and message_has_tool_use(messages[head_end - 1]):
         while head_end < len(messages) and is_tool_result_message(messages[head_end]):
             head_end += 1
@@ -2705,6 +2765,11 @@ def connect_mcp(name: str) -> str:
             f"Discovered {len(mcp_client.tools)} tools: {', '.join(tool_names)}")
 
 
+def make_mcp_handler(client: MCPClient, tool: str):
+    """Bind client and tool in a closure so tool input cannot replace them."""
+    return lambda **kwargs: client.call_tool(tool, kwargs)
+
+
 def assemble_tool_pool() -> tuple[list[dict], dict]:
     """Merge builtin tools + all MCP tools into one pool."""
     global mcp_tool_policies
@@ -2738,10 +2803,7 @@ def assemble_tool_pool() -> tuple[list[dict], dict]:
                 "description": tool_def.get("description", ""),
                 "input_schema": schema,
             })
-            handlers[prefixed] = (
-                lambda *, client=mcp_client, tool=raw_name, **kwargs:
-                client.call_tool(tool, kwargs)
-            )
+            handlers[prefixed] = make_mcp_handler(mcp_client, raw_name)
             policies[prefixed] = MCP_HOST_POLICY.get(
                 (server_name, raw_name), "confirm"
             )
@@ -3266,10 +3328,12 @@ if __name__ == "__main__":
                      args=(history, context, session_state), daemon=True).start()
     while True:
         try:
-            query = CONSOLE.ask(PROMPT)
+            query = CONSOLE.ask()
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         with agent_lock:
             trigger_hooks("UserPromptSubmit", query)

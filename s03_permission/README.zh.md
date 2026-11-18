@@ -57,6 +57,15 @@ def check_deny_list(command: str) -> str | None:
 **闸门 2**负责规则匹配，用来描述"什么时候需要问用户"。每条规则指定工具和检查条件。
 
 ```python
+import re
+
+DESTRUCTIVE_COMMAND_WORD = re.compile(
+    r"(?i)(?:^|[;&|()\n])\s*(?:rm|del)(?=\s|$|[;&|()])"
+)
+
+def contains_destructive_command(command: str) -> bool:
+    return bool(DESTRUCTIVE_COMMAND_WORD.search(command))
+
 PERMISSION_RULES = [
     {
         "tools": ["read_file", "write_file", "edit_file"],
@@ -65,7 +74,9 @@ PERMISSION_RULES = [
     },
     {
         "tools": ["bash"],
-        "check": lambda args: any(kw in args.get("command", "") for kw in ["rm ", "> /etc/", "chmod 777"]),
+        "check": lambda args: contains_destructive_command(args.get("command", "")) or any(
+            kw in args.get("command", "") for kw in ["rm ", "> /etc/", "chmod 777"]
+        ),
         "message": "Potentially destructive command",
     },
 ]
@@ -141,6 +152,7 @@ python s03_permission/code.py
 2. `Delete the file test.txt`（bash + rm 会触发闸门 2）
 3. `What files are in the current directory?`（只读，全部通过）
 4. `Try to write a file to /etc/something`（写工作区外，触发闸门 2）
+5. 在 Windows 上，`del test.txt` 和 `DEL test.txt` 会触发闸门 2，而 `model`、`delimiter` 和 `echo del test.txt` 不会。
 
 观察重点：哪些操作直接通过？哪些需要你确认？哪些被直接拒绝？
 

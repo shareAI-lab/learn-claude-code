@@ -20,7 +20,7 @@ Agent が作業を続けると、読み込んだファイル、コマンド結�
 
 コンテキストウィンドウは、モデルが現在使っている下書き用紙と考えられます。ユーザーメッセージ、モデルの応答、`tool_use`、`tool_result` が順番に書き込まれます。モデルはタスクを続けるたびに、その内容を読み直します。
 
-下書き用紙の大きさは固定です。上限を超えると API はリクエストを拒否し、`prompt_too_long` を返します。コーディングタスクでは、ツール結果が多くの領域を占めます。
+下書き用紙の大きさは固定です。上限を超えると API はリクエストを拒否し、`prompt is too long` を返します。コーディングタスクでは、ツール結果が多くの領域を占めます。
 
 - 長いファイルを読むと、その内容がコンテキストに入ります。
 - テストやビルドのログは、一度に数十 KB 追加されることがあります。
@@ -88,11 +88,15 @@ for block in ranked:
 
 ## ステップ 2：snip_compact
 
-履歴が 50 メッセージを超えると、`snip_compact` は完全な履歴を `.transcripts/` に保存してから、先頭 3 件と最新 46 件を保持します。残り 1 件は archive marker に使い、削除した件数と完全な transcript の保存先を記録します。
+履歴が `trigger_messages`（デフォルト 50 件）に達すると、`snip_compact` は完全な履歴を `.transcripts/` に保存してから、`target_messages`（デフォルト 30 件）を目標に切り詰めます。先頭 3 件、archive marker 1 件、最新 26 件を保持します。marker は削除した件数と完全な transcript の保存先を記録します。発動閾値と目標件数を分けることで、新しいメッセージを追加する余裕が生まれ、その後の model call ごとに再び履歴を書き出すことを避けます。その代わり、context に直接残る最近のメッセージは少なくなります。古い内容は transcript から取得できます。
+
+パラメータは `5 <= target_messages < trigger_messages` を満たす必要があります。目標件数には marker を含め、先頭 3 件に加えて最新のメッセージを少なくとも 1 件保持します。
 
 ```python
+if len(messages) < trigger_messages:
+    return messages
 head_end = 3
-tail_start = len(messages) - (max_messages - head_end - 1)
+tail_start = len(messages) - (target_messages - head_end - 1)
 
 if self.has_tool_use(messages[head_end - 1]):
     while (head_end < tail_start
@@ -110,7 +114,9 @@ marker = {"role": "user", "content":
 messages = [*messages[:head_end], marker, *messages[tail_start:]]
 ```
 
-切断位置では、`assistant(tool_use)` と `user(tool_result)` の組を保護します。対応するツール呼び出しがない孤立した結果を含むと、次の API リクエストは無効になります。
+切断位置では、`assistant(tool_use)` と `user(tool_result)` の組を保護するため、保持件数が目標を少し上回る場合があります。対応するツール呼び出しがない孤立した結果を含むと、次の API リクエストは無効になります。
+
+ツール呼び出しが繰り返されると、現在の要求がアーカイブ対象の中間領域へ移ることがあります。実際に切り詰めた後、`prepare` は元のユーザーメッセージまたは既存の `Current user request` マーカーがまだ見えるかを確認します。どちらも残っていなければ、処理を続ける前に `active_request` を一度だけ追加します。
 
 このステップはメッセージ数を抑えます。保持されたメッセージ内のツール結果は、まだ長い可能性があります。
 
@@ -182,7 +188,20 @@ def compact_history(messages, active_request):
 
 ```python
 messages = self.tool_result_budget(messages)
+before_snip = messages
 messages = self.snip_compact(messages)
+active_request_marker = (
+    f"Current user request:\n{active_request}\n\n"
+    "Conversation summary (reference only):"
+)
+if (messages is not before_snip
+        and not any(
+            message.get("role") == "user"
+            and isinstance(message.get("content"), str)
+            and (message["content"] == active_request
+                 or active_request_marker in message["content"])
+            for message in messages)):
+    messages.append({"role": "user", "content": active_request})
 if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
     target = int(self.CONTEXT_CHAR_LIMIT * 0.8)
     messages = self.micro_compact(messages, target)
@@ -202,7 +221,7 @@ if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
 
 ## API に拒否された後の回復
 
-文字数はモデルが使う token 数の推定値です。そのため API が `prompt_too_long` を返す可能性は残ります。`reactive_compact` は transcript を保存し、古い履歴を要約して、最新 5 メッセージを保持します。
+文字数はモデルが使う token 数の推定値です。そのため API が `prompt is too long` を返す可能性は残ります。`reactive_compact` は transcript を保存し、古い履歴を要約して、最新 5 メッセージを保持します。
 
 ```python
 tail_start = max(0, len(messages) - self.KEEP_RECENT_MESSAGES)
@@ -236,6 +255,7 @@ def agent_loop(messages, active_request):
         except Exception as error:
             message = str(error).lower()
             too_long = ("prompt_too_long" in message
+                        or "prompt is too long" in message
                         or "too many tokens" in message)
             if too_long and reactive_retries < MAX_REACTIVE_RETRIES:
                 messages[:] = COMPACTOR.reactive_compact(
@@ -245,7 +265,7 @@ def agent_loop(messages, active_request):
             raise
 ```
 
-すべてのモデル呼び出しが同じパイプラインを通ります。CLI は `query` を追加した後に `agent_loop(history, query)` を呼ぶため、圧縮を繰り返しても現在の要求は失われません。`micro_compact` の後も上限を超える場合、または API が拒否した場合にだけ、コードはモデルへ要約を依頼します。
+すべてのモデル呼び出しが同じパイプラインを通ります。CLI は `query` を追加した後に `agent_loop(history, query)` を呼びます。実際に切り詰められ、見えるコピーがすべて削除された場合にだけ、`prepare` は `active_request` を追加し直します。そのため、圧縮を繰り返しても現在の要求は失われません。`micro_compact` の後も上限を超える場合、または API が拒否した場合にだけ、コードはモデルへ要約を依頼します。
 
 
 ## compact ツール
@@ -339,4 +359,4 @@ s08_context_compact/code.py と s09_memory/code.py を比較し、
 
 s09 Memory では、メモリの書き込み、検索、整理を実装します。
 
-<!-- translation-sync: zh@v8, en@v8, ja@v8 -->
+<!-- translation-sync: zh@v9, en@v9, ja@v9 -->

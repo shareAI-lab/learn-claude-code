@@ -37,7 +37,7 @@ client = Anthropic(
     api_key=os.getenv("ANTHROPIC_API_KEY"),
     base_url=os.getenv("ANTHROPIC_BASE_URL")
 )
-MODEL = os.getenv("MODEL_NAME", "claude-sonnet-4-20250514")
+MODEL = os.getenv("MODEL_NAME", "claude-sonnet-5-5")
 
 SYSTEM = """You are a coding agent. Use bash for everything:
 - Read: cat, grep, find, ls
@@ -63,7 +63,7 @@ def run(prompt, history=[]):
             if b.type == "tool_use":
                 print(f"> {{b.input['command']}}")
                 try:
-                    out = subprocess.run(b.input["command"], shell=True, capture_output=True, text=True, timeout=60)
+                    out = subprocess.run(b.input["command"], shell=True, capture_output=True, text=True, errors="replace", timeout=60)
                     output = (out.stdout + out.stderr).strip() or "(empty)"
                 except Exception as e:
                     output = f"Error: {{e}}"
@@ -97,7 +97,7 @@ client = Anthropic(
     api_key=os.getenv("ANTHROPIC_API_KEY"),
     base_url=os.getenv("ANTHROPIC_BASE_URL")
 )
-MODEL = os.getenv("MODEL_NAME", "claude-sonnet-4-20250514")
+MODEL = os.getenv("MODEL_NAME", "claude-sonnet-5-5")
 WORKDIR = Path.cwd()
 
 SYSTEM = f"""You are a coding agent at {{WORKDIR}}.
@@ -133,7 +133,7 @@ def execute(name: str, args: dict) -> str:
         if any(d in args["command"] for d in dangerous):
             return "Error: Dangerous command blocked"
         try:
-            r = subprocess.run(args["command"], shell=True, cwd=WORKDIR, capture_output=True, text=True, timeout=60)
+            r = subprocess.run(args["command"], shell=True, cwd=WORKDIR, capture_output=True, text=True, errors="replace", timeout=60)
             return (r.stdout + r.stderr).strip()[:50000] or "(empty)"
         except subprocess.TimeoutExpired:
             return "Error: Timeout (60s)"
@@ -213,7 +213,7 @@ if __name__ == "__main__":
 ENV_TEMPLATE = '''# API Configuration
 ANTHROPIC_API_KEY=sk-xxx
 ANTHROPIC_BASE_URL=https://api.anthropic.com
-MODEL_NAME=claude-sonnet-4-20250514
+MODEL_NAME=claude-sonnet-5-5
 '''
 
 

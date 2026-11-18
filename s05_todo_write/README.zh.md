@@ -40,14 +40,14 @@ class TodoManager:
         self.items = []
 
     def update(self, todos: list | str) -> str:
-        # Parse and validate before replacing the current list.
+        # 替换当前列表前进行解析与校验
         validated = []
         ...
         self.items = validated
         return self.render()
 
     def render(self) -> str:
-        # [ ] pending, [>] in progress, [x] completed
+        # [ ] 待办, [>] 进行中, [x] 已完成
         ...
 
 

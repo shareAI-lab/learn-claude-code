@@ -57,6 +57,15 @@ def check_deny_list(command: str) -> str | None:
 **ゲート 2**：ルールマッチング — 「いつユーザーに聞くべきか」を記述する。各ルールはツールとチェック条件を指定する。
 
 ```python
+import re
+
+DESTRUCTIVE_COMMAND_WORD = re.compile(
+    r"(?i)(?:^|[;&|()\n])\s*(?:rm|del)(?=\s|$|[;&|()])"
+)
+
+def contains_destructive_command(command: str) -> bool:
+    return bool(DESTRUCTIVE_COMMAND_WORD.search(command))
+
 PERMISSION_RULES = [
     {
         "tools": ["read_file", "write_file", "edit_file"],
@@ -65,7 +74,9 @@ PERMISSION_RULES = [
     },
     {
         "tools": ["bash"],
-        "check": lambda args: any(kw in args.get("command", "") for kw in ["rm ", "> /etc/", "chmod 777"]),
+        "check": lambda args: contains_destructive_command(args.get("command", "")) or any(
+            kw in args.get("command", "") for kw in ["rm ", "> /etc/", "chmod 777"]
+        ),
         "message": "Potentially destructive command",
     },
 ]
@@ -141,6 +152,7 @@ python s03_permission/code.py
 2. `Delete the file test.txt`（bash + rm でゲート 2 が発動）
 3. `What files are in the current directory?`（読み取り専用、すべて通過）
 4. `Try to write a file to /etc/something`（作業ディレクトリ外への書き込みでゲート 2 が発動）
+5. Windows では `del test.txt` と `DEL test.txt` がゲート 2 を発動し、`model`、`delimiter`、`echo del test.txt` は発動しない。
 
 観察のポイント：どの操作がそのまま通過するか？ どれに確認が必要か？ どれが即座に拒否されるか？
 

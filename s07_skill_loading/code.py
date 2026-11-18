@@ -20,6 +20,7 @@ The model loads the full SKILL.md only when it calls load_skill.
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -45,6 +46,12 @@ WORKDIR = Path.cwd()
 SKILLS_DIR = WORKDIR / "skills"
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
+ENVIRONMENT_PROMPT = (
+    "Windows: the bash tool runs through cmd.exe; use cmd.exe syntax, not Unix "
+    "Bash or PowerShell syntax, and prefer dedicated file tools for file operations"
+    if os.name == "nt"
+    else "Unix-like: the bash tool runs the system shell"
+)
 
 
 # -- Skill catalog --
@@ -126,7 +133,8 @@ SKILL_LOADER = SkillLoader(SKILLS_DIR)
 
 def build_system_prompt() -> str:
     return (
-        f"You are a coding agent at {WORKDIR}. Use tools to solve tasks. "
+        f"You are a coding agent at {WORKDIR}. Environment: {ENVIRONMENT_PROMPT}. "
+        "Use tools to solve tasks. "
         "Act, don't explain.\n\n"
         f"Skills available:\n{SKILL_LOADER.catalog()}\n\n"
         "Use load_skill to read the full instructions when a skill applies."
@@ -142,7 +150,7 @@ def run_bash(command: str) -> str:
     try:
         result = subprocess.run(
             command, shell=True, cwd=WORKDIR,
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, errors="replace", timeout=120,
         )
         output = (result.stdout + result.stderr).strip()
         return output[:50000] if output else "(no output)"
@@ -241,7 +249,14 @@ def trigger_hooks(event: str, *args):
 
 
 DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
+DESTRUCTIVE_COMMAND_WORD = re.compile(
+    r"(?i)(?:^|[;&|()\n])\s*(?:rm|del)(?=\s|$|[;&|()])"
+)
 DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+
+
+def contains_destructive_command(command: str) -> bool:
+    return bool(DESTRUCTIVE_COMMAND_WORD.search(command))
 
 
 def permission_hook(block):
@@ -252,13 +267,14 @@ def permission_hook(block):
             if pattern in command:
                 print(f"\n\033[31m[blocked] '{pattern}'\033[0m")
                 return "Permission denied by deny list"
-        for keyword in DESTRUCTIVE:
-            if keyword in command:
-                print("\n\033[33m[permission] Potentially destructive command\033[0m")
-                print(f"   Tool: {block.name}({block.input})")
-                choice = input("   Allow? [y/N] ").strip().lower()
-                if choice not in ("y", "yes"):
-                    return "Permission denied by user"
+        if contains_destructive_command(command) or any(
+            keyword in command for keyword in DESTRUCTIVE
+        ):
+            print("\n\033[33m[permission] Potentially destructive command\033[0m")
+            print(f"   Tool: {block.name}({block.input})")
+            choice = input("   Allow? [y/N] ").strip().lower()
+            if choice not in ("y", "yes"):
+                return "Permission denied by user"
 
     if block.name in ("read_file", "write_file", "edit_file"):
         path = block.input.get("path", "")
@@ -368,10 +384,13 @@ if __name__ == "__main__":
     history = []
     while True:
         try:
-            query = input("\033[36ms07 >> \033[0m")
+            # \001/\002 tell Readline the ANSI escapes have zero display width.
+            query = input("\001\033[36m\002s07 >> \001\033[0m\002")
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         trigger_hooks("UserPromptSubmit", query)
         history.append({"role": "user", "content": query})
