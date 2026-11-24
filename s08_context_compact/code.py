@@ -252,7 +252,7 @@ def execute_tool(block) -> str:
 # -- Context compaction --
 
 class ContextCompactor:
-    CONTEXT_CHAR_LIMIT = 50000
+    CONTEXT_CHAR_LIMIT = 12000
     TOOL_RESULT_BATCH_CHAR_LIMIT = 200000
     LARGE_RESULT_CHAR_LIMIT = 30000
     SUMMARY_INPUT_CHAR_LIMIT = 80000
@@ -438,6 +438,7 @@ class ContextCompactor:
             if not saved_path:
                 saved_path = str(self.save_output(
                     block.get("tool_use_id", "unknown"), content))
+            print(f"[micro_compact] {block['tool_use_id']} -> {saved_path}")   # ← 加这行
             block["content"] = f"[Earlier tool result saved at {saved_path}]"
         return messages
 
@@ -514,6 +515,7 @@ class ContextCompactor:
         return [message, *messages[tail_start:]] if tail_start else [message]
 
     def prepare(self, messages: list, active_request: str) -> list:
+        print(f"[prepare] chars={self.estimate_chars(messages)} limit={self.CONTEXT_CHAR_LIMIT}")
         messages = self.tool_result_budget(messages)
         messages = self.snip_compact(messages)
         if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
