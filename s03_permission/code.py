@@ -65,7 +65,9 @@ ENVIRONMENT_PROMPT = (
 
 SYSTEM = (
     f"You are a coding agent at {WORKDIR}. Environment: {ENVIRONMENT_PROMPT}. "
-    "All destructive operations require user approval."
+    "Use tools to solve tasks. Do not ask for approval yourself. "
+    "For destructive operations, still request the tool call; "
+    "the harness will approve or deny before execution."
 )
 
 
@@ -257,7 +259,9 @@ if __name__ == "__main__":
             query = input("\001\033[36m\002s03 >> \001\033[0m\002")
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         history.append({"role": "user", "content": query})
         agent_loop(history)

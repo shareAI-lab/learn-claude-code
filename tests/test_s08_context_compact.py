@@ -2,6 +2,9 @@ import runpy
 import sys
 import types
 from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -136,3 +139,184 @@ def test_prepare_persists_oversized_unseen_result_before_full_compact(
     saved_line = next(line for line in content.splitlines()
                       if line.startswith("Full output: "))
     assert Path(saved_line.removeprefix("Full output: ")).read_text() == output
+
+
+@pytest.mark.parametrize("error_message", [
+    "prompt is too long: 210445 tokens > 200000 maximum",
+    "prompt_too_long",
+    "too many tokens",
+])
+def test_agent_loop_compacts_and_retries_context_overflow(
+        tmp_path, monkeypatch, error_message):
+    lesson = load_lesson(monkeypatch, tmp_path)
+    messages = [{"role": "user", "content": "continue"}]
+    compacted = [{"role": "user", "content": "compacted history"}]
+    requests = []
+    response = types.SimpleNamespace(
+        content=[types.SimpleNamespace(type="text", text="Recovered")])
+
+    def create(**kwargs):
+        requests.append(list(kwargs["messages"]))
+        if len(requests) == 1:
+            raise RuntimeError(error_message)
+        return response
+
+    compact = Mock(return_value=compacted)
+    monkeypatch.setattr(lesson["client"].messages, "create", create)
+    monkeypatch.setattr(lesson["COMPACTOR"], "reactive_compact", compact)
+
+    lesson["agent_loop"](messages, "continue")
+
+    assert len(requests) == 2
+    assert requests[1] == compacted
+    compact.assert_called_once()
+    assert compact.call_args.args[1] == "continue"
+    assert messages == [*compacted,
+                        {"role": "assistant", "content": response.content}]
+
+
+def test_agent_loop_stops_after_one_reactive_retry(tmp_path, monkeypatch):
+    lesson = load_lesson(monkeypatch, tmp_path)
+    messages = [{"role": "user", "content": "continue"}]
+    first_error = RuntimeError("prompt is too long: first request")
+    retry_error = RuntimeError("prompt is too long: retry")
+    create = Mock(side_effect=[first_error, retry_error])
+    compact = Mock(return_value=list(messages))
+    monkeypatch.setattr(lesson["client"].messages, "create", create)
+    monkeypatch.setattr(lesson["COMPACTOR"], "reactive_compact", compact)
+
+    with pytest.raises(RuntimeError) as caught:
+        lesson["agent_loop"](messages, "continue")
+
+    assert caught.value is retry_error
+    assert create.call_count == 2
+    compact.assert_called_once()
+
+
+def test_agent_loop_propagates_unrelated_errors(tmp_path, monkeypatch):
+    lesson = load_lesson(monkeypatch, tmp_path)
+    error = RuntimeError("invalid API key")
+    create = Mock(side_effect=error)
+    compact = Mock()
+    monkeypatch.setattr(lesson["client"].messages, "create", create)
+    monkeypatch.setattr(lesson["COMPACTOR"], "reactive_compact", compact)
+
+    with pytest.raises(RuntimeError) as caught:
+        lesson["agent_loop"]([{"role": "user", "content": "continue"}], "continue")
+
+    assert caught.value is error
+    create.assert_called_once()
+    compact.assert_not_called()
+
+
+def test_prepare_leaves_short_task_unchanged(tmp_path, monkeypatch):
+    lesson = load_lesson(monkeypatch, tmp_path)
+    active_request = "inspect the repository"
+    messages = [
+        {"role": "user", "content": active_request},
+        {"role": "assistant", "content": [
+            {"type": "text", "text": "done"}
+        ]},
+    ]
+
+    prepared = lesson["COMPACTOR"].prepare(messages, active_request)
+
+    assert prepared is messages
+
+
+def test_prepare_keeps_active_request_after_repeated_snip_compact(
+        tmp_path, monkeypatch):
+    lesson = load_lesson(monkeypatch, tmp_path)
+    active_request = "compare s08_context_compact/code.py and s09_memory/code.py"
+    messages = [
+        {"role": "user", "content": "read the first five lesson READMEs"},
+        {"role": "assistant", "content": [
+            {"type": "text", "text": "first answer"}
+        ]},
+        {"role": "user", "content": "analyze docs.json"},
+        {"role": "assistant", "content": [
+            {"type": "text", "text": "second answer"}
+        ]},
+        {"role": "user", "content": active_request},
+    ]
+    for index in range(23):
+        tool_id = f"current-tool-{index}"
+        messages.extend([
+            {"role": "assistant", "content": [
+                {"type": "tool_use", "id": tool_id,
+                 "name": "read_file", "input": {}}
+            ]},
+            {"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": tool_id,
+                 "content": f"result-{index}"}
+            ]},
+        ])
+
+    compactor = lesson["COMPACTOR"]
+    compactor.summarize_history = lambda _messages: (_ for _ in ()).throw(
+        AssertionError("snip compact should be enough"))
+
+    prepared = compactor.prepare(messages, active_request)
+    extra_tool_id = "current-tool-after-first-snip"
+    prepared.extend([
+        {"role": "assistant", "content": [
+            {"type": "tool_use", "id": extra_tool_id,
+             "name": "read_file", "input": {}}
+        ]},
+        {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": extra_tool_id,
+             "content": "more-current-work"}
+        ]},
+    ])
+    prepared = compactor.prepare(prepared, active_request)
+
+    request_marker = f"Current user request:\n{active_request}"
+    visible_requests = [
+        message["content"]
+        for message in prepared
+        if message["role"] == "user"
+        and isinstance(message["content"], str)
+        and (message["content"] == active_request
+             or request_marker in message["content"])
+    ]
+    assert len(visible_requests) == 1
+    assert any(compactor.is_archive_marker(message) for message in prepared)
+    for index, message in enumerate(prepared):
+        if compactor.is_tool_result(message):
+            assert index > 0
+            assert compactor.has_tool_use(prepared[index - 1])
+
+
+@pytest.mark.parametrize("previous_request,expected_restored", [
+    ("review code and rewrite it", True),
+    ("review code", False),
+])
+def test_prepare_matches_the_complete_request_in_a_retained_summary(
+        tmp_path, monkeypatch, previous_request, expected_restored):
+    lesson = load_lesson(monkeypatch, tmp_path)
+    compactor = lesson["COMPACTOR"]
+    request = "review code"
+    summary = compactor.summary_message(
+        "Compacted", previous_request, "previous work", tmp_path / "old.jsonl")
+    messages = [
+        summary,
+        {"role": "assistant", "content": [{"type": "text", "text": "done"}]},
+        {"role": "user", "content": "earlier question"},
+        {"role": "assistant", "content": [{"type": "text", "text": "done"}]},
+        {"role": "user", "content": request},
+    ]
+    for index in range(30):
+        tool_id = f"summary-tool-{index}"
+        messages.extend([
+            {"role": "assistant", "content": [
+                {"type": "tool_use", "id": tool_id, "name": "read_file", "input": {}}
+            ]},
+            {"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": tool_id, "content": "ok"}
+            ]},
+        ])
+
+    prepared = compactor.prepare(messages, request)
+
+    assert summary in prepared
+    assert any(message.get("content") == request for message in prepared) is expected_restored

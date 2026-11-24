@@ -287,6 +287,59 @@ class CompactionToolPairTests(unittest.TestCase):
                 for tool_id in ("seen-2", "seen-3", "seen-4"):
                     self.assertIn(f"{tool_id}: ", results[tool_id])
 
+    def test_snip_compact_leaves_room_before_archiving_again(self):
+        for name, path in MODULES.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                module = load_module(f"{name}_snip_hysteresis", path, Path(tmp))
+                messages = [
+                    user_text() if index % 2 == 0 else assistant_text()
+                    for index in range(49)
+                ]
+                self.assertIs(prepare_context(module, messages), messages)
+                self.assertFalse(module.TRANSCRIPT_DIR.exists())
+
+                messages.append(assistant_text())
+                original = list(messages)
+                messages = prepare_context(module, messages)
+                self.assertEqual(len(messages), 30)
+                self.assertEqual(messages[:3], original[:3])
+                self.assertEqual(messages[-26:], original[-26:])
+                archives = set(module.TRANSCRIPT_DIR.glob("*.jsonl"))
+                self.assertEqual(len(archives), 1)
+                self.assertEqual(len(next(iter(archives)).read_text().splitlines()), 50)
+
+                for _ in range(9):
+                    messages.extend([user_text(), assistant_text()])
+                    messages = prepare_context(module, messages)
+                    self.assertEqual(set(module.TRANSCRIPT_DIR.glob("*.jsonl")), archives)
+
+                messages.extend([user_text(), assistant_text()])
+                messages = prepare_context(module, messages)
+                self.assertEqual(len(messages), 30)
+                self.assertEqual(len(list(module.TRANSCRIPT_DIR.glob("*.jsonl"))), 2)
+
+    def test_snip_compact_handles_threshold_overshoot(self):
+        for name, path in MODULES.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                module = load_module(f"{name}_snip_overshoot", path, Path(tmp))
+                messages = [user_text() for _ in range(55)]
+                compacted = compaction_api(module).snip_compact(messages)
+                self.assertEqual(len(compacted), 30)
+                self.assertEqual(compacted[-1], messages[-1])
+                archive, = module.TRANSCRIPT_DIR.glob("*.jsonl")
+                self.assertEqual(len(archive.read_text().splitlines()), 55)
+
+    def test_snip_compact_rejects_invalid_thresholds(self):
+        for name, path in MODULES.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                module = load_module(f"{name}_snip_thresholds", path, Path(tmp))
+                for trigger, target in [(50, 4), (30, 30), (20, 30)]:
+                    with self.subTest(trigger=trigger, target=target):
+                        with self.assertRaises(ValueError):
+                            compaction_api(module).snip_compact(
+                                [], trigger_messages=trigger, target_messages=target)
+                self.assertFalse(module.TRANSCRIPT_DIR.exists())
+
     def test_snip_compact_keeps_head_tool_pair(self):
         messages = [
             user_text(),
@@ -305,16 +358,18 @@ class CompactionToolPairTests(unittest.TestCase):
             with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
                 module = load_module(f"{name}_head_under_test", path, Path(tmp))
                 compacted = compaction_api(module).snip_compact(
-                    list(messages), max_messages=6
+                    list(messages), trigger_messages=7, target_messages=6
                 )
                 self.assertEqual(compacted[2], messages[2])
                 self.assertEqual(compacted[3], messages[3])
+                self.assertEqual(len(compacted), 7)
                 assert_no_orphan_tool_results(self, compacted)
                 self.assertEqual(
                     compaction_api(module).snip_compact(
-                        list(compacted), max_messages=6),
+                        list(compacted), trigger_messages=7, target_messages=6),
                     compacted,
                 )
+                self.assertEqual(len(list(module.TRANSCRIPT_DIR.glob("*.jsonl"))), 1)
 
     def test_snip_compact_archives_the_complete_history(self):
         messages = [
@@ -326,7 +381,7 @@ class CompactionToolPairTests(unittest.TestCase):
                 module = load_module(f"{name}_snip_archive", path, Path(tmp))
 
                 compacted = compaction_api(module).snip_compact(
-                    list(messages), max_messages=6)
+                    list(messages), trigger_messages=8, target_messages=6)
                 marker = compacted[3]["content"]
                 saved_path = Path(marker.rsplit(" at ", 1)[-1].removesuffix("]"))
 
@@ -335,7 +390,7 @@ class CompactionToolPairTests(unittest.TestCase):
                 self.assertEqual(len(saved_path.read_text().splitlines()), 10)
                 self.assertEqual(
                     compaction_api(module).snip_compact(
-                        list(compacted), max_messages=6),
+                        list(compacted), trigger_messages=8, target_messages=6),
                     compacted,
                 )
 
@@ -357,8 +412,10 @@ class CompactionToolPairTests(unittest.TestCase):
             with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
                 module = load_module(f"{name}_under_test", path, Path(tmp))
                 compacted = compaction_api(module).snip_compact(
-                    list(messages), max_messages=6
+                    list(messages), trigger_messages=9, target_messages=7
                 )
+                self.assertEqual(len(compacted), 8)
+                self.assertEqual(compacted[-4:], messages[-4:])
                 assert_no_orphan_tool_results(self, compacted)
 
     def test_reactive_compact_keeps_tail_tool_pair(self):

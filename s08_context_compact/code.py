@@ -395,11 +395,13 @@ class ContextCompactor:
         return (path.resolve().is_relative_to(self.transcript_dir.resolve())
                 and path.is_file())
 
-    def snip_compact(self, messages: list, max_messages: int = 50) -> list:
-        if len(messages) <= max_messages:
+    def snip_compact(self, messages: list, trigger_messages: int = 50, target_messages: int = 30) -> list:
+        if not 5 <= target_messages < trigger_messages:
+            raise ValueError("Require 5 <= target_messages < trigger_messages")
+        if len(messages) < trigger_messages:
             return messages
         head_end = 3
-        tail_start = len(messages) - (max_messages - head_end - 1)
+        tail_start = len(messages) - (target_messages - head_end - 1)
         if self.has_tool_use(messages[head_end - 1]):
             while head_end < tail_start and self.is_tool_result(messages[head_end]):
                 head_end += 1
@@ -515,7 +517,20 @@ class ContextCompactor:
 
     def prepare(self, messages: list, active_request: str) -> list:
         messages = self.tool_result_budget(messages)
+        before_snip = messages
         messages = self.snip_compact(messages)
+        active_request_marker = (
+            f"Current user request:\n{active_request}\n\n"
+            "Conversation summary (reference only):"
+        )
+        if (messages is not before_snip
+                and not any(
+                    message.get("role") == "user"
+                    and isinstance(message.get("content"), str)
+                    and (message["content"] == active_request
+                         or active_request_marker in message["content"])
+                    for message in messages)):
+            messages.append({"role": "user", "content": active_request})
         if self.estimate_chars(messages) > self.CONTEXT_CHAR_LIMIT:
             target = int(self.CONTEXT_CHAR_LIMIT * 0.8)
             messages = self.micro_compact(messages, target)
@@ -543,7 +558,8 @@ def agent_loop(messages: list, active_request: str):
             reactive_retries = 0
         except Exception as error:
             too_long = any(text in str(error).lower()
-                           for text in ("prompt_too_long", "too many tokens"))
+                           for text in ("prompt_too_long", "prompt is too long",
+                                        "too many tokens"))
             if too_long and reactive_retries < MAX_REACTIVE_RETRIES:
                 print("[reactive compact]")
                 messages[:] = COMPACTOR.reactive_compact(messages, active_request)
@@ -590,7 +606,9 @@ if __name__ == "__main__":
             query = input("\001\033[36m\002s08 >> \001\033[0m\002")
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         trigger_hooks("UserPromptSubmit", query)
         history.append({"role": "user", "content": query})

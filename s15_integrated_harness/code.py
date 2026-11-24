@@ -1272,6 +1272,12 @@ def scan_unclaimed_tasks() -> list[Task]:
         return ready
 
 
+def resumable_task(owner: str) -> Task | None:
+    """Return the owner's unfinished Task before looking for new work."""
+    with task_lock:
+        return _owner_in_progress(owner)
+
+
 def claim_next_task(name: str) -> Task | None:
     """Claim the first still-available task, never a second assignment."""
     with task_lock:
@@ -1636,7 +1642,13 @@ def spawn_teammate_thread(name: str, role: str, prompt: str,
                         break
                     continue
 
-                task = claim_next_task(name)
+                if plan_gates.get(name) == "pending":
+                    continue
+
+                task = resumable_task(name)
+                resuming = task is not None
+                if not task:
+                    task = claim_next_task(name)
                 if not task:
                     continue
                 try:
@@ -1646,12 +1658,14 @@ def spawn_teammate_thread(name: str, role: str, prompt: str,
                 messages.append({
                     "role": "user",
                     "content": (
-                        f"[Auto-claimed task {task.id}] "
+                        f"[{'Resume' if resuming else 'Auto-claimed'} task "
+                        f"{task.id}] "
                         f"{task.subject}\n{task.description}\n"
                         f"Work directory: {workdir}"
                     ),
                 })
-                print(f"  \033[32m[idle] {name} claimed "
+                action = "resuming" if resuming else "claimed"
+                print(f"  \033[32m[idle] {name} {action} "
                       f"{task.id}: {task.subject}\033[0m")
                 break
 
@@ -2105,11 +2119,13 @@ def is_archive_marker(message: dict) -> bool:
             and path.is_file())
 
 
-def snip_compact(messages: list, max_messages: int = 50) -> list:
-    if len(messages) <= max_messages:
+def snip_compact(messages: list, trigger_messages: int = 50, target_messages: int = 30) -> list:
+    if not 5 <= target_messages < trigger_messages:
+        raise ValueError("Require 5 <= target_messages < trigger_messages")
+    if len(messages) < trigger_messages:
         return messages
     head_end = 3
-    tail_start = len(messages) - (max_messages - head_end - 1)
+    tail_start = len(messages) - (target_messages - head_end - 1)
     if head_end > 0 and message_has_tool_use(messages[head_end - 1]):
         while head_end < len(messages) and is_tool_result_message(messages[head_end]):
             head_end += 1
@@ -2749,6 +2765,11 @@ def connect_mcp(name: str) -> str:
             f"Discovered {len(mcp_client.tools)} tools: {', '.join(tool_names)}")
 
 
+def make_mcp_handler(client: MCPClient, tool: str):
+    """Bind client and tool in a closure so tool input cannot replace them."""
+    return lambda **kwargs: client.call_tool(tool, kwargs)
+
+
 def assemble_tool_pool() -> tuple[list[dict], dict]:
     """Merge builtin tools + all MCP tools into one pool."""
     global mcp_tool_policies
@@ -2782,10 +2803,7 @@ def assemble_tool_pool() -> tuple[list[dict], dict]:
                 "description": tool_def.get("description", ""),
                 "input_schema": schema,
             })
-            handlers[prefixed] = (
-                lambda *, client=mcp_client, tool=raw_name, **kwargs:
-                client.call_tool(tool, kwargs)
-            )
+            handlers[prefixed] = make_mcp_handler(mcp_client, raw_name)
             policies[prefixed] = MCP_HOST_POLICY.get(
                 (server_name, raw_name), "confirm"
             )
@@ -3313,7 +3331,9 @@ if __name__ == "__main__":
             query = CONSOLE.ask()
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         with agent_lock:
             trigger_hooks("UserPromptSubmit", query)

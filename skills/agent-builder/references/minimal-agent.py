@@ -18,7 +18,7 @@ import os
 
 # Configuration
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-MODEL = os.getenv("MODEL_NAME", "claude-sonnet-4-20250514")
+MODEL = os.getenv("MODEL_NAME", "claude-sonnet-5-5")
 WORKDIR = Path.cwd()
 
 # System prompt - keep it simple

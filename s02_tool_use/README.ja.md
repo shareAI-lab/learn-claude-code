@@ -17,6 +17,14 @@ s01 の Agent には bash 一つのツールしかない。ファイルを読む
 
 ---
 
+## Bash だけでできるのに、なぜツールを追加するのか？
+
+これらのツールは Agent の素の能力を増やすものではない。同じ操作は Bash でも実行できる。改善するのは、モデルと Harness の間のインターフェースだ。`path` 引数を持つ `read_file` 呼び出しなら、モデルは意図を shell 構文へ変換する必要がなく、引用符やエスケープのミスを減らせる。
+
+Harness が受け取るのも、不透明な command string ではなく、名前付きの操作と構造化された input になる。そのため後の policy をより正確に適用できる。s03 では tool と path ごとに許可・拒否を判断し、s04 では共通の hook point で操作を log できる。s02 は、これらの章が利用する dispatch structure を先に用意している。
+
+---
+
 ## 概要：ツールディスパッチ
 
 ![Tool Dispatch](images/tool-dispatch.ja.svg)

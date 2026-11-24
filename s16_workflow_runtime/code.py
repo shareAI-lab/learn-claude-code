@@ -513,7 +513,14 @@ class ExecutionState:
 
     async def parallel(self, thunks):
         """BARRIER: run all thunks concurrently and fail if any thunk fails."""
-        return await asyncio.gather(*[thunk() for thunk in thunks])
+        # Keep the journal open until every started branch has settled.
+        results = await asyncio.gather(
+            *[thunk() for thunk in thunks], return_exceptions=True
+        )
+        for result in results:
+            if isinstance(result, BaseException):
+                raise result
+        return results
 
     async def pipeline(self, items, *stages):
         """Per-item staged flow, NO barrier between stages: item A can be in
@@ -524,7 +531,9 @@ class ExecutionState:
             for stage in stages:
                 value = await stage(value, item, idx)
             return value
-        return await asyncio.gather(*[run_item(it, i) for i, it in enumerate(items)])
+        return await self.parallel([
+            lambda it=it, i=i: run_item(it, i) for i, it in enumerate(items)
+        ])
 
     async def workflow(self, name, args=None):
         """Run a saved workflow inline as a child (one level), sharing this run's
@@ -723,11 +732,16 @@ WORKFLOWS = {SAMPLE_META["name"]: (SAMPLE_META, sample_workflow)}
 
 WORKFLOW_TOOL = {
     "name": "Workflow",
-    "description": "Run a saved workflow by name. Pass input in args.",
+    "description": (
+        "Run a saved workflow by name. Pass input in args. Available workflows:\n"
+        + "\n".join(
+            f"{name}: {meta['description']}" for name, (meta, _) in WORKFLOWS.items()
+        )
+    ),
     "input_schema": {
         "type": "object",
         "properties": {
-            "name": {"type": "string"},
+            "name": {"type": "string", "enum": list(WORKFLOWS)},
             "args": {"type": "object"},
             "resume_from_run_id": {"type": "string"},
         },
@@ -868,7 +882,9 @@ def run_cli():
             query = host.CONSOLE.ask()
         except (EOFError, KeyboardInterrupt):
             break
-        if query.strip().lower() in ("q", "exit", ""):
+        if not query.strip():
+            continue
+        if query.strip().lower() in ("q", "exit"):
             break
         with host.agent_lock:
             host.trigger_hooks("UserPromptSubmit", query)

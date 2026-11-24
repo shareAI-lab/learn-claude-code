@@ -648,6 +648,21 @@ class AgentTeamsRuntimeTests(unittest.TestCase):
                             "Permission denied by user",
                         )
 
+    def test_mcp_handlers_ignore_a_tool_key_in_the_tool_input(self):
+        for lesson_path in MCP_LESSONS:
+            with self.subTest(lesson=lesson_path.parent.name):
+                with tempfile.TemporaryDirectory() as tmp:
+                    lesson = load_lesson(Path(tmp), lesson_path)
+                    lesson.connect_mcp("deploy")
+                    _tools, handlers = lesson.assemble_tool_pool()
+
+                    output = handlers["mcp__deploy__status"](
+                        service="web", tool="trigger"
+                    )
+
+                    self.assertNotIn("Triggered", output)
+                    self.assertIn("unexpected keyword argument 'tool'", output)
+
     def test_integrated_permission_requires_approval_for_every_shell_command(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1507,6 +1522,87 @@ class AgentTeamsRuntimeTests(unittest.TestCase):
             winner = next(result.owner for result in claimed.values()
                           if result is not None)
             self.assertEqual(lesson.load_task(task.id).owner, winner)
+
+    def test_idle_teammate_does_not_resume_while_plan_approval_is_pending(self):
+        for lesson_path in RUNTIME_LESSONS:
+            with self.subTest(lesson=lesson_path.parent.name):
+                with tempfile.TemporaryDirectory() as tmp:
+                    lesson = load_lesson(Path(tmp), lesson_path)
+                    lesson.IDLE_SCAN_INTERVAL = 0.01
+                    owned = lesson.create_task("Plan before implementation")
+                    calls = []
+
+                    def respond(**kwargs):
+                        calls.append(kwargs["messages"][-1]["content"])
+                        lesson.plan_gates["alice"] = "pending"
+                        return types.SimpleNamespace(
+                            stop_reason="end_turn",
+                            content=[types.SimpleNamespace(
+                                type="text", text="Waiting for approval."
+                            )],
+                        )
+
+                    lesson.client.messages.create = respond
+                    lesson.spawn_teammate_thread(
+                        "alice", "writer", "Prepare a plan.",
+                        task_id=owned.id, require_plan=True,
+                    )
+                    try:
+                        self.assertTrue(wait_until(lambda: len(calls) == 1))
+                        time.sleep(0.1)
+                        self.assertEqual(len(calls), 1)
+                        self.assertEqual(
+                            lesson.active_teammates["alice"], "waiting_approval"
+                        )
+                        self.assertEqual(lesson.load_task(owned.id).owner, "alice")
+                    finally:
+                        lesson.run_request_shutdown("alice")
+                        self.assertTrue(wait_until(
+                            lambda: "alice" not in lesson.active_teammates
+                        ))
+
+    def test_idle_teammate_resumes_owned_task_before_claiming_new_work(self):
+        for lesson_path in RUNTIME_LESSONS:
+            with self.subTest(lesson=lesson_path.parent.name):
+                with tempfile.TemporaryDirectory() as tmp:
+                    lesson = load_lesson(Path(tmp), lesson_path)
+                    lesson.IDLE_SCAN_INTERVAL = 0.01
+                    owned = lesson.create_task("Finish the report")
+                    pending = lesson.create_task("Start a different task")
+                    calls = []
+
+                    def respond(**kwargs):
+                        calls.append(kwargs["messages"][-1]["content"])
+                        return types.SimpleNamespace(
+                            stop_reason="end_turn",
+                            content=[types.SimpleNamespace(
+                                type="text", text="Work is not complete yet."
+                            )],
+                        )
+
+                    lesson.client.messages.create = respond
+                    lesson.spawn_teammate_thread(
+                        "alice", "writer", "Continue your work.",
+                        task_id=owned.id,
+                    )
+
+                    self.assertTrue(wait_until(lambda: len(calls) >= 2))
+                    self.assertIn(f"[Resume task {owned.id}]", str(calls[1]))
+                    still_owned = lesson.load_task(owned.id)
+                    self.assertEqual(still_owned.status, "in_progress")
+                    self.assertEqual(still_owned.owner, "alice")
+                    self.assertEqual(
+                        lesson.teammate_assignments["alice"]["task_id"],
+                        owned.id,
+                    )
+                    untouched = lesson.load_task(pending.id)
+                    self.assertEqual(untouched.status, "pending")
+                    self.assertIsNone(untouched.owner)
+
+                    lesson.run_request_shutdown("alice")
+                    self.assertTrue(wait_until(
+                        lambda: "alice" not in lesson.active_teammates
+                    ))
 
     def test_assignment_enforces_one_task_and_owner_only_completion(self):
         with tempfile.TemporaryDirectory() as tmp:

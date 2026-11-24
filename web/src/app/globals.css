@@ -43,6 +43,13 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Tailwind v4 dropped the preflight rule that gave buttons a pointer cursor,
+   so every <button> fell back to the UA default. */
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
 /* =====================================================
    PROSE-CUSTOM: Premium documentation rendering
    ===================================================== */
