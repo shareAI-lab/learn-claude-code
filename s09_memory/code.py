@@ -88,13 +88,15 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
     return metadata, parts[2].lstrip()
 
 def memory_slug(name: str) -> str:
-    slug = re.sub(r"[^\w]+", "-", name.lower()).strip("-_")
-    return slug or "memory"
+    slug = re.sub(r"[^\w]+", "-", name.lower()).strip("-_") or "note"
+    if slug == MEMORY_INDEX.stem.lower():
+        slug = f"{slug}-record"
+    return slug
 
 def memory_path(filename: str, allow_index: bool = False) -> Path:
     if Path(filename).name != filename:
         raise ValueError(f"Invalid memory filename: {filename}")
-    if filename == MEMORY_INDEX.name and not allow_index:
+    if filename.lower() == MEMORY_INDEX.name.lower() and not allow_index:
         raise ValueError("The memory index is not a memory record")
 
     root = MEMORY_DIR.resolve()
@@ -172,7 +174,7 @@ def rebuild_memory_index() -> None:
     MEMORY_DIR.mkdir(parents=True, exist_ok=True)
     lines = []
     for path in sorted(MEMORY_DIR.glob("*.md")):
-        if path.name == MEMORY_INDEX.name:
+        if path.name.lower() == MEMORY_INDEX.name.lower():
             continue
         try:
             path = memory_path(path.name)
@@ -208,7 +210,7 @@ def list_memory_files() -> list[dict]:
     if not MEMORY_DIR.exists():
         return records
     for path in sorted(MEMORY_DIR.glob("*.md")):
-        if path.name == MEMORY_INDEX.name:
+        if path.name.lower() == MEMORY_INDEX.name.lower():
             continue
         try:
             path = memory_path(path.name)
@@ -504,7 +506,7 @@ def consolidate_memories() -> int:
         }
         try:
             for path in MEMORY_DIR.glob("*.md"):
-                if path.name != MEMORY_INDEX.name:
+                if path.name.lower() != MEMORY_INDEX.name.lower():
                     try:
                         memory_path(path.name).unlink()
                     except ValueError:
@@ -523,7 +525,7 @@ def consolidate_memories() -> int:
             rebuild_memory_index()
         except Exception:
             for path in MEMORY_DIR.glob("*.md"):
-                if path.name != MEMORY_INDEX.name:
+                if path.name.lower() != MEMORY_INDEX.name.lower():
                     try:
                         memory_path(path.name).unlink()
                     except ValueError:

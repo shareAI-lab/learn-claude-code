@@ -127,12 +127,12 @@ memory ファイルが増えると、重複、矛盾、古い情報が混ざる�
 snapshot = {
     path.name: path.read_text(encoding="utf-8")
     for path in MEMORY_DIR.glob("*.md")
-    if path.name != MEMORY_INDEX.name
+    if path.name.lower() != MEMORY_INDEX.name.lower()
 }
 
 try:
     for path in MEMORY_DIR.glob("*.md"):
-        if path.name != MEMORY_INDEX.name:
+        if path.name.lower() != MEMORY_INDEX.name.lower():
             path.unlink()
     for record in consolidated:
         path = MEMORY_DIR / f"{memory_slug(record['name'])}.md"
@@ -143,7 +143,7 @@ try:
     rebuild_memory_index()
 except Exception:
     for path in MEMORY_DIR.glob("*.md"):
-        if path.name != MEMORY_INDEX.name:
+        if path.name.lower() != MEMORY_INDEX.name.lower():
             path.unlink()
     for filename, content in snapshot.items():
         (MEMORY_DIR / filename).write_text(content, encoding="utf-8")
