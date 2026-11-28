@@ -65,7 +65,7 @@ TASK_TOOL = {
     "description": "Run a subagent with fresh conversation context and return its final text.",
     "input_schema": {
         "type": "object",
-        "properties": {"prompt": {"type": "string"}},
+        "properties": {"prompt": {"type": "string", "minLength": 1}},
         "required": ["prompt"],
     },
 }
