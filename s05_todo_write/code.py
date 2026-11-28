@@ -287,8 +287,10 @@ def summary_hook(messages: list):
     return None
 
 register_hook("UserPromptSubmit", context_inject_hook)
-register_hook("PreToolUse", permission_hook)
+# log_hook returns None and never blocks; registering it first lets the
+# [HOOK] line fire for denied calls too, so the log covers every call.
 register_hook("PreToolUse", log_hook)
+register_hook("PreToolUse", permission_hook)
 register_hook("PostToolUse", large_output_hook)
 register_hook("Stop", summary_hook)
 
