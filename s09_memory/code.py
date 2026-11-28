@@ -272,7 +272,8 @@ def keyword_memory_selection(
     records: list[dict], query: str, max_items: int
 ) -> list[str]:
     words = set(
-        re.findall(r"[a-z0-9_]{3,}|[\u4e00-\u9fff]{2,}", query.lower())
+        re.findall(r"[a-z0-9_]{3,}|[\u4e00-\u9fff]{2,}|[\u3040-\u30ff]{2,}",
+                   query.lower())
     )
     ranked = []
     for record in records:
