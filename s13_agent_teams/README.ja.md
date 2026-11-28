@@ -175,27 +175,29 @@ IDLE ではメッセージを優先する。メッセージがなければ、自
 
 ```python
 while True:
-    inbox = BUS.wait_for_messages(name, IDLE_SCAN_INTERVAL)
+    inbox = BUS.wait_for_messages(self.name, IDLE_SCAN_INTERVAL)
     if inbox:
-        should_stop = handle_messages(inbox)
-        if should_stop or messages[-1]["role"] == "user":
-            break
+        before = len(self.messages)
+        if self.handle_inbox(inbox):
+            return False  # shutdown requested: stay in IDLE
+        if len(self.messages) > before:
+            return True  # messages processed: back to WORK
         continue
 
-    if plan_gates.get(name) == "pending":
+    if plan_gates.get(self.name) == "pending":
         continue
 
-    task = resumable_task(name)
+    task = resumable_task(self.name)
     resuming = task is not None
     if not task:
-        task = claim_next_task(name)
+        task = claim_next_task(self.name)
     if task:
         label = "Resume" if resuming else "Auto-claimed"
-        messages.append({
+        self.messages.append({
             "role": "user",
             "content": f"[{label} task {task.id}] {task.subject}",
         })
-        break
+        return True
 ```
 
 shutdown、計画承認、Lead からの直接指示は task work より先に扱う。未完了 assignment も空き時間に見つけた仕事より優先し、IDLE のチームメイトが自分の進行中 task を取り残さないようにする。メッセージ、未完了 assignment、ready task のいずれもなければ、チームメイトは IDLE を続ける。別のチームメイトが前提タスクを完了すると、blocked task が ready になることもある。

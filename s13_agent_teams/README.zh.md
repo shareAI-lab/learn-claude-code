@@ -174,27 +174,29 @@ idle_notification: "Waiting for more work."
 
 ```python
 while True:
-    inbox = BUS.wait_for_messages(name, IDLE_SCAN_INTERVAL)
+    inbox = BUS.wait_for_messages(self.name, IDLE_SCAN_INTERVAL)
     if inbox:
-        should_stop = handle_messages(inbox)
-        if should_stop or messages[-1]["role"] == "user":
-            break
+        before = len(self.messages)
+        if self.handle_inbox(inbox):
+            return False  # shutdown requested: stay in IDLE
+        if len(self.messages) > before:
+            return True  # messages processed: back to WORK
         continue
 
-    if plan_gates.get(name) == "pending":
+    if plan_gates.get(self.name) == "pending":
         continue
 
-    task = resumable_task(name)
+    task = resumable_task(self.name)
     resuming = task is not None
     if not task:
-        task = claim_next_task(name)
+        task = claim_next_task(self.name)
     if task:
         label = "Resume" if resuming else "Auto-claimed"
-        messages.append({
+        self.messages.append({
             "role": "user",
             "content": f"[{label} task {task.id}] {task.subject}",
         })
-        break
+        return True
 ```
 
 关机、计划审批和 Lead 的直接指令应该先于任务工作。尚未完成的 assignment 又优先于临时发现的工作，避免 IDLE 队友遗留自己进行中的任务。如果没有消息、未完成的 assignment 或 ready task，队友会保持 IDLE。前置任务完成后，当前受阻的任务可能变为 ready。
