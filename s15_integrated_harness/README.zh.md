@@ -203,7 +203,7 @@ MCP 负责外部能力：
 
 | 范围 | s14 MCP | s15 Integrated Harness |
 |------|---------|-------------------------|
-| 内置工具 | 6 个 | 25 个 |
+| 内置工具 | 6 个 | 26 个 |
 | 外部工具 | 已连接的 MCP 工具 | 沿用同一套动态 MCP 路径和宿主策略 |
 | 本地机制 | S04 工具、hooks、权限和 MCP | todo、subagent、skills、compaction、memory、task graph、后台 bash、cron、teams 和 worktrees |
 | 事件来源 | 用户输入和工具结果 | 用户输入、工具结果、cron prompt、后台通知和 team events |
