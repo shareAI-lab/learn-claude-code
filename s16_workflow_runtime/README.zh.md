@@ -29,7 +29,7 @@ workflow 以一次 `tool_use` 进入主循环。脚本运行时，runtime 会发
 ![Workflow Runtime 总览](images/workflow-runtime-overview.svg)
 
 ```python
-SAMPLE_META = {"name": "review-changes", "description": "审查代码改动", "phases": ["Review", "Verify"]}
+SAMPLE_META = {"name": "review-changes", "description": "Review changed files across dimensions, verify each finding", "phases": ["Review", "Verify"]}
 
 async def sample_workflow(ctx, args):
     ctx.phase("Review")
