@@ -176,27 +176,29 @@ unfinished assignment before checking the shared task board for new work:
 
 ```python
 while True:
-    inbox = BUS.wait_for_messages(name, IDLE_SCAN_INTERVAL)
+    inbox = BUS.wait_for_messages(self.name, IDLE_SCAN_INTERVAL)
     if inbox:
-        should_stop = handle_messages(inbox)
-        if should_stop or messages[-1]["role"] == "user":
-            break
+        before = len(self.messages)
+        if self.handle_inbox(inbox):
+            return False  # shutdown requested: stay in IDLE
+        if len(self.messages) > before:
+            return True  # messages processed: back to WORK
         continue
 
-    if plan_gates.get(name) == "pending":
+    if plan_gates.get(self.name) == "pending":
         continue
 
-    task = resumable_task(name)
+    task = resumable_task(self.name)
     resuming = task is not None
     if not task:
-        task = claim_next_task(name)
+        task = claim_next_task(self.name)
     if task:
         label = "Resume" if resuming else "Auto-claimed"
-        messages.append({
+        self.messages.append({
             "role": "user",
             "content": f"[{label} task {task.id}] {task.subject}",
         })
-        break
+        return True
 ```
 
 Shutdown, plan approval, and direct instructions from Lead should arrive before task work. An unfinished assignment stays ahead of opportunistic work so an IDLE teammate cannot strand its own in-progress task. If there is no message, unfinished assignment, or ready task, the teammate remains IDLE. A blocked task may become ready after another teammate completes its prerequisite.
