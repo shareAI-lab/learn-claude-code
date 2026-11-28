@@ -29,7 +29,7 @@ workflow は 1 回の `tool_use` として main loop に入ります。script �
 ![Workflow Runtime Overview](images/workflow-runtime-overview.svg)
 
 ```python
-SAMPLE_META = {"name": "review-changes", "description": "コード変更を review", "phases": ["Review", "Verify"]}
+SAMPLE_META = {"name": "review-changes", "description": "Review changed files across dimensions, verify each finding", "phases": ["Review", "Verify"]}
 
 async def sample_workflow(ctx, args):
     ctx.phase("Review")
