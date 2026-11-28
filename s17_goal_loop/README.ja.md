@@ -84,7 +84,7 @@ evaluator への入力は直近の完全な message を残します。最新の 
 
 それでも text を読むモデルであるため、重要な結果が conversation に明確に現れているかが reliability を左右します。worker の system prompt には次の方針を入れます。
 
-> verification command を実行したら、独立した evaluator が確認できるよう、command と result を明確に報告する。
+> 具体的な command の結果を報告し、独立した evaluator が完了を判断できるようにする。
 
 Goal Loop は test framework ではありません。実際の verification は tool が行います。Goal evaluator は、その結果が現在の作業記録に現れているかを判断するだけです。
 

@@ -84,7 +84,7 @@ That does not mean a bare "tests passed" claim must be accepted. The evaluator p
 
 It is still a model reading text, so reliability depends on whether important results were surfaced clearly. The worker's system prompt therefore says:
 
-> After running a verification command, report the command and its result clearly enough for an independent evaluator to inspect.
+> Report concrete command results so an independent evaluator can judge completion.
 
 Goal Loop is not a test framework. Tools still perform the real verification. The Goal evaluator only decides whether those verification results are present in the current work record.
 
