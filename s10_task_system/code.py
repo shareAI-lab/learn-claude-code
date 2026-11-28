@@ -195,8 +195,15 @@ class TaskStore:
         if not self.directory.exists():
             return []
         root = self._root()
-        return [self.load(path.stem)
-                for path in sorted(root.glob("task_*.json"))]
+        tasks = []
+        for path in sorted(root.glob("task_*.json")):
+            try:
+                tasks.append(self.load(path.stem))
+            except (ValueError, OSError) as error:
+                # One stray or corrupted file must not freeze the whole
+                # board (same policy as s12's saved-cron-job loading).
+                print(f"  [task] skipped invalid saved task: {error}")
+        return tasks
 
 
 TASKS = TaskStore(TASKS_DIR)
