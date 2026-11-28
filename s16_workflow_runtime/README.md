@@ -85,7 +85,7 @@ Each saved workflow registers trusted metadata with `name`, `description`, and o
 
 Invalid registration raises `WorkflowInputError` before launch. This is the same idea as validating cron expressions in s12: do not wait until execution to discover a bad saved workflow.
 
-Because the runtime uses `meta.name` in local artifact filenames, it also requires a 1-64 character safe slug containing letters, numbers, `.`, `_`, or `-`.
+Because the runtime uses `meta.name` in local artifact filenames, it also requires a 1-64 character safe slug starting with a letter or digit and containing only letters, numbers, `.`, `_`, or `-`.
 
 ```python
 def validate_meta(meta):

@@ -85,7 +85,7 @@ async def run_workflow(name, args=None, resume_from_run_id=None):
 
 注册内容不合法时，运行时会在启动前抛出 `WorkflowInputError`。这和 s12 校验 cron 表达式是一个思路：保存好的 workflow 有问题，就不要等到执行时才发现。
 
-运行时会把 `meta.name` 用在本地产物文件名中，因此还要求它是 1-64 个字符的安全 slug，只能包含字母、数字、`.`、`_`、`-`。
+运行时会把 `meta.name` 用在本地产物文件名中，因此还要求它是以字母或数字开头、只能包含字母、数字、`.`、`_`、`-` 的 1-64 个字符的安全 slug。
 
 ```python
 def validate_meta(meta):
