@@ -203,7 +203,7 @@ MCP owns external capability:
 
 | Scope | s14 MCP | s15 Integrated Harness |
 |-------|---------|-------------------------|
-| built-in tools | 6 | 25 |
+| built-in tools | 6 | 26 |
 | external tools | connected MCP tools | the same dynamic MCP path and host policy |
 | local mechanisms | S04 tools, hooks, permission, MCP | todo, subagent, skills, compaction, memory, task graph, background bash, cron, teams, and worktrees |
 | event sources | user input and tool results | user input, tool results, cron prompts, background notifications, and team events |
