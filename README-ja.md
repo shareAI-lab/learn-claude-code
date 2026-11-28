@@ -360,7 +360,7 @@ flowchart TD
 | [s07](./s07_skill_loading/) | Skill Loading | `SkillLoader` / カタログ / オンデマンド注入 |
 | [s08](./s08_context_compact/) | Context Compact | budget / snip / micro / summary の 4 ステップ |
 | [s09](./s09_memory/) | Memory | selection / extraction / consolidation |
-| [s10](./s10_task_system/) | Task System | `TaskRecord` / `blockedBy` / ディスク永続化 |
+| [s10](./s10_task_system/) | Task System | `Task` / `blockedBy` / ディスク永続化 |
 | [s11](./s11_background_tasks/) | Background Tasks | スレッド実行 / 通知キュー |
 | [s12](./s12_cron_scheduler/) | Cron Scheduler | 永続スケジューリング / セッション限定トリガー |
 | [s13](./s13_agent_teams/) | Agent Teams | 永続チームメイト / 原子的認領 / タスクに紐付く Worktree / 型付きプロトコル |

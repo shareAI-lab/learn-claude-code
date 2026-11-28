@@ -364,7 +364,7 @@ flowchart TD
 | [s07](./s07_skill_loading/) | Skill Loading | `SkillLoader` / 技能目录 / 按需注入 |
 | [s08](./s08_context_compact/) | Context Compact | budget / snip / micro / summary 四步压缩 |
 | [s09](./s09_memory/) | Memory | selection / extraction / consolidation |
-| [s10](./s10_task_system/) | Task System | `TaskRecord` / `blockedBy` / 磁盘持久化 |
+| [s10](./s10_task_system/) | Task System | `Task` / `blockedBy` / 磁盘持久化 |
 | [s11](./s11_background_tasks/) | Background Tasks | 线程执行 / 通知队列 |
 | [s12](./s12_cron_scheduler/) | Cron Scheduler | 持久化调度 / 会话级触发 |
 | [s13](./s13_agent_teams/) | Agent Teams | 持久队友 / 原子认领 / 任务绑定的 Worktree / 类型协议 |

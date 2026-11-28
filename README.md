@@ -311,7 +311,7 @@ flowchart TD
 | [s07](./s07_skill_loading/) | Skill Loading | `SkillLoader` / catalog / on-demand injection |
 | [s08](./s08_context_compact/) | Context Compact | tool_result_budget / snip_compact / micro_compact / compact_history |
 | [s09](./s09_memory/) | Memory System | selection / extraction / consolidation |
-| [s10](./s10_task_system/) | Task System | `TaskRecord` / `blockedBy` / disk persistence |
+| [s10](./s10_task_system/) | Task System | `Task` / `blockedBy` / disk persistence |
 | [s11](./s11_background_tasks/) | Background Tasks | threaded execution / notification queue |
 | [s12](./s12_cron_scheduler/) | Cron Scheduler | durable scheduling / session-scoped triggers |
 | [s13](./s13_agent_teams/) | Agent Teams | persistent teammates / atomic task claims / task-bound worktrees / typed protocols |
