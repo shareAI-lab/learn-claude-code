@@ -3206,7 +3206,14 @@ def agent_loop(messages: list, context: dict, active_request: str):
                 state.has_escalated = True
                 print(f"  \033[33m[max_tokens] retry with {max_tokens}\033[0m")
                 continue
-            messages.append({"role": "assistant", "content": response.content})
+            # A cut-off response can end mid-tool_use. Appending it verbatim
+            # would leave a tool_use without a matching tool_result, and every
+            # later model call would fail with a 400. Keep only the text blocks.
+            truncated_text = [block for block in response.content
+                              if block.type == "text"]
+            if truncated_text:
+                messages.append({"role": "assistant",
+                                 "content": truncated_text})
             if state.recovery_count < MAX_RECOVERY_RETRIES:
                 messages.append({"role": "user", "content": CONTINUATION_PROMPT})
                 state.recovery_count += 1
