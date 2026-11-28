@@ -1830,7 +1830,7 @@ def permission_hook(block):
         path = block.input.get("path", "")
         if not isinstance(path, str):
             return "Permission denied: path must be a string"
-        if not (WORKDIR / path).resolve().is_relative_to(WORKDIR):
+        if not (WORKDIR / path).resolve().is_relative_to(WORKDIR.resolve()):
             return "Permission denied: path is outside the workspace"
     if (block.name.startswith("mcp__")
             and mcp_tool_policies.get(block.name, "confirm") != "allow"):
